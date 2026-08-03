@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `SyntaxHighlighter` (TEXTEDIT.md Phase 4): per-block `highlight_block`
+# `SyntaxHighlighter`: per-block `highlight_block`
 # overlays via `TextBlock#additional_formats`, automatic re-highlight on
 # edits, and the user-state cascade for multi-line constructs.
 

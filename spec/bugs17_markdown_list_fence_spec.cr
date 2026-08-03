@@ -4,11 +4,12 @@ include Crysterm
 
 # BUGS17 B17-28 — Markdown export must keep a fenced code block inside its list
 # item. The importer stamps a code block that lives in a list item with the
-# item's `indent` (continuation) or `list_format` (the item's first content),
-# but Exporter#export's fence branch used to write the fence and every code
-# line at column 0 with no indent and no item marker, detaching the code block
-# from the list on re-import (and, when the fence was the item's first content,
-# dropping the bullet and shifting ordered numbering). Pure model (TextMarkdown).
+# item's `indent` (continuation) or `list_format` (the item's first content);
+# Exporter#export's fence branch must honor those rather than write the fence
+# and every code line at column 0 with no indent and no item marker, which
+# detaches the code block from the list on re-import (and, when the fence is
+# the item's first content, drops the bullet and shifts ordered numbering).
+# Pure model (TextMarkdown).
 
 private def code_block?(b)
   !b.block_format.bg.nil?

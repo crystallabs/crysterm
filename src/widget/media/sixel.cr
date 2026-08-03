@@ -197,9 +197,7 @@ module Crysterm
 
       # The `#encode`-preamble color-register definitions for the (constant)
       # `PALETTE`, precomputed once instead of re-formatted (252 `io <<` runs
-      # of integer/division formatting) on every `#encode` call. Byte-identical
-      # to running the original `PALETTE.each_with_index` loop directly into
-      # `io`.
+      # of integer/division formatting) on every `#encode` call.
       PALETTE_PREAMBLE = String.build do |io|
         PALETTE.each_with_index do |rgb, i|
           io << '#' << i << ";2;" << (((rgb >> 16) & 0xff) * 100 // 255) << ';' << (((rgb >> 8) & 0xff) * 100 // 255) << ';' << ((rgb & 0xff) * 100 // 255)

@@ -91,7 +91,7 @@ end
 
 # B16-57 — Ueberzug's `add` command (which serializes the scaler) is only
 # re-sent when the placement rect changes, so a plain `property scaler` made a
-# runtime scaler change a silent no-op. The setter now nils `@last` (like
+# runtime scaler change a silent no-op. The setter nils `@last` (like
 # `#load`) so the next redraw re-sends.
 describe "BUGS16 B16-57: Media::Ueberzug#scaler= forces a placement re-send" do
   it "nils the remembered rect on a real change, keeps it on a no-op" do
@@ -111,7 +111,7 @@ end
 
 # B16-58 — with autowrap off, a wide glyph printed at the last column stored a
 # bare 2-wide lead with no CONTINUATION cell, which the widget copied into the
-# window grid where it visually spilled one column outside the widget. It now
+# window grid where it visually spilled one column outside the widget. It
 # degrades to a blank.
 describe "BUGS16 B16-58: wide glyph at the last column with autowrap off" do
   it "degrades to a blank instead of storing a bare wide lead" do
@@ -135,7 +135,7 @@ end
 
 # B16-59 — `feed_animation_frames` wrote the first frame manually AND let the
 # FrameClock's immediate first tick write it again, duplicating frame 0 and
-# stretching the clip by one frame period. The immediate tick is now skipped.
+# stretching the clip by one frame period. The immediate tick is skipped.
 describe "BUGS16 B16-59: feed_animation_frames writes frame 0 exactly once" do
   it "emits only the manual first frame within a sub-interval duration" do
     w = headless_screen(6, 2)
@@ -147,7 +147,7 @@ describe "BUGS16 B16-59: feed_animation_frames writes frame 0 exactly once" do
 
       # fps 2 → 0.5 s tick interval; a 0.05 s capture ends long before the
       # first scheduled tick, so only the manually-written frame may appear.
-      # Pre-fix the clock's immediate tick duplicated frame 0 (2 frames).
+      # An unguarded immediate tick would duplicate frame 0 (2 frames).
       w.feed_animation_frames(io, 0, w.awidth, 0, w.aheight, 0.05.seconds, 2)
 
       (io.size % fsize).should eq 0

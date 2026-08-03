@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# `center±N` (positions) and `half±N` (sizes) used to crash (`Invalid Float64`)
-# because the offset form bypassed the alias->"50%" mapping.
+# `center±N` (positions) and `half±N` (sizes) must not crash (`Invalid
+# Float64`) — the offset form must go through the alias->"50%" mapping.
 describe "center±N / half±N position & size offsets" do
   it "offsets a centered top/left by the trailing amount" do
     s = headless_screen(default_quit_keys: true)

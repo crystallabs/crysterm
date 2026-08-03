@@ -4,8 +4,8 @@ include Crysterm
 
 # B18-91 / B18-99: `ActionGroup` exclusivity edge cases.
 #
-# B18-91: re-triggering the already-checked member of an *exclusive* group used
-# to unconditionally flip it off (`Action#activate`'s unconditional
+# B18-91: re-triggering the already-checked member of an *exclusive* group
+# unconditionally flipped it off (`Action#activate`'s unconditional
 # `self.checked = !checked?`), and `ActionGroup`'s Triggered/Toggled relays
 # could never recover from that — `enforce_exclusivity` early-returns unless
 # the just-activated member is still checked, and the Toggled relay only acts
@@ -14,7 +14,7 @@ include Crysterm
 # suppresses exactly this off-toggle for an exclusive group's checked member;
 # so must Crysterm's.
 #
-# B18-99: `ActionGroup#exclusive=` used to be a plain property, so turning
+# B18-99: as a plain property, `ActionGroup#exclusive=` meant turning
 # exclusivity on *after* members were added (unlike passing `exclusive: true`
 # at construction, or via `#add_action`, both of which force members
 # checkable) left every member non-checkable — activation could then never
@@ -97,7 +97,7 @@ describe Crysterm::ActionGroup do
 
       g2 << a
       # `a` now belongs to g2 only; re-triggering it must be judged against g2's
-      # exclusivity, not stale g1 state, and g1 must no longer relay it.
+      # exclusivity, not stale g1 state, and g1 must not relay it.
       a.trigger
       a.checked?.should be_true
       g2.checked_action.should eq a
@@ -153,7 +153,7 @@ describe Crysterm::ActionGroup do
       a.checkable?.should be_true
 
       g.exclusive = false
-      a.checkable?.should be_true # untouched, just no longer forced going forward
+      a.checkable?.should be_true # untouched; forcing does not apply going forward
 
       b = Crysterm::Action.new "List"
       g << b

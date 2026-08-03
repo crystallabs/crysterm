@@ -30,10 +30,10 @@ describe "BUGS11 flow wrap fit-check includes the child's left margin (fix #25)"
     l0.yi.should eq(bl.yi)
 
     # c1's margin box (left=5, mleft=1, awidth=4 -> cols 6..10) would straddle the
-    # 9-wide interior's right edge; pre-fix it stayed on row 0 and painted to
-    # xl=10, one column past the interior. Post-fix it wraps to the second row.
+    # 9-wide interior's right edge; a fit test without `mleft` keeps it on row 0
+    # painting to xl=10, one column past the interior. It must wrap instead.
     l1.yi.should be > l0.yi  # wrapped to a new row
-    l1.xl.should be <= bl.xl # no longer painted past the right edge
+    l1.xl.should be <= bl.xl # not painted past the right edge
   end
 end
 
@@ -56,9 +56,9 @@ describe "BUGS11 border layout reserves the edge child's margin box (fix #26)" d
     hl = header.lpos.not_nil!
     cl = center.lpos.not_nil!
 
-    # The header is drawn shifted down by its top margin (rows 1..3). Pre-fix the
-    # center region started at row 2 (advanced by height 2 only) and overdrew the
-    # header's last row; post-fix the region starts below the header's margin box.
+    # The header is drawn shifted down by its top margin (rows 1..3). A carve by
+    # border-box height alone starts the center region at row 2 and overdraws the
+    # header's last row; the region must start below the header's margin box.
     hl.yl.should be <= cl.yi
   end
 end

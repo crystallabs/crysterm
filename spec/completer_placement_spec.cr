@@ -2,11 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Completer drop-down placement (FORMAL-WIDGETS Part A Piece 3, via
-# `Overlay.place_child`): the list is a window-appended child, so its placement
-# must subtract the window inset (no drift on a padded window), and it now flips
-# above the field when it cannot fit below (a field near the bottom edge),
-# rather than spilling off-screen.
+# Completer drop-down placement (via `Overlay.place_child`): the list is a
+# window-appended child, so its placement must subtract the window inset (no
+# drift on a padded window), and it flips above the field when it cannot fit
+# below (a field near the bottom edge), rather than spilling off-screen.
 
 private def cp_screen(*, height = 24, padding = nil)
   Crysterm::Window.new(
@@ -32,6 +31,19 @@ describe "Completer drop-down placement" do
 
     pop.aleft.should eq box.aleft
     pop.atop.should eq box.atop + box.aheight
+  end
+
+  it "sizes the list to the match count, capped at max_visible_items" do
+    s = cp_screen
+    box, completer, pop = cp_build s, 5
+    pop.aheight.should eq 6 + pop.ivertical # 12 candidates, default cap of 6 rows
+
+    # Typing narrows the matches; the refresh re-sizes the list to fit them.
+    box.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('r', nil)
+    s.repaint
+    completer.open?.should be_true
+    pop.items.should eq %w[Ruby Rust]
+    pop.aheight.should eq 2 + pop.ivertical
   end
 
   it "flips above the field when it cannot fit below" do

@@ -9,23 +9,22 @@ include Crysterm
 #     `@nonselectable` (the divider-row set from `#non_selectable_rows=`), so a
 #     marker kept pointing at a stale row index once a row before it was
 #     inserted/removed — the real divider became selectable/activatable while
-#     an ordinary item at the stale index went dead. Fixed by extracting a
-#     shared `#shift_index_set` helper and applying it to both sets in both
-#     mutators.
+#     an ordinary item at the stale index went dead. A shared `#shift_index_set`
+#     helper applies to both sets in both mutators.
 #
 #  B18-47 (src/widget/calendar.cr `#minimum_date=`/`#maximum_date=`): each
 #     single-bound setter fed `#set_date_range`, which SWAPS an inverted pair
 #     rather than collapsing — so assigning a minimum above the current
 #     maximum kept the OLD maximum as the new minimum and installed the
 #     caller's minimum as the maximum (silently inverting caller intent).
-#     Fixed to carry the other bound along (`Math.max`/`Math.min`), matching
+#     Carries the other bound along (`Math.max`/`Math.min`), matching
 #     `Mixin::RangedValue#minimum=`/`#maximum=` and Qt.
 #
 #  B18-49 (src/widget/calendar.cr `#handle_grid_mouse`/`#activate_day`): a
 #     display-only calendar (`SelectionMode::NoSelection`) suppressed
 #     `Event::DateActivated` on the keyboard path (Enter) but not on a mouse
-#     click — `#activate_day` unconditionally emitted the event. Fixed by
-#     gating the click dispatch on `!selection_mode.no_selection?`, matching
+#     click — `#activate_day` unconditionally emitted the event. Gates the
+#     click dispatch on `!selection_mode.no_selection?`, matching
 #     the keyboard path and Qt's `QCalendarWidget`.
 
 # ── B18-46 ──────────────────────────────────────────────────────────────────

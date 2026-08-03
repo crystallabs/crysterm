@@ -77,7 +77,7 @@ describe "BUGS13 C10: exec_all returns on programmatic destroy" do
     sleep 20.milliseconds
 
     # The standard close API, never routed through the quit key or a
-    # WindowClosed: used to leave `remaining` pinned above zero forever.
+    # WindowClosed — `remaining` must still reach zero.
     w1.destroy
     sleep 30.milliseconds
     finished.should be_false # one window still alive
@@ -116,8 +116,7 @@ describe "BUGS13 C5: activate re-emits the raised window's frame" do
     out = w.output.as(IO::Memory)
     out.clear
 
-    # Unchanged frame: the plain diff emits nothing (the pre-fix behavior of
-    # activate) — this is the control.
+    # Unchanged frame: the plain diff emits nothing — this is the control.
     w.repaint
     out.to_s.includes?("HELLO13").should be_false
 
@@ -182,8 +181,8 @@ describe "BUGS13 C19/C24: per-window cursor/title re-asserted on a shared device
     out.clear
 
     w.title = nil
-    # An empty OSC 0 title is emitted (previously only the ivar was nil'ed and
-    # the terminal kept showing the stale title forever).
+    # An empty OSC 0 title is emitted — nil'ing only the ivar would leave the
+    # terminal showing the stale title.
     out.to_s.includes?("\e]0;\a").should be_true
 
     w.destroy
@@ -301,8 +300,8 @@ describe "BUGS13 C14: resize repaints only the device-active window" do
       size = ::Crysterm::Size.new(a.awidth - 5, a.aheight - 2)
 
       # The resize reaches every window on the device; creation order would
-      # repaint b LAST (dropping the activated a behind it). Post-fix a
-      # non-active window only reallocs — it must emit nothing.
+      # repaint b LAST (dropping the activated a behind it). A non-active
+      # window only reallocs — it must emit nothing.
       b.emit ::Crysterm::Event::Resize.new size
       sleep 80.milliseconds
       out.to_s.includes?("BBB14").should be_false

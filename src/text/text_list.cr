@@ -17,7 +17,7 @@ module Crysterm
       block.block_format.list_format.same?(@format)
     end
 
-    # Memoized member list for `#item_number`/`#item`, both of which were
+    # Memoized member list for `#item_number`/`#item`, both otherwise
     # O(document blocks) per call (hot when rendering every marker of a long
     # list). Keyed on `document.revision` — documented as bumped by *every*
     # mutation (content, format, undo/redo, replace), so equal readings
@@ -46,7 +46,7 @@ module Crysterm
 
     # The 0-based *index*-th item, or nil.
     def item(index : Int32) : TextBlock?
-      # Negative indexes are "no such item", as in the scan this replaced —
+      # Negative indexes are "no such item" —
       # `Array#[]?` alone would resolve them from the end.
       return if index < 0
       members[index]?

@@ -5,8 +5,9 @@ include Crysterm
 # Numeric edge cases in CSS value parsing that must clamp/fold rather than raise.
 
 # `rgb()` channels far outside 0..255 must clamp to 255, not overflow Int32 and
-# raise in the float→int conversion. The clamp used to convert to Int32 *before*
-# clamping, so a channel like `99999999999` raised `OverflowError` mid-cascade.
+# raise in the float→int conversion — clamping must happen before the Int32
+# conversion, else a channel like `99999999999` raises `OverflowError`
+# mid-cascade.
 describe "Crysterm::CSS::ColorValue rgb() out-of-range channel" do
   it "clamps a huge positive channel to 255 without raising" do
     Crysterm::CSS::ColorValue.resolve("rgb(99999999999, 0, 0)", nil)

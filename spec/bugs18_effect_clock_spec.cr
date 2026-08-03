@@ -10,7 +10,7 @@ include Crysterm
 # `Effect::Animated` (src/widget/effect/animated.cr, driving Fire/Matrix/Spray/
 # SineScroller/etc.) and `Widget#pulse` (src/widget_fade.cr) — kept ticking a
 # full FrameClock (request_render every frame) forever while their widget was
-# hidden or detached. This spec pins the mirrored fix: both drivers now
+# hidden or detached. This spec pins the mirrored behavior: both drivers
 # install one-time Hide/Detached pause + Show/Attached resume hooks.
 
 # Exposes the pulse-fade internals for assertions (`@fade`/`@pulse_paused` are

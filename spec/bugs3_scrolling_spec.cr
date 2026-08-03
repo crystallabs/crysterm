@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the scrolling / scrollbar bug fixes documented in BUGS3.md
-# (applied in `src/widget_scrolling.cr` and `src/widget/scrollbar.cr`).
+# Regression specs for the scrolling / scrollbar bug fixes in
+# `src/widget_scrolling.cr` and `src/widget/scrollbar.cr`.
 
 private def bugs3_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
@@ -44,7 +44,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
       st.content = (1..50).map { |i| "row #{i}" }.join('\n')
       s.render
 
-      # Scroll hard while collapsed (would previously push base past content).
+      # Scroll hard while collapsed (must not push base past content).
       st.scroll 1000
       st.child_base.should eq(0)
 
@@ -58,7 +58,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
     end
   end
 
-  # Fix #3 (REVERTED — BUGS3.md #3 was a false finding): `reset_scroll` must NOT
+  # Finding #3 was REVERTED as false: `reset_scroll` must NOT
   # zero `@last_scroll_max`. `#stick_to_tail?` is `@child_base >= @last_scroll_max`
   # and the sticky-bottom contract is "pin to the tail only while ALREADY at the
   # tail." After a programmatic `reset_scroll` the view is at the *top*, so it must

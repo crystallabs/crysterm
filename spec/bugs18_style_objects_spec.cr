@@ -10,7 +10,7 @@ include Crysterm
 #          not only when the base object is replaced. Programmatic styling
 #          without CSS mutates the same `Style` object forever, so an
 #          identity-only guard froze alternate rows/highlights at
-#          first-compose values. Guarded now by `Style#attr_fingerprint`.
+#          first-compose values. Guarded by `Style#attr_fingerprint`.
 #
 # B18-35 — `Styles.default` must deep-copy the per-state styles. The shallow
 #          copy shared `DEFAULT`'s `focused`/`hovered`/... `Style` objects
@@ -21,7 +21,7 @@ include Crysterm
 # B18-38 — In-place box mutations through the lazy getters
 #          (`style.border.left = 1`, `style.padding.left = 2`) never stamp
 #          `specified_mask`, so `ensure_floor_border` wiped them and the
-#          cascade's inline fold dropped them. `Style#box_touched?` now
+#          cascade's inline fold dropped them. `Style#box_touched?`
 #          treats a materialized box with any non-zero side as user-set.
 
 # A headless screen with the unstyled floor forced: no theme installed and the
@@ -238,8 +238,8 @@ describe "BUGS18 B18-38 in-place box mutations count as user-set" do
       s.apply_stylesheet
       s.repaint
       b.css_styled?.should be_false
-      # Before the fix, ensure_floor_border saw specified?(:border) == false
-      # and replaced the border with Border.from(false), wiping the side.
+      # `ensure_floor_border` must not see specified?(:border) == false and
+      # replace the border with Border.from(false), wiping the side.
       b.styles.normal.border.left.should eq 1
       b.ileft.should eq 1
     ensure
@@ -257,8 +257,8 @@ describe "BUGS18 B18-38 in-place box mutations count as user-set" do
     s.stylesheet = "Box { color: #ff0000 }"
     s.repaint
     w.css_styled?.should be_true
-    # Before the fix, fold_specified_onto skipped the unstamped padding and the
-    # computed style rendered with zero padding.
+    # `fold_specified_onto` must not skip the unstamped padding — the computed
+    # style must not render with zero padding.
     w.style.padding.left.should eq 2
   end
 end

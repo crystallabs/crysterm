@@ -4,11 +4,9 @@ include Crysterm
 
 # Per CSS, `currentColor` in a border color must resolve to the element's text
 # color (`color` / `Style#fg`), not the border's own existing color
-# (`Crysterm::CSS::Properties.apply`).
-#
-# The old code threaded `border.fg` as the `currentColor` basis, so
-# `border-color: currentColor` resolved to whatever the border was already
-# colored (usually unset) instead of the text color.
+# (`Crysterm::CSS::Properties.apply`). Threading `border.fg` as the
+# `currentColor` basis resolves it to whatever the border was already colored
+# (usually unset) instead of the text color.
 describe "CSS border currentColor" do
   it "resolves the border-color shorthand to the element text color" do
     s = Style.new(fg: 0xff0000) # red text

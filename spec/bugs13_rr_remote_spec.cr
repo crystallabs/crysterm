@@ -7,12 +7,12 @@ require "http/client"
 #        ranged widgets (Slider/SpinBox/Dial/ProgressBar/...) declare `value`
 #        before `minimum`/`maximum`, so a serialized `value=500 maximum=1000`
 #        was clamped against the *default* range and loaded back as 100.
-#        `DOM.build` now defers `value` (like `content`) until after the other
+#        `DOM.build` defers `value` (like `content`) until after the other
 #        attributes.
 #   R8 — `HTTPBridge#on_ui` posted to the window's render fiber and blocked on
 #        the reply channel; with the window destroyed the render loop is gone,
 #        so the posted block never ran and the HTTP fiber hung forever (every
-#        subsequent embedder RPC wedging the same way). It now fails fast with
+#        subsequent embedder RPC wedging the same way). It must fail fast with
 #        InvalidRequest (-32600).
 #
 # Guarded by -Dremote like the other bridge specs; run both ways:
@@ -38,7 +38,7 @@ require "http/client"
       s = headless_screen(80, 24)
       begin
         # `value` serialized before `maximum` (initializer-arg order) — the
-        # exact shape that used to clamp 500 against the default (0, 100).
+        # exact shape that would clamp 500 against the default (0, 100).
         built = s.load_layout %(<w-window><w-slider id="sl" value="500" maximum="1000"></w-slider></w-window>)
         slider = built.first.as(Crysterm::Widget::Slider)
         slider.maximum.should eq 1000

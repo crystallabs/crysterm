@@ -59,7 +59,7 @@ module Crysterm
         # checked arithmetic below (`lw + hs`, `y += ... + vs`): a raw
         # `Int32::MAX` overflows and a negative overlaps columns/rows. Beyond
         # the interior there is no room for the other column / next row anyway,
-        # so this is behavior-preserving for sane values (B17-11).
+        # so clamping loses nothing for sane values.
         hs = clamped_spacing @horizontal_spacing, w
         vs = clamped_spacing @vertical_spacing, interior.height
 
@@ -101,8 +101,8 @@ module Crysterm
             # Layout::Box's margin-box reservation.
             # Clamp the row height to the interior before it enters the checked
             # `y += ...` cursor accumulation: an `Int32::MAX`-height child would
-            # otherwise overflow the sum (B18-25). Beyond the interior "fills
-            # everything visible", so clamping is behavior-preserving.
+            # otherwise overflow the sum. Beyond the interior "fills
+            # everything visible", so clamping loses nothing.
             rh = clamped_size(Math.max(row_height(label), row_height(field)), interior.height)
             lc = margin_box lw, label.mhorizontal
             fc = margin_box fw, field.mhorizontal

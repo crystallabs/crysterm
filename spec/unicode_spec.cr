@@ -33,7 +33,7 @@ describe Crysterm::Unicode do
 
     it "is 2 for emoji in the WIDE-table gaps (colored shapes, large squares/star/circle)" do
       # Emoji_Presentation=Yes codepoints outside the main emoji blocks —
-      # previously measured as 1, misaligning layouts using them.
+      # measuring them as 1 misaligns layouts using them.
       Crysterm::Unicode.width("🟠").should eq 2 # U+1F7E0 large orange circle
       Crysterm::Unicode.width("🟢").should eq 2 # U+1F7E2 large green circle
       Crysterm::Unicode.width("🟥").should eq 2 # U+1F7E5 large red square

@@ -6,7 +6,7 @@ include Crysterm
 # accumulator (BUGS14 W3), not the percentage side. `(against * pct).to_i`
 # is a checked Float64->Int32 narrowing, so a huge percentage (or one long
 # enough to saturate `pct` to Float64::INFINITY) overflowed Int32 and raised
-# OverflowError in the render fiber. The product is now clamped to
+# OverflowError in the render fiber. The product is clamped to
 # ±1_000_000_000.0 before `.to_i`, mirroring the existing offset clamp.
 
 describe "BUGS17 B17-05: resolve_percentage overflow guard" do

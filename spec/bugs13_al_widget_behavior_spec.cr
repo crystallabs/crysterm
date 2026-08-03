@@ -31,7 +31,7 @@ describe "BUGS13 A11: DockWidget float geometry excludes the CSS margin" do
     dock.toggle_floating
     s.repaint
 
-    # Before the fix each cycle re-added the margin: aleft drifted +2, atop +1.
+    # Each cycle must not re-add the margin (aleft drifting +2, atop +1).
     dock.aleft.should eq a0
     dock.atop.should eq t0
   end
@@ -56,8 +56,8 @@ describe "BUGS13 A12: FileManager label and DirectoryChanged stay in sync" do
       changes.should eq [{dir_b, dir_a}]
       fm.@label_widget.not_nil!.content.should eq dir_b
 
-      # `reset` returns to the construction-time cwd — before the fix it left
-      # the label stale and emitted no DirectoryChanged.
+      # `reset` returns to the construction-time cwd, updating the label and
+      # emitting DirectoryChanged.
       fm.reset
       fm.cwd.should eq dir_a
       changes.last.should eq({dir_a, dir_b})
@@ -88,8 +88,8 @@ describe "BUGS13 A13: Form traversal skips disabled widgets" do
     form.focus_next
     s.focused.should eq a
 
-    # Before the fix this focused `b`, whose single-valued state became
-    # :focused — silently re-enabling it.
+    # Focusing `b` would flip its single-valued state to :focused — silently
+    # re-enabling it.
     form.focus_next
     s.focused.should eq c
     b.disabled?.should be_true
@@ -120,7 +120,7 @@ describe "BUGS13 A14: LCDNumber mode=/digit_count= take effect immediately" do
     lcd.text.should eq "255"
 
     lcd.mode = Widget::LCDNumber::Mode::Hex
-    lcd.text.should eq "FF" # stayed "255" forever before the fix
+    lcd.text.should eq "FF"
 
     lcd.mode = Widget::LCDNumber::Mode::Bin
     lcd.text.should eq "11111111"
@@ -143,6 +143,6 @@ describe "BUGS13 A14: LCDNumber mode=/digit_count= take effect immediately" do
     lcd.display 7
     before = lcd.content
     lcd.digit_count = 2
-    lcd.content.should_not eq before # was inert until the next display call
+    lcd.content.should_not eq before
   end
 end

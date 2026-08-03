@@ -2,28 +2,29 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the BUGS-F2 keyboard / focus findings owned here:
+# Regression specs for the BUGS-F2 keyboard / focus findings:
 #
-#  #1  — The default quit hotkey (`q`/Ctrl-Q) fired in `Application#route_input`
-#        BEFORE the window/widgets saw the key and ignored `grab_keys?`, so
-#        typing `q` into a reading `LineEdit`/`TextEdit` exited the whole app.
-#        Quit is now a *fallback*: the window handles the key first and quit
-#        only fires when it came back un-`accepted?` and no widget grabbed keys.
-#  #4  — A text-edit teardown ran `restore_focus` whenever the read ended
-#        unfocused — including when the user deliberately Tab'd/clicked to
-#        another widget — yanking focus back to the pre-read widget. It is now
-#        gated the same way as the rewind (`@_skip_rewind`).
-#  #7  — Text editors never `#accept`ed the keys they consumed, so window-level
-#        accelerators double-acted on typed characters. `_listener` now accepts
-#        the events it handled (printable insert, movement, Backspace/Delete,
-#        Enter/Escape) and leaves keys it ignores (Tab) un-accepted.
-#  #26 — `restore_focus` re-focused a widget disabled while a dialog was open,
-#        silently re-enabling it. It now also guards on `!sf.disabled?`.
-#  #27 — `rewind_focus`'s empty-history branch reset the popped widget's state
-#        unconditionally; it now mirrors `_focus`'s `if o.state.focused?` guard.
-#  #35 — An external `value=` left `@goal_col` stale so the next Up/Down jumped
-#        to an old column. `assign_value` now clears it on the external branch
-#        (and keeps it on the redisplay/`nil` branch).
+#  #1  — The default quit hotkey (`q`/Ctrl-Q) must be a *fallback*, not fire in
+#        `Application#route_input` BEFORE the window/widgets see the key (which
+#        made typing `q` into a reading `LineEdit`/`TextEdit` exit the app):
+#        the window handles the key first and quit only fires when it comes
+#        back un-`accepted?` and no widget grabbed keys.
+#  #4  — A text-edit teardown must not run `restore_focus` when the user
+#        deliberately Tab'd/clicked to another widget — that yanks focus back
+#        to the pre-read widget. Gated the same way as the rewind
+#        (`@_skip_rewind`).
+#  #7  — Text editors must `#accept` the keys they consume (printable insert,
+#        movement, Backspace/Delete, Enter/Escape) so window-level accelerators
+#        don't double-act on typed characters, and leave keys they ignore (Tab)
+#        un-accepted.
+#  #26 — `restore_focus` must guard on `!sf.disabled?`, not re-focus a widget
+#        disabled while a dialog was open (silently re-enabling it).
+#  #27 — `rewind_focus`'s empty-history branch must mirror `_focus`'s
+#        `if o.state.focused?` guard, not reset the popped widget's state
+#        unconditionally.
+#  #35 — An external `value=` must clear `@goal_col` (stale, it makes the next
+#        Up/Down jump to an old column); the redisplay/`nil` branch of
+#        `assign_value` keeps it.
 
 private def f2_screen(default_quit_keys = false)
   Crysterm::Window.new(
@@ -61,8 +62,8 @@ describe "BUGS-F2 #1 default quit keys are a fallback, not a pre-empt" do
     le.read_input
     win.grab_keys?.should be_true
 
-    # Pre-fix this exited the process (`win.destroy; exit`) before the widget
-    # ever saw the key. Reaching the assertion at all proves no quit fired.
+    # A pre-empting quit would exit the process (`win.destroy; exit`) before the
+    # widget ever saw the key — reaching the assertion at all proves no quit fired.
     app.route_input win.screen, ::Tput::InputEvent.new('q')
 
     le.value.should eq "q"
@@ -94,7 +95,7 @@ describe "BUGS-F2 #7 a reading editor accepts the keys it consumes" do
 
     ins = f2_key('a')
     le._listener ins
-    ins.accepted?.should be_true # was never accepted before the fix
+    ins.accepted?.should be_true
     le.value.should eq "a"
 
     bs = f2_ctl(::Tput::Key::Backspace)
@@ -130,7 +131,7 @@ describe "BUGS-F2 #4 text-edit teardown does not yank focus when focus moved on"
 
     win.focus b # blur le -> teardown with @_skip_rewind = true
 
-    win.focused.should be(b) # was `a` before the fix (restore_focus yanked it)
+    win.focused.should be(b) # restore_focus must not yank it back to `a`
     win.saved_focus.should be_nil
   end
 end
@@ -149,7 +150,7 @@ describe "BUGS-F2 #26 restore_focus skips a widget disabled while saved" do
 
     win.restore_focus # dialog closes
 
-    win.focused.should be(b)   # was `a` before the fix
+    win.focused.should be(b)   # not yanked back to `a`
     a.disabled?.should be_true # state not clobbered back to Focused
   end
 end
@@ -168,7 +169,7 @@ describe "BUGS-F2 #27 rewind_focus empty-history branch guards on focused?" do
 
     win.rewind_focus # only entry -> empty-history branch
 
-    a.state.disabled?.should be_true # was reset to Normal before the fix
+    a.state.disabled?.should be_true # not reset to Normal
     blurred.should be_false          # no spurious Blur for an unfocused widget
   end
 end
@@ -181,7 +182,7 @@ describe "BUGS-F2 #35 external value= clears the vertical goal column" do
 
     pte.goal_col = 50
     pte.value = "brand new text"
-    pte.goal_col.should be_nil # was left stale before the fix
+    pte.goal_col.should be_nil # not left stale
 
     # The redisplay path (nil value, e.g. from #render) must NOT clear it.
     pte.goal_col = 42

@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Unit spec for `Subscription` / `Subscriptions` (FORMAL-WIDGETS B6.1): the
+# Unit spec for `Subscription` / `Subscriptions`: the
 # tracked-subscription primitive that owns the `on` → store-`Wrapper` → `off`
 # triple the dropdown/dialog/media widgets otherwise hand-rolled. The spec
 # deliberately spans several *event classes* (Focus/Blur/Resize/Show) and two
-# *target types* (a `Widget` and a `Window`), because the concern the doc flags
+# *target types* (a `Widget` and a `Window`), because the concern
 # is codegen across that heterogeneity, not any one behavior.
 
 describe Crysterm::Subscription do

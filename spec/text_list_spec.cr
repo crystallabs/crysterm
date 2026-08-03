@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `TextList`/`TextBlockGroup` (TEXTEDIT.md Phase 4): list membership by
+# `TextList`/`TextBlockGroup`: list membership by
 # shared `TextListFormat` instance identity, cursor list ops, marker text,
 # and the quote/rule block properties. Pure model, no PTY.
 

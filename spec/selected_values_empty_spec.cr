@@ -3,10 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # `ItemView#selected_values` must report no selection (`[]`, not `[""]`) for an
-# empty list. The single-selection branch used to wrap the cached `#value`
-# unconditionally, and since `#value` is `""` on an empty list, that surfaced a
-# phantom one-element selection — an asymmetry the multi-select branch (which
-# already returns `[]`) didn't have.
+# empty list. Wrapping the cached `#value` unconditionally would surface a
+# phantom one-element selection, since `#value` is `""` on an empty list — an
+# asymmetry the multi-select branch (which returns `[]`) doesn't have.
 describe "ItemView#selected_values on an empty list" do
   it "returns [] for an empty single-selection list" do
     s = headless_screen(80, 24)

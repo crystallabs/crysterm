@@ -2,18 +2,16 @@ require "./spec_helper"
 
 include Crysterm
 
-# Covers the Qt-shaped public text API added/renamed on the text widgets:
+# Covers the Qt-shaped public text API on the text widgets:
 #
-#   * `LineEdit`/`PlainTextEdit`/`TextEdit` gained `#text`/`#text=` (Qt's
-#     `QLineEdit::text`), `#select_all`, `#insert_text`, and `#clear` (was
-#     `clear_value`).
-#   * `FlatBuffer#value=` now emits `Event::TextChanged` on a *programmatic*
+#   * `LineEdit`/`PlainTextEdit`/`TextEdit` have `#text`/`#text=` (Qt's
+#     `QLineEdit::text`), `#select_all`, `#insert_text`, and `#clear`.
+#   * `FlatBuffer#value=` emits `Event::TextChanged` on a *programmatic*
 #     set — Qt's `QLineEdit::textChanged` fires on `setText`, not only on
-#     typing. Previously only the document-backed editors notified, so a
-#     `LineEdit` binding never saw `input.value = "x"`.
-#   * `LineEdit`'s contradictory `secret`/`censor` Bools became one
-#     `LineEdit::EchoMode` enum (Qt's `echoMode`).
-#   * `Widget#rendered_content`/`#rendered_text` (were `get_content`/`get_text`)
+#     typing — so a `LineEdit` binding sees `input.value = "x"`.
+#   * `LineEdit` has a single `LineEdit::EchoMode` enum (Qt's `echoMode`)
+#     rather than contradictory `secret`/`censor` Bools.
+#   * `Widget#rendered_content`/`#rendered_text`
 #     report the PARSED/WRAPPED view, which is deliberately *not* the inverse of
 #     the raw `#content`.
 describe "Qt-shaped text API" do

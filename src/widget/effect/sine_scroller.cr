@@ -38,6 +38,11 @@ module Crysterm
       class SineScroller < Box
         include TextScroll
 
+        # `style_to_attr` memo for the per-frame render: the animation redraws
+        # every interval with an unchanged style, so the attr derivation is
+        # skipped until a style setter (or a cascade swap) invalidates it.
+        @attr_memo = Style::AttrMemo.new
+
         # Radians of the vertical wave added per column (its spatial frequency).
         property wave_frequency : Float64
 
@@ -82,10 +87,12 @@ module Crysterm
             full_w, full_h, col_off, row_off = full_field_geometry(xi, border.left, border.right, border.top, border.bottom)
             next if full_w <= 0 || full_h <= 0
 
-            # The attr's invariant parts (flags + bg) are packed once per frame.
-            # Only fg varies per column, so the per-column cost is a single
-            # `Attr.with_fg` rather than a full `style_to_attr` rebuild on every cell.
-            da = style_to_attr(style)
+            # The attr's invariant parts (flags + bg) are packed once — and,
+            # via the memo, only when the style is mutated or swapped, not per
+            # frame. Only fg varies per column, so the per-column cost is a
+            # single `Attr.with_fg` rather than a full `style_to_attr` rebuild
+            # on every cell.
+            da = @attr_memo.fetch(style)
             deff = Attr.fg da # widget's own fg, for the non-rainbow case
 
             # Background fill: the field the glyphs ride over.
@@ -102,12 +109,8 @@ module Crysterm
               # shows the correct slice of the same wave.
               fx = x + col_off
               break if fx >= full_w
-              ch, width, offset = scroll_column(f, fx)
-              # A continuation column was either already written by its lead
-              # (the previous loop iteration) or, if the lead scrolled off the
-              # left edge (x == 0 here), stays the background blank filled above.
-              next if offset == 1
-              next if ch == ' '
+              next unless glyph = visible_scroll_glyph(f, fx)
+              ch, width = glyph
               r = (amp * (1.0 + Math.sin(fx * @wave_frequency + f * @wave_speed))).round.to_i.clamp(0, full_h - 1)
               # Rows hidden above the clip edge shift the glyph up; skip it
               # when its row falls outside the visible slice.
@@ -115,12 +118,7 @@ module Crysterm
               next if sy < 0 || sy >= h
               fgf = rainbow? ? rainbow_fg(fx, f) : deff
               attr = Attr.with_fg(da, fgf)
-              if width == 2
-                next if x + 1 >= w # right-edge straddle: half a glyph can't render
-                window.put_wide(attr, ch, xi + x, yi + sy)
-              else
-                window.fill_region(attr, ch, xi + x, xi + x + 1, yi + sy, yi + sy + 1)
-              end
+              put_scroll_glyph(attr, ch, width, xi + x, yi + sy, xl)
             end
           end
         end

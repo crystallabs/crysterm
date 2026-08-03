@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS15.md #70, #77, #78, #87, #88: chart/graph widgets whose property setters
-# mutated an ivar but never scheduled a frame (so the change stayed invisible on
-# an idle screen), plus two cache-invalidation gaps (BarChart's content cache
-# omitted the glyph-ramp inputs; LineChart axis mutations updated the tick
-# chrome but never re-rasterized the plot Canvas).
+# Chart/graph property setters that mutate an ivar must also schedule a frame
+# (otherwise the change stays invisible on an idle screen); plus two
+# cache-invalidation gaps (BarChart's content cache must include the
+# glyph-ramp inputs; LineChart axis mutations must re-rasterize the plot
+# Canvas, not just the tick chrome).
 
 # Non-blocking receive on the render doorbell: true iff a frame is pending.
 # The setters under test must ring this doorbell (via `mark_dirty` ->
@@ -247,7 +247,7 @@ describe "Widget::Graph::LineChart axis mutation re-rasterizes the plot (#88)" d
     before = bitmap_sig(lc.plot)
 
     # Change only the Y scale (no #refresh, no resize). The chrome re-scales;
-    # without the fix the plot raster stays at the old auto-range and disagrees.
+    # the plot raster must not stay at the old auto-range and disagree.
     lc.axis_y.maximum = 100.0
     s.repaint
     after = bitmap_sig(lc.plot)

@@ -678,7 +678,7 @@ describe "Horizontal scroll reaches the last column past the reserved margin" do
     hb.value = hb.maximum # drag fully right
     s.repaint
     ta.child_base_x.should eq 15
-    # The trailing 'Z' is now visible — previously the margin left it unreachable.
+    # The trailing 'Z' is visible — the margin must not leave it unreachable.
     row_text(s, 0, 0...11).should eq "PQRSTUVWXYZ"
   end
 end

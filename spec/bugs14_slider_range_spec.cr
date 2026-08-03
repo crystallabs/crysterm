@@ -8,9 +8,9 @@ include Crysterm
 # All four defects multiplied or subtracted two Int32 quantities before the
 # float divide (or accumulated a step counter in Int32 across the value range),
 # so a range span above ~Int32::MAX overflowed and raised OverflowError during a
-# render, a track click/drag, or a percentage set. The fixes widen/float-coerce
-# the arithmetic and clamp, and iterate ticks over track cells rather than value
-# space.
+# render, a track click/drag, or a percentage set. The arithmetic is
+# widened/float-coerced and clamped, and ticks iterate over track cells rather
+# than value space.
 
 # Exposes the protected pointer->value mapping so the off-track case (which the
 # window's hit-testing never delivers to an out-of-bounds pointer) can be driven
@@ -28,8 +28,8 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
     s = headless_screen(80, 24)
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 60, height: 1,
       minimum: Int32::MIN, maximum: Int32::MAX
-    # `@maximum - @minimum` (== 2**32 - 1) overflowed Int32 here; the fix widens
-    # the subtraction and clamps back to Int32::MAX.
+    # `@maximum - @minimum` (== 2**32 - 1) overflowed Int32 here; the subtraction
+    # is widened and clamped back to Int32::MAX.
     sl.value_span.should eq Int32::MAX
   end
 
@@ -41,7 +41,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
       minimum: 0, maximum: 300_000_000, value: 0
     # An offset far past the track end (pos 110, span 10) with a large range made
     # `pos.to_f * value_span / span` (3.3e9) exceed Int32::MAX so `.round.to_i`
-    # raised OverflowError. The fix clamps into the value span -> the maximum
+    # raised OverflowError. Clamping into the value span lands on the maximum
     # (exactly what `#value=` would clamp an off-track pointer to).
     sl.value_at_pub(110, 10).should eq 300_000_000
   end
@@ -51,7 +51,7 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
   it "sets ProgressBar#percent on a large-range bar without raising (M1)" do
     s = headless_screen(80, 24)
     # `bar.percent = 50` runs during construction here; `50 * 50_000_000` (Int32)
-    # overflowed. The fix coerces to Float64 before multiplying.
+    # overflows unless the multiply coerces to Float64 first.
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
       minimum: 0, maximum: 50_000_000, percent: 50
     bar.percent.should eq 50
@@ -66,8 +66,8 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
     s = headless_screen(80, 24)
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
       minimum: -1_500_000_000, maximum: 1_500_000_000, value: 0
-    # `@maximum - @minimum` (== 3e9) overflowed Int32 in #span; the fix widens the
-    # subtraction and clamps to Int32::MAX, so a range wider than Int32::MAX yields
+    # `@maximum - @minimum` (== 3e9) overflowed Int32 in #span; the subtraction
+    # is widened and clamped to Int32::MAX, so a range wider than Int32::MAX yields
     # a valid (approximate) percentage instead of crashing.
     bar.percent.should be >= 0
     bar.percent.should be <= 100

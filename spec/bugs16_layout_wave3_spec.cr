@@ -2,12 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS16 wave-3 layout findings: B16-21, B16-22, B16-24.
-
 # B16-21 — `Form#add_row` appended unconditionally, assuming an even child
 # count. With a blessed trailing odd child (a separator/button row) the new
 # pair was split across rows: the separator consumed the new label as its
-# "field" and the field landed alone full-width. The pair is now inserted
+# "field" and the field landed alone full-width. The pair must be inserted
 # BEFORE the trailing child, which stays trailing.
 describe "BUGS16 B16-21: Form#add_row with a trailing odd child" do
   it "inserts the new pair before the separator, keeping it trailing and full-width" do
@@ -86,7 +84,7 @@ end
 # B16-24 — a deferred (z-indexed) flow child's `lpos` holds the PREVIOUS
 # frame's rect during `#arrange` (it is only refreshed at plane compositing),
 # so successors chained off it lagged one frame behind any geometry change.
-# The chain now falls through to the assigned-geometry branch for a deferred
+# The chain must fall through to the assigned-geometry branch for a deferred
 # predecessor.
 describe "BUGS16 B16-24: Flow does not chain off a deferred child's stale lpos" do
   it "places the successor against the deferred child's CURRENT size" do
@@ -103,8 +101,8 @@ describe "BUGS16 B16-24: Flow does not chain off a deferred child's stale lpos" 
 
     a.width = 10
     s.repaint
-    # Pre-fix: B stayed at the stale right edge (xi + 5) for this frame and
-    # only healed one render later.
+    # B must track the new right edge this frame, not chain off the stale
+    # (xi + 5) rect and heal only one render later.
     b.lpos.not_nil!.xi.should eq bl.xi + 10
 
     s.repaint

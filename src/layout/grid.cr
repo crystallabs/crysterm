@@ -81,8 +81,8 @@ module Crysterm
         w = interior.width
         h = interior.height
         # Cap axis counts at the interior extent, not just `1`: any column/row
-        # past the interior is a zero-size cell already, so this is
-        # behavior-preserving, and it keeps `cols`/`nrows` small enough that
+        # past the interior is a zero-size cell already, so capping loses
+        # nothing, and it keeps `cols`/`nrows` small enough that
         # the spacing/fence math below can't overflow `Int32`.
         cols = @columns.clamp(1, Math.max(w, 1))
 
@@ -169,8 +169,8 @@ module Crysterm
         # with `column_span`.
         if r = @rows
           # Same reasoning as `cols` above: a declared `rows` past the
-          # interior height is all zero-size cells, so capping it there is
-          # behavior-preserving and keeps the spacing math below overflow-safe.
+          # interior height is all zero-size cells, so capping it there loses
+          # nothing and keeps the spacing math below overflow-safe.
           nrows = r.clamp(1, Math.max(h, 1))
         else
           start_rows = 0

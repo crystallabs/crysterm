@@ -3,9 +3,14 @@ require "./launchers"
 
 module Crysterm
   module Terminal
-    # A spawned terminal-emulator window and everything needed to drive and tear
-    # it down.
-    class Window
+    # A spawned terminal-emulator window (or multiplexer pane/session) and
+    # everything needed to drive and tear it down.
+    #
+    # Named `EmulatorWindow`, not `Window`, because `Terminal::Window` sitting
+    # next to core `Crysterm::Window` (the surface) and `Widget::Terminal`
+    # invited wrong-constant resolution: this is the OS-level window we spawned
+    # to *host* a surface, not a surface itself.
+    class EmulatorWindow
       # The backing process. For most backends this is the window itself; for the
       # gnome-terminal server, or D-Bus backends, it is a transient launcher.
       getter process : Process
@@ -55,13 +60,13 @@ module Crysterm
     end
 
     # Spawns a terminal window/pane/session via *launcher*, waits for the
-    # in-window helper to report its TTY, opens that TTY, and returns a `Window`.
-    # Raises if no backend is available, the binary can't be found, or the helper
-    # does not connect in time.
+    # in-window helper to report its TTY, opens that TTY, and returns an
+    # `EmulatorWindow`. Raises if no backend is available, the binary can't be
+    # found, or the helper does not connect in time.
     def self.spawn_window(*, launcher : Launcher | String? = nil,
                           cols : Int32 = 80, rows : Int32 = 24,
                           title : String? = nil,
-                          env : Process::Env = nil) : Window
+                          env : Process::Env = nil) : EmulatorWindow
       backend = resolve_launcher(launcher)
       raise "No terminal backend found (tried $TERMINAL and: #{LAUNCHERS.map(&.name).join(", ")})" unless backend
 
@@ -74,8 +79,8 @@ module Crysterm
       File.delete(path) rescue nil
       server = UNIXServer.new(path)
 
-      # Whether the socket file was handed to a live `Window`, which unlinks it on
-      # close. On every failure path the `ensure` deletes it instead, so a failed
+      # Whether the socket file was handed to a live `EmulatorWindow`, which
+      # unlinks it on close. On every failure path the `ensure` deletes it instead, so a failed
       # spawn leaks no dead `.sock`. Not useless: when the `begin` raises before
       # `success = true`, this initial value is what the `ensure` reads — ameba
       # (>= 1.7) does not follow the read into the `ensure` block.
@@ -122,13 +127,13 @@ module Crysterm
           terminate_and_reap(process)
           raise "Could not open window TTY #{tty}: #{ex.message}"
         end
-        win = Window.new(process, socket, path, tty, input, output)
-        success = true # the Window now owns the socket file; leave it for #close
+        win = EmulatorWindow.new(process, socket, path, tty, input, output)
+        success = true # the EmulatorWindow now owns the socket file; leave it for #close
         win
       ensure
         server.close rescue nil
         # On any failure path the socket file is ours to clean up (the success
-        # path leaves it for `Window#close`, which unlinks it).
+        # path leaves it for `EmulatorWindow#close`, which unlinks it).
         unless success
           File.delete(path) rescue nil
         end

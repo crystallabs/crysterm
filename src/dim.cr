@@ -112,7 +112,7 @@ module Crysterm
 
     # A viewport-relative length (`50vw`, `.5VMIN`, ...). The CSS engine's
     # `CSS::Length::VIEWPORT` itself — referenced, not duplicated, so the two
-    # spellings cannot drift (R-76). Capture groups: 1 = number, 2 = unit.
+    # spellings cannot drift. Capture groups: 1 = number, 2 = unit.
     private VIEWPORT_RE = CSS::Length::VIEWPORT
 
     # Normalizes any accepted property spelling to its stored form: a `Dim`
@@ -152,7 +152,7 @@ module Crysterm
 
     # Like `.parse`, but returns `nil` on a malformed expression. The
     # render-path fallback for a raw `String` written directly into an ivar —
-    # a frame must degrade (to the historical 0), never raise.
+    # a frame must degrade (to 0), never raise.
     def self.parse?(str : String, size : Bool = false) : Dim?
       # A bare integer is a cell count (CSS geometry usually converts these
       # before assignment; accept the spelling here too).
@@ -161,8 +161,7 @@ module Crysterm
       end
 
       # Viewport units. The `'v'` scan keeps the regex off non-viewport
-      # values; parsing happens once, at assignment, unlike the historical
-      # per-frame resolve.
+      # values.
       if (str.includes?('v') || str.includes?('V')) && (m = str.strip.match(VIEWPORT_RE))
         pct = m[1].to_f? || return
         axis = case m[2].downcase
@@ -209,10 +208,10 @@ module Crysterm
 
     # Parses the percentage number (`str[0, pct_end]`). `to_f?` returns nil
     # for out-of-range (ERANGE) numbers that are nevertheless *well-formed* —
-    # e.g. a 320-digit percentage (B17-05). Historically those saturated and
-    # rendered (the `resolve` clamp bounds them), and only genuinely
-    # malformed input raises at assignment — so re-scan the form here and
-    # saturate to ±INFINITY instead of rejecting.
+    # e.g. a 320-digit percentage. Those must saturate and render (the
+    # `resolve` clamp bounds them); only genuinely malformed input may raise
+    # at assignment — so re-scan the form here and saturate to ±INFINITY
+    # instead of rejecting.
     private def self.parse_percent_number(str : String, pct_end : Int32) : Float64?
       s = str[0, pct_end]
       if v = s.to_f?
@@ -253,7 +252,7 @@ module Crysterm
     end
 
     # Parses the digits-only cell offset starting at byte *from*; `nil` when
-    # empty or non-digit (the historical parsers treated those as malformed).
+    # empty or non-digit (malformed).
     private def self.parse_offset(str : String, from : Int32) : Int32?
       bytes = str.to_slice
       return if from >= bytes.size
@@ -263,7 +262,7 @@ module Crysterm
         b = bytes.unsafe_fetch(j)
         return unless '0'.ord <= b <= '9'.ord
         # Clamp the accumulator so a pathological (≥10-digit) offset can't
-        # overflow Int32 (mirrors the historical resolver).
+        # overflow Int32.
         off = off < 100_000_000 ? off * 10 + (b.to_i - '0'.ord) : off
         j += 1
       end
@@ -271,24 +270,21 @@ module Crysterm
     end
 
     # Resolves against the parent's content extent *against*, in cells.
-    # Byte-for-byte the same arithmetic as the historical per-frame String
-    # resolution, so rendered output is unchanged. `Viewport` values need the
-    # window size — use `#resolve_viewport`.
+    # `Viewport` values need the window size — use `#resolve_viewport`.
     def resolve(against : Int32) : Int32
       case @kind
       in .cells?
         @offset
       in .percent?, .center?
-        # Clamp the product before the checked narrowing (B17-05, ported from
-        # the deleted `Widget.resolve_percentage`): a pathologically large
-        # percentage — or one long enough to saturate the parsed Float64 to
-        # infinity — must not overflow Int32 on `.to_i` and raise in the
-        # render path.
+        # Clamp the product before the checked narrowing: a pathologically
+        # large percentage — or one long enough to saturate the parsed
+        # Float64 to infinity — must not overflow Int32 on `.to_i` and raise
+        # in the render path.
         v = Crysterm.saturate_cells_trunc(against * (@percent / 100.0), -1_000_000_000.0, 1_000_000_000.0)
         # The offset accumulator saturates at parse time (`parse_offset`), but
         # the typed `Dim.percent`/`Dim.center` constructors — the documented
         # fully-typed API — store any Int32 offset raw, so the sum can still
-        # overflow checked Int32 (B18-26). Add in Int64 and clamp to the same
+        # overflow checked Int32. Add in Int64 and clamp to the same
         # ±1e9 convention as the product above, leaving ~1.1e9 of headroom for
         # the downstream parent-position/margin additions.
         (v.to_i.to_i64 + @offset).clamp(-1_000_000_000_i64, 1_000_000_000_i64).to_i32

@@ -248,7 +248,7 @@ describe "BUGS13 W10: graphics overlay geometry for a partially-offscreen widget
     img = RectProbe.new parent: s, top: -1, left: 0, width: 8, height: 6
     img.bitmap = solid_bitmap
     s.repaint
-    img.probe_content_rect.should be_nil # pre-fix this emitted `\e[0;…H`
+    img.probe_content_rect.should be_nil # the broken clamp emitted `\e[0;…H`
   ensure
     s.try &.destroy
   end

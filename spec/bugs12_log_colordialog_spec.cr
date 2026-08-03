@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS12 findings 30 and 31.
+# Regression specs:
 #
 #  Finding 30 (src/widget/log.cr): `Log` wired its `Event::ContentChanged` handler
 #     as `def set_content(e)`, whose unrestricted 1-arg signature SHADOWED
@@ -14,8 +14,8 @@ include Crysterm
 #  Finding 31 (src/widget/color_dialog.cr): the custom window-move drag wrote
 #     ABSOLUTE pointer coordinates straight into the parent-RELATIVE `left`/`top`,
 #     and captured the grab offset against the margin-inclusive `aleft`/`atop`.
-#     The fix subtracts the parent content origin (like `DockWidget#wire_drag`
-#     and `Widget#enable_drag`) and grabs against `aleft(with_margin: false)` /
+#     The drag must subtract the parent content origin (like `DockWidget#wire_drag`
+#     and `Widget#enable_drag`) and grab against `aleft(with_margin: false)` /
 #     `atop(with_margin: false)`.
 
 private def lcd_mouse(action : Tput::Mouse::Action, x : Int32, y : Int32)
@@ -28,7 +28,7 @@ describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" 
     log = Crysterm::Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 5
 
     log.content = "hello world"
-    # Before the fix this dispatched to the ContentChanged handler (request_render
+    # A shadowed setter dispatches to the ContentChanged handler (request_render
     # only), leaving @content empty.
     log.content.should eq "hello world"
   end
@@ -83,8 +83,8 @@ describe "BUGS12 finding 31: ColorDialog window-move uses parent-relative coords
     s.emit Crysterm::Event::Mouse, lcd_mouse(Tput::Mouse::Action::Move, gx + 3, gy + 1)
 
     # The dialog must follow by exactly the pointer delta in parent-relative
-    # space: 2 -> 5 and 2 -> 3. Before the fix `left`/`top` absorbed the parent
-    # content origin (px/py), landing at ~15 / ~8 instead.
+    # space: 2 -> 5 and 2 -> 3. Writing absolute coords would make `left`/`top`
+    # absorb the parent content origin (px/py), landing at ~15 / ~8 instead.
     cd.left.should eq 5
     cd.top.should eq 3
   end

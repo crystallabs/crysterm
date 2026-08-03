@@ -7,14 +7,15 @@ include Crysterm
 # * B16-53 — `Media::Tek#animate_loop` entered Tek mode once (`ESC[?38h`) and
 #   held it across every per-frame `sleep` for the whole run. While xterm is in
 #   Tek mode the concurrent VT100 window render bytes are interpreted as
-#   Tektronix vector data, corrupting both displays. Fix: each frame emits
+#   Tektronix vector data, corrupting both displays. Each frame emits
 #   enter+draw+leave as one atomic write (mirroring the still path), so the
 #   terminal is never left in Tek mode between frames.
 #
 # * B16-54 — `Media::Cells#render`'s animation branch made the still fallback
 #   unreachable, so an animated cell backend painted a blank box until the
-#   background frame composite finished. Fix: fall back to the still (frame 1 via
-#   `png.bmp`) synchronously while the frames build, and re-compose it on resize.
+#   background frame composite finished. The render falls back to the still
+#   (frame 1 via `png.bmp`) synchronously while the frames build, and
+#   re-composes it on resize.
 
 private def cells_window(w = 24, h = 12)
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -78,8 +79,8 @@ describe "B16-53 Media::Tek animation must not hold Tek mode across frames" do
       enters = occurrences(dump, "\e[?38h") # ESC [ ? 38 h  -> enter Tek
       exits = occurrences(dump, "\e\u{03}") # ESC ETX      -> back to VT100
       enters.should be > 0
-      # The bug left enters unbalanced (mode held open). The fix pairs every
-      # enter with an exit, so the terminal is back in VT100 between frames.
+      # The bug left enters unbalanced (mode held open); each enter must pair
+      # with an exit, so the terminal is back in VT100 between frames.
       exits.should eq enters
     ensure
       tek.try &.stop
@@ -99,8 +100,8 @@ describe "B16-54 animated cell backend must show the first frame immediately" do
       img.animated?.should be_true
 
       # Render WITHOUT letting the background composite fiber run: @src_frames is
-      # still nil here. The buggy render left @sample nil (blank box); the fix
-      # composes the still fallback so something is painted right away.
+      # still nil here. A buggy render would leave @sample nil (blank box); the
+      # still fallback must compose so something is painted right away.
       img.frames_ready?.should be_false
       s.repaint
       img.sample_present?.should be_true

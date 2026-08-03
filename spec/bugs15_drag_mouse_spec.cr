@@ -6,8 +6,8 @@ include Crysterm
 # (src/window_mouse.cr, src/window_drag.cr):
 #
 # #28      — a wheel over a disabled widget must never reach (or scroll) the
-#            widget itself (a disabled Dial/Slider/ScrollBar used to mutate its
-#            own value on scroll); the scroll routes to a scrollable ancestor.
+#            widget itself (a disabled Dial/Slider/ScrollBar must not mutate
+#            its own value on scroll); the scroll routes to a scrollable ancestor.
 # #61/#64  — starting a new drag while another gesture is in flight (e.g. a
 #            mouse drag promoted while a keyboard-sensor drag is live) must tear
 #            the old session down with DragEnd/DragLeave — and must NOT lose the

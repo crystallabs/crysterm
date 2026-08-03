@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `TextTable` (TEXTEDIT.md Phase 4, read-only cut): GFM/HTML tables import
+# `TextTable` (read-only cut): GFM/HTML tables import
 # as pre-rendered box-drawing blocks sharing one `TextTableFormat` instance;
 # the view class recovers the grid and the exporters round-trip it.
 

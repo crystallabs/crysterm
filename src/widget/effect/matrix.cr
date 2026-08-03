@@ -65,7 +65,7 @@ module Crysterm
         # occasional per-column shimmer (`SHIMMER_CHANCE`). Sampling
         # `@pool.sample` per lit cell per frame instead re-randomized every
         # trail cell every frame, defeating damage tracking across the whole
-        # rain area (R-91); with the field, a frame's damage is only the
+        # rain area; with the field, a frame's damage is only the
         # trail edges, the head rows and the shimmered cells.
         @glyphs = [] of Char
 

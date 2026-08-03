@@ -3,17 +3,12 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Pine::KeyMenu` lays its command hints out in a grid of `columns`
-# columns across a (typically `width: "100%"`) bottom bar. The old layout gave
-# each column a `100 // columns` percentage width and a `col * pct%` left,
-# rounding every column independently. Whenever `columns` did not divide 100
-# evenly (e.g. the default 6 -> 16% each -> 96% total) the columns drifted apart
-# and the rightmost stopped short of the right edge, leaving ragged gaps and a
-# blank tail.
-#
-# The fix tiles the cells with integer division on the resolved width at render
-# (`col * inner // n`), so consecutive columns share each boundary exactly: no
-# gap between columns, last column reaches the right edge for any
-# `columns`/width combination.
+# columns across a (typically `width: "100%"`) bottom bar. The cells are tiled
+# with integer division on the resolved width at render (`col * inner // n`), so
+# consecutive columns share each boundary exactly: no gap between columns, last
+# column reaches the right edge for any `columns`/width combination. Per-column
+# percentage rounding (e.g. the default 6 -> `100 // 6` = 16% each -> 96% total)
+# would instead drift the columns apart and leave a ragged blank tail.
 #
 # Driven headlessly over in-memory IOs: after one synchronous `repaint` the cell
 # boxes carry resolved absolute geometry to inspect.
@@ -25,7 +20,7 @@ end
 describe Crysterm::Widget::Pine::KeyMenu do
   it "tiles its columns across the full width with no gaps (columns not dividing 100)" do
     s = headless_screen(80, 24)
-    # 6 columns, one row: 100 // 6 == 16% each used to total only 96%.
+    # 6 columns, one row: percentage rounding (100 // 6 == 16% each) totals only 96%.
     km = Crysterm::Widget::Pine::KeyMenu.new(
       parent: s, bottom: 0, left: 0, width: "100%",
       entries: km_entries(6), columns: 6, rows: 1)

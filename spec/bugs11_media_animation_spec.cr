@@ -4,20 +4,15 @@ include Crysterm
 
 # Regression spec for BUGS11 #12 (src/widget/media/base.cr `animate_loop`).
 #
-# The FrameClock tick used to render-then-advance: it flagged a render, read the
-# CURRENT frame's delay, advanced `@anim_index`, and set the next interval from
-# the pre-advance frame. Because `request_render` only flags a render that runs
-# after the (cooperative) tick block returns, the deferred render always sampled
-# the ALREADY-advanced index — so frame i+1 was shown for frame i's delay, and
-# the very first tick (which FrameClock fires immediately) advanced 0->1, so
-# frame 0 was never displayed for its own delay.
-#
-# The fix advances at the START of each tick (skipping the very first via a
-# `first` closure flag), THEN renders and sets the interval from the frame
-# actually being displayed. With variable per-frame delays this is observable:
-# after the immediate first tick, `@anim_index` must still be 0 (frame 0 is the
-# one being displayed) and the clock interval must be frame 0's own delay
-# (2000ms), NOT frame 1's (50ms).
+# The FrameClock tick must advance `@anim_index` at the START of each tick
+# (skipping the very first), THEN render and set the interval from the frame
+# actually being displayed. A render-then-advance tick shows frame i+1 for
+# frame i's delay — `request_render` only flags a render that runs after the
+# (cooperative) tick block returns, so the deferred render samples the
+# already-advanced index — and never displays frame 0 for its own delay. With
+# variable per-frame delays this is observable: after the immediate first tick,
+# `@anim_index` must still be 0 (frame 0 is the one being displayed) and the
+# clock interval must be frame 0's own delay (2000ms), NOT frame 1's (50ms).
 
 # Builds an APNG with explicit per-frame delays (ms). These values round-trip
 # exactly through the APNG encoder/decoder (delay_num = ms, delay_den = 1000).
@@ -64,7 +59,7 @@ describe "Widget::Media::Base animate_loop per-frame delay (BUGS11 #12)" do
 
       # After the first tick, frame 0 must still be the frame being displayed:
       # the render (deferred until the tick returns) samples @anim_index, and it
-      # must sample 0, not the advanced 1. (Old code left it at 1 here.)
+      # must sample 0, not the advanced 1.
       img.anim_index.should eq 0
 
       # ...and it must be held for frame 0's OWN delay (2000ms), not frame 1's

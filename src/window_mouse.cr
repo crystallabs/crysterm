@@ -568,20 +568,56 @@ module Crysterm
     # test ranks candidates by effective layer first, breaking ties within a
     # layer by tree order.
     def widget_at(x, y, skip : Widget? = nil) : Widget?
+      # Hover memo. A pointer crossing the screen produces far more reports than
+      # distinct cells — SGR-Pixels (DEC 1016) emits one per sub-cell step with
+      # `x`/`y` unchanged, terminals repeat same-cell reports, and a resting
+      # pointer repeats indefinitely — while the answer for a given cell can only
+      # change when the frame does: the geometry `#hit_candidate?` tests is
+      # `lpos`, which only a render lays down. So the frame counter carries the
+      # invalidation, and a repeat within one frame skips the walk entirely. The
+      # candidate test's other half, `wants_mouse?`, is not render-derived, so
+      # `#register_clickable` drops the memo by hand.
+      #
+      # Only the plain hover/click lookup is memoized. A `skip:` lookup (the drag
+      # path) asks a different question at the same coordinates, and a drag ghost
+      # is a per-report exclusion, so neither reads the memo nor writes it.
+      memoizable = skip.nil? && @_drag_ghost.nil?
+      if memoizable && @_hit_memo_renders == renders && @_hit_memo_x == x && @_hit_memo_y == y
+        return @_hit_memo
+      end
+      @hit_scans += 1
       # Traverse without a captured `Proc`: an `each_descendant` block would
       # reify a heap closure on every call — i.e. every mouse report, motion
       # included. The scan accumulates the best hit in scratch ivars instead;
       # dispatch is single-fiber synchronous, so reusing them is safe.
       @_hit_found = nil
       @_hit_found_key = {0, 0}
-      # Seed the walk with "visible so far, no ancestor z-index". Top-level
-      # widgets are parentless, so this reproduces the old per-candidate walk
-      # that started at the widget and climbed to a nil parent.
+      # Seed the walk with "visible so far, no ancestor z-index" — the answer a
+      # parentless top-level widget's ancestor chain yields.
       children.each do |el|
         hit_scan el, x, y, skip, true, nil
       end
+      if memoizable
+        @_hit_memo = @_hit_found
+        @_hit_memo_x = x
+        @_hit_memo_y = y
+        @_hit_memo_renders = renders
+      end
       @_hit_found
     end
+
+    # Number of full hit-test walks `#widget_at` has run, i.e. the calls that did
+    # NOT come back from the hover memo. Instrumentation: specs and benchmarks
+    # assert on the memo without having to observe it directly.
+    getter hit_scans = 0_u64
+
+    # The hover memo: the last answer, the cell it answers for, and the frame it
+    # was taken in. `@_hit_memo_renders` starts at -1 so it can never match
+    # `renders` (0 before the first frame) by accident.
+    @_hit_memo : Widget?
+    @_hit_memo_x = Int32::MIN
+    @_hit_memo_y = Int32::MIN
+    @_hit_memo_renders = -1
 
     # Scratch state for `#widget_at`'s allocation-free traversal: the best hit
     # so far and its compositing layer key. Only valid for the duration of one
@@ -598,11 +634,11 @@ module Crysterm
     # Whole-chain visibility and the outermost-`z_index` layer key are threaded
     # DOWN the recursion (*anc_visible*, *anc_z* carry the parent's accumulated
     # answer) instead of re-walking the parent chain per candidate: each node
-    # folds itself in with one `&&`/`||`, turning the old O(candidates x depth)
-    # ancestor walks into O(1) per node. `anc_visible` ANDs `style.visible?`
+    # folds itself in with one `&&`/`||` — O(1) per node rather than
+    # O(candidates x depth). `anc_visible` ANDs `style.visible?`
     # (order-independent); `anc_z || el.style.z_index` keeps the OUTERMOST
     # (root-most) z, since a set `anc_z` — including a genuine `0` — wins over a
-    # deeper one, exactly as the old root-most-overwrite walk did.
+    # deeper one.
     #
     # An invisible node ends the walk of its subtree, and this prune is EXACT,
     # not a heuristic: unlike z-index — which deliberately escapes a subtree by
@@ -614,6 +650,29 @@ module Crysterm
     # (non-current `TabWidget`/`StackedWidget`/`ToolBox` pages, closed
     # `Menu`/`ComboBox` popups, hidden dialogs) while `#widget_at` runs on every
     # mouse report, motion included.
+    #
+    # A *clipping* container (`scrollable?` or `overflow: Hidden` — the exact
+    # predicate `Widget#clip_ancestor` matches) prunes the same way when the
+    # point falls outside its painted rect: `coords` clips every descendant's
+    # `lpos` to its clipping ancestor's viewport (a nested clipper's own `lpos`
+    # is clipped in turn, so the containment is transitive), hence no descendant
+    # can paint — or be hit — outside it. Only two things escape that clip, and
+    # both are handled rather than assumed away:
+    #
+    # * `z_index` does NOT escape it. A layered subtree composites onto a `Plane`
+    #   painted above the base layer, but its geometry still runs through
+    #   `coords`, which clips against `#clip_ancestor` unconditionally: a
+    #   z-indexed child scrolled out of its container gets `lpos == nil` exactly
+    #   like a plain one, so it paints nothing and is no candidate either way.
+    #   The layer key only reorders candidates *within* the scan; it never
+    #   revives a clipped-away one.
+    # * `fixed` DOES escape it, and only it: `#clip_ancestor` lets a `fixed`
+    #   widget (border labels, bound scroll bars, background layers) skip exactly
+    #   one *scrollable* clipper, so such a descendant is clipped by the NEXT
+    #   clipper up and can legitimately paint outside this one. So a scrollable
+    #   clipper hands its subtree to `#hit_scan_escapee` instead of dropping it,
+    #   while a non-scrollable `overflow: Hidden` one — which `#clip_ancestor`
+    #   never skips, `fixed` or not — is pruned outright.
     private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?, anc_visible : Bool, anc_z : Int32?) : Nil
       visible = anc_visible && el.style.visible?
       return unless visible
@@ -627,9 +686,97 @@ module Crysterm
           @_hit_found_key = key
         end
       end
-      el.children.each do |c|
+
+      # Leaf fast path, taken by most of the tree: nothing to prune, so skip the
+      # clip test entirely rather than paying it per widget in a flat UI.
+      kids = el.children
+      return if kids.empty?
+
+      # The clip prune. Guarded on a present `lpos`: a clipper that painted
+      # nothing has no viewport to test against (pre-first-render, or itself
+      # clipped away), so the walk proceeds as before.
+      if (lp = el.lpos) && !lp.contains?(x, y) && clips_children?(el)
+        return unless el.scrollable?
+        kids.each do |c|
+          hit_scan_escapee c, x, y, skip, el, visible, z
+        end
+        return
+      end
+
+      kids.each do |c|
         hit_scan c, x, y, skip, visible, z
       end
+    end
+
+    # Reduced walk over the subtree of a *scrollable* clipper the point falls
+    # outside of, hunting only for the `fixed` descendants that `#clip_ancestor`
+    # exempts from that clipper (see `#hit_scan`). Nothing else in there can be a
+    # candidate, so nothing here scores, resolves a `Style` or touches `lpos`:
+    # the hunt reads three plain ivars per node and recurses. That matters — it
+    # runs over the whole subtree the prune would otherwise have dropped, and a
+    # per-node `style` lookup alone costs about as much as the full scan it is
+    # replacing, which would leave the prune barely worth its keep.
+    #
+    # The chain state a resumed full scan needs (*anc_visible*/*anc_z* folded
+    # from *clipper* down) is therefore NOT threaded here; it is reconstructed by
+    # `#escapee_ancestry` at the rare node that actually escapes.
+    #
+    # The hunt stops at every intervening clipper, which is exact rather than
+    # merely cheap: a `fixed` descendant *below* such a clipper spends its one
+    # exemption on it and is then clipped by *clipper*, which we already know
+    # excludes the point; a non-`fixed` one is clipped by the intervening clipper,
+    # whose own rect is inside *clipper*'s. Either way nothing under it is
+    # hittable. Invisible subtrees are not pruned here (that would cost the very
+    # `style` lookup this walk avoids) — they are simply rarer than the nodes
+    # paying for the check, and `#hit_scan` still folds visibility at the escapee.
+    private def hit_scan_escapee(el : Widget, x : Int32, y : Int32, skip : Widget?, clipper : Widget, anc_visible : Bool, anc_z : Int32?) : Nil
+      if el.fixed?
+        # Exempt from the clip that pruned us: back to the full scan, which
+        # re-tests the widget's real (still clipped-to-ITS-ancestor) `lpos`.
+        visible, z = escapee_ancestry el, clipper, anc_visible, anc_z
+        hit_scan el, x, y, skip, visible, z if visible
+        return
+      end
+      return if clips_children? el
+      el.children.each do |c|
+        hit_scan_escapee c, x, y, skip, clipper, anc_visible, anc_z
+      end
+    end
+
+    # Folds whole-chain visibility and the outermost `z_index` over the widgets
+    # strictly between *clipper* and *el*, on top of the state *clipper* itself
+    # already accumulated — the same answer `#hit_scan` would have threaded down,
+    # recomputed on demand for the one node in a pruned subtree that needs it
+    # (see `#hit_scan_escapee`). Climbing yields the outermost `z_index` because
+    # each ancestor found overwrites the deeper one, and *anc_z* — already the
+    # root-most — still wins over all of them.
+    private def escapee_ancestry(el : Widget, clipper : Widget, anc_visible : Bool, anc_z : Int32?) : Tuple(Bool, Int32?)
+      visible = anc_visible
+      z : Int32? = nil
+      n = el.parent
+      while n && !n.same?(clipper)
+        st = n.style
+        visible &&= st.visible?
+        if zi = st.z_index
+          z = zi
+        end
+        n = n.parent
+      end
+      {visible, anc_z || z}
+    end
+
+    # Whether *el* clips its children's rendering to its own rect, i.e. whether
+    # `Widget#clip_ancestor` would stop at it. Only reached for a widget that has
+    # children and does not contain the point, never for the leaves that make up
+    # most of a tree.
+    #
+    # `el.overflow` is inlined as "own override, else the window default"
+    # because that is precisely what it computes — and everything this walk
+    # reaches is a descendant of `self`, so the `window?` lookup and `try` it
+    # would spend per node to find that default can only ever answer `self`.
+    private def clips_children?(el : Widget) : Bool
+      return true if el.scrollable?
+      (o = el.own_overflow) ? o.hidden? : overflow.hidden?
     end
 
     # Whether *el* itself is a hit-test candidate occupying (*x*, *y*) — the
@@ -674,7 +821,7 @@ module Crysterm
     end
 
     # (The whole-chain visibility + outermost-`z_index` layer key that a hit-test
-    # candidate needs are now threaded down `#hit_scan` — see its doc for the
+    # candidate needs are threaded down `#hit_scan` — see its doc for the
     # layer-key semantics: `{0, 0}` base layer, `{1, z}` for a z-indexed subtree
     # where the OUTERMOST self-or-ancestor `z_index` wins.)
 
@@ -683,6 +830,10 @@ module Crysterm
     # mouse listening is already active (blessed-style on-demand enabling).
     def register_clickable(el : Widget)
       return unless register_in el, @clickable
+      # A new candidate can change the answer under a pointer that has not moved,
+      # and no render need intervene — the one hover-memo input the frame counter
+      # does not cover (see `#widget_at`).
+      @_hit_memo_renders = -1
       el.clickable = true
       @screen.enable_mouse(focus: send_focus?) if @screen.mouse_enabled?
     end

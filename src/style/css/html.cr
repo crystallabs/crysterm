@@ -135,6 +135,26 @@ module Crysterm
     def css_reset_extra : Nil
     end
 
+    # Reverts this widget to its pristine pre-CSS state: styles back to a fresh
+    # dup of the base snapshot, `css_styled` off (so `#style` honors the inline
+    # `@style` short-circuit again), extra computed state cleared, and any
+    # CSS-written geometry restored (geometry has the same non-staleness
+    # contract as styles, but lives on the widget itself). The shared reset half
+    # of the cascade — run before re-applying rules, and by the "no active
+    # rules" teardown.
+    #
+    # The style wipe removes any sub-control style an ancestor pushed onto this
+    # widget, but the ancestor's own sub-`Style` object can survive the reset —
+    # so the `apply_substyle` push memo would keep reporting `same?` and skip
+    # re-pushing forever. Dropping `_substyle_src` makes the next push re-dup.
+    def css_reset_to_base : Nil
+      self.styles = css_base_styles.deep_dup
+      self.css_styled = false
+      css_reset_extra
+      self._substyle_src = nil
+      restore_css_base_geometry
+    end
+
     # :ditto:
     def to_html(structural : Bool = false) : String
       String.build { |io| to_html io, structural }
@@ -214,9 +234,9 @@ module Crysterm
     # every override appends a *static* literal list, so the base's two booleans
     # fully determine the result.
     #
-    # **The returned array is shared and must be treated as read-only** — the
-    # contract `EMPTY_CSS_SLOTS` already documented, now extended to every
-    # widget. Subclasses override `#build_css_sub_elements`, never this.
+    # **The returned array is shared and must be treated as read-only** (the
+    # `EMPTY_CSS_SLOTS` contract, which holds for every widget).
+    # Subclasses override `#build_css_sub_elements`, never this.
     def css_sub_elements : Array(String)
       key = {scrollbar?, !@label_widget.nil?}
       if (slots = @_css_sub_slots) && @_css_sub_slots_key == key

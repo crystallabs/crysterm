@@ -10,10 +10,10 @@ include Crysterm
 # the calendar's own month/year nav dropdowns are window-level `Menu`s that
 # routinely overhang the calendar — the ±100-year list especially, and the
 # 12-row month list when the field sits low. Picking a month/year row that fell
-# below the calendar's rectangle read as a click-away and tore the *whole*
-# calendar down, when only the dropdown should close (leaving the user back on
-# the open calendar). `#grab_contains?` now also counts the calendar's open nav
-# dropdowns as "inside".
+# below the calendar's rectangle must not read as a click-away that tears the
+# *whole* calendar down — only the dropdown should close (leaving the user back
+# on the open calendar). `#grab_contains?` therefore also counts the calendar's
+# open nav dropdowns as "inside".
 
 private def denp_down(s, x, y)
   s.dispatch_mouse Tput::Mouse::Event.new(

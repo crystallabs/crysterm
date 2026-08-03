@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::TextEdit` Phase 4 structures rendering (TEXTEDIT.md): list
+# `Widget::TextEdit` structures rendering: list
 # markers, quote bars, horizontal rules, block indent/alignment/margins —
 # all as decoration columns/rows outside the document's positions — and the
 # shared caret/mouse geometry staying exact through the per-row offsets.

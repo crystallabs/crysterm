@@ -7,23 +7,23 @@ include Crysterm
 # * #71 — every backend constructor took `speed:` as a direct `@speed` ivar
 #   assignment, bypassing the validating `Media::Base#speed=` clamp. A
 #   `speed: 0`/NaN/Infinity therefore reached the playback pacers, which divide
-#   by `@speed`, and killed the animation fiber. Fix: route the constructor arg
+#   by `@speed`, and killed the animation fiber. The constructor arg routes
 #   through `self.speed = speed`.
 #
 # * #81 — `Media::Ueberzug#load` nilled `@last` unconditionally, so after a
 #   FAILED load (`local_path` nil) `remove` (guarded by `return if @last.nil?`)
-#   became a no-op and the previous image stayed on screen forever. Fix: when the
-#   new path is unusable, call `remove` (takes the stale placement down) instead
-#   of nilling `@last`.
+#   became a no-op and the previous image stayed on screen forever. When the
+#   new path is unusable, `#load` calls `remove` (takes the stale placement
+#   down) instead of nilling `@last`.
 #
 # * #83 — the ANSI-art decoder never wrapped at the right margin, so newline-less
-#   80-column .ans files (the bulk of the BBS corpus) collapsed onto one row. Fix:
-#   ANSI.SYS-style autowrap on sequential printing (width from a trailing SAUCE
-#   record's TInfo1, else 80); explicit CUP positioning stays unwrapped.
+#   80-column .ans files (the bulk of the BBS corpus) collapsed onto one row.
+#   ANSI.SYS-style autowrap runs on sequential printing (width from a trailing
+#   SAUCE record's TInfo1, else 80); explicit CUP positioning stays unwrapped.
 #
 # * #84 — a manual `#play` on an `animate: false` cell-grid image never animated:
 #   `#render`'s branch was gated on the load-time `@animated` latch (still false),
-#   so the still was repainted forever while the frame clock spun. Fix: the gate
+#   so the still was repainted forever while the frame clock spun. The gate
 #   also follows live playback (`@playing && @src_frames`).
 
 private def media_window(w = 24, h = 12)
@@ -100,9 +100,10 @@ describe "BUGS15 #71 constructor speed: bypasses the validating clamp" do
   it "clamps speed: 0 / NaN / Infinity to 1.0 for every backend" do
     s = media_window
     begin
-      # Every media backend, constructed via the `speed:` argument. Before the
-      # fix each assigned `@speed` directly, bypassing the clamp, so a zero /
-      # NaN / Infinity reached the pacers and crashed the animation fiber.
+      # Every media backend, constructed via the `speed:` argument, must route
+      # through the validating clamp instead of assigning `@speed` directly —
+      # otherwise a zero / NaN / Infinity reaches the pacers and crashes the
+      # animation fiber.
       Crysterm::Widget::Media::Ansi.new(parent: s, speed: 0.0).speed.should eq 1.0
       Crysterm::Widget::Media::Ansi.new(parent: s, speed: Float64::NAN).speed.should eq 1.0
       Crysterm::Widget::Media::Ansi.new(parent: s, speed: Float64::INFINITY).speed.should eq 1.0

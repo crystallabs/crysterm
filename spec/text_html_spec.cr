@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# HTML-subset interchange (`TextHtml`, TEXTEDIT.md Phase 3). Pure model.
+# HTML-subset interchange (`TextHtml`). Pure model.
 
 private def html_doc(html : String) : Crysterm::TextDocument
   Crysterm::TextDocument.from_html(html)

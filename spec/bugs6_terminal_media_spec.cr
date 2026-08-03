@@ -2,20 +2,19 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS6 section 7 (Terminal handshake / launchers / media).
+# Regression specs for BUGS6 (terminal handshake / launchers / media).
 #
 # BUG 1 — In-band graphics / external-overlay media backends must be
 #   constructible *detached* (no explicit parent) without raising.
-#   The bug report expected a `NilAssertionError` from the raising `window`
-#   accessor used to register the render/overlay listeners. In practice this
-#   does NOT reproduce: `Widget#initialize` runs
+#   A `NilAssertionError` from the raising `window` accessor used to register
+#   the render/overlay listeners does NOT reproduce: `Widget#initialize` runs
 #   `@window ||= determine_window unless window?` (widget.cr), and
 #   `determine_window` → `Window.global` (`instances[-1]? || new`) always yields
 #   a non-nil window, so by the time the media constructors reach
 #   `register_overlay_listeners window` / `register_render_hook(window)` the
 #   `window` accessor never raises. These specs pin that guarantee: a
 #   parentless media widget constructs without raising and lands on the global
-#   window. (See the report note flagging BUG 1 as not-present.)
+#   window.
 # BUG 2 — Terminal.find_launcher's generic fallback must build the launcher
 #   from the *resolved* spec (the literal, possibly absolute, name) rather than
 #   the basename, so Process.new execs the exact validated path instead of
@@ -98,10 +97,10 @@ end
 # BUG 3: accept_with_timeout socket leak on the timeout race
 # --------------------------------------------------------------------------
 #
-# The fix drains and closes any socket the accept fiber sends *after* the
-# select timeout fires (`spawn { ch.receive?.try &.close }`), so a connection
+# Any socket the accept fiber sends *after* the select timeout fires must be
+# drained and closed (`spawn { ch.receive?.try &.close }`), so a connection
 # that lands in the capacity-1 channel between the timeout and the caller's
-# `server.close` no longer leaks its UNIXSocket / fd for the process lifetime.
+# `server.close` does not leak its UNIXSocket / fd for the process lifetime.
 #
 # No dedicated runtime assertion is provided here, deliberately:
 #   * `accept_with_timeout` is a `private def self.` on `Terminal`, so it can't
@@ -110,6 +109,6 @@ end
 #   * Triggering the timeout branch would mean waiting out `HANDSHAKE_TIMEOUT`
 #     (15s), and proving the fd is actually closed afterwards would require
 #     inspecting the process fd table.
-# FLAG: the fix is verified by compilation/inspection only; no feasible
-# headless runtime assertion. (Mirrors the BUGS5 BUG 4 rationale.)
+# FLAG: verified by compilation/inspection only; no feasible
+# headless runtime assertion.
 pending "Terminal.accept_with_timeout drains a late socket on timeout (doc-only, BUGS6)"

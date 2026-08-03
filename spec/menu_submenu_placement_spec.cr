@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Submenu placement (FORMAL-WIDGETS Part A Piece 3, via `Overlay.place_child`):
-# a submenu floats to the right of its parent row, flips to the left only when
-# it can't fit on the right (parent near the screen's right edge), stays
-# on-window, and no longer drifts by the window inset on a padded window (its
-# `left`/`top` are window-content-relative, but the anchor is absolute).
+# Submenu placement (via `Overlay.place_child`): a submenu floats to the right
+# of its parent row, flips to the left only when it can't fit on the right
+# (parent near the screen's right edge), stays on-window, and does not drift by
+# the window inset on a padded window (its `left`/`top` are
+# window-content-relative, but the anchor is absolute).
 
 private def msp_screen(*, padding = nil)
   Crysterm::Window.new(

@@ -44,8 +44,8 @@ describe "BUGS-F2 finding 18: Window#reset_cursor resets shape/blink" do
     s.cursor.shape.underline?.should be_true
     s.cursor.blink.should be_true
 
-    # Before the fix `reset_cursor` was an alias of `cursor_color`, so this left
-    # the shape/blink untouched (and cleared the color). It must now reset them.
+    # A `reset_cursor` that merely aliases `cursor_color` leaves the shape/blink
+    # untouched (and clears the color). It must reset them.
     s.reset_cursor
     s.cursor.shape.block?.should be_true
     s.cursor.blink.should be_false

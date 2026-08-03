@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::TextBrowser` (TEXTEDIT.md Phase 4): link enumeration, keyboard
+# `Widget::TextBrowser`: link enumeration, keyboard
 # (Tab-cycle + Enter) and pointer activation, and source navigation history
 # through the application-provided `loader`.
 

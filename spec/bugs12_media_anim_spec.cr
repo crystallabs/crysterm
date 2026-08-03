@@ -69,7 +69,7 @@ describe "BUGS12 #20 background-size re-asserted after layer exists" do
       bg.not_nil!.fit.should eq Widget::Media::Fit::Contain
 
       # Change the size after the layer exists; the per-frame reconcile must
-      # re-assert it (previously ignored — fit was set once at creation).
+      # re-assert it (fit must not be set only once at creation).
       box.style.background_size = Style::BackgroundSize::Cover
       box.repaint
       box.background_media.not_nil!.fit.should eq Widget::Media::Fit::Cover

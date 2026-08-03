@@ -44,7 +44,7 @@ module Crysterm
     module Media
       # The raster/quantize toolkit (Bayer matrix, `Dither` + `dither_rgb`,
       # `luminance`, `clamp8`, `nearest_index`, `each_run`, `dims`,
-      # `grid_fits?`, `rgb24`) moved to the pnggif shard as `PNGGIF::Raster` —
+      # `grid_fits?`, `rgb24`) lives in the pnggif shard as `PNGGIF::Raster` —
       # it is generic bitmap machinery, not widget code. The constants/enums
       # are aliased and the functions delegated here because every backend
       # (and external callers) address them as `Media.*`, and `Dither` is a
@@ -384,8 +384,7 @@ module Crysterm
       end
 
       # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
-      # A generic network fetch shared by every backend that accepts URLs
-      # (hoisted here from the `Ansi` backend it historically lived on).
+      # A generic network fetch shared by every backend that accepts URLs.
       def self.fetch(url : String) : Bytes
         [{"curl", ["-s", "-A", "", url]}, {"wget", ["-U", "", "-O", "-", url]}].each do |cmd, args|
           io = IO::Memory.new

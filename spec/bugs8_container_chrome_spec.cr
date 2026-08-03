@@ -50,7 +50,7 @@ describe "BUGS8 ToolTip position accounts for window insets" do
     tip.show_at 6, 4, "hi"
 
     # Content-relative coordinates: subtracting the window inset undoes the
-    # double-count. Pre-fix these equalled the absolute x/y (6/4).
+    # double-count — these must not equal the absolute x/y (6/4).
     tip.left.should eq 6 - s.ileft
     tip.top.should eq 4 - s.itop
   end

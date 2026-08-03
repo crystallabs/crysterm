@@ -28,7 +28,7 @@ module Crysterm
           # would flip the child's `visible` flag and never restore it. Its
           # border/padding are stripped too: a height-1 inner box with either
           # would blank its own row the same way an unstripped ToolBox header
-          # does (B18-54).
+          # does.
           @status = Widget::Box.new(
             height: h,
             width: "100%",

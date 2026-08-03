@@ -11,7 +11,7 @@ include Crysterm
 # synchronous `ffprobe` subprocess to estimate the frame count — so a stopped,
 # still-attached stream source ran an ffprobe per rendered frame indefinitely.
 #
-# Fix: memoize the resolved decode mode per loaded file (`@stream_mode`) so the
+# The resolved decode mode is memoized per loaded file (`@stream_mode`) so the
 # render path re-probes at most once per file.
 #
 # This spec stubs `VideoSource.estimate_frames` (the ffprobe-spawning step) with
@@ -63,7 +63,7 @@ describe "BUGS15 #21 stream-mode source memoizes its decode mode" do
     Crysterm::Widget::Media::VideoSource.reset_estimate_calls
 
     # Render-path calls on an unopened stream source return nil without opening
-    # ffmpeg; before the fix each one re-ran the mode probe (ffprobe).
+    # ffmpeg; without memoization each one would re-run the mode probe (ffprobe).
     img.render_path_source.should be_nil
     img.render_path_source.should be_nil
     img.render_path_source.should be_nil

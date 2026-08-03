@@ -146,7 +146,7 @@ module Crysterm
             next unless cell
             paint cell, bmp, cx, cy, sx, sy, thr
           end
-          row.dirty = true
+          row.mark_dirty_range Math.max(xi, 0), xl - 1
         end
       end
 

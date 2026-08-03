@@ -60,7 +60,7 @@ module Crysterm
 
       # Coerces gradient stops (native ints, or `"#rrggbb"`/named color strings)
       # into native `Int32` colors via the shared cached converter. Called from
-      # both the setter and the initializer, which took identical bodies before.
+      # both the setter and the initializer.
       private def convert_stops(stops : Array(Int32 | String)) : Array(Int32)
         stops.map { |c| Colors.to_native(c) }
       end
@@ -127,7 +127,7 @@ module Crysterm
         # forever on a widget that is never painted — a hidden widget's
         # `coords` is nil so `render` never runs, and a detached-but-alive
         # widget's `request_render` no-ops while the timer still burns CPU.
-        # Mirrors the `Effect::Animated`/`Widget#pulse` fix (BUGS18 B18-90).
+        # Same guard as `Effect::Animated` and `Widget#pulse`.
         # The pause leaves `@gradient_paused` set, so the Show/Attached hook
         # resumes it on the next show/re-attach. Only wired for a privately
         # owned timer (`animate: true`) — a *shared* `animate: <Timer>` clock

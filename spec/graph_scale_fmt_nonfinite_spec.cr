@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Graph::Scale.fmt` drops the `.0` from whole numbers via `v.to_i64`.
-# For a non-finite value, `v == v.round` is true (`Infinity.round == Infinity`),
-# so it took the whole-number branch and called `Infinity.to_i64` — an
-# `OverflowError` that crashed the render fiber. Such values reach `fmt` from
-# plotted data (a divide-by-zero, `Math.log(0)`, etc.) via every graph widget
-# that formats numbers (Gauge/Bar/StackedBar/GaugeList/Donut/LineChart/HeatMap).
-# `fmt` now returns the plain string form for non-finite values.
+# `Widget::Graph::Scale.fmt` drops the `.0` from whole numbers via `v.to_i64`,
+# and must return the plain string form for non-finite values: `v == v.round`
+# is true for them (`Infinity.round == Infinity`), so the whole-number branch
+# would call `Infinity.to_i64` — an `OverflowError` that crashes the render
+# fiber. Such values reach `fmt` from plotted data (a divide-by-zero,
+# `Math.log(0)`, etc.) via every graph widget that formats numbers
+# (Gauge/Bar/StackedBar/GaugeList/Donut/LineChart/HeatMap).
 
 describe "Widget::Graph::Scale.fmt with non-finite values" do
   it "formats Infinity without raising OverflowError" do

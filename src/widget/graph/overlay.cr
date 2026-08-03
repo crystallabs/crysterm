@@ -4,10 +4,12 @@ module Crysterm
       # Text-overlay helpers for the Canvas-backed graph widgets. Such a graph
       # draws its plot/pixels on a `Graph::Canvas` child, then stamps crisp
       # terminal text (titles, axis labels, markers, readouts) directly onto
-      # `window.lines` on top. This module does that stamping, plus a small
-      # per-color attr memoizer.
+      # `window.lines` on top. This module carries the per-color attr memoizer
+      # and thin `[lo, hi)`-clipped wrappers over the shared `Box` stamp
+      # helpers (`stamp_text_run`/`stamp_cell`).
       #
-      # Including types must be `Widget` subclasses, for `window`/`style`/`style_to_attr`.
+      # Including types must be `Box` subclasses, for those stamp helpers (and
+      # `style`/`style_to_attr`).
       module TextOverlay
         # Memoized cell attrs, keyed on *both* the requested color and the current
         # `style.bg`, so a background change doesn't keep serving a stale attr
@@ -37,50 +39,21 @@ module Crysterm
         # region.
         private def put_text(x : Int32, y : Int32, text : String, attr : Int64,
                              lo : Int32, hi : Int32) : Nil
-          # A negative row wraps to the bottom of `window.lines` (Crystal's
-          # Indexable indexes from the end); a negative `lo` (derived from
-          # `@lpos.xi + ileft` when scrolled off-screen) can't clip and lets a
-          # negative `cx` wrap to the right end of the row. Guard both so an
-          # off-top/off-left label isn't stamped onto wrapped cells.
-          return if y < 0
-          lo = 0 if lo < 0
-          line = window.lines[y]?
-          return unless line
-          text.each_char_with_index do |ch, i|
-            cx = x + i
-            next if cx < lo || cx >= hi
-            if cell = line[cx]?
-              cell.char = ch
-              cell.attr = attr
-            end
-          end
-          line.dirty = true
+          stamp_text_run y, x, text, lo, hi, attr
         end
 
         # Writes a single glyph *ch* at absolute cell (x, y), clipped to the
         # half-open column range `[lo, hi)`.
         private def put_cell(x : Int32, y : Int32, ch : Char, attr : Int64,
                              lo : Int32, hi : Int32) : Nil
-          # See `#put_text`: guard the negative row (wraps to the bottom) and
-          # clamp the clip floor so a negative `lo` still rejects off-left cells.
-          return if y < 0
-          lo = 0 if lo < 0
-          return if x < lo || x >= hi
-          line = window.lines[y]?
-          return unless line
-          if cell = line[x]?
-            cell.char = ch
-            cell.attr = attr
-            line.dirty = true
-          end
+          stamp_cell x, y, ch, attr, lo, hi
         end
 
-        # Centers *text* within the column range `[xi, xl)` on row *y* (a thin
-        # wrapper over `#put_text`). No-ops on an empty string.
+        # Centers *text* within the column range `[xi, xl)` on row *y*.
+        # No-ops on an empty string.
         private def put_centered(text : String, xi : Int32, xl : Int32, y : Int32, attr : Int64) : Nil
           return if text.empty?
-          x = xi + Math.max(0, (xl - xi - text.size) // 2)
-          put_text x, y, text, attr, xi, xl
+          draw_centered_text y, xi, xl, text, attr
         end
       end
 

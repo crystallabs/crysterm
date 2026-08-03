@@ -11,8 +11,8 @@ end
 
 # BUGS15 #66 — Layout::Form ignored child margins on both axes, so a margined
 # label/field was shifted out of its reserved slot by `_get_coords`' near-margin
-# shift and overdrew the neighbouring column / next row. The fix reserves each
-# child's margin box (width minus mhorizontal, row advance by the tallest margin
+# shift and overdrew the neighbouring column / next row. Each child's margin box is
+# reserved (width minus mhorizontal, row advance by the tallest margin
 # box).
 describe "BUGS15 form reserves child margin boxes (fix #66)" do
   it "keeps a left-margined label out of its field's column" do
@@ -26,9 +26,9 @@ describe "BUGS15 form reserves child margin boxes (fix #66)" do
 
     ll = label.lpos.not_nil!
     fl = field.lpos.not_nil!
-    # Pre-fix: label painted xi=2..xl=14 while the field started at xi=13 — a
-    # one-column overlap. The label's drawn right edge must stay left of the
-    # field's drawn left edge.
+    # An unreserved margin would paint the label xi=2..xl=14 while the field
+    # starts at xi=13 — a one-column overlap. The label's drawn right edge
+    # must stay left of the field's drawn left edge.
     ll.xl.should be < fl.xi
   end
 
@@ -47,9 +47,9 @@ describe "BUGS15 form reserves child margin boxes (fix #66)" do
 
     l1l = l1.lpos.not_nil!
     l2l = l2.lpos.not_nil!
-    # Pre-fix: the first row advanced by rh only, so the top-margined first
-    # label (yi=1..yl=2) collided with the second row (also near yi=1). The
-    # first row's drawn bottom must stay above the second row's top.
+    # Advancing by rh only would collide the top-margined first label
+    # (yi=1..yl=2) with the second row (also near yi=1). The first row's
+    # drawn bottom must stay above the second row's top.
     l1l.yl.should be <= l2l.yi
   end
 
@@ -75,8 +75,8 @@ end
 
 # BUGS15 #67 — Layout::Grid ignored child margins: a margined child was shifted
 # out of its cell by `_get_coords` and overdrew the adjacent cell (or painted
-# past the container for a last-column/row cell). The fix subtracts the margin
-# sums from the assigned cell size.
+# past the container for a last-column/row cell). The margin sums are
+# subtracted from the assigned cell size.
 describe "BUGS15 grid reserves child margin boxes (fix #67)" do
   it "keeps a left-margined cell child out of the neighbouring cell" do
     s = headless_screen(80, 24)
@@ -91,8 +91,9 @@ describe "BUGS15 grid reserves child margin boxes (fix #67)" do
 
     al = a.lpos.not_nil!
     bl = b.lpos.not_nil!
-    # Pre-fix: child A painted xi=2..xl=12 while B's cell started at xi=10 —
-    # columns 10-11 overdrawn. A's drawn right edge must stay left of B's.
+    # Without subtracting the margin, child A would paint xi=2..xl=12 while
+    # B's cell starts at xi=10 — columns 10-11 overdrawn. A's drawn right
+    # edge must stay left of B's.
     al.xl.should be <= bl.xi
   end
 
@@ -107,8 +108,8 @@ describe "BUGS15 grid reserves child margin boxes (fix #67)" do
 
     cl = child.lpos.not_nil!
     bl = box.lpos.not_nil!
-    # Pre-fix: the full-cell height was assigned then shifted down by margin-top,
-    # painting past the container's far edge. It must stay inside.
+    # Assigning the full-cell height and shifting down by margin-top would
+    # paint past the container's far edge. It must stay inside.
     cl.yl.should be <= (bl.yl - box.ibottom)
   end
 end
@@ -116,15 +117,15 @@ end
 # BUGS15 #73 — Flow's Overflow::MoveWidget branch was a no-op for non-Window
 # containers: the child never repositions itself (its overflow resolves to
 # Ignore, never inheriting the container's), so a MoveWidget flow behaved like
-# Ignore. The fix translates the overflowing child back into the interior on
-# the overflow (vertical) axis.
+# Ignore. Overflow::MoveWidget translates the overflowing child back into the
+# interior on the overflow (vertical) axis.
 describe "BUGS15 flow MoveWidget moves an overflowing child back in (fix #73)" do
   it "pulls a bottom-overflowing child up into the container interior" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4,
       layout: Layout::Wrap.new, overflow: :move_widget
     # Two 8x3 children: the second wraps to a new row that would overflow the
-    # 4-high interior bottom (yi=3..yl=6 pre-fix).
+    # 4-high interior bottom (yi=3..yl=6 without the translation).
     Widget::Box.new parent: box, width: 8, height: 3
     second = Widget::Box.new parent: box, width: 8, height: 3
 
@@ -132,8 +133,9 @@ describe "BUGS15 flow MoveWidget moves an overflowing child back in (fix #73)" d
 
     sl = second.lpos.not_nil!
     bl = box.lpos.not_nil!
-    # Pre-fix: rendered yi=3..yl=6, two rows past the container's yl. After the
-    # fix its whole box is translated back inside the interior bottom.
+    # Without the translation it would render yi=3..yl=6, two rows past the
+    # container's yl; the whole box must translate back inside the interior
+    # bottom.
     sl.yl.should be <= (bl.yl - box.ibottom)
     second.top.should eq 1 # interior.height(4) - mvertical(0) - aheight(3)
   end

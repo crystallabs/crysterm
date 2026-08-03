@@ -77,7 +77,7 @@ describe "BUGS12 24: sync_label_position re-glues the label's horizontal inset" 
 
     box.sync_label_position
 
-    # Was one cell off (still 2) before the fix; now compensates: 2 - ileft.
+    # Must compensate for the new inset: 2 - ileft, not the stale 2.
     lbl.left.should eq 1
   end
 

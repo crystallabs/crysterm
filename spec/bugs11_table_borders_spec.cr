@@ -17,7 +17,7 @@ private GRID_GLYPHS = "─│┬┴├┤┼┌┐└┘"
 # BUGS11 #20 — `Table#draw_borders` hardcoded a vertical top inset of 1, so any
 # vertical padding shifted the real content rows down while the gridline grid
 # stayed put: the `─` fills and `┼`/`├`/`┤`/`┴` junctions landed on the cell
-# text rows and destroyed the text. The fix addresses the internal grid relative
+# text rows and destroyed the text. The internal grid must be addressed relative
 # to the real content origin (`itop`), keeping the outer `┬`/`┴` rows on the
 # actual top/bottom border rows.
 describe "BUGS11 #20 Table#draw_borders honors vertical padding" do
@@ -39,8 +39,8 @@ describe "BUGS11 #20 Table#draw_borders honors vertical padding" do
     htext = row_chars s, lp, header_row
     btext = row_chars s, lp, body_row
 
-    # The cell text survives — before the fix these rows were overwritten with
-    # `─`/`┼` gridlines and the words vanished.
+    # The cell text survives — these rows must not be overwritten with
+    # `─`/`┼` gridlines.
     htext.should contain("Name")
     htext.should contain("Email")
     btext.should contain("Alice")
@@ -59,7 +59,7 @@ end
 # BUGS11 #21 — `Table#draw_borders` iterated by `rows_n`/`@maxes` guarded only by
 # the screen-buffer bounds (`lines[...]?`), so a Table clipped by a scrollable /
 # `overflow: hidden` ancestor kept stamping gridlines into screen cells below its
-# visible rectangle (`coords.yl`). The fix bounds both border passes by the
+# visible rectangle (`coords.yl`). Both border passes must be bounded by the
 # rendered coords.
 describe "BUGS11 #21 Table#draw_borders is clipped to the rendered coords" do
   it "paints no gridlines below the clipping container's bottom" do
@@ -80,9 +80,9 @@ describe "BUGS11 #21 Table#draw_borders is clipped to the rendered coords" do
     clip_bottom = lp.yl                    # visible bottom (exclusive)
     clip_bottom.should be < natural_bottom # the clip really cut the table
 
-    # No gridline glyph may appear on any row below the clipped bottom — before
-    # the fix the junction/`─` passes stamped them all the way down to the
-    # table's full pinned height.
+    # No gridline glyph may appear on any row below the clipped bottom — the
+    # junction/`─` passes must not stamp all the way down to the table's full
+    # pinned height.
     (clip_bottom...natural_bottom).each do |y|
       chars = (0...40).map { |x| s.lines[y][x]?.try(&.char) || ' ' }.join
       leaked = chars.each_char.find { |c| GRID_GLYPHS.includes?(c) }

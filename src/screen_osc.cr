@@ -23,10 +23,8 @@ module Crysterm
     # Shares its implementation with `#copy_to_clipboard` (`tput.sel_data`,
     # which prefers the terminfo "Ms" extended capability and falls back to a
     # raw OSC 52 sequence) rather than `tput.set_clipboard`'s always-raw
-    # sequence — the two used genuinely different transports before merging;
-    # `#copy_to_clipboard` is kept as its own (still public — spec-observed)
-    # method rather than folded away, since it predates *selection* and is
-    # exercised directly.
+    # sequence. `#copy_to_clipboard` stays a public method of its own —
+    # specs observe and exercise it directly.
     def copy(text : String, selection : Selection = :clipboard) : Nil
       copy_to_clipboard text, selection
     end

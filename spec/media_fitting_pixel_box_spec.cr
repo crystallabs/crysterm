@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS12 #10: on the in-band pixel-graphics backends
+# Regression spec: on the in-band pixel-graphics backends
 # (`Media::Graphics` — Sixel/ReGIS/Kitty/iTerm), `Fitting.compose` receives
 # true device pixels as the box, so `Fit::None` must draw the source at its
 # **native 1:1 pixel size** — not the cell-footprint conversion (÷ cell aspect
 # ratio) the cell/sub-cell backends need, which squashed the image to half its
 # height. The `pixel_box` flag scopes that to `Fit::None` only: every scaling
-# fit, and every cell-backend call shape, must be byte-identical to before.
+# fit, and every cell-backend call shape, must be unaffected.
 
 private WHITE = PNGGIF::Pixel.new(255, 255, 255, 255)
 

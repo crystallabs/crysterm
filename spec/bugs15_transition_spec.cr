@@ -105,8 +105,8 @@ describe "BUGS15 CSS transition" do
     b.state = Crysterm::WidgetState::Normal
     b.transition_running?.should be_false # tween stopped, not left in flight
     sleep 0.2.seconds
-    # Without the fix the orphaned tween keeps writing toward 0.5 into the
-    # normal style; with it, normal opacity stays put.
+    # An orphaned tween would keep writing toward 0.5 into the normal style;
+    # normal opacity must stay put.
     b.style.opacity.should eq 1.0
   end
 end

@@ -3,9 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget#delete_line` (and `delete_top`/`delete_bottom`/`remove_first_line`/`remove_last_line`)
-# must not raise on an empty widget. Empty content leaves `@_clines.fake` empty,
-# and the old code reached `ftor[-1]` / `fake.delete_at` on empty arrays,
-# raising `IndexError`. Mirrors the guard already proven for `#insert_line`/`#line`.
+# must not raise on an empty widget: empty content leaves `@_clines.fake` empty,
+# and reaching `ftor[-1]` / `fake.delete_at` on empty arrays raises
+# `IndexError`. Mirrors the guard already proven for `#insert_line`/`#line`.
 describe "Widget#delete_line on empty content" do
   it "remove_last_line on a freshly built widget does not raise" do
     box = Widget::Box.new parent: headless_screen(default_quit_keys: true)

@@ -14,8 +14,8 @@ end
 
 # BUGS6 §5.1 — a flex child's cursor advance must use its CLAMPED used size, not
 # the raw grow-share. A flex child gets share `s`, but renders at `a_main_size`,
-# which `clamp_awidth`/`clamp_aheight` clamps to `[min, max]`. Pre-fix the cursor
-# advanced by `s`, so a CSS min/max constraint made the child overlap the next
+# which `clamp_awidth`/`clamp_aheight` clamps to `[min, max]`. Advancing the
+# cursor by raw `s` makes a CSS min/max constraint overlap the next
 # child (min > s) or leave a gap and fall short of the far edge (max < s).
 describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
   it "does not overlap the next child when a flex child has min-width > its share" do
@@ -43,7 +43,7 @@ describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
     a = Widget::Box.new parent: box, height: 2 # flex, share 15
     Widget::Box.new parent: box, height: 2     # flex, share 15
     # `a`'s share is 15, capped to 8 by max-width. Cursor must advance by 8,
-    # so `b` starts at 8 (pre-fix it advanced by 15, leaving a 7-col gap).
+    # so `b` starts at 8 (advancing by the raw share of 15 would leave a 7-col gap).
     a.max_width = 8
 
     coords = render_children s, box
@@ -53,7 +53,7 @@ describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
 
   it "keeps the remainder-exact fill for unconstrained flex children (BUGS3 §4)" do
     s = headless_screen(80, 24)
-    # Odd interior (11) split between two equal-grow children: the fix must not
+    # Odd interior (11) split between two equal-grow children: the clamp must not
     # regress the exact fill — an unconstrained child clamps back to its share.
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 11, height: 4,
       layout: Layout::HBox.new
@@ -80,10 +80,10 @@ describe "BUGS6 Box flex advance honors the child's min/max clamp (fix #1)" do
 end
 
 # BUGS6 §5.2 — an over-large `row_span` (the "span to the end" idiom, e.g. 99)
-# must not collapse the grid when `rows` is nil. Pre-fix `nrows` was inferred as
-# `max(row + row_span)`, so `row_span: 99` inflated the grid to 99 rows, squeezing
-# every cell to ~0 and driving `inner_h` negative with any gap. The fix caps the
-# inferred row count so a giant span instead spans to the last real row,
+# must not collapse the grid when `rows` is nil. Inferring `nrows` as
+# `max(row + row_span)` lets `row_span: 99` inflate the grid to 99 rows, squeezing
+# every cell to ~0 and driving `inner_h` negative with any gap. The
+# inferred row count is capped so a giant span instead spans to the last real row,
 # symmetric with how `column_span: 99` spans to the last column.
 describe "BUGS6 Grid row_span 'span to the end' does not collapse the grid (fix #2)" do
   it "keeps sane row heights when a child spans to the end (rows nil)" do
@@ -136,9 +136,9 @@ end
 # BUGS6 §5.3 — the `@flex`/`@filled` latch must release when the user assigns an
 # explicit size. Once auto-sized, a child joined `@flex` and stayed flex forever;
 # setting `child.width = N` after the first frame was overwritten by a fresh
-# grow-share every frame, with no way to convert it back to fixed. The fix tracks
-# the last layout-assigned size and reverts the child to fixed once its raw size
-# no longer matches.
+# grow-share every frame, with no way to convert it back to fixed. The latch
+# tracks the last layout-assigned size and reverts the child to fixed once its
+# raw size no longer matches.
 describe "BUGS6 Box releases a flex child when the user sets an explicit size (fix #3)" do
   it "honors a width set on a previously-flex child on the next frame" do
     s = headless_screen(80, 24)
@@ -150,8 +150,8 @@ describe "BUGS6 Box releases a flex child when the user sets an explicit size (f
     first = render_children s, box
     first.should eq [{0, 15, 0, 2}, {15, 30, 0, 2}]
 
-    # User pins `a` to a fixed width. Pre-fix `a` stayed flex and was re-shared
-    # back to 15; the fix keeps it at 6 and gives the leftover to flex `b`.
+    # User pins `a` to a fixed width. `a` must stay at 6 — not remain flex and
+    # be re-shared back to 15 — with the leftover going to flex `b`.
     a.width = 6
     second = render_children s, box
     second[0].should eq({0, 6, 0, 2})
@@ -161,7 +161,7 @@ describe "BUGS6 Box releases a flex child when the user sets an explicit size (f
   it "releases a stretched (cross-axis) child when an explicit cross size is set" do
     s = headless_screen(80, 24)
     # Default align is Stretch: the layout assigns the cross (height) size and
-    # records it in `@filled`, exercising the latch that pre-fix never released.
+    # records it in `@filled`, exercising the latch release.
     box = Widget::Box.new parent: s, left: 0, top: 0, width: 30, height: 10,
       layout: Layout::HBox.new
     a = Widget::Box.new parent: box, width: 6 # cross (height) auto -> stretched

@@ -13,9 +13,8 @@ module Crysterm
     # Fires on resize, to adjust the label
     @ev_label_resize : Crysterm::Event::Resize::Wrapper?
 
-    # Fires on scroll, to adjust the label. Declared here beside its resize
-    # sibling (it was stranded in `widget_scrolling.cr`); the label code owns
-    # both subscriptions.
+    # Fires on scroll, to adjust the label. The label code owns both
+    # subscriptions.
     @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
 
     # Which side of the border a label is anchored to.

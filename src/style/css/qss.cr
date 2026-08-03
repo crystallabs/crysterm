@@ -127,7 +127,7 @@ module Crysterm
       # tokens (the trailing lookahead stops `:on` matching inside `:only-one`).
       # Other `:pseudo` tokens are left for the parser. Built from
       # `STATE_PSEUDOS.keys` so adding a mapping there cannot leave this regex
-      # stale (R-76).
+      # stale.
       STATE_PSEUDO = /:(#{STATE_PSEUDOS.keys.map { |k| Regex.escape k }.join('|')})(?![\w-])/
 
       # Rewrites *source* (a `.qss` file's contents) into Crysterm CSS:

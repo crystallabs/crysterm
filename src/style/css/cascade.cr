@@ -67,7 +67,7 @@ module Crysterm
       # *cached_variables* (the custom properties merged across *sheets*) and
       # *cached_resolved* (the per-value `var()` resolution memo) are a pure
       # function of *sheets*, so the window hands in copies it keeps across
-      # cascades (O7-20). Both are rebuilt here when omitted, keeping this
+      # cascades. Both are rebuilt here when omitted, keeping this
       # callable standalone.
       #
       # Deliberately one flat resolver walk (the benchmarked cascade hot path);
@@ -267,19 +267,7 @@ module Crysterm
         # pass at the end. Unused — and left empty — on a full cascade.
         scoped_roots = [] of Widget
         each_recompute_candidate(index, scope) do |widget|
-          widget.styles = widget.css_base_styles.deep_dup
-          widget.css_styled = false
-          widget.css_reset_extra
-          # The reset wiped any sub-control style an ancestor pushed onto this
-          # widget, but the ancestor's own sub-`Style` object survives when it's
-          # outside the scope — so the push memo would keep reporting `same?` and
-          # skip re-pushing forever. Drop it so the next push re-dups.
-          widget._substyle_src = nil
-          # Geometry has the same non-staleness contract as styles, but lives on
-          # the widget itself: restore the pristine snapshot so a geometry rule
-          # that stopped matching reverts rather than sticking. The
-          # currently-matching declarations re-apply below.
-          widget.restore_css_base_geometry
+          widget.css_reset_to_base
 
           # Fold the full inline `@style` onto `normal`, the fallback state every
           # unset state defers to. The per-state inline fold below only runs for
@@ -305,17 +293,17 @@ module Crysterm
         # every touched pair before the *sub-element* pass below, which this
         # single walk (running wholly before it) satisfies.
         #
-        # O7-21: geometry declarations are rare, but finding them costs a re-walk
+        # Geometry declarations are rare, but finding them costs a re-walk
         # of every winning declaration of every touched widget. Hoist the
         # per-sheet flag so a sheet without any skips that walk outright. (The
         # inline `@style` is a `Style`, which can't carry geometry, so the
         # stylesheets are the only source.)
         any_geometry = sheets.any?(&.[0].has_geometry?)
-        # O7-22: materializing and applying were two identical walks over
-        # `touched`. Merging them is sound because the apply body reads only the
-        # pair's own just-stored `Style`, the widget's own inline `@style` and
-        # the widget's geometry — never another pair's state style — so no pair
-        # depends on a later one having been materialized first.
+        # Materializing and applying share this one walk over `touched`: sound
+        # because the apply body reads only the pair's own just-stored `Style`,
+        # the widget's own inline `@style` and the widget's geometry — never
+        # another pair's state style — so no pair depends on a later one having
+        # been materialized first.
         #
         # Apply order within a pair: author/default declarations, then inline
         # `@style` (tier 2), then `!important` (tier 3). Every touched widget is
@@ -386,7 +374,7 @@ module Crysterm
           end
         end
 
-        # O7-19: a scoped cascade only reset and recomputed the widgets in
+        # A scoped cascade resets and recomputes only the widgets in
         # *scope*, so inheritance only has to re-run over those subtrees — not
         # the whole tree. Correctness rests on two properties of the scope:
         #
@@ -634,7 +622,7 @@ module Crysterm
       # declarations (rewritten to `color`/`background-color`), or an empty array
       # when it has none.
       private def self.selection_entries(sheet : Stylesheet, index : Int32, rule : Rule, base_tier : Int32) : Array(Entry)
-        # O4-21: entries are deterministic per `{rule, base_tier}` — compute once
+        # Entries are deterministic per `{rule, base_tier}` — compute once
         # and share across cascades (only ever `concat`-ed, never mutated).
         sheet.selection_entries_cache.fetch({index, base_tier}) do
           sheet.selection_entries_cache[{index, base_tier}] = build_selection_entries(rule, base_tier)
@@ -701,7 +689,7 @@ module Crysterm
       # The cascade entries a rule contributes: its normal declarations at
       # *base_tier*, and its `!important` declarations at `TIER_IMPORTANT`.
       private def self.rule_entries(sheet : Stylesheet, index : Int32, rule : Rule, base_tier : Int32) : Array(Entry)
-        # O4-21: entries are deterministic per `{rule, base_tier}` — compute once
+        # Entries are deterministic per `{rule, base_tier}` — compute once
         # and share across cascades (only ever `concat`-ed, never mutated).
         sheet.rule_entries_cache.fetch({index, base_tier}) do
           entries = [] of Entry

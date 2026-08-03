@@ -6,7 +6,7 @@ include Crysterm
 # backslash-escaped `\[x\]` item as a GFM task marker (markd resolves the
 # escape before the AST, so its text nodes are identical to a real `[x]`),
 # turning a literal `[x]` bullet into a checked checkbox item and deleting the
-# leading 4 chars. The fix consults each item's source position to tell an
+# leading 4 chars. The importer consults each item's source position to tell an
 # escaped `[` from a real one.
 describe "BUGS17 escaped task marker" do
   # An escaped `\[x\]` bullet is literal text, not a task item.

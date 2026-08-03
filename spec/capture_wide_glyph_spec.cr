@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: `Capture.draw_cell` used to clamp every cell's background fill and
+# Regression: `Capture.draw_cell` clamped every cell's background fill and
 # glyph to a single cell width (`cw`). A wide (2-column) grapheme is 16px wide in
 # the default Unifont, and its continuation cell is skipped by
 # `each_content_cell`, so the right half of the glyph and background was never

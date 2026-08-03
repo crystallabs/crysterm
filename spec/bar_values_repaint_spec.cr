@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Graph::Bar#values=` used to store new data without scheduling a
-# repaint, so under `DamageTracking` a bare `bar.values = [...]` left stale
-# bars until an unrelated frame dirtied it. Sibling `StackedBar#values=`
-# already calls `mark_dirty`; `Bar` now matches it.
+# `Widget::Graph::Bar#values=` must schedule a repaint along with storing the
+# data — under `DamageTracking` a bare `bar.values = [...]` would otherwise
+# leave stale bars until an unrelated frame dirtied it. Matches sibling
+# `StackedBar#values=`, which calls `mark_dirty`.
 #
 # `mark_dirty` records the widget (via its top-level ancestor) in
 # `@damage_dirty_roots`; the bar here is a direct screen child so it's its own

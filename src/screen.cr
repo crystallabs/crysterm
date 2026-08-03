@@ -49,6 +49,8 @@ module Crysterm
   # device out lets one app drive multiple ttys, and powers detach/reattach: a
   # `Window` survives while its `Screen` is rebuilt.
   class Screen
+    include Mixin::Name
+
     # Input IO.
     #
     # NOTE: never `STDIN.dup` — the `initialize(@input = @input)` default is
@@ -138,7 +140,7 @@ module Crysterm
     # passing `width:` to the constructor does (`explicit_width?`): a pinned
     # axis is no longer overwritten by the size probed/reported from the
     # terminal (`#adopt_terminal_size`, `#resize`). Internal terminal-tracking
-    # updates write `@width` directly instead, so they honor the pin (R-84).
+    # updates write `@width` directly instead, so they honor the pin.
     def width=(value : Int32)
       @explicit_width = true
       @width = value
@@ -274,7 +276,7 @@ module Crysterm
     # checks this to skip the redundant re-probe: the probe's synchronous
     # reply reads would race the device's live input fiber for the same bytes
     # — replies stolen by the parked reader arrive as garbage key events while
-    # the probe times out into degraded capabilities (B17-01).
+    # the probe times out into degraded capabilities.
     getter? probed = false
 
     # Runs the deferred live terminal probe that the constructor skipped. No-op
@@ -290,7 +292,7 @@ module Crysterm
       @tput.probe!
       # The live negotiation for this device has run (a no-op on a non-tty,
       # but re-running it would learn nothing more). A sibling `Window`
-      # constructed on this device later must not repeat it (B17-01).
+      # constructed on this device later must not repeat it.
       @probed = true
       @draw_caps = compute_draw_caps
       # The probe's XTVERSION reply refines the emulator identity — confirming
@@ -420,8 +422,8 @@ module Crysterm
     # start_input. Best-effort only — cooperative `stop_input` cannot reclaim a
     # read the old fiber is already parked in, and that reader may still
     # swallow the first reply bytes — so a caller adopting an already-`probed?`
-    # device must skip this entirely rather than lean on the serialization
-    # (B17-01). The constructor deliberately does NOT use this helper — it
+    # device must skip this entirely rather than lean on the serialization.
+    # The constructor deliberately does NOT use this helper — it
     # splits the same two calls around theme/stylesheet setup (unit'd styles
     # derive from probe results), so they can't run adjacently.
     def reprobe_and_detect_geometry : Nil

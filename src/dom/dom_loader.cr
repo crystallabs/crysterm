@@ -9,8 +9,8 @@ module Crysterm
   # and recurse into element children.
   #
   # Crystal has no runtime reflection, so the tag -> class map must be built at
-  # compile time. Rather than a hand-maintained list, the registry is populated
-  # by a `macro finished` sweep that auto-discovers widgets *by namespace*:
+  # compile time: a `macro finished` sweep populates the registry,
+  # auto-discovering widgets *by namespace* —
   # every concrete `Crysterm::Widget::*` is loadable (minus classes annotated
   # `@[Crysterm::DOM::Skip]` — see the annotation's doc in `widget.cr`). The
   # leaf type name (lowercased) is the key, matching the `w-<leaf>` tag
@@ -34,8 +34,7 @@ module Crysterm
     # Widgets that namespace-based opt-in would otherwise register but must NOT
     # be are excluded per class, via the `@[Crysterm::DOM::Skip]` annotation on
     # the widget itself (declared in `widget.cr`; see its doc for the exclusion
-    # reasons) — self-maintaining, unlike the hand-kept central list it
-    # replaced (R-89). The `dom_registry_spec` round-trip invariant fails
+    # reasons) — self-maintaining. The `dom_registry_spec` round-trip invariant fails
     # loudly if a new self-populating widget slips through unannotated.
 
     # Tag (leaf type name, lowercased) -> widget factory, built lazily on first

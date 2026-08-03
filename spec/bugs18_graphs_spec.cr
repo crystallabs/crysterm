@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS18.md #78, #79, #81, #82, #83, #87: graph-widget non-finite-guard gaps
+# Graph-widget non-finite-guard gaps
 # (Map viewport bounds/graticule, StackedBar column sum), decoration setters
 # that never scheduled a render (PieChart), a NaN slice poisoning the whole
 # pie, an unguarded Painter primitive, and LineChart's never-rendered axis
@@ -48,7 +48,7 @@ describe "Widget::Graph::Map non-finite viewport guards (B18-78)" do
       m = Crysterm::Widget::Graph::Map.new parent: s, top: 0, left: 0, width: 78, height: 22,
         type: Crysterm::Widget::Media::Type::Glyph, min_lon: Float64::NAN
       m.add_marker latitude: 12.0, longitude: 34.0, char: 'X'
-      # Previously `fx = (lon - NaN) / NaN` raised OverflowError on `.round.to_i`.
+      # Unguarded, `fx = (lon - NaN) / NaN` raises OverflowError on `.round.to_i`.
       s.repaint
     ensure
       Crysterm::CSS.default_stylesheet = saved
@@ -120,7 +120,7 @@ describe "Widget::Graph::Map graticule non-finite/huge-bound guard (B18-82)" do
       Crysterm::Widget::Graph::Map.new parent: s, top: 0, left: 0, width: 78, height: 22,
         type: Crysterm::Widget::Media::Type::Glyph, show_graticule: true,
         min_lon: -Float64::INFINITY
-      # The old accumulation-driven `lon = -Inf; lon += step` loop never
+      # An accumulation-driven `lon = -Inf; lon += step` loop never
       # advances past `-Inf` and spins the render fiber forever; the
       # index-driven `#each_graticule_line` must terminate promptly instead.
       elapsed = Time.measure { s.repaint }
@@ -156,7 +156,7 @@ describe "Widget::Graph::PieChart decoration setters schedule a render (B18-79)"
   it "inner_radius= with a Float64 argument rings the render doorbell" do
     # `property inner_radius : Float64` generates a `(Float64)` setter that is
     # a more specific overload than the hand-written invalidating
-    # `(Number)` one, so a plain Float64 assignment used to dispatch to the
+    # `(Number)` one, so a plain Float64 assignment would dispatch to the
     # silent generated setter and never schedule a frame.
     s = headless_screen(78, 22)
     pie = Crysterm::Widget::Graph::PieChart.new parent: s, top: 0, left: 0, width: 24, height: 12
@@ -165,7 +165,7 @@ describe "Widget::Graph::PieChart decoration setters schedule a render (B18-79)"
     s.repaint
     g18_drain_frames s
 
-    pie.inner_radius = 0.5 # Float64 literal: the buggy overload
+    pie.inner_radius = 0.5 # Float64 literal: the shadowed overload
     g18_frame_scheduled?(s).should be_true
     pie.inner_radius.should eq 0.5
   end
@@ -218,8 +218,8 @@ describe "Widget::Graph::PieChart non-finite slice guard (B18-81)" do
       pie.add_slice "cache", 20.0
       s.repaint
       t = g18_text s
-      # Previously the NaN slice poisoned `total`, so every angle became NaN
-      # and `fill_ring`'s non-finite guard blanked every wedge.
+      # A NaN slice must not poison `total` — every angle would become NaN
+      # and `fill_ring`'s non-finite guard would blank every wedge.
       t.each_char.any? { |ch| ('⠁'..'⣿').includes?(ch) }.should be_true
       # The finite slices' percentages are computed from the filtered total
       # (50 + 20 = 70), not suppressed by the poisoned raw sum.
@@ -293,9 +293,9 @@ describe "Widget::Graph::StackedBar non-finite segment guard (B18-81 sibling)" d
     sb = Crysterm::Widget::Graph::StackedBar.new parent: s, top: 0, left: 0,
       width: 40, height: 10, segment_labels: ["x", "y"]
     sb.values = [[3.0, Float64::NAN], [1.0, 4.0]]
-    # Previously relied only on `Scale.eighths` incidentally zeroing a
-    # non-finite sum; now `#column` filters both the sum and the running
-    # cumulative total explicitly.
+    # `#column` must filter both the sum and the running cumulative total
+    # explicitly, not rely on `Scale.eighths` incidentally zeroing a
+    # non-finite sum.
     s.repaint
   end
 

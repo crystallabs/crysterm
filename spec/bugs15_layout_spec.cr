@@ -10,10 +10,10 @@ private def rendered_height(el)
   l.yl - l.yi
 end
 
-# BUGS15 #3 — Layout::Border wrote each edge child's resolved consume-axis size
-# back into its raw @height/@width, destroying a percent size (frozen at frame
-# 1's cells) and making a transient clamp permanent. The fix mirrors
-# Layout::Box's @flex_size release bookkeeping.
+# BUGS15 #3 — Layout::Border must not write each edge child's resolved
+# consume-axis size back into its raw @height/@width, destroying a percent
+# size (frozen at frame 1's cells) and making a transient clamp permanent;
+# mirrors Layout::Box's @flex_size release bookkeeping.
 describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
   it "re-resolves a top child's percent height against the live container" do
     s = headless_screen(80, 24)
@@ -26,8 +26,8 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
     s.repaint
     rendered_height(top).should eq 10 # 50% of 20
 
-    # Shrink the container: the percent must re-resolve (pre-fix it stayed 10,
-    # the frame-1 cells written back over the "50%" string).
+    # Shrink the container: the percent must re-resolve, not stay frozen at
+    # the frame-1 cells written back over the "50%" string.
     box.height = 10
     s.repaint
     rendered_height(top).should eq 5 # 50% of 10
@@ -55,9 +55,9 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
   end
 end
 
-# BUGS15 #31 — Border reserved edge-child margins only on the consume axis, so a
-# margined edge child was assigned the full span and, after coords' near
-# shift, painted past the container. The fix subtracts the span-axis margins.
+# BUGS15 #31 — Border must subtract edge-child margins on the span axis too:
+# reserving only the consume axis assigns a margined edge child the full span
+# which, after coords' near shift, paints past the container.
 describe "BUGS15 border layout reserves the span-axis margin (fix #31)" do
   it "keeps a left-margined top bar inside the container's right edge" do
     s = headless_screen(80, 24)
@@ -72,16 +72,16 @@ describe "BUGS15 border layout reserves the span-axis margin (fix #31)" do
 
     hl = header.lpos.not_nil!
     bl = box.lpos.not_nil!
-    # Pre-fix the header was assigned the full 80-col span then shifted right by
-    # its 2-col left margin, painting columns 80-81 outside the container.
+    # Assigned the full 80-col span, the header would shift right by its 2-col
+    # left margin and paint columns 80-81 outside the container.
     hl.xl.should be <= (bl.xl - box.iright)
   end
 end
 
-# BUGS15 #33 — Grid::Hint column origin was clamped to `cols` (one past the last
-# valid column), collapsing an off-grid child to zero width past the interior.
-# The fix clamps to `cols - 1`, landing it in the last column (symmetric with
-# the negative-col clamp to column 0).
+# BUGS15 #33 — Grid::Hint column origin clamps to `cols - 1`, landing an
+# off-grid child in the last column (symmetric with the negative-col clamp to
+# column 0) — clamping to `cols` (one past the last valid column) collapses
+# it to zero width past the interior.
 describe "BUGS15 grid clamps an off-grid column to the last column (fix #33)" do
   it "renders a col-beyond-grid child in the last column, not vanished" do
     s = headless_screen(80, 24)
@@ -94,16 +94,16 @@ describe "BUGS15 grid clamps an off-grid column to the last column (fix #33)" do
 
     s.repaint
 
-    # Pre-fix: width 0, left 30 (past the interior), lpos nil.
+    # Guards against: width 0, left 30 (past the interior), lpos nil.
     off.lpos.should_not be_nil
     off.width.should eq 10 # last of three 10-wide columns
     off.left.should eq 20  # column 2 origin
   end
 end
 
-# BUGS15 #34 — Flow#overflow_action ignored the child's top margin, so a
-# margin-shifted box overflowing the interior bottom was not reported and the
-# container's SkipWidget/StopRendering policy never engaged. The fix adds mtop.
+# BUGS15 #34 — Flow#overflow_action must count the child's top margin: a
+# margin-shifted box overflowing the interior bottom would otherwise go
+# unreported and the container's SkipWidget/StopRendering policy never engage.
 describe "BUGS15 flow overflow accounts for the child's top margin (fix #34)" do
   it "skips a bottom-overflowing child once its top margin is counted" do
     s = headless_screen(80, 24)
@@ -115,16 +115,16 @@ describe "BUGS15 flow overflow accounts for the child's top margin (fix #34)" do
     s.repaint
 
     # 0 + mtop(1) + aheight(5) = 6 > 5 interior -> SkipWidget -> lpos cleared.
-    # Pre-fix (0 + 5 > 5 is false) it rendered, painting a row past the bottom.
+    # Without mtop (0 + 5 > 5 is false) it would render a row past the bottom.
     child.lpos.should be_nil
   end
 end
 
-# BUGS15 #4 — Flow chained placement solely off the previous *rendered* child.
-# A scroll-clipped child has a nil lpos, so once the top rows scrolled out of
-# view every later child fell back to (0,0) and clipped too, blanking the
-# whole container. The fix chains off a placed-but-unrendered predecessor's
-# geometry and advances the row cursor by its assigned height.
+# BUGS15 #4 — Flow must not chain placement solely off the previous *rendered*
+# child: a scroll-clipped child has a nil lpos, so once the top rows scroll
+# out of view every later child falls back to (0,0) and clips too, blanking
+# the whole container. Placement chains off a placed-but-unrendered
+# predecessor's geometry and advances the row cursor by its assigned height.
 describe "BUGS15 flow keeps scrolled rows visible (fix #4)" do
   it "shows the scrolled-into-view rows instead of re-piling at the origin" do
     s = headless_screen(80, 24)
@@ -150,10 +150,10 @@ describe "BUGS15 flow keeps scrolled rows visible (fix #4)" do
   end
 end
 
-# BUGS15 #32 — Layout::Form treated any non-Int32 height as 1 and wrote the
-# resolved row height back into each child, destroying a percent/String height
-# and making the paired-row max sticky. The fix resolves String heights via
-# aheight and mirrors Border's release bookkeeping.
+# BUGS15 #32 — Layout::Form must not treat any non-Int32 height as 1 nor write
+# the resolved row height back into each child, destroying a percent/String
+# height and making the paired-row max sticky. String heights resolve via
+# aheight, mirroring Border's release bookkeeping.
 describe "BUGS15 form resolves and preserves child heights (fix #32)" do
   it "resolves a field's percent height instead of collapsing it to 1" do
     s = headless_screen(80, 24)
@@ -163,7 +163,7 @@ describe "BUGS15 form resolves and preserves child heights (fix #32)" do
     field = Widget::Box.new parent: form, height: "30%"
 
     s.repaint
-    # row height = max(5, 30% of 30 = 9) = 9. Pre-fix "30%" -> 1, so max = 5.
+    # row height = max(5, 30% of 30 = 9) = 9; a "30%" -> 1 collapse would give 5.
     rendered_height(field).should eq 9
     rendered_height(label).should eq 9
 
@@ -184,8 +184,8 @@ describe "BUGS15 form resolves and preserves child heights (fix #32)" do
     s.repaint
     rendered_height(field).should eq 5 # max(5, 3)
 
-    # Shrink the label: the row must shrink to the field's 3. Pre-fix the field's
-    # raw 3 was overwritten with the frame-1 max (5), so the row stayed 5.
+    # Shrink the label: the row must shrink to the field's 3 — the field's raw
+    # 3 must not be overwritten with the frame-1 max (5), pinning the row at 5.
     label.height = 1
     s.repaint
     rendered_height(field).should eq 3 # max(1, 3)

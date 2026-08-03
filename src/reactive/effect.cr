@@ -52,9 +52,8 @@ module Crysterm
     # Crysterm::Reactive.effect { label.content = show.value ? a.value : b.value }
     # ```
     #
-    # Pass an *owner* widget to (a) schedule a repaint of its window after each
-    # run and (b) auto-dispose when it emits `Event::Destroy` (via
-    # `Reactive.effect`).
+    # Pass an *owner* widget to (a) schedule a repaint of it after each run and
+    # (b) auto-dispose when it emits `Event::Destroy` (via `Reactive.effect`).
     class Effect
       include Deferrable
 
@@ -125,7 +124,11 @@ module Crysterm
       # Re-runs the effect: executes the body under this effect's tracking scope,
       # re-discovering its dependencies, then — only on success — cancels the
       # subscriptions for deps it no longer reads and schedules a repaint of the
-      # owner's window. Deps stable across runs keep their existing subscription.
+      # owner. Deps stable across runs keep their existing subscription.
+      #
+      # The repaint goes through `Widget#request_render` (mark damaged + ring the
+      # doorbell), not the bare doorbell: see `Binding#run` for why a
+      # doorbell-only request loses the change under damage tracking.
       #
       # The re-track is *transactional*: if the body raises, only the deps first
       # subscribed during this run are cancelled and every dep that predated it
@@ -164,7 +167,7 @@ module Crysterm
             true
           end
         end
-        @owner.try &.window?.try &.update
+        @owner.try &.request_render
       end
 
       # Cancels all subscriptions and stops the effect. Idempotent.

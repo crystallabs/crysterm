@@ -2,8 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS16 B16-10 and B16-11.
-
 private def headless_screen(w = 80, h = 24, optimization = Crysterm::OptimizationFlag::None)
   Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -64,14 +62,13 @@ describe "BUGS16 B16-10: overflow= marks the widget dirty" do
     plain.repaint
     dmg.repaint
 
-    # Pre-fix: the damage-tracking screen's clip never engages (the widget's
-    # subtree was skipped), so its cells still show the un-clipped "xxxx...x"
-    # spilling past column 10, while the plain screen already clips it.
+    # Without the dirtying, the damage-tracking screen's clip never engages
+    # (the subtree is skipped): its cells would still show the un-clipped
+    # "xxxx...x" spilling past column 10 while the plain screen clips it.
     assert_same_lines dmg, plain, "after overflow="
   end
 end
 
-# B16-11 — two defects in the scroll-index clamp wiring (see BUGS16.md).
 describe "BUGS16 B16-11: scrollable= re-enable reclamps immediately" do
   it "reclamps child_base on re-enable after a shrink while disabled" do
     s = headless_screen
@@ -81,7 +78,7 @@ describe "BUGS16 B16-11: scrollable= re-enable reclamps immediately" do
     box.scroll(15)
     box.child_base.should be > 0 # scrolled down into the content
 
-    # B16-15 (wave 3): disabling now resets the scroll state outright, since
+    # B16-15: disabling resets the scroll state outright, since
     # no repair path is reachable while non-scrollable. The re-enable reclamp
     # (this finding) remains load-bearing for any path that leaves child_base
     # stale relative to shrunken content — pin it by scrolling again through

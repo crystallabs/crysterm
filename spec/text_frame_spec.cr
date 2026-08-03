@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# TextFrame nesting (TEXTEDIT.md follow-up; Qt QTextFrame): child frames as
+# TextFrame nesting (Qt QTextFrame): child frames as
 # identity-keyed views over `TextBlockFormat#frame_formats` paths, created
 # via `TextCursor#insert_frame`, navigated via `child_frames`/`parent_frame`
 # and `TextDocument#frame_at`. Pure model.

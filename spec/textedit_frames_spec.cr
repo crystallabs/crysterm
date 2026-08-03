@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Frame rendering in `Widget::TextEdit` (TEXTEDIT.md follow-up): bordered
+# Frame rendering in `Widget::TextEdit`: bordered
 # child frames draw a box — top/bottom border rows (positionless, like block
 # margins), side bars every content row — with the text inset by the frame's
 # border/margin, and the shared caret/mouse geometry staying exact through

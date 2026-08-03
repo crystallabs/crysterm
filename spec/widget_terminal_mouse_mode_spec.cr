@@ -8,8 +8,8 @@ include Crysterm
 # forward only the event kinds that mode asked for. Modes are progressive: X10
 # (9) = presses only; normal (1000) adds release + wheel but not motion;
 # button-event (1002) adds motion while a button is held; any-event (1003)
-# adds free motion. Previously the widget forwarded every `Event::Mouse` while
-# any tracking was active, flooding normal-mode children with motion reports.
+# adds free motion. Forwarding every `Event::Mouse` while any tracking is
+# active would flood normal-mode children with motion reports.
 
 private def mouse(action : ::Tput::Mouse::Action, button : ::Tput::Mouse::Button, x : Int32, y : Int32)
   Crysterm::Event::Mouse.new(::Tput::Mouse::Event.new(action, button, x, y))

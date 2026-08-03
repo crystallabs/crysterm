@@ -1,6 +1,7 @@
 module Crysterm
   # Support code for opening real terminal *windows/panes/sessions* and driving
-  # them with a Crysterm `Window`. A "launcher" is a registered recipe for one
+  # them with a Crysterm `Window` (the surface; the spawned window itself is a
+  # `Terminal::EmulatorWindow`). A "launcher" is a registered recipe for one
   # backend program — how to instruct it to run a given command in a new window.
   #
   # Backends include GUI emulators (xterm, kitty, alacritty, …) as well as

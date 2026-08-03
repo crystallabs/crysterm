@@ -4,7 +4,7 @@ include Crysterm
 
 # Counterpart to `widget_reparent_screen_child_spec.cr` (pulling a top-level
 # widget into a widget); this covers moving a widget onto a screen. `Window#insert`
-# previously never detached the element from its old home, leaving it
+# must detach the element from its old home — otherwise it ends up
 # double-parented: listed in both the old container's and new screen's `children`,
 # rendered twice.
 

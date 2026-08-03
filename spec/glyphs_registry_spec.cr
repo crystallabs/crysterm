@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# The central `Crysterm::Glyphs` registry (GLYPHS.md phase 1): one place
+# The central `Crysterm::Glyphs` registry: one place
 # defines every chrome glyph per support tier (`Ascii < Unicode < Extended`),
 # `Screen#glyph_tier` picks the set (default `Unicode` — byte-identical with
 # the historically hardcoded literals), and widgets resolve through

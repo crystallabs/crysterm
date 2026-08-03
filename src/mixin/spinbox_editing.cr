@@ -12,7 +12,7 @@ module Crysterm
     # The including widget must provide:
     #
     #   * `#value` / `#value=` / `#step_up` / `#step_down` and `@minimum` /
-    #     `@maximum` / `@step` — its numeric value/range logic (e.g. from
+    #     `@maximum` / `@single_step` — its numeric value/range logic (e.g. from
     #     `Mixin::RangedValue`);
     #   * `#parse_buffer(buf : String)` — parse the edit buffer to the widget's
     #     numeric type, returning `nil` on failure (`to_i?` / `to_f?`);
@@ -97,9 +97,17 @@ module Crysterm
       # Installs the mouse-wheel and blur handlers. Call once from the including
       # widget's `#initialize` (after `super`).
       protected def install_spinbox_editing : Nil
-        # Losing focus mid-edit discards the buffer (Qt restores the last valid
-        # value rather than committing a half-typed one).
-        on(Crysterm::Event::FocusOut) { cancel_edit if editing? }
+        on(Crysterm::Event::FocusOut) do
+          # Losing focus mid-edit discards the buffer (Qt restores the last
+          # valid value rather than committing a half-typed one).
+          cancel_edit if editing?
+          # Qt's `QAbstractSpinBox` emits `editingFinished` on *every*
+          # focus-out (stepping counts as editing too), not only when a typed
+          # entry was open — mirrored here. The other emission point
+          # is the Enter commit in `#on_keypress`; the in-place discards
+          # (Escape, step/wheel) stay silent, as in Qt.
+          emit ::Crysterm::Event::EditingFinished
+        end
 
         on(Crysterm::Event::Mouse) do |e|
           if e.action.wheel_up?
@@ -159,6 +167,21 @@ module Crysterm
         update_content
       end
 
+      # Empties the *displayed* edit text — Qt's `QAbstractSpinBox#clear`: the
+      # committed `#value` is untouched until a new valid entry is committed.
+      # Implemented as "open (or blank) a typing session with an empty
+      # buffer" — the same state backspacing a whole entry away leaves — so the
+      # box shows only `prefix`/`suffix`, further typing builds a fresh entry,
+      # and Enter/Escape/focus-out on the still-empty buffer restore the
+      # display to the committed value (an empty buffer never commits, see
+      # `#commit_edit`). Deliberately not gated on `#editable?`: like Qt's
+      # slot, this is a programmatic display reset, not a user edit.
+      def clear
+        @editing = ""
+        update_content
+        request_render
+      end
+
       def on_keypress(e)
         k = e.key
         ch = e.char
@@ -178,6 +201,11 @@ module Crysterm
 
         if k == ::Tput::Key::Enter && editing?
           commit_edit
+          # Enter finished the typing session. Emitted here rather than
+          # inside `#commit_edit` so a programmatic commit stays silent and the
+          # focus-out emission (see `#install_spinbox_editing`) can't pair up
+          # with this one into a double-fire for a single user action.
+          emit ::Crysterm::Event::EditingFinished
           e.accept
           request_render
         elsif k == ::Tput::Key::Escape && editing?
@@ -191,9 +219,9 @@ module Crysterm
         elsif k == ::Tput::Key::Down || ch == 'j'
           stepping_key(e) { step_value_down }
         elsif k == ::Tput::Key::PageUp
-          stepping_key(e) { step_value_up page_step_delta(@step) }
+          stepping_key(e) { step_value_up page_step_delta(@single_step) }
         elsif k == ::Tput::Key::PageDown
-          stepping_key(e) { step_value_down page_step_delta(@step) }
+          stepping_key(e) { step_value_down page_step_delta(@single_step) }
         elsif k == ::Tput::Key::Home
           stepping_key(e) { self.value = @minimum }
         elsif k == ::Tput::Key::End

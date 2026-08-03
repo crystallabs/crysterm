@@ -88,8 +88,8 @@ module Crysterm
         # `rtof`/`blocks` lookup) likewise leaves the carry alone, and the
         # `rl == carry_rl + 1` test then fails on the row after it, forcing the
         # exact re-seed. So a carry hit means both rows are text rows of `bi`,
-        # adjacent in `ftor[bi]` — exactly the case where the old
-        # `pos_from_rowcol(rl, 0)` re-summed the same piece widths the previous
+        # adjacent in `ftor[bi]` — exactly the case where a fresh
+        # `pos_from_rowcol(rl, 0)` would re-sum the same piece widths the previous
         # iteration's `row_end` already accounted for. TABs need no special
         # case: the carry passes *expanded* widths, the same units
         # `pos_from_rowcol` accumulated, and `unexpand_col_in` maps them back.
@@ -201,7 +201,7 @@ module Crysterm
 
           # Iterate the row's codepoint window `[ls, le)` straight out of the
           # block's `raw` text instead of slicing a fresh per-frame `String`
-          # for every wrapped/scrolled row (O4-27). `ls`/`le` are wrap cut
+          # for every wrapped/scrolled row. `ls`/`le` are wrap cut
           # points, hence grapheme boundaries, so windowing the full walk
           # yields the exact clusters the substring would have.
           each_glyph(raw, fu, ls, le) do |ch, cluster, cps|
@@ -483,8 +483,8 @@ module Crysterm
         if fu
           # Grapheme clustering is context-sensitive, and skipping a prefix by
           # re-walking it costs more than the slice it would replace — so for a
-          # windowed row still materialize the substring (identical to the old
-          # `raw[ls, le-ls]`), keeping the no-alloc fast path only for a full row.
+          # windowed row still materialize the substring (`raw[ls, le-ls]`),
+          # keeping the no-alloc fast path only for a full row.
           gtext = (cp_lo == 0 && cp_hi >= text.size) ? text : text[cp_lo, cp_hi - cp_lo]
           gtext.each_grapheme do |g|
             # Read the stdlib-internal `@cluster` (`Char | String`) rather than

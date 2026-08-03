@@ -30,8 +30,8 @@ describe "BUGS13 M9: destroy withdraws accelerators" do
     fired.should eq 1
 
     bar.destroy
-    # The shortcut used to stay registered forever (destroy cleared @menus
-    # before super emitted Detach, so the uninstall loop iterated nothing).
+    # The shortcut must not stay registered: clearing @menus before super
+    # emits Detach would leave the uninstall loop iterating nothing.
     s.emit press(Tput::Key::CtrlX)
     fired.should eq 1
   ensure

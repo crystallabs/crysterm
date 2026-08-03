@@ -33,8 +33,8 @@ describe "BUGS7 LineEdit wide-character horizontal scroll" do
 
     shown = input.content.to_s
     # The window must show the tail near the caret, i.e. it ends with the last
-    # glyph — not the head (which is what the pre-fix codepoint/column unit mix
-    # produced, leaving the caret far off-screen).
+    # glyph — not the head (which a codepoint/column unit mix would produce,
+    # leaving the caret far off-screen).
     shown.should_not be_empty
     shown.ends_with?("字").should be_true
     shown.should_not start_with("漢字漢字漢") # not stuck showing the head
@@ -67,8 +67,8 @@ describe "BUGS7 ActionBar#remove_item renumbers auto prefixes" do
     bar.commands.map(&.prefix).should eq ["1", "2"] # renumbered
 
     # Number-key '1' now selects the first remaining command ("save"), which is
-    # also the one now labeled "1" — the pre-fix desync selected "save" while it
-    # was still labeled "2".
+    # also the one now labeled "1" — a desynced numbering would select "save"
+    # while it was still labeled "2".
     bar.on_keypress Crysterm::Event::KeyPress.new('1', nil)
     fired.last.should eq "save"
   end
@@ -102,8 +102,8 @@ describe "BUGS7 Menu row width uses display width" do
     ascii.add_action "ab" # 2 codepoints, 2 display columns
     ascii.popup 1, 1
 
-    # Same codepoint count, so the pre-fix (codepoint) width would be identical;
-    # the display-width fix makes the CJK menu exactly 2 columns wider.
+    # Same codepoint count, so a codepoint-based width would be identical;
+    # display-width sizing makes the CJK menu exactly 2 columns wider.
     (cjk.width.as(Int) - ascii.width.as(Int)).should eq 2
   end
 end

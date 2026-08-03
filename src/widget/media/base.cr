@@ -340,8 +340,8 @@ module Crysterm
         # `request_render` forever on a widget that is never painted — a
         # hidden widget's `coords` is nil so `render` never runs, and a
         # detached-but-alive widget's `request_render` no-ops while the
-        # driver still burns CPU. Mirrors the `Effect::Animated`/
-        # `Widget#pulse`/`Widget::Gradient` fix (BUGS18 B18-90). The pause
+        # driver still burns CPU. Mirrors `Effect::Animated`/
+        # `Widget#pulse`/`Widget::Gradient`. The pause
         # leaves `@playback_paused` set, so the Show/Attached hook resumes
         # playback on the next show/re-attach. Installed once, on first
         # genuine `#play`.

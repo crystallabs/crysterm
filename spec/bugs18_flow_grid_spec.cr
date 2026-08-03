@@ -2,14 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS18 flow/grid findings: B18-19, B18-20, B18-21,
-# B18-24.
+# Regression specs for the BUGS18 flow/grid layout findings.
 
 # B18-19 — a deferred (z-indexed) shrink-to-fit flow child DRAWS at its shrunk
 # content extent, but its `awidth`/`aheight` resolve to the full remaining
 # interior. The assigned-geometry fallback for a deferred predecessor used
 # `awidth`/`aheight`, so successors of an auto-sized deferred child were
-# permanently wrapped (or pushed below the interior) on EVERY frame. Flow now
+# permanently wrapped (or pushed below the interior) on EVERY frame. Flow
 # reads `occupied_width`/`occupied_height`, which prefer the drawn rect on a
 # nil-size axis.
 describe "BUGS18 B18-19: Flow uses a deferred auto-sized child's drawn extent" do
@@ -27,8 +26,9 @@ describe "BUGS18 B18-19: Flow uses a deferred auto-sized child's drawn extent" d
     al = a.lpos.not_nil!
     # A draws shrunk to its content width, well short of the interior.
     (al.xl - al.xi).should be < 40
-    # Pre-fix: A's stretched full-interior awidth anchored the chain, so B
-    # wrapped to row 1 on every frame. It must sit flush beside A instead.
+    # Guards against A's stretched full-interior awidth anchoring the chain,
+    # which wrapped B to row 1 on every frame; it must sit flush beside A
+    # instead.
     blp = b.lpos.not_nil!
     blp.yi.should eq bl.yi
     blp.xi.should eq al.xl
@@ -47,9 +47,10 @@ describe "BUGS18 B18-19: Flow uses a deferred auto-sized child's drawn extent" d
     3.times { s.repaint }
 
     bl = box.lpos.not_nil!
-    # B wraps below A (12 + 30 > 40). Pre-fix: A's stretched aheight (the
-    # whole remaining interior) advanced the row offset to the container
-    # bottom, rendering B (and any later row) outside the interior.
+    # B wraps below A (12 + 30 > 40). Guards against A's stretched aheight
+    # (the whole remaining interior) advancing the row offset to the
+    # container bottom, which rendered B (and any later row) outside the
+    # interior.
     blp = b.lpos.not_nil!
     blp.xi.should eq bl.xi
     blp.yi.should eq bl.yi + 1
@@ -61,7 +62,7 @@ end
 # B18-20 — the Flow family had no `vacant?` handling: a hidden child inflated
 # the row height, indented successors off the assigned-geometry chain,
 # inflated UniformGrid's column pitch, and could SkipWidget/StopRendering
-# visible siblings. `Flow#arrange` now packs as though a vacant child weren't
+# visible siblings. `Flow#arrange` packs as though a vacant child weren't
 # there, matching Layout::Box/Border.
 describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
   it "does not let a hidden child inflate the row height" do
@@ -98,8 +99,8 @@ describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
 
     s.repaint
 
-    # Pre-fix: C chained off the hidden child's assigned awidth (left 8);
-    # an HBox in the identical setup yields left 0.
+    # Guards against C chaining off the hidden child's assigned awidth (left
+    # 8); an HBox in the identical setup yields left 0.
     c.lpos.not_nil!.xi.should eq box.lpos.not_nil!.xi
   ensure
     s.try &.destroy
@@ -117,8 +118,9 @@ describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
     s.repaint
 
     bl = box.lpos.not_nil!
-    # Pre-fix: the hidden 20-wide child set @high_width and consumed a row
-    # wrap, pushing C to (20, 2). The visible children's pitch is 4.
+    # Guards against the hidden 20-wide child setting @high_width and
+    # consuming a row wrap, which pushed C to (20, 2). The visible
+    # children's pitch is 4.
     clp = c.lpos.not_nil!
     clp.xi.should eq bl.xi + 4
     clp.yi.should eq bl.yi
@@ -138,8 +140,8 @@ describe "BUGS18 B18-20: Flow engines treat hidden children as vacant" do
     s.repaint
 
     bl = box.lpos.not_nil!
-    # Pre-fix: the hidden child's assigned extent tripped StopRendering and C
-    # never rendered (lpos nil).
+    # Guards against the hidden child's assigned extent tripping
+    # StopRendering, which left C never rendered (lpos nil).
     clp = c.lpos.not_nil!
     clp.xi.should eq bl.xi + 8
     clp.yi.should eq bl.yi
@@ -151,7 +153,7 @@ end
 # B18-21 — with inferred rows (nil `rows`), an explicit hint row origin was
 # clamped only to ROW_ORIGIN_CAP, so one child hinted past the interior
 # inflated the inferred row count until every innocent sibling's cell divided
-# down to zero height and vanished. The origin now clamps to the interior's
+# down to zero height and vanished. The origin clamps to the interior's
 # last row, like the declared-rows branch and the column axis.
 describe "BUGS18 B18-21: Grid inferred rows clamp an off-grid hint origin" do
   it "keeps auto-flow siblings visible alongside an off-grid hinted child" do
@@ -170,7 +172,7 @@ describe "BUGS18 B18-21: Grid inferred rows clamp an off-grid hint origin" do
     badl = bad.lpos.not_nil!
     badl.yi.should eq bl.yi + 9
     (badl.yl - badl.yi).should eq 1
-    # ...and the innocent siblings no longer collapse to zero-height cells.
+    # ...and the innocent siblings do not collapse to zero-height cells.
     blp = b.lpos.not_nil!
     blp.yi.should eq bl.yi
     (blp.yl - blp.yi).should eq 1
@@ -185,7 +187,7 @@ end
 # B18-24 — the B16-22 last-valid-row clamp covered only explicitly-hinted
 # children; the auto-flow cursor freely advanced past a declared `rows` and
 # the overflow child collapsed to a zero-height cell (lpos nil, unclickable).
-# Auto-flow placements are now clamped like the hint pass, stacking overflow
+# Auto-flow placements are clamped like the hint pass, stacking overflow
 # children into the last row.
 describe "BUGS18 B18-24: Grid auto-flow past declared rows stays visible" do
   it "renders the overflowing auto-flow child in the last row" do

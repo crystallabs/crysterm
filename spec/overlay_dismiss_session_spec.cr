@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Unit spec for `Overlay::DismissSession` (FORMAL-WIDGETS Part A / Piece 2): the
+# Unit spec for `Overlay::DismissSession`: the
 # plain "modal grab + click-away-to-dismiss" value object shared by
 # `Mixin::Popup`, `Completer` and `Menu`. Serves both the grab-owner shape and
 # the non-grab (Completer) shape, with an idempotent `#close`.

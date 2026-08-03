@@ -127,7 +127,7 @@ describe "BUGS-F1 #12 destroy stops the resize fiber" do
 
     w.destroy
 
-    # With the fix the fiber breaks out on the @resize_stop flag; without it the
+    # The fiber must break out on the @resize_stop flag; otherwise the
     # debounce elapses and #refresh_size runs on the dead window, emitting Resize.
     sleep 450.milliseconds
     resizes.should eq 0

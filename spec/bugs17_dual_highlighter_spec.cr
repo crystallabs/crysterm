@@ -3,12 +3,12 @@ require "./spec_helper"
 include Crysterm
 
 # B17-29: two different `SyntaxHighlighter`s attached to one `TextDocument`
-# used to re-trigger each other in unbounded synchronous recursion (each
-# other's block-0 overlay looked like a change, poking a zero-length
-# `ContentsChanged` that re-entered the sibling highlighter forever). The fix
-# ignores the zero-length repaint pokes in `on_contents_change`, so attachment
-# and rehighlight terminate. The highlighters still overwrite each other's
-# single `additional_formats` slot — an inherent limitation, not recursion.
+# re-triggered each other in unbounded synchronous recursion (each other's
+# block-0 overlay looked like a change, poking a zero-length `ContentsChanged`
+# that re-entered the sibling highlighter forever). `on_contents_change` must
+# ignore the zero-length repaint pokes, so attachment and rehighlight
+# terminate. The highlighters still overwrite each other's single
+# `additional_formats` slot — an inherent limitation, not recursion.
 
 # Highlights every digit run (mirrors the double in syntax_highlighter_spec).
 private class DigitHighlighter < Crysterm::SyntaxHighlighter
@@ -31,8 +31,8 @@ end
 describe Crysterm::SyntaxHighlighter do
   it "does not recurse when two different highlighters share one document" do
     doc = Crysterm::TextDocument.new("x 1")
-    # Both attachments (each runs a whole-document rehighlight) must terminate;
-    # before the fix the second constructor overflowed the stack.
+    # Both attachments (each runs a whole-document rehighlight) must terminate
+    # rather than overflow the stack in the second constructor.
     DigitHighlighter.new(doc)
     LetterHighlighter.new(doc)
     doc.to_plain_text.should eq "x 1"

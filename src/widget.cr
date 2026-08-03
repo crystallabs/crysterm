@@ -15,9 +15,8 @@ module Crysterm
     #     reconstructable from markup) can't be built that way and fails to
     #     compile.
     #
-    # Per-class (replacing a hand-maintained central exclusion list, R-89) so
-    # the exclusion lives next to the constructor that motivates it. The
-    # `dom_registry_spec` round-trip invariant fails loudly when a new
+    # Per-class so the exclusion lives next to the constructor that motivates
+    # it. The `dom_registry_spec` round-trip invariant fails loudly when a new
     # self-populating widget forgets the annotation. NOTE: annotations don't
     # inherit — a subclass with its own leaf tag name is registered unless
     # annotated itself.

@@ -1,8 +1,8 @@
 require "./spec_helper"
 require "http/client"
 
-# Regression specs for the BUGS-F1 Remote/DOM fixes (findings 24, 25, 43, 44,
-# 53, 54, 55). Guarded by -Dremote like the other bridge specs; run with:
+# Regression specs for the BUGS-F1 Remote/DOM fixes.
+# Guarded by -Dremote like the other bridge specs; run with:
 #   crystal spec -Dremote spec/bugsf1_remote_spec.cr
 {% if flag?(:remote) %}
   include Crysterm
@@ -25,8 +25,8 @@ require "http/client"
     it "registers progressbar to the standard Widget::ProgressBar (shallowest namespace wins)" do
       factory = Crysterm::DOM.registry["progressbar"]?.not_nil!
       w = factory.call(headless_screen(80, 24, default_quit_keys: true))
-      # Exact class, not the Pine subclass — before the fix, `all_subclasses`
-      # order decided non-deterministically which one shadowed the key.
+      # Exact class, not the Pine subclass — `all_subclasses` order must not
+      # decide non-deterministically which one shadows the key.
       w.class.should eq Crysterm::Widget::ProgressBar
     end
 
@@ -51,7 +51,7 @@ require "http/client"
       # with parent = nil and no <style> in the fragment.
       Crysterm::DOM.load(%(<w-box id="y"></w-box>), s)
       s.apply_stylesheet
-      # Before the fix, the empty add_inline_stylesheet cleared #x's rule.
+      # The empty add_inline_stylesheet must not clear #x's rule.
       s.find_by_id("x").not_nil!.styles.normal.fg.should eq rgb("red")
     end
 
@@ -83,14 +83,14 @@ require "http/client"
       a.running?.should be_true
 
       # Second bridge on the same live port: bind_tcp raises. running? must stay
-      # false so a retry is possible (before the fix it latched true BEFORE the
-      # bind, permanently no-op'ing every later start in the process).
+      # false so a retry is possible (latching true BEFORE the bind would
+      # permanently no-op every later start in the process).
       b = Crysterm::HTTPBridge.new(headless_screen(80, 24, default_quit_keys: true), port: 7310)
       expect_raises(Socket::BindError) { b.start }
       b.running?.should be_false
 
-      # quit closes the listener socket + fibers and clears running? (before the
-      # fix the server was a local var, so quit leaked it).
+      # quit closes the listener socket + fibers and clears running? (a server
+      # held only in a local var would leak here).
       a.quit
       a.running?.should be_false
 
@@ -213,8 +213,8 @@ require "http/client"
       begin
         select
         when line = got.receive
-          # Before the fix, HTTP::Server buffered the headers until the first
-          # write, so nothing arrived until an event or the 15s ping.
+          # Without the connect-time flush, HTTP::Server buffers the headers
+          # until the first write — nothing arrives until an event or the ping.
           line.should contain "connected"
         when timeout(3.seconds)
           fail "no SSE data flushed on connect (headers not flushed until first event/ping)"

@@ -2,7 +2,7 @@ require "crystallabs-helpers"
 
 module Crysterm
   # An emacs/readline-style kill ring — see `Crystallabs::Helpers::KillRing`,
-  # where the implementation now lives (it is fully generic).
+  # where the (fully generic) implementation lives.
   #
   # The process-wide `KillRing.default` instance is shared by every
   # text-editable widget, so text killed in one field can be yanked into

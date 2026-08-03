@@ -1,9 +1,8 @@
 require "./spec_helper"
 require "http/client"
 
-# Regression specs for the BUGS17 Remote/DOM fixes (findings B17-39, B17-40,
-# B17-41, B17-43). Guarded by -Dremote like the other bridge specs; run both
-# ways:
+# Regression specs for Remote/DOM bridge fixes. Guarded by -Dremote like the
+# other bridge specs; run both ways:
 #   crystal spec -Dremote spec/bugs17_remote_spec.cr   # exercises the fixes
 #   crystal spec          spec/bugs17_remote_spec.cr   # must still compile
 {% if flag?(:remote) %}
@@ -33,8 +32,8 @@ require "http/client"
       html.should contain %(right="50%")
       html.should contain %(bottom="center")
 
-      # Before the fix, `"50%".to_i?` was nil so the assignment was skipped and
-      # the anchor silently dropped on load.
+      # `"50%".to_i?` is nil; skipping the assignment on a nil coercion would
+      # silently drop the anchor on load.
       s2 = headless_screen(80, 24)
       s2.load_layout html
       loaded = s2.find_by_id("anchored").not_nil!
@@ -76,8 +75,8 @@ require "http/client"
           body: %({"jsonrpc":"2.0","id":1,"method":"remove","params":{"selector":"#panel"}}))
         wait_until { destroyed }
 
-        # Before the fix, `remove` only detached: the animation fiber kept ticking
-        # forever and Event::Destroy never fired.
+        # `remove` must destroy, not merely detach — otherwise the animation
+        # fiber keeps ticking forever and Event::Destroy never fires.
         destroyed.should be_true
         anim.running?.should be_false
         s.find_by_id("panel").should be_nil

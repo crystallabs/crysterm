@@ -33,7 +33,7 @@ describe "BUGS15 25: early-return base_render clears descendants' hit rects" do
     outer.child_base.should be > 4
     w.lpos.should be_nil
 
-    # The fix: G's stale rect must be cleared, so it no longer steals the click.
+    # G's stale rect must be cleared, so it no longer steals the click.
     g.lpos.should be_nil
     s.widget_at(gl.xi, gl.yi).should_not eq g
   end

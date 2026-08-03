@@ -6,8 +6,8 @@ include Crysterm
 #
 # `#resize` issues the `TIOCSWINSZ` ioctl. The request number is
 # platform-specific (BSD/macOS: `_IOW('t', 103, struct winsize)` = 0x80087467;
-# Linux: flat 0x5414) — same as read-side `LibC::TIOCGWINSZ`. It used to be
-# hardcoded to the Linux value, silently no-oping the resize on macOS/BSD.
+# Linux: flat 0x5414) — same as read-side `LibC::TIOCGWINSZ`. Hardcoding the
+# Linux value silently no-ops the resize on macOS/BSD.
 #
 # Opens a real PTY, resizes it, and reads the geometry back via `TIOCGWINSZ`:
 # wrong (Linux) request on macOS leaves it at 80x24, correct value reports 100x40.

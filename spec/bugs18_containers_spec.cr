@@ -62,15 +62,16 @@ describe "BUGS18 B18-53: BigText shrink-to-content sizing includes border/paddin
     end
     lit.should_not be_empty
 
-    # The second glyph must have painted something — pre-fix, the fit loop's
-    # `interior` was short by `ihorizontal`, so only the first glyph ever fit.
+    # The second glyph must have painted something — the fit loop's
+    # `interior` must not be short by `ihorizontal`, which would leave only
+    # the first glyph fitting.
     interior_left = bt.aleft + bt.ileft
     second_glyph_start = interior_left + bt.ratio.width
     lit.any? { |(_y, x)| x >= second_glyph_start }.should be_true
 
-    # All `ratio.height` glyph rows must have painted something — pre-fix,
-    # the row loop's `bottom` was short by `ivertical`, cutting the bottom
-    # `ivertical` rows off every glyph.
+    # All `ratio.height` glyph rows must have painted something — the row
+    # loop's `bottom` must not be short by `ivertical`, which would cut the
+    # bottom `ivertical` rows off every glyph.
     interior_top = bt.atop + bt.itop
     lit.max_of { |(y, _x)| y }.should eq interior_top + bt.ratio.height - 1
   ensure
@@ -94,9 +95,9 @@ describe "BUGS18 B18-54: ToolBox section headers strip the container's border/pa
     header.style.border.any?.should be_false
     header.style.padding.any?.should be_false
 
-    # The title text must actually paint somewhere on the header's row —
-    # pre-fix, the height-1 header's border ate the whole interior and only
-    # border glyphs were drawn.
+    # The title text must actually paint somewhere on the header's row — the
+    # height-1 header's border must not eat the whole interior (which would
+    # leave only border glyphs drawn).
     row = header.atop
     chars = (0...s.width).map { |x| s.lines[row][x].char }.join
     chars.should contain "General"
@@ -295,9 +296,9 @@ describe "BUGS18 B18-62: DockWidget#dock_size= schedules a repaint" do
     plain.repaint
     dmg.repaint
 
-    # Pre-fix: the damage-tracking screen's woken frame had nothing marked
-    # dirty, so `MainWindow#relayout` never re-ran and the central widget
-    # stayed pinned to the old 20-wide dock.
+    # The damage-tracking screen's woken frame must have something marked
+    # dirty, so `MainWindow#relayout` reruns and the central widget picks up
+    # the new dock width.
     plain_central.aleft.should eq plain_win.aleft + 30
     dmg_central.aleft.should eq dmg_win.aleft + 30
   ensure
@@ -335,8 +336,8 @@ describe "BUGS18 B18-64: BigText re-derives its active font from style.bold? eve
     # The bundled bold face is synthesized by smearing each lit pixel one
     # column right, so it lights strictly more cells than the normal face for
     # any glyph with at least one lit pixel not already at the right edge.
-    # Pre-fix, `@active_font` stayed frozen at `@normal` forever and the two
-    # sets were identical.
+    # `@active_font` must not stay frozen at `@normal`; if it did, the two
+    # sets would be identical.
     bold_cells.size.should be > normal_cells.size
     (normal_cells - bold_cells).should be_empty # bold is a superset
   ensure

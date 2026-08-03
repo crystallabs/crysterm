@@ -4,24 +4,23 @@ include Crysterm
 
 # Regression specs for BUGS-F1 findings owned by the dialog/geometry files:
 #
-#  Finding 6  (src/widget/color_dialog.cr): `on_mouse` guarded on the bare
-#     `@ev_move` Subscription (always truthy), so ALL direct field/hue mouse
-#     input was dead. Now guards on `@ev_move.active?`.
+#  Finding 6  (src/widget/color_dialog.cr): `on_mouse` must guard on
+#     `@ev_move.active?`, not the bare `@ev_move` Subscription (always truthy)
+#     — otherwise ALL direct field/hue mouse input is dead.
 #
-#  Finding 17 (src/widget/dialog.cr + color_dialog.cr): the window-level
-#     Enter/Escape accelerator double-fired when a focused dialog button already
-#     consumed the key (Cancel focused + Enter → BOTH Rejected AND Accepted).
-#     `Dialog#dialog_key` now returns early on `e.accepted?`, so the accelerator
-#     stands down once the focused button has consumed the key.
+#  Finding 17 (src/widget/dialog.cr + color_dialog.cr): `Dialog#dialog_key`
+#     must return early on `e.accepted?` so the window-level Enter/Escape
+#     accelerator stands down once a focused dialog button has consumed the key
+#     (otherwise Cancel focused + Enter → BOTH Rejected AND Accepted).
 #
 #  Finding 16 (src/widget/question.cr): `Question#ask`'s window-level KeyPress
-#     handler fired alongside the buttons' Press handlers with no idempotence,
-#     so Enter on a focused button invoked the user callback twice. `done` now
-#     has a `done_called` latch and the key handler bails on `e.accepted?`.
+#     handler fires alongside the buttons' Press handlers; without the
+#     `done_called` latch in `done` and the key handler bailing on
+#     `e.accepted?`, Enter on a focused button invokes the user callback twice.
 #
-#  Finding 15 (src/widget_size.cr + widget_position.cr): geometry setters emitted
-#     Resize/Move BEFORE assigning the new ivar, so in-tree listeners recomputed
-#     against the OLD value. Setters now assign first, then emit.
+#  Finding 15 (src/widget_size.cr + widget_position.cr): geometry setters must
+#     assign the new ivar first, then emit Resize/Move — emitting first makes
+#     in-tree listeners recompute against the OLD value.
 
 private def enter_key
   Crysterm::Event::KeyPress.new '\r', ::Tput::Key::Enter
@@ -79,7 +78,7 @@ describe "BUGS-F1 finding 6: ColorDialog direct mouse input is not dead" do
 
     cd.emit Crysterm::Event::Mouse, mouse_down(fx, fy)
 
-    # With the `@ev_move.active?` fix the handler runs and sets S from X, V from Y.
+    # The handler must run (guard on `@ev_move.active?`) and set S from X, V from Y.
     cd.saturation.should be > 0.0
     cd.hsv_value.should be < 1.0
   end
@@ -105,9 +104,8 @@ describe "BUGS-F1 finding 17: ColorDialog Enter with a focused button fires once
 
     s.emit enter_key
 
-    # Before the fix BOTH the button's Rejected AND the accelerator's Accepted
-    # fired (total 2). Now the accelerator stands down on `e.accepted?`, so
-    # exactly one signal is emitted.
+    # The accelerator must stand down on `e.accepted?`: exactly one of the
+    # button's Rejected / the accelerator's Accepted is emitted, never both.
     (accepted + rejected).should eq 1
   end
 end
@@ -123,7 +121,7 @@ describe "BUGS-F1 finding 16: Question callback fires once on Enter over a focus
     s.repaint
 
     # Focus the Ok button; its Enter → Press → done, and the window-level key
-    # handler also saw Enter. Before the fix both paths invoked the callback.
+    # handler also sees Enter — the two paths must not both invoke the callback.
     ok = find_button q, "ok"
     ok.focus
 

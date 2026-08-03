@@ -76,7 +76,7 @@ module Crysterm
         # when the glyphs don't change, and `#invalidate_frame_style`
         # registers no damage on its own — so `#update` alone risks a
         # no-op frame that never re-lays-out the dock (same class of bug as
-        # B18-62's `#dock_size=`).
+        # in `#dock_size=`).
         mark_dirty
         value
       end

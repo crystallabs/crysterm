@@ -12,10 +12,10 @@ module Crysterm
   #   `.attr_to_string`), reduced to the terminal's color depth.
   #
   # Everything here is a pure function of its arguments (the encode side takes
-  # the color count explicitly); no `Screen`/`Tput` state is involved. Formerly
-  # these lived as class methods on `Screen` and as private `Widget` methods,
-  # which both inverted layering (the terminal emulator had to reach into the
-  # device class) and scattered one grammar over five files.
+  # the color count explicitly); no `Screen`/`Tput` state is involved. Keeping
+  # the whole grammar here — not on `Screen`/`Widget` — preserves layering
+  # (the terminal emulator never reaches into the device class) and keeps the
+  # grammar in one place.
   module SGR
     # The SGR run grammar. `.terminator`/`.run_len`/`.each_run` recognize
     # exactly this — anything else an `\e` may start (a non-SGR CSI such as

@@ -8,12 +8,12 @@ include Crysterm
 # When a line is "colored/styled content followed by a default-attribute space
 # tail", the draw loop emits the leading content (leaving the terminal's SGR set
 # to that content's attribute) and then clears the tail with `el`. Setting up
-# the clear used `SGR.write`, which writes an attribute from a
-# *blank* SGR state and emits nothing for the default attribute — so the
-# transition from the non-default leading attribute to the default clear
-# attribute emitted no bytes, the `el` erased the tail under the stale
-# background (BCE), and the leftover SGR bled into whatever was drawn next. Fix
-# emits an explicit reset (`\e[m`) first, like the per-cell emission path does.
+# the clear must emit an explicit reset (`\e[m`) first, like the per-cell
+# emission path does — `SGR.write` writes an attribute from a *blank* SGR state
+# and emits nothing for the default attribute, so the transition from the
+# non-default leading attribute to the default clear attribute would emit no
+# bytes, the `el` would erase the tail under the stale background (BCE), and
+# the leftover SGR would bleed into whatever is drawn next.
 #
 # Observable headlessly: with BCE enabled, draw a row of bold leading cells plus
 # a bold-space tail (so the tail is bold in `@flushed_lines`), then redraw with the

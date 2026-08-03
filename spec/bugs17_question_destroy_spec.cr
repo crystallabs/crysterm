@@ -5,18 +5,18 @@ include Crysterm
 # Regression spec for BUGS17 B17-17 (src/widget/question.cr).
 #
 # `Question#ask`/`#ask_choices` install a window-level `KeyPress` accelerator.
-# Before the fix these were raw `window.on` handlers removed only inside the
-# local `finish` proc, and `Question` had no `#destroy` override — so a dialog
-# destroyed while an answer was still pending left its accelerator on the live
-# window holding the dead dialog. A later unconsumed Enter/Escape/'q'/'y'/'n'
-# anywhere in the app was then swallowed (permanently, once the done-latch
-# tripped) and `finish` ran against the destroyed widget, with
-# `window.restore_focus` raising `NilAssertionError` on the way.
+# As raw `window.on` handlers removed only inside the local `finish` proc (and
+# with no `Question#destroy` override), a dialog destroyed while an answer was
+# still pending left its accelerator on the live window holding the dead
+# dialog: a later unconsumed Enter/Escape/'q'/'y'/'n' anywhere in the app was
+# swallowed (permanently, once the done-latch tripped) and `finish` ran
+# against the destroyed widget, with `window.restore_focus` raising
+# `NilAssertionError` on the way.
 #
-# The fix routes both accelerators through a `Crysterm::Subscription` stored in
-# an ivar and adds a `Question#destroy` override that drops the subscription,
-# runs the OK/Cancel teardown while the window is still valid, and nils the
-# pending callbacks so nothing can fire post-destroy.
+# Both accelerators must route through a `Crysterm::Subscription` stored in an
+# ivar, and a `Question#destroy` override must drop the subscription, run the
+# OK/Cancel teardown while the window is still valid, and nil the pending
+# callbacks so nothing can fire post-destroy.
 
 describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
   it "destroy while an ask is pending leaves no stale window handler" do
@@ -34,7 +34,7 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
     answer.should eq(:unset)
     e.accepted?.should be_false
 
-    # And Enter is likewise no longer captured.
+    # And Enter is likewise not captured.
     e2 = Crysterm::Event::KeyPress.new '\r', ::Tput::Key::Enter
     w.emit e2
     e2.accepted?.should be_false
@@ -101,8 +101,8 @@ describe "BUGS17 B17-17: Question#ask_choices tears down its accelerator on dest
 
     q.destroy
 
-    # Escape used to be re-accepted (and re-raise) on every press; the choice
-    # navigation keys likewise must no longer be captured.
+    # Escape must not be re-accepted (or re-raise) on a later press; the
+    # choice navigation keys likewise must not stay captured.
     esc = Crysterm::Event::KeyPress.new '\0', ::Tput::Key::Escape
     w.emit esc # must not raise
     picked.should eq(:unset)

@@ -5,10 +5,9 @@ include Crysterm
 # `Crysterm::CSS::ColorValue.resolve` with a CSS leading-dot decimal in an
 # `hsl()` argument (`.5turn`, `.25turn`, ...).
 #
-# CSS lets a number omit the integer part (`.5` == `0.5`). The color number
-# regexes required a leading digit, so `.5turn` matched only `5turn` after the
-# dot, resolving as 1800° ≡ 0° (red) instead of 180° (cyan). Regexes now
-# accept the leading-dot form.
+# CSS lets a number omit the integer part (`.5` == `0.5`), so the color number
+# regexes must accept the leading-dot form — requiring a leading digit reads
+# `.5turn` as `5turn`, resolving 1800° ≡ 0° (red) instead of 180° (cyan).
 describe "Crysterm::CSS::ColorValue hsl() leading-dot angle" do
   cyan = (0 << 16) | (255 << 8) | 255 # hsl(180, 100%, 50%)
 

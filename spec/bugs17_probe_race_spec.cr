@@ -72,8 +72,8 @@ describe "BUGS17 B17-01: shared-device probe race" do
       out.clear
       w2 = b17pr_window dev
       begin
-        # Pre-fix the sibling's constructor ran `@screen.probe` (and
-        # `detect_cell_geometry`) again on the live device.
+        # The sibling's constructor must not re-run `@screen.probe` (nor
+        # `detect_cell_geometry`) on the live device.
         dev.probe_calls.should eq 1
 
         # Nothing written between the constructions may be a probe query.
@@ -148,7 +148,7 @@ describe "BUGS17 B17-01: shared-device probe race" do
       out = dev2.output.as(IO::Memory)
       out.clear
       w.screen = dev2
-      # Pre-fix `screen=` ran `reprobe_and_detect_geometry` unconditionally on
+      # `screen=` must not run `reprobe_and_detect_geometry` unconditionally on
       # the adopted, already-listening device.
       dev2.probe_calls.should eq 1
       emitted = out.to_s

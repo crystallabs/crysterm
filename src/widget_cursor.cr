@@ -16,8 +16,8 @@ module Crysterm
     end
 
     # This widget's own cursor shape override, or `nil` when it has none (the
-    # window default applies). Reads `@cursor` — unlike the old bare-call form,
-    # merely reading this never sets anything.
+    # window default applies). Reads `@cursor` — merely reading this never
+    # sets anything.
     def cursor_shape : Tput::CursorShape?
       @cursor.try &.shape
     end
@@ -50,7 +50,7 @@ module Crysterm
 
     # This widget's own cursor color override (`"#rrggbb"`), or `nil` when it
     # has none (or is the `-1` "terminal default" sentinel). Reads `@cursor` —
-    # unlike the old bare-call form, merely reading this never sets anything.
+    # merely reading this never sets anything.
     def cursor_color : String?
       @cursor.try(&.style.fg).try { |c| Colors.hex(c) if c >= 0 }
     end

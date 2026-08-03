@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# FORMAL-WIDGETS Part B / B8 — shared behavioral conformance for the ranged
-# widget family (`Slider`, `Dial`, `ScrollBar`, `ProgressBar`). A single
+# Shared behavioral conformance for the ranged widget family (`Slider`,
+# `Dial`, `ScrollBar`, `ProgressBar`). A single
 # interaction script is driven against every member through a tiny adapter, so an
 # invariant that *should* hold family-wide is proven family-wide instead of hoped.
 # Deliberate differences are encoded as adapter capability flags (e.g. only the
 # `AbstractSlider` trio has Home/End and the wheel), so an *accidental* divergence
-# fails here. Would have caught the live B0.2 (inverted range) / B0.3 (missing
-# vi-keys) drift the family already suffered.
+# fails here. Would have caught the inverted-range and missing-vi-keys drift
+# the family already suffered.
 
 private def wheel_event(down : Bool)
   act = down ? ::Tput::Mouse::Action::WheelDown : ::Tput::Mouse::Action::WheelUp

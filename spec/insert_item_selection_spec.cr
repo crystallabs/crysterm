@@ -7,8 +7,8 @@ include Crysterm
 # insertion point onward (including the selected one) shifts down by one, and
 # the cursor must slide with them. Mirrors the multi-selection-index alignment
 # the method already performs (`s >= i`); inverse of `remove_item`'s cursor
-# realignment. Previously only an insert exactly at the cursor was handled; an
-# insert before it left `@selected` pointing at the wrong item with `@value` stale.
+# realignment. Guards the case of an insert *before* the cursor (not just at it)
+# leaving `@selected` pointing at the wrong item with `@value` stale.
 describe "ItemView#insert_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is inserted" do
     s = headless_screen(80, 24)

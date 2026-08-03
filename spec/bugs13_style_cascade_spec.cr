@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the BUGS13 cascade/reset/memo batch:
+# Regression specs for the cascade/reset/memo batch:
 #
 # * S1 — `Style#fold_specified_onto` must copy the mutable box sub-objects
 #   (border/padding/margin/shadow); shared references let the cascade's

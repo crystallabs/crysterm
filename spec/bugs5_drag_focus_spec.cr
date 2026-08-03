@@ -14,11 +14,10 @@ include Crysterm
 #
 #  BUG 2 (src/window_focus.cr, `#_focus`): scroll-into-view for a newly focused
 #  widget must map the descendant into the scrollable ANCESTOR's content frame.
-#  The old hand-rolled math used `cur.rtop` (relative to the immediate parent),
+#  Hand-rolled math using `cur.rtop` (relative to the immediate parent) is
 #  wrong when a non-scrollable container sits between `cur` and the scrollable
-#  ancestor. The fix delegates to `#ensure_widget_visible`, which uses absolute
-#  tops (`cur.atop - el.atop - el.itop`). This is a guard spec: the fix was
-#  already present in the working tree.
+#  ancestor. `#_focus` delegates to `#ensure_widget_visible`, which uses
+#  absolute tops (`cur.atop - el.atop - el.itop`). This is a guard spec.
 
 private def keypress(char : Char, key : ::Tput::Key? = nil)
   Crysterm::Event::KeyPress.new char, key

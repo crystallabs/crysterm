@@ -5,9 +5,8 @@ include Crysterm
 # Specs for the CSS `animation` shorthand parser (`Crysterm::CSS::Properties.apply`).
 # The shorthand may carry two `<time>` values: the first is animation-duration,
 # the second animation-delay. Crysterm has no animation-delay, so the second time
-# must be ignored, not folded onto the duration. Regression: the parser used to
-# assign duration from every time-valued token, so `slidein 3s ease-in 1s infinite`
-# ran at the 1s delay instead of its 3s duration.
+# must be ignored, not folded onto the duration (else `slidein 3s ease-in 1s
+# infinite` runs at the 1s delay instead of its 3s duration).
 describe "CSS animation shorthand" do
   it "takes the first <time> as the duration (a single time value)" do
     s = Style.new

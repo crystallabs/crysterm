@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS8 CSS fix: `apply_border_style` folded the *entire*
+# Regression spec: `apply_border_style` folded the *entire*
 # `border-style` value as one keyword, so a valid multi-value TRBL form
 # (`border-style: dashed dashed dashed dashed`) matched nothing and was silently
-# dropped. `Border#type` is whole-border, so the fix honors the first token.
+# dropped. `Border#type` is whole-border, so the first token must be honored.
 
 describe "BUGS8 multi-value border-style is honored (first token)" do
   it "applies a 4-value border-style instead of dropping it" do

@@ -2,15 +2,15 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS18 B18-11, B18-13, B18-14, B18-17, B18-18.
+# Regression specs.
 # Headless harness mirrors spec/bugs15_scrolling_chrome_spec.cr.
 
 # B18-11 — `_parse_tags` resolved attribute tags via the raising `#window`
 # accessor, so every fake-splicing line editor (through `parse_fake_line`)
 # crashed with NilAssertionError on a detached widget whenever the new line
 # contained a recognized tag — while `process_content`/`append_content`/
-# `delete_line` degrade to guarded no-ops in the same state. The fix guards
-# `_parse_tags` on attachment; the raw line is stored literally and the
+# `delete_line` degrade to guarded no-ops in the same state. `_parse_tags`
+# guards on attachment; the raw line is stored literally and the
 # `Event::Attached` reparse expands it.
 describe "BUGS18 11: tagged line edits on a detached widget do not raise" do
   it "no-ops through _parse_tags when detached, and converges on re-attach" do
@@ -22,7 +22,7 @@ describe "BUGS18 11: tagged line edits on a detached widget do not raise" do
     s.remove box
     box.window?.should be_nil
 
-    # Pre-fix: NilAssertionError out of `window.tput._attr` for each of these.
+    # Must not raise NilAssertionError out of `window.tput._attr` for these.
     box.insert_line 0, "{bold}top{/bold}"
     box.append_line "{red-fg}error{/red-fg}"
     box.replace_line 1, "{red-fg}warn{/red-fg}"
@@ -63,8 +63,8 @@ describe "BUGS18 13: border label does not inflate scroll_extent_bottom" do
     labeled.child_base.should eq plain.child_base
     labeled.child_base.should be > 0
 
-    # Content shrinks below the viewport: both must reclamp straight to 0.
-    # Pre-fix the labeled widget clamped only to `child_base + 1 - visible`.
+    # Content shrinks below the viewport: both must reclamp straight to 0,
+    # not just to `child_base + 1 - visible`.
     labeled.set_content (1..5).join "\n"
     plain.set_content (1..5).join "\n"
     plain.child_base.should eq 0
@@ -75,8 +75,8 @@ end
 # B18-14 — `set_content` on a detached widget updated `@content` but left
 # `@_clines.fake` holding the previous content's lines; the fake-splicing
 # editors then wrote that stale fake back via `rebuild_content_from_fake`,
-# silently destroying the content set while detached. The fix resyncs
-# `fake`/`ftor`/`rtof` in `set_content` whenever the widget is detached.
+# silently destroying the content set while detached. `set_content` resyncs
+# `fake`/`ftor`/`rtof` whenever the widget is detached.
 describe "BUGS18 14: detached line edits do not resurrect pre-detach content" do
   it "append_line after a detached set_content keeps the new content" do
     s = headless_screen(80, 24)
@@ -139,7 +139,7 @@ end
 # line text (`tab_size`/`tab_char` TAB expansion, `fill_char` alignment
 # padding), so the documented `mark_dirty`/`update` protocol after a direct
 # style mutation (or a CSS cascade change) never re-expanded tabs or re-padded
-# aligned lines. The fix folds the three values into the cache key.
+# aligned lines. The cache key folds in the three values.
 describe "BUGS18 17: wrap cache invalidates on tab/fill style changes" do
   it "re-expands tabs after style.tab_size changes with the update protocol" do
     s = headless_screen(80, 24)
@@ -172,8 +172,8 @@ end
 # gap of the vertical ContentParsed reclamp): after content narrowed while
 # scrolled right, `@child_base_x` stayed past `scroll_width` and every line
 # sliced to "", leaving a blank viewport until a manual horizontal scroll.
-# The fix adds a change-guarded horizontal clamp (+ mark_dirty) to
-# `clamp_child_base_to_content`.
+# `clamp_child_base_to_content` adds a change-guarded horizontal clamp
+# (+ mark_dirty) for this.
 describe "BUGS18 18: horizontal base reclamps when content narrows" do
   it "pulls child_base_x back into range and repaints non-empty rows" do
     s = headless_screen(80, 24)
@@ -189,7 +189,7 @@ describe "BUGS18 18: horizontal base reclamps when content narrows" do
     w._clines.lines[0].should_not eq ""
 
     # Content narrows below the old base: the ContentParsed reclamp must pull
-    # child_base_x back (pre-fix it stayed at 40 and every row sliced to "").
+    # child_base_x back (otherwise it stays at 40 and every row slices to "").
     w.set_content (1..3).map { |i| "short#{i}" }.join "\n"
     w.child_base_x.should eq 0
     s.repaint

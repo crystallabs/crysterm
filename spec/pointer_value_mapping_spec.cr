@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# FORMAL-WIDGETS Part B / B1.3 — the pointer→value mapping is single-sourced:
+# The pointer→value mapping is single-sourced:
 # the axis extraction (`Mixin::TrackGeometry#pointer_offset`, shared by `Slider`
 # and `ProgressBar`) and the value formula (`AbstractSlider#value_at`, shared by
 # `Slider` and `ScrollBar`). This pins that a press maps a pointer position to the

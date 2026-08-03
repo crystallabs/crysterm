@@ -4,8 +4,8 @@ include Crysterm
 
 # CSS `opacity` (`Crysterm::CSS::Properties.apply`) accepts a `<number>` or a
 # `<percentage>` per CSS Color 4 (`opacity: 0.5` == `opacity: 50%`), clamped to
-# `[0, 1]`. Regression: the old `value.to_f?` parse silently dropped the
-# percentage form (`"50%".to_f?` -> `nil`), leaving `opacity: 50%` fully opaque.
+# `[0, 1]`. A plain `value.to_f?` parse silently drops the percentage form
+# (`"50%".to_f?` -> `nil`), leaving `opacity: 50%` fully opaque.
 describe "CSS opacity" do
   it "parses a numeric opacity" do
     s = Style.new

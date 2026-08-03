@@ -34,13 +34,14 @@ describe "BUGS12 text framework" do
   # a character's Unicode downcase changes string length.
   describe "TextDocument#find with length-changing downcase" do
     # 'İ' (U+0130) is the trigger: `String#downcase` expands it to two
-    # codepoints (i + combining dot), which used to shift every folded index
-    # after it and desync returned positions from document positions.
+    # codepoints (i + combining dot), which under whole-string folding shifts
+    # every folded index after it and desyncs returned positions from document
+    # positions.
     it "returns document-aligned positions for a match after İ" do
       doc = TextDocument.new("İstanbul is here")
-      # "here" starts at document position 12; the old full-downcase path
-      # returned 13 (shifted by the extra combining dot). Length-preserving
-      # per-char folding keeps it aligned.
+      # "here" starts at document position 12; a full-downcase path returns 13
+      # (shifted by the extra combining dot). Length-preserving per-char
+      # folding keeps it aligned.
       c = doc.find("here").not_nil!
       c.selection_start.should eq 12
       c.selection_end.should eq 16
@@ -52,7 +53,7 @@ describe "BUGS12 text framework" do
       # Case-insensitively, "İstanbul" folds to "istanbul" and contains "is"
       # at position 0, so a plain find lands there; the recipe's intended
       # standalone "is" needs WholeWords, which also exercises the aligned
-      # word-boundary probe (the buggy path returned nil here).
+      # word-boundary probe (a desynced probe returns nil here).
       c = doc.find("is", flags: :whole_words).not_nil!
       c.selection_start.should eq 9
       c.selection_end.should eq 11

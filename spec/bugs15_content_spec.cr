@@ -2,12 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS15 #18 — `rebuild_content_from_fake` re-fed `@_clines.fake` (POST-parse
-# lines) through `set_content`, running `_parse_tags` a SECOND time. Under the
-# drop-malformed policy that silently destroyed escaped literal braces
-# (`{open}`/`{close}`) and re-interpreted literal tag-looking text as live SGR,
-# on ANY line edit (`insert_line`/`delete_line`/`replace_line`/…). Fixed by a
-# transient no-reparse flag plus pre-parsing freshly edited lines.
+# BUGS15 #18 — `rebuild_content_from_fake` must not re-feed `@_clines.fake`
+# (POST-parse lines) through `set_content`, running `_parse_tags` a SECOND
+# time: under the drop-malformed policy that silently destroys escaped literal
+# braces (`{open}`/`{close}`) and re-interprets literal tag-looking text as
+# live SGR, on ANY line edit (`insert_line`/`delete_line`/`replace_line`/…).
+# A transient no-reparse flag plus pre-parsing of freshly edited lines
+# prevents the double parse.
 describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
   it "keeps escaped literal braces after insert_line" do
     w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
@@ -16,8 +17,8 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
     w.rendered_content.should eq "brace: {literal}"
 
     w.insert_line 0, "header"
-    # Before the fix the second reparse saw "brace: {literal}", matched
-    # `{literal}` as an unknown tag and dropped the whole token -> "brace: ".
+    # A second reparse would see "brace: {literal}", match `{literal}` as an
+    # unknown tag and drop the whole token -> "brace: ".
     w.rendered_content.should eq "header\nbrace: {literal}"
   end
 
@@ -28,8 +29,8 @@ describe "Widget line editors preserve already-parsed content (BUGS15 #18)" do
     w.rendered_content.should eq "{bold}"
 
     w.insert_line 0, "x"
-    # Before the fix the reparse turned the literal "{bold}" into a live SGR
-    # bold escape and the visible text vanished.
+    # A reparse would turn the literal "{bold}" into a live SGR bold escape,
+    # vanishing the visible text.
     w.rendered_content.should eq "x\n{bold}"
     w.rendered_content.should_not contain "\e["
   end
@@ -79,8 +80,8 @@ end
 
 # BUGS15 #49 — the hover ToolTip is a satellite window-child bound to the window
 # the widget was on at first hover. After reparenting the widget to another
-# window the cached tooltip stayed on the OLD window and popped up there. Fixed
-# by dropping the stale binding (window mismatch) before reuse, mirroring
+# window, the cached tooltip must not stay on the OLD window and pop up there:
+# the stale binding (window mismatch) is dropped before reuse, mirroring
 # ComboBox#ensure_popup.
 private def hover(widget)
   ev = ::Tput::Mouse::Event.new(

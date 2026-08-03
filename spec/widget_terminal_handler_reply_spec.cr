@@ -8,9 +8,9 @@ include Crysterm
 # are child-bound, same direction as keystrokes/mouse/focus reports, so they
 # must reach the handler too.
 #
-# Previously `bootstrap` only wired `emulator.output` to `pty.master`, leaving
-# it nil in handler mode: `respond` silently dropped every reply and a child
-# probing the terminal at startup (vim/htop querying DA/CPR) waited forever.
+# If `bootstrap` wires `emulator.output` only to `pty.master`, it stays nil in
+# handler mode: `respond` silently drops every reply and a child probing the
+# terminal at startup (vim/htop querying DA/CPR) waits forever.
 
 describe "Widget::Terminal handler-mode replies" do
   it "routes emulator DSR/DA replies back to the handler" do

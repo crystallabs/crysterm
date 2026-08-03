@@ -20,7 +20,7 @@ module Crysterm
 
       # Per-child `awidth` resolved by this frame's `#before_flow` scan, reused
       # by `#cached_awidth` at the placement fit check instead of resolving
-      # `awidth` a second time for the same child (O4-16). Per-arrange scratch:
+      # `awidth` a second time for the same child. Per-arrange scratch:
       # cleared and rebuilt at the top of every `#before_flow` call, mirroring
       # how `Flow#arrange` resets its own row-cursor ivars each frame.
       @awidth_cache = {} of Widget => Int32
@@ -44,8 +44,8 @@ module Crysterm
       end
 
       # Reuses the `awidth` this frame's `#before_flow` scan already resolved
-      # for `el`, instead of resolving it again for the placement fit check
-      # (O4-16). Falls back to a fresh `el.awidth` when `el` isn't in the
+      # for `el`, instead of resolving it again for the placement fit check.
+      # Falls back to a fresh `el.awidth` when `el` isn't in the
       # cache — a `Flow#arrange` child that isn't `#each_occupying` (e.g. a
       # `#vacant?` one skipped before `#place_one` runs) never reaches
       # `#flow_place`, so this should be unreachable in practice, but stays

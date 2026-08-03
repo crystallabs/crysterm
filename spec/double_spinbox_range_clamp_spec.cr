@@ -5,11 +5,9 @@ include Crysterm
 # `DoubleSpinBox#minimum=`/`#maximum=` must behave like the integer `SpinBox`
 # (via `Mixin::RangedValue#set_range`) and `ProgressBar#set_range`: re-clamp the
 # current value into the new range, never store an inverted range, and repaint.
-#
-# They used to be plain `property` setters that just overwrote the bound, so
-# raising the minimum (or lowering the maximum) past the current value left
-# `value` outside `[minimum, maximum]` and the display stale, diverging from
-# Qt's `QDoubleSpinBox`.
+# Plain `property` setters that just overwrite the bound would leave `value`
+# outside `[minimum, maximum]` and the display stale when a bound moves past
+# the current value, diverging from Qt's `QDoubleSpinBox`.
 
 describe "DoubleSpinBox range clamping" do
   it "re-clamps (and repaints) the value when the minimum rises above it" do

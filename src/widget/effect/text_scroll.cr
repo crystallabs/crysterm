@@ -96,7 +96,7 @@ module Crysterm
         # Rebuilds `@chars`/`@widths` and the display-column table from *text*.
         # Each includer's `text=` (and `initialize`, after `super` so
         # `full_unicode?` can resolve through an already-attached `parent:`)
-        # calls this instead of the old bare `@text.chars`.
+        # calls this.
         #
         # Combining marks are 0 display columns wide; a column→glyph map has no
         # column to route them through, so they're dropped here rather than
@@ -137,6 +137,36 @@ module Crysterm
           i = (direction.left? ? f + x : -f + x) % @scroll_width
           gi = @col_glyph[i]
           {@chars[gi], @widths[gi], @col_offset[i]}
+        end
+
+        # `#scroll_column` filtered down to the columns that actually paint:
+        # the glyph and its display width shown in display-column *x* at frame
+        # *f*, or `nil` for a column that leaves the background fill showing —
+        # the continuation column of a wide glyph (already written by its lead
+        # one column earlier, or scrolled off the left edge with it) or a
+        # space (the inter-glyph gap). Callers must guard `@scroll_width == 0`
+        # (empty message) first, as with `#scroll_column`.
+        @[AlwaysInline]
+        protected def visible_scroll_glyph(f : Int64, x : Int32) : {Char, Int32}?
+          ch, width, offset = scroll_column(f, x)
+          return if offset == 1
+          return if ch == ' '
+          {ch, width}
+        end
+
+        # Paints one scroll glyph into the window at the absolute cell
+        # (*x*, *y*) with *attr*: `put_wide` for a 2-column glyph (writing its
+        # continuation cell too), `fill_region` for a 1-column one. A wide
+        # glyph whose continuation column would cross the right clip edge *xl*
+        # is skipped entirely — half a glyph can't render.
+        @[AlwaysInline]
+        protected def put_scroll_glyph(attr : Int64, ch : Char, width : Int32, x : Int32, y : Int32, xl : Int32) : Nil
+          if width == 2
+            return if x + 1 >= xl
+            window.put_wide(attr, ch, x, y)
+          else
+            window.fill_region(attr, ch, x, x + 1, y, y + 1)
+          end
         end
 
         # The packed `0xRRGGBB` foreground for column *x* at frame *f* in rainbow

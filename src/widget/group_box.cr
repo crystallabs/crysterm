@@ -72,8 +72,8 @@ module Crysterm
 
       # Memo for the `::title` sub-style push: the last `style.title` object
       # seen (by identity + `Style::AttrFingerprint`) and the border-stripped
-      # copy derived from it, via `Style.memo_derive` (the O3-21 `memo_derive`
-      # family) so an in-place mutation of `t` (no object swap) still refreshes
+      # copy derived from it, via `Style.memo_derive`,
+      # so an in-place mutation of `t` (no object swap) still refreshes
       # the copy, not just a cascade swapping the `::title` object itself.
       @_title_style_src : ::Crysterm::Style?
       @_title_style_copy : ::Crysterm::Style?
@@ -180,9 +180,8 @@ module Crysterm
       private def label_text : String
         if checkable?
           # `#marker_line` composes from the `MarkerLine` `@text` ivar; keep it
-          # mirroring the title. `rstrip` preserves the historical bare-marker
-          # label for an empty title (the builder always emits the marker-label
-          # gap).
+          # mirroring the title. `rstrip` preserves the bare-marker label for
+          # an empty title (the builder always emits the marker-label gap).
           @text = @title
           marker_line(Glyphs::Role::CheckboxOpen, Glyphs::Role::CheckboxClose,
             checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked,

@@ -89,7 +89,7 @@ describe "BUGS18 B18-05: title= writes only when connected and device-active" do
     out.clear
 
     a.title = "BG-TITLE"
-    # Pre-fix the OSC 0 write immediately retitled the terminal showing b.
+    # The OSC 0 write must not retitle the terminal showing b.
     out.to_s.includes?("\e]0;BG-TITLE\a").should be_false
     a.title.should eq "BG-TITLE"
 
@@ -124,8 +124,8 @@ describe "BUGS18 B18-05: title= writes only when connected and device-active" do
     out = w.output.as(IO::Memory)
     out.clear
 
-    # Pre-fix this wrote the OSC 0 escape to the dead connection's IO (an
-    # IO::Error on real closed fds); it must only store.
+    # Must only store the title, not write the OSC 0 escape to the dead
+    # connection's IO (which raises IO::Error on real closed fds).
     w.title = "SAVED"
     out.to_s.should eq ""
 
@@ -145,7 +145,8 @@ describe "BUGS18 B18-05: title= writes only when connected and device-active" do
     dev2 = b18rw_shared_screen
     w.screen = dev2
     begin
-      # Pre-fix a direct migration lost the title until the next `activate`.
+      # A direct migration must carry the title over, not wait for the next
+      # `activate`.
       dev2.output.as(IO::Memory).to_s.includes?("\e]0;CARRY\a").should be_true
     ensure
       w.destroy
@@ -179,8 +180,8 @@ describe "BUGS18 B18-07: close honors a handler's reattach" do
     w.close.should be_true
     begin
       saw_disconnected.should be_true
-      # Pre-fix `close`'s unconditional destroy tore down the connection the
-      # handler just established: fresh fds closed, loops killed, @destroyed.
+      # `close` must not unconditionally destroy the connection the handler
+      # just established: fds stay open, loops stay alive, @destroyed unset.
       w.destroyed?.should be_false
       w.connected?.should be_true
       new_input.closed?.should be_false
@@ -210,7 +211,8 @@ describe "BUGS18 B18-10: switch_terminal carries runtime-set options" do
 
     w2 = w.switch_terminal "xterm"
     begin
-      # Pre-fix each of these silently reverted to its config default.
+      # Each of these must carry over onto the replacement, not silently
+      # revert to its config default.
       w2.hyperlinks?.should be_false
       w2.synchronized_output?.should be_false
       w2.send_focus?.should be_true

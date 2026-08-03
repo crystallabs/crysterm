@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Undo/redo semantics of `TextDocument`'s built-in stack (TEXTEDIT.md Phase 1):
+# Undo/redo semantics of `TextDocument`'s built-in stack:
 # Qt-style typing coalescing, edit blocks, rich (format-preserving) restore,
 # and clean-state modified tracking.
 describe Crysterm::TextUndoStack do

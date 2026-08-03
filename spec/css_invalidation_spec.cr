@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS10 #28/#29/#30/#14: the CSS invalidation contract. A rule that stops
+# The CSS invalidation contract. A rule that stops
 # matching reverts what it set (including geometry, which lives on the widget,
 # not the `Style`); clearing the stylesheet reverts everything; swapping the
 # default (theme) stylesheet at runtime recascades live windows; and a
 # recascade mid-transition doesn't orphan the tween.
 
 describe "CSS invalidation" do
-  # #28 — geometry declarations bypass `Style`, so they need their own
+  # Geometry declarations bypass `Style`, so they need their own
   # pristine snapshot/restore in the cascade's reset pass.
   it "reverts geometry when its rule stops matching (class removed)" do
     s = headless_screen(80, 24, default_quit_keys: true)
@@ -42,9 +42,9 @@ describe "CSS invalidation" do
     b.height.should be_nil
   end
 
-  # #29 — clearing the stylesheet must restyle (revert) everything, just like
-  # assigning one restyles everything; previously the no-active-rules early
-  # exit left every widget stuck `css_styled` with the old computed styles.
+  # Clearing the stylesheet must restyle (revert) everything, just like
+  # assigning one restyles everything — a no-active-rules early exit would
+  # leave every widget stuck `css_styled` with stale computed styles.
   it "reverts widgets to pristine when the stylesheet is cleared with no default rules" do
     s = headless_screen(80, 24, default_quit_keys: true)
     without_default_theme do
@@ -85,9 +85,9 @@ describe "CSS invalidation" do
     end
   end
 
-  # #30 — swapping the default (theme) stylesheet at runtime must invalidate
-  # existing windows; previously nothing marked them dirty and the
-  # document-identity cache swallowed even an explicit restyle.
+  # Swapping the default (theme) stylesheet at runtime must invalidate
+  # existing windows — they must be marked dirty so the document-identity
+  # cache doesn't swallow the restyle.
   it "recascades an existing window when the default stylesheet changes at runtime" do
     s = headless_screen(80, 24, default_quit_keys: true)
     b = Widget::Button.new
@@ -107,7 +107,7 @@ describe "CSS invalidation" do
     end
   end
 
-  # #14 — a full recascade replaces per-state `Style` objects wholesale; an
+  # A full recascade replaces per-state `Style` objects wholesale; an
   # in-flight transition must keep affecting the *live* style, not a captured
   # (now orphaned) one.
   it "keeps a transition tweening the rendered style across a recascade" do

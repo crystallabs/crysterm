@@ -1,7 +1,7 @@
 require "./spec_helper"
 require "http/client"
 
-# Regression specs for BUGS6.md section 9 (Remote / DOM Remoting Layer).
+# Regression specs for the Remote / DOM Remoting Layer fixes.
 # Guarded by -Dremote like the other bridge specs; run with:
 #   crystal spec -Dremote spec/bugs6_remote_spec.cr
 {% if flag?(:remote) %}
@@ -36,8 +36,8 @@ require "http/client"
         s = headless_screen(default_quit_keys: true)
         bridge = ProbeBridge.new(s, port: 7200)
 
-        # Before the fix this would block forever on `result.receive` (the job
-        # raised on the render fiber and never sent) — hanging the request.
+        # A job that raises on the render fiber without ever sending would
+        # block `result.receive` forever — hanging the request.
         expect_raises(Exception, "boom") do
           bridge.pub_on_ui { raise "boom" }
         end
@@ -160,7 +160,7 @@ require "http/client"
         HTTP::Client.post("http://127.0.0.1:7206/rpc",
           headers: HTTP::Headers{"X-Crysterm-Token" => "s3cret"}, body: body).status_code.should eq 200
 
-        # Query-param token (leaks into logs) is no longer honored.
+        # Query-param token (leaks into logs) must not be honored.
         HTTP::Client.post("http://127.0.0.1:7206/rpc?token=s3cret", body: body).status_code.should eq 401
 
         # Wrong / missing header: rejected.

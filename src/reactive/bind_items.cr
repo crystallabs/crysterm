@@ -52,7 +52,13 @@ module Crysterm
         when .reset?
           fill.call
         end
-        view.window?.try &.update
+        # Every patch above already marks itself dirty (each one lands in an item
+        # box's `set_content`, or adds/removes a child), so this is the
+        # belt-and-suspenders repaint. It still goes through `request_render`
+        # rather than the bare doorbell, so it holds under damage tracking on its
+        # own — a doorbell rung against an empty dirty set buys a frame that
+        # carries the previous one over verbatim (see `Binding#run`).
+        view.request_render
       end
 
       # Tearing down the whole bag also removes this very hook (safe mid-emit:

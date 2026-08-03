@@ -29,8 +29,8 @@ end
 # inset (children sit at `parent.ileft`/`itop`, while the span is seeded to the
 # parent's own edge). The near-anchored branch adds the *far* inset to reach
 # `content + ihorizontal`/`ivertical`; the far-anchored branch must subtract the *far*
-# inset too. Pre-fix it subtracted the *near* inset, so under an asymmetric
-# border/padding a right/bottom-anchored shrink box came out `near - far` cells
+# inset too. Subtracting the *near* inset instead makes an asymmetric
+# border/padding produce a right/bottom-anchored shrink box `near - far` cells
 # too large (and, symmetric, coincidentally correct — so this only bites
 # asymmetric insets).
 describe "BUGS9 shrink-to-content far-anchor uses the far inset (fix #1)" do
@@ -42,7 +42,7 @@ describe "BUGS9 shrink-to-content far-anchor uses the far inset (fix #1)" do
     lw = left[1] - left[0]
     rw = right[1] - right[0]
     lw.should eq(9)  # content 6 + ihorizontal 3
-    rw.should eq(9)  # pre-fix this was 12 (content + 2*ileft)
+    rw.should eq(9)  # not 12 (content + 2*ileft)
     rw.should eq(lw) # far anchor must match the always-correct near anchor
   end
 
@@ -53,7 +53,7 @@ describe "BUGS9 shrink-to-content far-anchor uses the far inset (fix #1)" do
     th = top[3] - top[2]
     bh = bottom[3] - bottom[2]
     th.should eq(6)  # content 3 + ivertical 3
-    bh.should eq(6)  # pre-fix this was 9 (content + 2*itop)
+    bh.should eq(6)  # not 9 (content + 2*itop)
     bh.should eq(th) # far anchor must match the always-correct near anchor
   end
 

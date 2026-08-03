@@ -4,12 +4,12 @@ include Crysterm
 
 # Specs for the BUGS3 form/spinbox/date-edit fixes:
 #
-#  1. `Form#field_value` now collects `SpinBox`/`DoubleSpinBox`/`ComboBox`/
-#     `DateEdit`/`TimeEdit`/`DateTimeEdit` values on `#submit` (previously
-#     dropped, since only text/list/check widgets were matched).
-#  2. `Form#reset` now resets those same widgets (spin boxes to their minimum,
-#     combo boxes to the first option, date/time editors to "now"). A public
-#     `ComboBox#reset` was added.
+#  1. `Form#field_value` collects `SpinBox`/`DoubleSpinBox`/`ComboBox`/
+#     `DateEdit`/`TimeEdit`/`DateTimeEdit` values on `#submit` (not just
+#     text/list/check widgets).
+#  2. `Form#reset` resets those same widgets (spin boxes to their minimum,
+#     combo boxes to the first option, date/time editors to "now"), via a
+#     public `ComboBox#reset`.
 #  3. `SpinBox`/`DoubleSpinBox` constructors normalize an inverted
 #     `minimum > maximum` range so the value isn't left permanently stuck.
 #  4. `DateEdit#section_at` maps the separator columns consistently with

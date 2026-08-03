@@ -33,26 +33,56 @@ module Crysterm
         CSS_TAG
       end
 
-      # Stamps `text` into the window row at `y`, one glyph per cell starting at
-      # column `x` and stopping before `xl`, then marks the row dirty. With a
-      # non-nil `attr` each touched cell's attribute is set too; otherwise only
-      # the glyph is written.
-      protected def draw_text_run(y : Int32, x : Int32, text : String, xl : Int32, attr : Int64? = nil) : Nil
-        # Negative indices would wrap (`Indexable#[]?` accepts them), stamping text
-        # onto the far end of other rows for a widget partly off the top/left edge.
+      # Low-level text stamp under `#draw_text_run` and the graph overlay's
+      # `put_text`: writes `text` one glyph per cell into the window row at
+      # `y`, starting at column `x` and clipped to the half-open column range
+      # `[lo, hi)`, then marks exactly the stamped span dirty. With a non-nil
+      # `attr` each touched cell's attribute is set too; otherwise only the
+      # glyph is written.
+      protected def stamp_text_run(y : Int32, x : Int32, text : String, lo : Int32, hi : Int32, attr : Int64? = nil) : Nil
+        # Negative indices would wrap (`Indexable#[]?` accepts them), stamping
+        # text onto the far end of other rows for a widget partly off the
+        # top/left edge — guard the row, and clamp the clip floor so a negative
+        # `lo` still rejects off-left columns.
         return if y < 0
+        lo = 0 if lo < 0
         window.lines[y]?.try do |line|
           text.each_char_with_index do |ch, i|
             cx = x + i
-            break if cx >= xl
-            next if cx < 0
+            break if cx >= hi
+            next if cx < lo
             line[cx]?.try do |cell|
               cell.char = ch
               cell.attr = attr unless attr.nil?
             end
           end
-          line.dirty = true
+          line.mark_dirty_range Math.max(x, lo), Math.min(x + text.size - 1, hi - 1)
         end
+      end
+
+      # Low-level single-cell stamp under `#put_cell` and the graph overlay's
+      # `put_cell`: writes one glyph + packed attr at `(x, y)`, clipped to the
+      # half-open column range `[lo, hi)`, and marks that column dirty.
+      # Negative coordinates are dropped (`Indexable#[]?` would wrap them onto
+      # the far end of other rows/columns).
+      protected def stamp_cell(x : Int32, y : Int32, ch : Char, attr : Int64, lo : Int32, hi : Int32) : Nil
+        return if y < 0
+        lo = 0 if lo < 0
+        return if x < lo || x >= hi
+        window.lines[y]?.try do |line|
+          line[x]?.try do |cell|
+            cell.char = ch
+            cell.attr = attr
+            line.mark_dirty x
+          end
+        end
+      end
+
+      # Stamps `text` into the window row at `y`, one glyph per cell starting at
+      # column `x` and stopping before `xl`. With a non-nil `attr` each touched
+      # cell's attribute is set too; otherwise only the glyph is written.
+      protected def draw_text_run(y : Int32, x : Int32, text : String, xl : Int32, attr : Int64? = nil) : Nil
+        stamp_text_run y, x, text, 0, xl, attr
       end
 
       # Centers `text` horizontally within `[xi, xl)` on row `y`, then stamps it
@@ -63,21 +93,12 @@ module Crysterm
       end
 
       # Writes one glyph + packed attr directly into the window buffer at
-      # `(x, y)` and marks the row dirty — the single-cell sibling of
-      # `#draw_text_run`. Negative coordinates are dropped (`Indexable#[]?`
-      # would wrap them onto the far end of other rows), as is, when *clip* is
+      # `(x, y)` — the single-cell sibling of `#draw_text_run`. When *clip* is
       # given, any cell outside that rendered clip rectangle (a partially
-      # offscreen or ancestor-clipped widget).
+      # offscreen or ancestor-clipped widget) is dropped.
       protected def put_cell(x : Int32, y : Int32, ch : Char, attr : Int64, clip : RenderedGeometry? = nil) : Nil
         return if clip && !clip.contains?(x, y)
-        return if x < 0 || y < 0
-        window.lines[y]?.try do |line|
-          line[x]?.try do |cell|
-            cell.char = ch
-            cell.attr = attr
-          end
-          line.dirty = true
-        end
+        stamp_cell x, y, ch, attr, 0, Int32::MAX
       end
     end
   end

@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS8 GaugeList fix: the label column was sized and
+# Regression spec: the GaugeList label column was sized and
 # filled by codepoint count (`String#size`), so a wide (CJK) label — 1 codepoint
 # but 2 terminal columns — made the emitted row wider than the interior, shoving
-# the bar/percentage past the border and wrapping the row. The fix measures and
-# fills the label by display width (under `full_unicode?`, as `pad_cell` does).
+# the bar/percentage past the border and wrapping the row. The label must be
+# measured and filled by display width (under `full_unicode?`, as `pad_cell` does).
 
 private def uni_screen(w = 30, h = 8)
   Crysterm::Window.new(
@@ -25,8 +25,8 @@ describe "BUGS8 GaugeList sizes the label column by display width" do
 
     cols = gl.awidth.not_nil! - gl.ihorizontal
     line = gl.clean_tags(gl.content) # single gauge → single content line
-    # The row must be exactly the interior width. Pre-fix the label counted as 2
-    # columns instead of 4, so the row came out 2 columns too wide (→ wrap).
+    # The row must be exactly the interior width. A label counted as 2
+    # columns instead of 4 would come out 2 columns too wide (→ wrap).
     Crysterm::Unicode.display_width(line).should eq cols
   end
 

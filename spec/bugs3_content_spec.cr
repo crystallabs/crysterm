@@ -8,10 +8,10 @@ include Crysterm
 #      the regex `/^(?:\e[\[\d;]*m)+$/`, whose `[\[\d;]*` is a character class
 #      matching `[`, digits and `;` in ANY order and with NO required `[` after
 #      the `\e`. That wrongly accepted junk like `"\e999m"` or `"\em"` as an SGR
-#      run. The fix `/^(?:\e\[[\d;]*m)+$/` requires a literal `\e[` opener, so it
-#      only matches real SGR runs (`"\e[31m"`, `"\e[0m\e[1m"`).
+#      run. The corrected regex `/^(?:\e\[[\d;]*m)+$/` requires a literal `\e[`
+#      opener, so it only matches real SGR runs (`"\e[31m"`, `"\e[0m\e[1m"`).
 #
-#   2. The word-wrap backward scan for a wrap point now skips whole `\e…m` SGR
+#   2. The word-wrap backward scan for a wrap point skips whole `\e…m` SGR
 #      runs (via the `sgr_run_start` helper) so wrapping text that contains
 #      inline color escapes never cuts mid-escape and never corrupts the color
 #      carried onto the wrapped remainder.
@@ -147,7 +147,7 @@ describe "widget_content SGR word-wrap (bugs3)" do
   end
 
   describe "SGR guard regex only matches real SGR runs" do
-    # The corrected regex, tested directly to lock in the fix. The old
+    # The corrected regex, tested directly. The old
     # `/^(?:\e[\[\d;]*m)+$/` matched all of these strings; the new one rejects
     # the non-SGR ones.
     sgr = /^(?:\e\[[\d;]*m)+$/

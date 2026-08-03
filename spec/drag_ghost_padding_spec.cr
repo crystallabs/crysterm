@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: the transient drag "ghost" (floated under the pointer during a
-# transfer drag) must track the pointer even when the screen has padding.
+# The transient drag "ghost" (floated under the pointer during a transfer
+# drag) must track the pointer even when the screen has padding.
 #
 # A top-level widget's `left`/`top` are measured from the screen's content
 # origin (`aleft == screen.ileft + left`), but the ghost is placed from the
 # pointer's absolute coordinates, so screen padding must be subtracted when
 # computing its `left`/`top` (mirrors what the reposition drag handler does via
-# `Widget#drag_origin`). Before the fix the ghost was offset by `ileft`/`itop`.
+# `Widget#drag_origin`) — else the ghost is offset by `ileft`/`itop`.
 describe "drag ghost on a padded screen" do
   it "floats the ghost directly under the pointer regardless of screen padding" do
     s = Crysterm::Window.new(

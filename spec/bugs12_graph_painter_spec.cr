@@ -4,14 +4,14 @@ include Crysterm
 
 # Re-exposes the private `TextOverlay` stamping helpers so they can be exercised
 # directly against a real `window.lines` grid.
-private class OverlayProbe < Crysterm::Widget
+private class OverlayProbe < Crysterm::Widget::Box
   include Crysterm::Widget::Graph::TextOverlay
 
-  def stamp_text(x, y, text, attr, lo, hi)
+  def probe_text(x, y, text, attr, lo, hi)
     put_text x, y, text, attr, lo, hi
   end
 
-  def stamp_cell(x, y, ch, attr, lo, hi)
+  def probe_cell(x, y, ch, attr, lo, hi)
     put_cell x, y, ch, attr, lo, hi
   end
 end
@@ -83,7 +83,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
       last = s.lines.size - 1
       # Snapshot the bottom row before the (negative-row) stamp attempt.
       before = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
-      probe.stamp_text 0, -1, "HELLO", 0_i64, 0, 20
+      probe.probe_text 0, -1, "HELLO", 0_i64, 0, 20
       after = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
       after.should eq before
     end
@@ -95,7 +95,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
       before = s.lines[0][right].char
       # x=-1 with a negative clip floor: char i=0 lands at cx=-1, which would
       # wrap to the last column unless `lo` is clamped to 0.
-      probe.stamp_text -1, 0, "X", 0_i64, -5, 20
+      probe.probe_text -1, 0, "X", 0_i64, -5, 20
       s.lines[0][right].char.should eq before
     end
 
@@ -104,7 +104,7 @@ describe Crysterm::Widget::Graph::TextOverlay do
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       last = s.lines.size - 1
       before = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
-      probe.stamp_cell 0, -1, 'Z', 0_i64, 0, 20
+      probe.probe_cell 0, -1, 'Z', 0_i64, 0, 20
       after = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
       after.should eq before
     end
@@ -114,14 +114,14 @@ describe Crysterm::Widget::Graph::TextOverlay do
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       right = s.lines[0].size - 1
       before = s.lines[0][right].char
-      probe.stamp_cell -1, 0, 'Z', 0_i64, -5, 20
+      probe.probe_cell -1, 0, 'Z', 0_i64, -5, 20
       s.lines[0][right].char.should eq before
     end
 
     it "put_text still stamps a normal in-range label" do
       s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
-      probe.stamp_text 1, 0, "OK", 0_i64, 0, 20
+      probe.probe_text 1, 0, "OK", 0_i64, 0, 20
       s.lines[0][1].char.should eq 'O'
       s.lines[0][2].char.should eq 'K'
     end

@@ -2,9 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Coverage for the API4 mechanical value-type/layout convenience additions
-# (Deferred → Fable, Area 2 A4-11..A4-21 and Area 3 A4-23..A4-33). Each block
-# maps to an A4-* finding; see plans/API4.md.
+# Coverage for the API4 value-type/layout convenience additions.
 
 describe "API4 value-type / layout additions" do
   describe "Widget#pos / #size / #rect (A4-11)" do

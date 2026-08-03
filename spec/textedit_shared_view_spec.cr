@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Second-view caret auto-adjust (TEXTEDIT.md Phase-2 known-gap follow-up):
+# Second-view caret auto-adjust:
 # when several `Widget::TextEdit`s share one `TextDocument`, an edit made
 # through one view (or through a bare `TextCursor` / direct document calls)
 # shifts the other views' carets and selections exactly like the document

@@ -740,10 +740,10 @@ describe Crysterm::Widget::ComboBox do
     cb.current_text.should eq "x"
   end
 
-  # `selected=` used to be the generated `property` setter: it moved the index
-  # and nothing else, leaving `#value` and the rendered content pointing at the
-  # old option — while the combo's *own* popup got the real thing from
-  # `Mixin::ItemView`. It is now the `setCurrentIndex` a caller assumes.
+  # `selected=` must be the `setCurrentIndex` a caller assumes — a generated
+  # `property` setter would move the index and nothing else, leaving `#value`
+  # and the rendered content pointing at the old option, while the combo's
+  # *own* popup gets the real thing from `Mixin::ItemView`.
   it "carries the value (and clamps) when the index is assigned" do
     s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, options: ["a", "b", "c"], width: 10
@@ -1793,8 +1793,8 @@ describe Crysterm::Widget::Calendar do
     cal.month_menu.not_nil!.actions.size.should eq 12 # all twelve months
     s.repaint
 
-    # Regression: a wheel over the month must still page it — the modal grab
-    # previously swallowed it, leaving the wheel "stuck" until an arrow was clicked.
+    # A wheel over the month must still page it — the modal grab must not
+    # swallow it, leaving the wheel "stuck" until an arrow is clicked.
     before = cal.month_shown
     s.dispatch_mouse Tput::Mouse::Event.new(Tput::Mouse::Action::WheelDown, Tput::Mouse::Button::None, mx, navy)
     cal.month_shown.should eq before + 1

@@ -5,7 +5,7 @@ module Crysterm
     # `#minimum`/`#maximum` getters and `#set_range`, so the identical body
     # works unmodified whether the includer is generic (`RangedValue(T)`) or
     # not (`PercentRange`) — plain duck typing, no cross-generic module
-    # trickery needed (O5-10).
+    # trickery needed.
     module RangeBounds
       # Sets the lower bound (Qt's `setMinimum`), re-clamping the value into
       # range and emitting the range-change signal on an actual change (via
@@ -33,7 +33,7 @@ module Crysterm
     end
 
     # `#range=`/`#span`: the two `RangedValue`-generic fragments shared with
-    # `Widget::ProgressBar` (O5-26), which can't include the rest of
+    # `Widget::ProgressBar`, which can't include the rest of
     # `RangedValue` (its `complete:`-gated `Event::Completed` doesn't fit
     # `#value=`'s single clamp-and-emit body) but includes this narrower
     # module directly for these two. Written purely against the includer's
@@ -79,7 +79,7 @@ module Crysterm
       @minimum : T = T.zero
       @maximum : T = T.zero
       @value : T = T.zero
-      @step : T = T.zero
+      @single_step : T = T.zero
 
       # Current lower/upper bounds of the value range.
       def minimum : T
@@ -95,14 +95,16 @@ module Crysterm
       # `RangeBounds`, included above.
 
       # Qt's `singleStep`: the amount a single line-step (arrow key, wheel notch)
-      # moves the value by.
+      # moves the value by. Constructors take it as `single_step:` — the blessed
+      # Qt-parity spelling — with `step:` kept as a compatibility alias
+      # (`single_step:` wins when both are given).
       def single_step : T
-        @step
+        @single_step
       end
 
       # :ditto:
       def single_step=(v : T) : T
-        @step = v
+        @single_step = v
       end
 
       # Whether stepping past a bound wraps around to the other end. Qt spells
@@ -129,7 +131,7 @@ module Crysterm
         # survives `clamp` (every comparison with NaN is false) and never equals
         # `@value`, so it would store, render "nan", and re-fire the change event
         # on every step. No-op for the Int32 includers. Mirrors
-        # `PercentRange#assign_completable` and the B16-38 convention.
+        # `PercentRange#assign_completable`'s reject-as-no-op convention.
         {% unless T < Int %} v = @minimum unless v.finite? {% end %}
         v = v.clamp(@minimum, @maximum)
         return v if v == @value
@@ -142,7 +144,7 @@ module Crysterm
 
       # Steps the value up by *by* (defaults to one `#single_step`), saturating
       # to the bound on overflow. Internal engine behind `#step_up`/`#step_by`.
-      protected def step_value_up(by : T = @step)
+      protected def step_value_up(by : T = @single_step)
         self.value = @value + by
       rescue OverflowError
         # `@value + by` exceeded T's representable range (e.g. Up at
@@ -154,7 +156,7 @@ module Crysterm
 
       # Steps the value down by *by* (defaults to one `#single_step`), saturating
       # to the bound on overflow. Internal engine behind `#step_down`/`#step_by`.
-      protected def step_value_down(by : T = @step)
+      protected def step_value_down(by : T = @single_step)
         self.value = @value - by
       rescue OverflowError
         step_overflow_saturate(by < T.zero)
@@ -165,9 +167,9 @@ module Crysterm
       # *steps* move down.
       def step_by(steps : Int32) : Nil
         return if steps == 0
-        steps > 0 ? step_value_up(@step * steps) : step_value_down(@step * -steps)
+        steps > 0 ? step_value_up(@single_step * steps) : step_value_down(@single_step * -steps)
       rescue OverflowError
-        # `@step * steps` overflowed T before the step could saturate it; the
+        # `@single_step * steps` overflowed T before the step could saturate it; the
         # direction is all that survives, which is enough.
         step_overflow_saturate(steps > 0)
       end
@@ -211,7 +213,7 @@ module Crysterm
       end
 
       # Handles a mouse-wheel notch on a ranged control: wheel-up steps the
-      # value up by `#step`, wheel-down steps it down. Accepts *e* and returns
+      # value up by `#single_step`, wheel-down steps it down. Accepts *e* and returns
       # `true` when the event was a wheel notch (so callers can `next`).
       #
       # `invert: true` swaps the two (wheel-up decrements) — a vertical
@@ -283,7 +285,7 @@ module Crysterm
         # Reject non-finite bounds as a no-op for float instantiations: NaN would
         # pass the inversion and no-op guards below (all NaN comparisons false) and
         # get stored, wedging clamp/stepping. No-op for the Int32 includers.
-        # Matches the B16-38 reject-as-no-op convention.
+        # Matches the shared reject-as-no-op convention.
         {% unless T < Int %} return unless Crysterm.all_finite?(min, max) {% end %}
         max = min if max < min
         return if min == @minimum && max == @maximum
@@ -334,7 +336,7 @@ module Crysterm
       # (`Float64`) for a `Float64` includer such as `DoubleSpinBox` (which
       # overrides `#emit_value_change` accordingly) — mirroring
       # `#emit_value_change`'s own per-instantiation routing so the block
-      # always receives *T*, never a mismatched payload type (A4-61b).
+      # always receives *T*, never a mismatched payload type.
       def on_value_change(&block : T ->) : Nil
         # Rebind to a plain local first: a nested block closing directly over
         # the `&block`-declared parameter, inside a top-level `{% if %}` that
@@ -356,7 +358,7 @@ module Crysterm
     # and the shared `#value=` body `#assign_completable`.
     module PercentRange
       # `#minimum=`/`#maximum=` (the Qt carry-up/down setters) come from
-      # `RangeBounds` (O5-10) — identical body to `RangedValue(T)`'s, since
+      # `RangeBounds` — identical body to `RangedValue(T)`'s, since
       # both are written purely against `#minimum`/`#maximum`/`#set_range`.
       include RangeBounds
 
@@ -373,7 +375,7 @@ module Crysterm
 
       # Sanitizes a `#set_range` request against the current range, centralizing
       # the finite-guard + inversion-collapse + no-op-compare the float meters
-      # share (the B16-38 reject-as-no-op convention). Returns `nil` to signal a
+      # share (the reject-as-no-op convention). Returns `nil` to signal a
       # no-op — a non-finite bound (rejected outright, keeping the previous
       # range), or a range identical to the current `#minimum`/`#maximum` — and
       # the sanitized `{min, max}` (a `max < min` collapsed up to `min`)

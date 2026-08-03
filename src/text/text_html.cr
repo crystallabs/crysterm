@@ -232,7 +232,7 @@ module Crysterm
       # Color <span> is emitted innermost (after the flag tags) so that on
       # re-import its explicit fg/bg patch folds after the code element's
       # theme-fallback patch and wins — otherwise a recolored code fragment
-      # comes back with the theme's code colors (B17-30).
+      # comes back with the theme's code colors.
       if has_color
         io << "<span style=\""
         wrote = false
@@ -261,8 +261,8 @@ module Crysterm
     # Single pass instead of chained `gsub`s (each a full scan + intermediate
     # String); returns `text` unchanged (no allocation) when there's nothing to
     # escape — the common case, decided by one scan rather than one per
-    # character of interest. Per-char mapping never re-scans an emitted entity,
-    # so it matches the `&`-first gsub ordering's anti-double-escape intent.
+    # character of interest. Per-char mapping never re-scans an emitted
+    # entity, so nothing is double-escaped.
     private def self.escape_html(text : String, quotes : Bool = false) : String
       return text unless text.each_char.any? { |c| c == '&' || c == '<' || c == '>' || (quotes && c == '"') }
       String.build(text.bytesize + 16) do |io|
@@ -280,8 +280,7 @@ module Crysterm
 
     # :ditto:
     #
-    # Kept as a named method: it reads as intent at the attribute-writing call
-    # sites.
+    # A named method so the attribute-writing call sites read as intent.
     private def self.escape_attr(text : String) : String
       escape_html text, quotes: true
     end
@@ -690,7 +689,7 @@ module Crysterm
         # A pre-wrap list item defers opening its first block until its text
         # arrives; open it now (adopting the li's no-collapse flag) so the
         # text is not run through `WS_RUN` below and its TABs / spaces survive
-        # the round-trip (T3).
+        # the round-trip.
         ensure_block if !@block_open && @pending_item && @pending_item_collapse == false
         if @block_open && !@collapse
           @frags << TextFragment.new(str.gsub('\n', ' '), current_format)

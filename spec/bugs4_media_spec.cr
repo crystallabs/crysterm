@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS4 media fix: a *finite* animation that ran to
-# completion holds its last frame (BUGS3 fix). Calling `#play` again must rewind
-# to frame 0 and replay — before this fix the loop started already at the last
-# frame and immediately re-completed, only flashing that frame. A `@finished`
+# Regression spec: a *finite* animation that ran to
+# completion holds its last frame. Calling `#play` again must rewind
+# to frame 0 and replay — otherwise the loop starts already at the last
+# frame and immediately re-completes, only flashing that frame. A `@finished`
 # flag distinguishes "done" from "paused mid-stream" so `#play` rewinds only on
 # completion.
 

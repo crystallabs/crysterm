@@ -5,12 +5,12 @@ include Crysterm
 # Regression specs for the BUGS9 "Input, Mouse, Focus, Drag, Events" fixes.
 #
 # 1. `window_drag.cr#drag_release`: when a drag is released over a target that
-#    received `Event::DragEnter` but did NOT accept the drop, the target was
-#    never told the drag left it (no `Drop`, no `DragLeave`), so it stayed in
-#    its drag-entered visual state forever. Every `DragEnter` must be balanced
-#    by exactly one `Drop` or `DragLeave`, as `retarget` (target change) and
-#    `drag_cancel` (Escape) already guarantee. This closes the
-#    rejection-on-release gap, for both the mouse and keyboard sensors.
+#    received `Event::DragEnter` but did NOT accept the drop, the target must
+#    still be told the drag left it — otherwise it stays in its drag-entered
+#    visual state forever. Every `DragEnter` must be balanced by exactly one
+#    `Drop` or `DragLeave`, as `retarget` (target change) and `drag_cancel`
+#    (Escape) already guarantee; this pins the rejection-on-release path for
+#    both the mouse and keyboard sensors.
 
 private def b9_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)
@@ -53,7 +53,7 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
 
     entered.should eq 1
     dropped.should eq 0
-    # Before the fix this was 0: the target stayed stuck in its entered state.
+    # A missing DragLeave here leaves the target stuck in its entered state.
     left.should eq 1
   end
 

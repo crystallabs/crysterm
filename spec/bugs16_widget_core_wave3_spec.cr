@@ -65,7 +65,7 @@ describe "BUGS16 B16-12: label= keeps the placed side" do
 
     w.label = "Title (2)"
     w.label.should eq "Title (2)"
-    lbl.right.should_not be_nil # pre-fix: reset to the left side
+    lbl.right.should_not be_nil # must not reset to the left side
     lbl.left.should be_nil
   ensure
     s.try &.destroy

@@ -8,9 +8,9 @@ include Crysterm
 # above the whole base layer (see `Window#composite_planes`), regardless of
 # tree position.
 #
-# Before the fix, `widget_at` returned the last tree-order match ignoring
-# z-index, so a non-z-indexed widget added after (and overlapping) a
-# z-indexed one would steal the click.
+# Taking the last tree-order match while ignoring z-index would let a
+# non-z-indexed widget added after (and overlapping) a z-indexed one
+# steal the click.
 describe "Window#widget_at (z-index)" do
   it "hits the z-indexed widget painted on top, not the later tree-order one" do
     s = headless_screen(40, 20, default_quit_keys: true)

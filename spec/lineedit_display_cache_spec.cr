@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Group L (ALLOCS.md): LineEdit#compute_display now snapshots its inputs and
-# reuses a cached display string across the once-per-frame redisplay driven by
+# LineEdit#compute_display snapshots its inputs and reuses a cached display
+# string across the once-per-frame redisplay driven by
 # Mixin::TextEditing#render (#refresh_value). These specs pin the displayed
 # text (normal + censor), horizontal-scroll windowing, caret tracking, and that
 # an unchanged steady-state frame returns the *same* String object.

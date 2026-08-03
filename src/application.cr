@@ -338,6 +338,8 @@ module Crysterm
     # via the block, then render and start input on them all, then block. A `q` / `Ctrl-Q` in
     # any window — or closing any window — tears that one down; the call
     # returns (and the process exits) once the last window is gone.
+    #
+    # For a single in-process window, see the simpler `Crysterm.run`.
     def self.run(*, window_count : Int32, launcher : Terminal::Launcher | String? = nil,
                  cols : Int32 = 80, rows : Int32 = 24, env : Process::Env = nil,
                  & : Window, Int32 -> _) : Nil

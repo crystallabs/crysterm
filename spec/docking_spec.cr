@@ -80,9 +80,9 @@ describe "Docking.angle_at" do
 
     it "Blend mixes in *every* contrasting neighbor, not just the last one" do
       # UP and DOWN neighbors both differ from the centre (left/right match).
-      # Previously each neighbor blended against the original centre attr and
-      # overwrote the cell, so only the last-processed neighbor (DOWN, in
-      # L/U/R/D order) survived. Accumulating into the running attr keeps both.
+      # Accumulating into the running attr keeps both — blending each neighbor
+      # against the original centre attr and overwriting the cell would leave
+      # only the last-processed neighbor (DOWN, in L/U/R/D order).
       g = grid [
         " │ ",
         "─┼─",

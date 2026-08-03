@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS16.md #B16-08: removing/destroying a widget performed the unlink, unregistered
-# input and emitted events, but never rang the render doorbell. On an idle UI a
+# Removing/destroying a widget performed the unlink, unregistered input and
+# emitted events, but never rang the render doorbell. On an idle UI a
 # key/mouse handler that removed a widget left it fully painted (while already
 # unclickable/unfocusable) until some unrelated mutation forced the next frame.
-# The centralized fix rings the doorbell from the structural-change damage hooks
+# The doorbell must ring from the structural-change damage hooks
 # (`_damage_invalidate_structure` on both Widget and Window), which every
 # add/remove/reparent already funnels through.
 

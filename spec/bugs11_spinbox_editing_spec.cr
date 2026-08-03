@@ -2,18 +2,16 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS11 #17.
+# BUGS11 #17 — `Mixin::SpinBoxEditing#on_keypress` accepted Enter and Escape
+# UNCONDITIONALLY, even with no edit in progress (`@editing` nil, so
+# `commit_edit`/`cancel_edit` are no-ops). An accepted event starves
+# window-level dialog accelerators — `Widget::Dialog` does
+# `return if e.accepted?` — so a focused SpinBox in a Dialog swallowed Enter and
+# Escape, and the dialog could not be confirmed/cancelled from the keyboard.
 #
-#  Bug (fixed in src/mixin/spinbox_editing.cr): `Mixin::SpinBoxEditing#on_keypress`
-#  accepted Enter and Escape UNCONDITIONALLY, even with no edit in progress
-#  (`@editing` nil, so `commit_edit`/`cancel_edit` are no-ops). An accepted event
-#  starves window-level dialog accelerators — `Widget::Dialog` does
-#  `return if e.accepted?` — so a focused SpinBox in a Dialog swallowed Enter and
-#  Escape, and the dialog could not be confirmed/cancelled from the keyboard.
-#
-#  Fix: gate the Enter and Escape arms on `editing?`. With no edit buffer, the
-#  key falls through un-accepted so the accelerators still fire; with an edit in
-#  progress, Enter commits and Escape cancels, both accepting the event.
+# The Enter and Escape arms are gated on `editing?`: with no edit buffer the
+# key falls through un-accepted so the accelerators still fire; with an edit in
+# progress, Enter commits and Escape cancels, both accepting the event.
 
 private def bugs11_keypress(ch : Char, key : Tput::Key? = nil)
   Crysterm::Event::KeyPress.new ch, key

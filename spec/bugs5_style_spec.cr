@@ -2,20 +2,20 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the BUGS5 style-engine fixes (see BUGS5.md):
+# Regression specs for the BUGS5 style-engine fixes:
 #
-#  1. `parse_animation` treated the FIRST shorthand token as the @keyframes name,
-#     so `animation: 2s linear infinite spin` set name = "2s" and the animation
-#     silently never played. The name is now the token that is not a <time>, not a
-#     keyword/easing, and not a bare count (preferring the last such token).
-#  2. `parse_transition` read tokens positionally (dur = toks[1], easing = toks[2]),
-#     mis-reading valid orderings like `opacity ease-out 0.3s` / `color ease-in`.
-#     Tokens are now classified by kind; unitless numbers are not durations.
-#  3. `parse_box_shadow` captured a bare fractional offset in 0..1 as the opacity
-#     (`0.0 4px 8px black` → invisible). A number in the leading geometry run is
-#     now treated as an offset, never opacity.
-#  4. `Shadow.from` lacked an `Int` arm (unlike `Border`/`Padding`/`Margin`), so
-#     `Style.new(shadow: 2)` failed to compile.
+#  1. `parse_animation` must not treat the FIRST shorthand token as the @keyframes
+#     name (`animation: 2s linear infinite spin` would set name = "2s" and the
+#     animation silently never played). The name is the token that is not a <time>,
+#     not a keyword/easing, and not a bare count (preferring the last such token).
+#  2. `parse_transition` must classify tokens by kind, not position, so valid
+#     orderings like `opacity ease-out 0.3s` / `color ease-in` parse correctly;
+#     unitless numbers are not durations.
+#  3. `parse_box_shadow` must treat a number in the leading geometry run as an
+#     offset, never opacity (a bare fractional offset read as opacity made
+#     `0.0 4px 8px black` invisible).
+#  4. `Shadow.from` needs an `Int` arm (like `Border`/`Padding`/`Margin`) so
+#     `Style.new(shadow: 2)` compiles.
 
 private def anim(value : String)
   s = Style.new

@@ -277,7 +277,7 @@ describe "Mixin::TextEditing mouse cursor positioning / selection" do
     end
 
     # Regression coverage for the cached logical-line-offset lookup that backs
-    # `#fake_line_bounds` (OPT.md G3). These exercise it through the public
+    # `#fake_line_bounds`. These exercise it through the public
     # `#position_at` (mouse mapping) / Up-Down (`#pos_from_rowcol`) surface: a
     # wrong or stale offset table lands the caret on the wrong logical line.
     it "maps a click on a later logical line past a TAB-containing line to the right index" do

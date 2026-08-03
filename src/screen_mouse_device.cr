@@ -70,8 +70,8 @@ module Crysterm
     # reports are consumed by the device read fiber, so no fiber is spawned for
     # them here.
     #
-    # The `gpm` connect (and the one-time listening flag) happen at most once —
-    # merging what used to be the separate, guarded `listen_mouse` — but the
+    # The `gpm` connect (and the one-time listening flag) happen at most once,
+    # but the
     # `tput.enable_mouse` re-assert always runs on every call, even when already
     # listening: callers (e.g. `Window#register_clickable`'s on-demand
     # re-enable) rely on being able to re-send the escape sequence without

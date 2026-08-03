@@ -216,8 +216,7 @@ module Crysterm
     # Sentinel char marking the trailing half of a wide (2-column) glyph. Must
     # stay equal to `Window::Cell::CONTINUATION`, so the widget can copy the
     # notion straight through to the window's own continuation cells.
-    CONTINUATION = '\u0000' # NUL — same sentinel as Window::Cell::CONTINUATION
-
+    CONTINUATION = '\u0000'
     # VT100 DEC special-graphics map: the line-drawing glyphs a child selects via
     # `ESC ( 0`. Only 0x60–0x7e differ from ASCII; everything else passes through.
     DEC_GRAPHICS = {

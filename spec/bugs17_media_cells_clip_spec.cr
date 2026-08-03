@@ -9,7 +9,7 @@ include Crysterm
 # visible box instead of showing a cropped window of the full image — and
 # `@rendered_size` changed on every scroll step, thrashing `@frame_cache`.
 #
-# Fix: compose at the FULL (unclipped) interior size — stable across scroll —
+# Compose must happen at the FULL (unclipped) interior size — stable across scroll —
 # and blit only the visible sub-rectangle, mapping through `coords.base`
 # (rows) and the unclipped content origin (columns), mirroring the
 # `Widget::Terminal#draw` / `Effect::Direct#paint` convention.

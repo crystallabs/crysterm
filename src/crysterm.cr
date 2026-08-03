@@ -6,6 +6,7 @@ require "crystallabs-helpers"
 require "./version"
 require "./macros"
 require "./num_util"
+require "./formatting"
 require "./config"
 require "./cache"
 require "./attr"
@@ -190,6 +191,8 @@ module Crysterm
   # `quit` call) and returns the exit status, so a program can end with
   # `exit Crysterm.run { |w| ... }` when the status matters. Keyword arguments
   # are forwarded to `Window.new`.
+  #
+  # For N emulator windows instead of one in-process window, see `Application.run`.
   def self.run(**window_options, & : Window ->) : Int32
     window = Window.new(**window_options)
     yield window
@@ -198,9 +201,9 @@ module Crysterm
 end
 
 # Process-lifecycle glue: `GlobalEvents`, the signal traps, `Crysterm.shutdown`,
-# suspend/resume, and the `at_exit` terminal-restore net. Required here — after
+# suspend/resume, and the `at_exit` terminal-restore net. Must stay here — after
 # the module intro, before the helper hook below — so its top-level effects
-# (trap registration, `at_exit` ordering) run exactly where they always did.
+# (trap registration, `at_exit` ordering) run in this exact position.
 require "./lifecycle"
 
 # If this process was launched as an in-window helper by `Window.open` (env var

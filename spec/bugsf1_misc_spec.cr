@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for a batch of BUGS-F1 findings owned by this agent:
+# Regression coverage for a batch of BUGS-F1 findings:
 #
 #  20 (macros.cr)            `alias_previous` created a junk `new_method` instead
 #                            of the requested alias, so `Message#log` /
@@ -32,8 +32,7 @@ describe "BUGS-F1 finding 20: alias_previous defines the requested alias" do
 
   it "creates Window#reset_cursor" do
     s = headless_screen(80, 24)
-    # Real method now (was a no-op junk `new_method` before the fix); calling it
-    # must not raise.
+    # A real method, not a no-op junk `new_method`; calling it must not raise.
     s.reset_cursor
   end
 end
@@ -184,8 +183,8 @@ describe "BUGS-F1 finding 49: ButtonGroup exclusivity survives a raising handler
     b.checked?.should be_true
 
     # With `@suppress` correctly reset by `ensure`, exclusivity still works:
-    # checking `a` unchecks `b`. (Before the fix `@suppress` stayed true and the
-    # exclude step was skipped, leaving both checked.)
+    # checking `a` unchecks `b`. (A stuck `@suppress` would skip the exclude
+    # step, leaving both checked.)
     a.check
     a.checked?.should be_true
     b.checked?.should be_false

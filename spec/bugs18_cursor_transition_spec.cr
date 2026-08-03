@@ -81,9 +81,9 @@ describe "apply_cursor artificial<->hardware transition (B18-04)" do
 
   it "hides the hardware cursor for a window whose cursor is artificial from the start" do
     # Mechanism (b) end-to-end: constructor `cursor:` with a custom shape.
-    # Before the fix, `enter`'s `hide_cursor` took the artificial branch (which
-    # only records `_hidden`), so civis was never emitted and the terminal's
-    # own cursor stayed visible for the whole session.
+    # `enter`'s `hide_cursor` takes the artificial branch (which only records
+    # `_hidden`); without the transition handling, civis would never be
+    # emitted and the terminal's own cursor would stay visible all session.
     c = Crysterm::Cursor.new
     c.shape = Tput::CursorShape::None
     outio = IO::Memory.new
@@ -110,9 +110,9 @@ describe "apply_cursor artificial<->hardware transition (B18-04)" do
     s.set_cursor_shape Tput::CursorShape::Block
 
     s.cursor.artificial?.should be_false
-    # The transition scheduled the render whose `@_acur` repair erases the
-    # stale glyph — before the fix nothing was scheduled and, on an idle UI,
-    # the glyph persisted indefinitely.
+    # The transition must schedule the render whose `@_acur` repair erases the
+    # stale glyph; with nothing scheduled, the glyph would persist
+    # indefinitely on an idle UI.
     doorbell_rung?(s).should be_true
 
     # The scheduled draw repairs the painted cell and clears the tracker.

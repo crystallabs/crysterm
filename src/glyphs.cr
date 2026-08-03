@@ -497,10 +497,9 @@ module Crysterm
       end
     end
 
-    # Built-in defaults. The `unicode` column is the toolkit's long-standing
-    # rendition, so the default tier renders exactly as it always has; the
-    # `ascii` column is the honest 7-bit rendition; `extended` holds opt-in
-    # upgrades only.
+    # Built-in defaults. The `unicode` column is the toolkit's standard
+    # rendition (what the default tier draws); the `ascii` column is the
+    # honest 7-bit rendition; `extended` holds opt-in upgrades only.
     DEFAULTS = begin
       t = Array(Entry).new(Role.values.size, Entry.new(' '))
       set_in t, Role::CheckboxOpen, Entry.new('[')
@@ -927,11 +926,10 @@ module Crysterm
       end
     end
 
-    # Built-in sequence defaults. As with `DEFAULTS`, each long-standing
-    # literal sits in the column that keeps the default tier rendering as it
-    # always has: the spinner's `| / - \` in `ascii` (it always was 7-bit),
-    # the dial arrows and eighth-block ramps in `unicode`; `extended` holds
-    # opt-in upgrades (the braille spinner).
+    # Built-in sequence defaults. As with `DEFAULTS`, each literal sits in
+    # the column matching its repertoire: the spinner's `| / - \` in `ascii`
+    # (7-bit), the dial arrows and eighth-block ramps in `unicode`;
+    # `extended` holds opt-in upgrades (the braille spinner).
     SEQ_DEFAULTS = begin
       t = Array(SeqEntry).new(SeqRole.values.size) { SeqEntry.new([' ']) }
       t[SeqRole::SpinnerFrames.value] = SeqEntry.new(

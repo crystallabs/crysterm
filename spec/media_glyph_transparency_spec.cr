@@ -8,11 +8,11 @@ include Crysterm
 # The multi-column glyph modes (`Quadrant`/`Sextant`/`Octant`, via
 # `paint_two_color`) and `Half` split a cell's sub-pixels into ink (fg) and
 # paper (bg). Transparent pixels — a `Fit::Contain` letterbox margin or a hole
-# in the source image — are stored as black `(0,0,0,0)`. They used to be
-# averaged into the paper colour and the luminance threshold, painting a dark
-# fringe along the image's edges and its first/last (letterbox) rows. The fix
-# excludes any sub-pixel with alpha 0 from the colour/threshold computation,
-# letting it affect only the cell's coverage (alpha).
+# in the source image — are stored as black `(0,0,0,0)`. Any sub-pixel with
+# alpha 0 must be excluded from the colour/threshold computation, affecting
+# only the cell's coverage (alpha); averaging it into the paper colour and the
+# luminance threshold paints a dark fringe along the image's edges and its
+# first/last (letterbox) rows.
 
 private def render_cell(mode : Widget::Media::Glyph::Mode, bmp : PNGGIF::Bitmap)
   s = Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -60,9 +60,9 @@ describe "Widget::Media::Glyph transparency" do
 
     it "does not paint a black paper fringe from the transparent half in #{mode} mode" do
       cell = render_cell(mode, top_opaque(0xffffff, 0x000000, w, h))
-      # Ink is white; with the bug the paper (bg) was pure black. After the fix
-      # the paper borrows the ink colour, so — faded over the terminal's default
-      # (black) background at partial coverage — the bg is a non-black grey.
+      # Ink is white; the paper borrows the ink colour, so — faded over the
+      # terminal's default (black) background at partial coverage — the bg is a
+      # non-black grey (with the bug it was pure black).
       bg = Attr.unpack_color(Attr.bg(cell.attr))
       bg.should_not eq 0x000000
     end

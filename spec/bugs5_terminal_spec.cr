@@ -151,9 +151,9 @@ end
 
 # ── BUG 4: PTY fd leak on spawn failure. ──
 #
-# The fix wraps `spawn_child` in a begin/rescue that closes both `@master` and
+# `spawn_child` must run inside a begin/rescue that closes both `@master` and
 # the slave fd before re-raising, so a `File::NotFoundError` from a bad command
-# on the no-setsid fallback path no longer leaks the freshly-opened descriptors.
+# on the no-setsid fallback path does not leak the freshly-opened descriptors.
 #
 # This is not asserted at runtime here, and deliberately so:
 #   * Proving the fds are actually closed would need to inspect the process fd
@@ -164,10 +164,9 @@ end
 #     command asynchronously — so `initialize` does NOT raise, and whether it
 #     raises is environment-dependent. An `expect_raises` here would pass on
 #     macOS and fail on Linux.
-# So the fix is guarded by compilation only: the `pending` block below is
-# type-checked (never executed), pinning the constructor signature the fix
-# lives in. FLAG: no dedicated runtime assertion is feasible in a headless unit
-# test.
+# So the guard is compilation only: the `pending` block below is type-checked
+# (never executed), pinning the constructor signature involved. FLAG: no
+# dedicated runtime assertion is feasible in a headless unit test.
 describe "Widget::TerminalPTY spawn failure (BUG 4)" do
   pending "closes both PTY fds before re-raising a failed spawn (compile-checked only)" do
     pty = Crysterm::Widget::TerminalPTY.new(

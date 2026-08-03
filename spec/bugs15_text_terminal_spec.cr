@@ -2,8 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS15 findings #17, #36, #45, #46.
-#
 # Headless harness (like text_editing_keys_spec / textedit_render_spec): a
 # `Window` over in-memory IOs driven by the synchronous `Window#repaint`, with
 # cells asserted straight off `Window#lines`.
@@ -104,7 +102,7 @@ describe "BUGS15 36: text editor click/caret map through the clip-aware base" do
     pte._update_cursor
 
     # Buffer line 3 is painted at the viewport top (lpos.yi), so the hardware
-    # caret must land there — not 3 rows lower (the pre-fix @child_base math).
+    # caret must land there — not 3 rows lower (buggy @child_base math).
     s.tput.cursor.y.should eq(lp.yi + s.render_row_offset)
   end
 end
@@ -145,7 +143,7 @@ describe "BUGS15 45: clipped Widget::Terminal shows the correct grid region" do
     s.lines[lp.yi + 2][lp.xi].char.should eq '5'
 
     # The cursor (emulator row 4) maps to viewport row 1 (4 - base 3): the
-    # block cursor inverts that cell. Pre-fix it drew 3 rows too low.
+    # block cursor inverts that cell (an unclipped mapping draws 3 rows too low).
     (Attr.flags(s.lines[lp.yi + 1][lp.xi + 2].attr) & Attr::REVERSE).should_not eq 0
   ensure
     term.try &.kill
@@ -173,7 +171,7 @@ describe "BUGS15 46: ranged extra selections use the row decoration offset" do
     s.repaint
 
     # Underline must land on the text cells (2,3,4), offset past the marker —
-    # crucially col 4 ('e'), which the pre-fix text-relative range never reached.
+    # crucially col 4 ('e'), which a text-relative range never reaches.
     (Attr.flags(s.lines[0][2].attr) & Attr::UNDERLINE).should_not eq 0
     (Attr.flags(s.lines[0][3].attr) & Attr::UNDERLINE).should_not eq 0
     (Attr.flags(s.lines[0][4].attr) & Attr::UNDERLINE).should_not eq 0

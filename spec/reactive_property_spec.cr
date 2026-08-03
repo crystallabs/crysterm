@@ -5,7 +5,7 @@ include Crysterm
 # Phase-5 reactivity: the `reactive_property` macro — signal-backed widget
 # properties. `obj.prop = x` notifies bindings/effects, marks the widget dirty,
 # and schedules a repaint; `obj.prop` read inside an effect auto-tracks; and
-# `obj.prop_signal` is the bindable Signal. See REACTIVE.md.
+# `obj.prop_signal` is the bindable Signal.
 
 private class RPBox < Crysterm::Widget::Box
   reactive_property caption : String = "untitled"

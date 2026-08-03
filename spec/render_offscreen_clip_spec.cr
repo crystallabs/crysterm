@@ -2,17 +2,17 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: off-screen (negative-coordinate) clipping in `Widget#base_render`
+# Off-screen (negative-coordinate) clipping in `Widget#base_render`
 # (`widget_rendering.cr`).
 #
 # A top-level widget positioned partly off the left or top screen edge has a
 # rendered rectangle whose `xi`/`yi` is negative. The content- and border-draw
 # loops index the cell buffer with `lines[y]?`/`line[x]?`, and Crystal's
 # `Indexable#[]?` counts a negative index from the end (`line[-1]?` is the last
-# cell, not `nil`). Before this fix, off-screen columns/rows wrapped around and
-# painted onto the opposite (right/bottom) edge instead of vanishing. The fix
-# consumes the off-screen edge (keeping the on-screen portion aligned) but never
-# writes it.
+# cell, not `nil`) — unguarded, off-screen columns/rows wrap around and paint
+# onto the opposite (right/bottom) edge instead of vanishing. The render must
+# consume the off-screen edge (keeping the on-screen portion aligned) but never
+# write it.
 describe "Widget#base_render off-screen clipping" do
   it "clips a widget off the LEFT edge without wrapping onto the right edge" do
     s = headless_screen(12, 3, default_quit_keys: true)
@@ -46,7 +46,7 @@ describe "Widget#base_render off-screen clipping" do
     (0...4).map { |x| s.lines[0][x].char }.join.should eq "cccc"
     (0...4).map { |x| s.lines[1][x].char }.join.should eq "dddd"
     # The off-screen-top rows must not wrap onto the bottom rows: rows 3 and 4
-    # stay blank (would have been "aaaa"/"bbbb" before the fix).
+    # stay blank (wrap-around would paint "aaaa"/"bbbb" there).
     (0...4).all? { |x| s.lines[3][x].char == def_char }.should be_true
     (0...4).all? { |x| s.lines[4][x].char == def_char }.should be_true
   end

@@ -99,8 +99,8 @@ describe "BUGS13 A17: Tab-away from an open ComboBox" do
     other.focus
 
     combo.open?.should be_false # popup dismissed on blur
-    # Before the fix `close` refocused the combo mid-blur, so focus bounced
-    # back and the target never kept it.
+    # `close` must not refocus the combo mid-blur — focus would bounce back
+    # and the target would never keep it.
     s.focused.should eq other
   end
 
@@ -117,8 +117,8 @@ describe "BUGS13 A17: Tab-away from an open ComboBox" do
 
     other.focus
 
-    # Before the fix nothing closed the popup on focus loss — it stayed open
-    # with a live modal mouse grab until an outside click.
+    # Focus loss must close the popup — otherwise it stays open with a live
+    # modal mouse grab until an outside click.
     combo.open?.should be_false
     s.focused.should eq other
   end
@@ -139,8 +139,8 @@ describe "BUGS13 A19: Completer tears down when its LineEdit is destroyed" do
 
     box.destroy
 
-    # Before the fix the popup remained a window child forever and the
-    # completer kept referencing the dead widget.
+    # The popup must not remain a window child forever, nor the completer keep
+    # referencing the dead widget.
     comp.open?.should be_false
     comp.@popup.should be_nil
     comp.@widget.should be_nil

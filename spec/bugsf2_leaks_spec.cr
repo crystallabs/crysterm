@@ -162,7 +162,7 @@ describe "Gradient shared-clock subscription cleanup (F2 #33)" do
     clock.handlers(Crysterm::Event::Tick).size.should eq 1
 
     g.destroy
-    # The caller's long-lived clock no longer pokes the destroyed widget.
+    # The caller's long-lived clock must not poke the destroyed widget.
     clock.handlers(Crysterm::Event::Tick).size.should eq 0
   ensure
     s.try &.destroy
@@ -210,7 +210,7 @@ end
 
 describe "Media shared-clock stream termination (F2 #3)" do
   # A live EOF+failed-restart needs a running ffmpeg; assert instead the
-  # structural invariant the fix relies on: `tick_frame` must NOT discard
+  # structural invariant: `tick_frame` must NOT discard
   # `advance_stream`'s result — on false it stops playback and unsubscribes from
   # the clock, mirroring `stream_loop` (which does `break unless advance_stream`).
   it "tick_frame stops playback and unsubscribes when advance_stream returns false" do
@@ -251,8 +251,8 @@ describe "CSS keyframes animation Style resolution (F2 #12)" do
     body_end = src.index!("private def resolve_keyframes", body_start)
     body = src[body_start...body_end]
 
-    # The fix removes the `st = style` capture and passes the freshly-resolved
-    # `style` to apply_keyframe on each tick.
+    # There must be no `st = style` capture; the freshly-resolved
+    # `style` is passed to apply_keyframe on each tick.
     body.should_not contain("st = style")
     body.should contain("apply_keyframe stops, style")
   end
@@ -265,7 +265,7 @@ end
 describe "Terminal child-exit teardown (F2 #45)" do
   # A live PTY child exit needs a subprocess and the render fiber to drain the
   # UI queue; assert the structural invariant: the reader fiber marshals a real
-  # `destroy` onto the render fiber after emitting Exit, and no longer emits a
+  # `destroy` onto the render fiber after emitting Exit, and must not emit a
   # bare `Event::Destroy` (which left the widget attached and could fire twice).
   it "posts a real destroy on child exit and drops the bare Destroy emit" do
     src = read_src "widget/terminal.cr"

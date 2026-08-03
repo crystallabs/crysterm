@@ -2,8 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS16 B16-07.
-
 private def headless_screen(w = 80, h = 24, optimization = Crysterm::OptimizationFlag::None)
   Crysterm::Window.new(
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
@@ -60,9 +58,10 @@ describe "BUGS16 B16-07: re-enabling DamageTracking after an off period" do
     dmg.repaint
     assert_same_lines dmg, plain, "while tracking off"
 
-    # Re-enable tracking and move B -> C. Pre-fix the selective path engaged
-    # (force_full false, dims matching, stale @damage_safe) and cleared the
-    # STALE bounds (A), leaving the widget's image at B as a ghost.
+    # Re-enable tracking and move B -> C. Without the forced full frame the
+    # selective path engages (force_full false, dims matching, stale
+    # @damage_safe) and clears the STALE bounds (A), leaving the widget's
+    # image at B as a ghost.
     dmg.optimization = Crysterm::OptimizationFlag::DamageTracking
     boxes.each(&.left=(20))
     plain.repaint

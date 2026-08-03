@@ -73,8 +73,8 @@ end
 describe "TableLayout#col_for_x" do
   # `col_for_x` resolves an interior x to its table column for per-cell CSS
   # styling. Must agree with the rendered layout, which inserts one separator
-  # cell between columns (`render_row`, `column_start_offsets`); previously the
-  # mapping drifted left by one cell per preceding column.
+  # cell between columns (`render_row`, `column_start_offsets`); ignoring the
+  # separators would drift the mapping left by one cell per preceding column.
   it "maps each column to its rendered start position" do
     s = headless_screen(default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["aa", "bbbb", "cc"], ["dd", "ee", "ff"]]

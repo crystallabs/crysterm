@@ -8,7 +8,7 @@ module Crysterm
     #
     # Shows a single integer `#value` (optionally framed by a `#prefix`/`#suffix`,
     # e.g. `"$"` / `" %"`) that the user steps with the Up/Down keys (or the mouse
-    # wheel) by `#step`, within `[#minimum, #maximum]`. With `#wrapping?` the value
+    # wheel) by `#single_step`, within `[#minimum, #maximum]`. With `#wrapping?` the value
     # rolls over at the bounds. Emits `Event::ValueChanged` on every change.
     #
     # The number can also be typed directly (Qt's `QAbstractSpinBox` is editable
@@ -20,7 +20,7 @@ module Crysterm
     # ![SpinBox screenshot](../../tests/widget/spinbox/spinbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class SpinBox < AbstractSpinBox
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrapping?`,
+      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#single_step`/`#wrapping?`,
       # `#step_up`/`#step_down`, `Event::ValueChanged`).
       include Mixin::RangedValue(Int32)
 
@@ -31,13 +31,19 @@ module Crysterm
         value : Int32? = nil,
         @minimum = 0,
         @maximum = 100,
-        @step = 1,
+        single_step : Int32? = nil,
+        step : Int32? = nil,
         @prefix = "",
         @suffix = "",
         @editable = true,
         wrapping = false,
         **input,
       )
+        # `single_step:` is the blessed Qt-parity spelling; `step:` stays
+        # accepted as a compatibility alias, `single_step:` winning when both
+        # are given.
+        @single_step = single_step || step || 1
+
         super **{keys: true}.merge(input)
 
         setup_spinbox_editing value, wrapping

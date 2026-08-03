@@ -205,9 +205,9 @@ describe "ListTable sort persistence and selection restore (BUGS3 fix #1/#2/#3)"
   end
 end
 
-# W2 (OPT.md): `render_style_for` located each row's even/odd parity with
+# W2 — `render_style_for` located each row's even/odd parity with
 # `@items.index item` — O(n) per item per frame, so with `alternate_rows: true`
-# O(n²) per frame. It now uses the mixin's O(1) identity map (`item_index_of`).
+# O(n²) per frame. It uses the mixin's O(1) identity map (`item_index_of`).
 # The map returns nil for a non-item child (the pinned header, a scroll bar),
 # exactly like `@items.index`, so those never pick up the alternate style —
 # unlike an `item.top`-as-index shortcut, whose header `top` tracks the scroll
@@ -256,9 +256,9 @@ describe "ListTable alternate_rows parity after scroll (OPT W2)" do
   end
 end
 
-# W10 (OPT.md): the `Resize` handler ran a full `set_data @rows` on every event
+# W10 — the `Resize` handler ran a full `set_data @rows` on every event
 # — costly during an interactive resize drag. A content-sized table's columns
-# are content-driven and don't change with the parent, so the rebuild is now
+# are content-driven and don't change with the parent, so the rebuild is
 # skipped for it; a fixed/percent-width table (whose columns track the parent)
 # still rebuilds. Counting subclass makes the skip/rebuild directly observable.
 private class CountingListTable < Crysterm::Widget::ListTable

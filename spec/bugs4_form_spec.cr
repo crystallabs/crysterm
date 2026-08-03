@@ -24,8 +24,8 @@ describe "BUGS4 Form focus wrap-around (fix #1)" do
     list.size.should eq 5
     list.last.should eq fields.last
 
-    # Nothing selected yet: a backward step must wrap to the last field (was the
-    # second-to-last before the fix).
+    # Nothing selected yet: a backward step must wrap to the last field, not
+    # the second-to-last.
     form.reset_selected
     form.previous_focusable.should eq fields.last
   end

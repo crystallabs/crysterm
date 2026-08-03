@@ -2,8 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS16 #19. Headless harness mirrors
-# spec/bugs16_flow_chrome_spec.cr.
+# Headless harness mirrors spec/bugs16_flow_chrome_spec.cr.
 
 # BUGS16 #19 — when `place_one` wraps a child to a new row and then decides it
 # overflows vertically (SkipWidget), the child never renders but `flow_place`
@@ -36,7 +35,7 @@ describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand 
     b.lpos.should be_nil
 
     # C continues row 0 beside A — B consumed no wrap, so the row cursor is back
-    # at 0. Pre-fix C landed at the advanced row (yi + 3), columns 0-11 empty.
+    # at 0 (a consumed wrap would strand C at yi + 3, columns 0-11 empty).
     lc = c.lpos.not_nil!
     lc.xi.should eq(xi + 12)
     lc.yi.should eq yi
@@ -63,8 +62,8 @@ describe "BUGS16 19: Flow SkipWidget on a freshly-wrapped child does not strand 
     b.lpos.should be_nil
 
     # C wraps below A (it is 18 wide, doesn't fit beside 12-wide A) and renders
-    # at rows 3-4 relative to the interior. Pre-fix, row_tallest counted the
-    # skipped B's height 20, pushing C's top to 20 and skipping C too.
+    # at rows 3-4 relative to the interior. (Counting the skipped B's height 20
+    # in row_tallest would push C's top to 20 and skip C too.)
     lc = c.lpos.not_nil!
     lc.yi.should eq(yi + 3)
     lc.xi.should eq bl.xi

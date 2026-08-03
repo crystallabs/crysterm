@@ -31,8 +31,8 @@ describe "BUGS14 C1: capture frame-rate is clamped to >= 1" do
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
     s.repaint
     io = IO::Memory.new
-    # Before the fix `FrameClock.new((1.0 / 0).seconds)` raised OverflowError
-    # at construction. A tiny duration keeps the clock loop short.
+    # `FrameClock.new((1.0 / 0).seconds)` would raise OverflowError at
+    # construction. A tiny duration keeps the clock loop short.
     s.feed_animation_frames(io, 0, s.awidth, 0, s.aheight, 2.milliseconds, 0)
   end
 
@@ -171,7 +171,7 @@ describe "BUGS14 R3: DragEvent#ignore withdraws the session's acceptance" do
 
     e.ignore
     e.accepted?.should be_false
-    # The regression: this used to stay true, so a "rejected" drop still fired.
+    # This must not stay true — a "rejected" drop would still fire.
     e.session.data.accepted?.should be_false
   end
 end

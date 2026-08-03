@@ -28,8 +28,8 @@ module Crysterm
     # very pass `#compute_column_widths` already makes over every cell to build
     # `@maxes`, so `#render_row` can hand each width to `#pad_cell_to` instead of
     # having it re-derive one (a `clean_tags` PCRE2 pass plus a width walk) per
-    # cell. Without it `#rows=` measured every cell twice, and
-    # `ListTable#reslice_rows` re-measured all N×M cells on every
+    # cell. Without it `#rows=` would measure every cell twice, and
+    # `ListTable#reslice_rows` would re-measure all N×M cells on every
     # horizontal-scroll tick even though `@maxes` was a cache hit.
     #
     # Lifetime is exactly `@maxes`'s: both are (re)built together in
@@ -38,7 +38,7 @@ module Crysterm
     # *order*, which `Widget::ListTable#apply_sort` permutes behind
     # `#compute_column_widths`'s back; it calls `#reorder_cell_widths` to keep
     # the two in step. Mutating `@rows` in place (rather than through `#rows=`)
-    # was already unsupported — it leaves `@maxes` stale too.
+    # is unsupported — it leaves `@maxes` stale too.
     @cell_widths = [] of Array(Int32)
 
     # Whether `@maxes` needs recomputing. `#compute_column_widths` runs every
@@ -374,6 +374,35 @@ module Crysterm
       Attr.pack Attr.flags(battr), Attr.fg(battr), Attr.bg(over)
     end
 
+    # Walks the interior grid rows `1...limit` of a rendered table, yielding
+    # each already-fetched buffer line together with its grid-row offset *ry*
+    # (row *ry* sits at buffer row `base_row + ry`). The shared row walk of
+    # `Table#draw_grid_runs` (whose grid doubles every table row, `base_row` its
+    # content-origin grid top) and `ListTable#draw_borders` (one row per item,
+    # `base_row` the content origin).
+    #
+    # Rows scrolled above the screen are skipped, not wrapped: `Indexable#[]?`
+    # would map a negative row to the far end of the buffer. The walk stops at
+    # the end of the buffer and, when *y_limit* is given, at the first row
+    # at/past it — a scrollable / `overflow: Hidden` ancestor lowers
+    # `coords.yl` while the buffer still holds the rows below it.
+    protected def each_interior_grid_line(lines, base_row : Int32, limit : Int32,
+                                          y_limit : Int32? = nil, &) : Nil
+      ry = 1
+      while ry < limit
+        row = base_row + ry
+        break if y_limit && row >= y_limit
+        if row < 0
+          ry += 1
+          next
+        end
+        line = lines[row]?
+        break unless line
+        yield line, ry
+        ry += 1
+      end
+    end
+
     # Walks the internal column boundaries (the junction cell after each
     # visible column) on a single already-fetched grid *line*, accumulating
     # display position `rx` across visible columns starting at *start_col*
@@ -390,7 +419,7 @@ module Crysterm
     # of the boundaries they divide. *xi* is the line's left content origin
     # (`coords.xi`).
     #
-    # Two right-edge clips, matching the two callers' historical forms:
+    # Two right-edge clips, one per caller:
     # when *width* is given, the walk stops once a boundary would fall at/past
     # the right content edge — clipped against the *content* width (callers
     # pass `width` as `coords.width - iright`, which still includes the left
@@ -427,7 +456,7 @@ module Crysterm
       each_junction_cell(line, xi, start_col, width) do |cell|
         cell.attr = junction_attr(battr, cell.attr)
         cell.char = g_v
-        line.dirty = true
+        cell.mark_dirty
       end
     end
 
@@ -447,7 +476,7 @@ module Crysterm
       each_junction_cell(line, xi, start_col, width, right_limit) do |cell|
         cell.attr = battr
         cell.char = visible ? g_tee : g_v
-        line.dirty = true
+        cell.mark_dirty
       end
     end
   end

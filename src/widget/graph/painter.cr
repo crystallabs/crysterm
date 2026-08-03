@@ -1,7 +1,7 @@
 require "pnggif"
 
 # Crysterm-side reopen of `PNGGIF::Painter`, the `QPainter`-style rasterizer
-# that moved into the pnggif shard (REARRANGE R-33). Only the
+# that lives in the pnggif shard. Only the
 # `Crysterm::Rectangle` convenience overloads live here — `Rectangle` is
 # crysterm vocabulary the shard doesn't know — plus the `Graph::Painter`
 # alias that keeps every existing call site compiling unchanged.

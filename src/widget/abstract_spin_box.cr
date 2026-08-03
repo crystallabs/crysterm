@@ -12,6 +12,15 @@ module Crysterm
       # A spin box honors its given `width` rather than shrinking to its content.
       @shrink_to_fit = false
 
+      # Empties the displayed edit text — Qt's `QAbstractSpinBox#clear`; the
+      # committed value is untouched. Here at the family root it is a
+      # no-op: the sectioned date/time editors always display a valid value
+      # and keep no free-text buffer to blank. `Mixin::SpinBoxEditing`
+      # overrides it for the numeric boxes (`SpinBox`/`DoubleSpinBox`) by
+      # blanking their edit buffer.
+      def clear
+      end
+
       # Indicates focus via reverse-video at the unstyled floor.
       def floor_focus_reverse? : Bool
         true

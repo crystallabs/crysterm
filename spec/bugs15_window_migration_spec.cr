@@ -3,8 +3,8 @@ require "socket"
 
 include Crysterm
 
-# Regression specs for BUGS15 findings #72, #79, #80 (Window device-migration
-# paths in src/window.cr `#screen=` / `#switch_terminal`):
+# Regression specs for the Window device-migration paths in src/window.cr
+# (`#screen=` / `#switch_terminal`):
 #
 # #72 — `#screen=` must close and clear the spawned emulator window (`@window`)
 #       and drop IO ownership when leaving the old device: otherwise the stale
@@ -31,7 +31,7 @@ end
 private def b15m_fake_emulator
   local, remote = UNIXSocket.pair
   process = Process.new("sleep", ["30"])
-  win = Crysterm::Terminal::Window.new(
+  win = Crysterm::Terminal::EmulatorWindow.new(
     process, local, File.tempname("b15m", ".sock"), "/dev/null",
     File.open("/dev/null", "r"), File.open("/dev/null", "w"))
   {win, remote}
@@ -51,7 +51,7 @@ describe "BUGS15 #72: screen= retires the old device's spawned window" do
       # The spawned-window reference was cleared with the old device...
       a.window.should be_nil
       # ...and the emulator itself was closed: its side of the rendezvous
-      # socket sees EOF (pre-fix this would time out — the window leaked open).
+      # socket sees EOF (a leaked-open window would make this time out).
       remote.read_timeout = 2.seconds
       begin
         remote.gets.should be_nil
@@ -83,8 +83,8 @@ describe "BUGS15 #72: screen= retires the old device's spawned window" do
       s2 = b15m_screen
       a.screen = s2
 
-      # A real disconnect now: pre-fix `@owns_io` was still true from the OLD
-      # spawned window, so this closed the NEW screen's fds.
+      # A real disconnect now: were `@owns_io` still true from the OLD
+      # spawned window, this would close the NEW screen's fds.
       a.disconnect
       s2.input.as(IO::Memory).closed?.should be_false
       s2.output.as(IO::Memory).closed?.should be_false
@@ -136,7 +136,7 @@ describe "BUGS15 #80: switch_terminal keeps surface mode and chrome knobs" do
 
     w2 = w.switch_terminal "xterm"
     begin
-      # Pre-fix the replacement defaulted to `alternate: true` — a full-screen
+      # A replacement defaulting to `alternate: true` would be a full-screen
       # alt-buffer takeover replacing an inline window.
       w2.alternate?.should be_false
       w2.auto_grow?.should be_true

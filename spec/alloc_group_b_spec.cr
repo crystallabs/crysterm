@@ -2,9 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for ALLOCS.md Group B (mouse/event/shortcut dispatch
-# allocation reductions). These assert that the *behavior* of the hot paths is
-# unchanged after removing per-call allocations:
+# Regression specs for the Group B mouse/event/shortcut dispatch allocation
+# reductions: the *behavior* of the hot paths must be unchanged after removing
+# per-call allocations:
 #
 #   * B1 — `Window#widget_at` allocation-free traversal (topmost/skip/z-order).
 #   * B2 — pooled, reused `Event::Mouse` family objects (still reach listeners

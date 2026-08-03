@@ -11,7 +11,7 @@ include Crysterm
 # but that must only AUGMENT a genuine junction. When no neighbor reciprocates,
 # the cell connects to nothing and must keep its own glyph. Without the
 # no-reciprocation guard, a `┌` with a `─` directly below it (which doesn't
-# open upward) resolved to the single-arm `│`, severing the corner.
+# open upward) resolves to the single-arm `│`, severing the corner.
 private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::Window::Row)
   rows.map do |s|
     row = Crysterm::Window::Row.new

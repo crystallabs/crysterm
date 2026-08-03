@@ -37,8 +37,8 @@ describe Crysterm::Widget::Graph::Map do
 
   it "does not crash rendering a zero-span viewport with a marker at its center" do
     # `look_at(lat, lon, 0, 0)` collapses the window to a point (min_lon ==
-    # max_lon, min_lat == max_lat). A marker there used to divide by that zero
-    # span, producing NaN, and `NaN.to_i` raised `OverflowError`.
+    # max_lon, min_lat == max_lat). A marker there would divide by that zero
+    # span, producing NaN, and `NaN.to_i` raises `OverflowError`.
     s = headless_screen(78, 22, default_quit_keys: true)
     saved = Crysterm::CSS.default_stylesheet
     Crysterm::CSS.default_stylesheet = Crysterm::CSS::Stylesheet.new

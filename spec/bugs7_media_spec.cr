@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS7 media-overlay fix: the external-helper backends
+# Regression spec: the external-helper backends
 # (`Media::Overlay`, `Media::Ueberzug`) and the in-band `Media::Graphics` all run
 # their repaint as a standalone `Event::Rendered` listener, so they must skip
 # when THIS widget *or any ancestor* is hidden — resolving rendered coordinates

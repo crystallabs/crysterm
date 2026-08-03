@@ -2,10 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# OPT3 O3-35 — `separator_blank?` had no html case (the fix round that added
-# `html_blockish?` used it only in the backslash/hard-break guards, per the
-# BUGS18.md:1121 deferral). A structured block placed directly after an
-# html-blockish block therefore exported with only a bare newline, and markd's
+# O3-35 — `separator_blank?` had no html case. A structured block placed
+# directly after an html-blockish block therefore exported with only a bare
+# newline, and markd's
 # type-6 "continue until a blank line" rule swallowed the follower's line back
 # into the html block as RAW text on re-import — silently demoting the heading
 # (or leaking the "> " quote marker) on every roundtrip.
@@ -34,8 +33,8 @@ describe "OPT3 O3-35 html block followed by structure keeps a blank separator" d
   end
 
   # (b) A comment-closed (type-2) html block before structure. The comment is
-  # already closed, so the follower survived even before this fix — but the
-  # guard now normalizes the boundary to a blank line, and the heading stays.
+  # already closed, so the follower survives on its own — but the guard
+  # normalizes the boundary to a blank line, and the heading stays.
   it "separates a comment-closed html block from a following heading" do
     blocks = [
       TextBlock.new("<!-- c -->"),

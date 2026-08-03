@@ -2,9 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Loading#step` used to paint `frames[@pos]` before advancing `@pos`. Since the
-# icon already shows `frames[0]` (set in `initialize`), the first animation tick
-# re-painted that same frame, freezing the spinner on frame 0 for two intervals.
+# `Loading#step` must advance `@pos` before painting. The icon already shows
+# `frames[0]` (set in `initialize`), so a paint-then-advance first tick would
+# re-paint that same frame, freezing the spinner on frame 0 for two intervals.
 # Stepping `@pos` first makes every tick, including the first, advance a frame.
 describe Crysterm::Widget::Loading do
   it "advances to the next spinner frame on the first step (no duplicated first frame)" do

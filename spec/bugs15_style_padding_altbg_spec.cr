@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS15:
+# Regression specs:
 #
 #  #75 Negative CSS padding is an invalid declaration and must be dropped
 #      (both the `padding` shorthand and the four per-side longhands), unlike
@@ -11,8 +11,8 @@ include Crysterm
 #  #76 `alternate-background-color` must change ONLY the background of alternate
 #      rows; the text color must follow the element's current color, so a later
 #      `color` declaration (any order) and an inherited color both reach
-#      alternate rows. The old code froze the cell/self style at declaration
-#      time, leaving alternate rows without the color.
+#      alternate rows. Freezing the cell/self style at declaration time left
+#      alternate rows without the color.
 
 # Count cells that carry BOTH the given foreground and background.
 private def count_cells_fg_bg(screen, fg, bg)

@@ -547,7 +547,7 @@ module Crysterm
         # `self.current_index = 0` here would take the full setter path on a
         # rendered list (`@lpos` non-nil) with a non-zero selection: it would
         # scroll to row 0 and emit an `ItemSelected` carrying the *old* row-0
-        # item, only to be immediately overwritten by the restore below (B17-20).
+        # item, only to be immediately overwritten by the restore below.
         # Clearing the latch mirrors `current_index=`'s empty branch so the final
         # restore call runs fully instead of hitting the unchanged-index
         # short-circuit (the same reason `add_item`/`remove_item` clear it).

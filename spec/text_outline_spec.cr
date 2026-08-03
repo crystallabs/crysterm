@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Document outline + github.com-shaped anchor slugs (TOC.md Phase 1). Pure
+# Document outline + github.com-shaped anchor slugs. Pure
 # model: no widget is mounted anywhere in this file.
 
 describe Crysterm::TextOutline do
@@ -87,6 +87,32 @@ describe "TextDocument#outline" do
     doc.outline.should_not be first
     doc.outline.map(&.text).should eq ["One and a half"]
     doc.outline.map(&.anchor).should eq ["one-and-a-half"]
+  end
+
+  it "keeps the memoized outline across edits that touch no heading" do
+    doc = TextDocument.from_markdown "# One\n\nbody"
+    first = doc.outline
+    doc.insert_text(doc.size, " grows")
+    doc.outline.should be first
+    doc.remove(doc.size - 1, 1)
+    doc.outline.should be first
+  end
+
+  it "recomputes when a heading's level changes" do
+    doc = TextDocument.from_markdown "# One\n\nbody"
+    first = doc.outline
+    doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 2), merge: true)
+    doc.outline.should_not be first
+    doc.outline.map(&.level).should eq [2]
+  end
+
+  it "recomputes when an edit shifts a heading to another block index" do
+    doc = TextDocument.from_markdown "para\n\n# One"
+    first = doc.outline
+    first[0].block.should eq 1
+    doc.insert_text(0, "zero\n")
+    doc.outline.should_not be first
+    doc.outline[0].block.should eq 2
   end
 
   it "excludes headings that live inside a TOC frame" do

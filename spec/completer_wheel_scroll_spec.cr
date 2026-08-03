@@ -2,15 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: wheeling over an open completer drop-down used to let the
-# hover-select highlight fight the wheel. Once the pointer drifted across a row
-# boundary mid-scroll, the per-row `MouseEnter` re-pinned the selection to the
-# entry under the cursor, so the list could never scroll past the first page —
-# the selection "jumped back under the cursor".
-#
-# Fix (Option A): the wheel scrolls the *view* (`#child_base`) and re-selects the
-# entry that lands under the cursor. Hover-select and the wheel now share one
-# rule ("selected == entry under the cursor"), so they agree instead of fighting.
+# Wheeling over an open completer drop-down scrolls the *view* (`#child_base`)
+# and re-selects the entry that lands under the cursor, so hover-select and the
+# wheel share one rule ("selected == entry under the cursor") instead of
+# fighting. Guards against the per-row `MouseEnter` re-pinning the selection
+# mid-scroll, which kept the list from ever scrolling past the first page.
 
 private def cws_build(s)
   box = Crysterm::Widget::LineEdit.new parent: s, top: 5, left: 10, width: 18, height: 1

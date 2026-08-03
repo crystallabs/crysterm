@@ -2,9 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Spec for `Menu`'s adoption of `Overlay::DismissSession` (FORMAL-WIDGETS Part A
-# Piece 2 — the last of the four sites) plus the Piece 4 `#treat_as_inside`
-# helper. Menu's two hand-rolled watchers (`@ev_popup`/`@ev_outside`) and the
+# Spec for `Menu`'s adoption of `Overlay::DismissSession` (the last of the four
+# sites) plus the `#treat_as_inside` helper. Menu's two hand-rolled watchers (`@ev_popup`/`@ev_outside`) and the
 # manual `window.add_popup_grab self` collapse to a grab-owning popup session and a
 # no-grab submenu session; teardown runs via the session's captured window.
 #

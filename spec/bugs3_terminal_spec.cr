@@ -42,9 +42,9 @@ describe "TerminalEmulator RIS reset (fix #3)" do
   it "clears a partial CSI so post-reset input is not spliced onto it" do
     em = emulator
     # Feed an incomplete CSI (ESC [ with a partial parameter, no final byte),
-    # then RIS, then a normal glyph. Without the fix the stale `@csi_buf` (`12`)
-    # would still be in the parser and the following 'A' would be interpreted as
-    # part of / after a CSI rather than printed as text at (0,0).
+    # then RIS, then a normal glyph. A stale `@csi_buf` (`12`) surviving the
+    # reset would make the following 'A' be interpreted as part of / after a
+    # CSI rather than printed as text at (0,0).
     em.feed "\e[12"
     em.feed "\ec" # RIS
     em.feed "A"

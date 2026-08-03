@@ -9,14 +9,14 @@ include Crysterm
 #   (`@dither_plane_memo`) and per-pixel nearest-palette lookups (`@quant_cache`),
 #   neither keyed on `@colors`/`@dither` and neither invalidated by the setters.
 #   So switching among the reduced modes (C256/C16/C8) — or the dither method —
-#   at runtime kept painting the OLD palette/dither indefinitely. Fix: explicit
-#   setters that drop the caches and request a render on a genuine change.
+#   at runtime kept painting the OLD palette/dither indefinitely. Explicit
+#   setters drop the caches and request a render on a genuine change.
 #
 # * #22 — `Media::Base#fit=` calls `#reset_sample_cache`, which (for cell
 #   backends) also set `@animated = false`. Nothing but `#load` recomputes
 #   `@animated`, so changing `fit=` on a playing animation permanently froze it:
 #   `#render`'s animation branch was skipped forever while the frame clock kept
-#   ticking. Fix: `#reset_sample_cache` is source-neutral; `@animated` is cleared
+#   ticking. `#reset_sample_cache` is source-neutral; `@animated` is cleared
 #   only where the source is actually replaced (`#bitmap=`, `#clear_image`).
 
 private def cells_window(w = 24, h = 12)
@@ -78,7 +78,7 @@ describe "BUGS15 #13 Media::Ansi#colors=/#dither= runtime palette change" do
     s.repaint
     sig256 = cell_sig(s, img)
 
-    # Genuine palette change: before the fix the memoized C256 plane kept
+    # Genuine palette change: an unkeyed memoized C256 plane would keep
     # painting the 256-color look here.
     img.color_mode = Crysterm::Widget::Media::Ansi::ColorMode::C8
     s.repaint
@@ -138,8 +138,9 @@ describe "BUGS15 #22 fit= must not freeze a playing animation" do
       img.animated?.should be_true
       img.playing?.should be_true
 
-      # The regression: a genuine fit change (Stretch -> Contain) went through
-      # reset_sample_cache, which used to clear @animated and freeze playback.
+      # The regression: a genuine fit change (Stretch -> Contain) goes through
+      # reset_sample_cache, which must not clear @animated (that would freeze
+      # playback).
       img.fit = Crysterm::Widget::Media::Fit::Contain
       img.animated?.should be_true
       img.playing?.should be_true

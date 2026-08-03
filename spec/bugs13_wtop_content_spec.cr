@@ -4,12 +4,12 @@ include Crysterm
 
 # Regression specs for the BUGS13 "Widget top-level" content findings:
 #
-# * W6 — `process_content`'s wrap-convergence loop no longer seeds its margin
-#   from the PREVIOUS wrap's line count (`_wrap_content` used to read
-#   `content_margin_x` before the outbuf reset): pass 1 wraps against the
-#   empty-lines margin (`content_margin_x_empty`, preserving `AlwaysOn`),
-#   pass 2 against pass 1's fresh margin. Pre-fix, bistable content latched
-#   the with-bar layout depending on resize history.
+# * W6 — `process_content`'s wrap-convergence loop must not seed its margin
+#   from the PREVIOUS wrap's line count (`content_margin_x` read before the
+#   outbuf reset): pass 1 wraps against the empty-lines margin
+#   (`content_margin_x_empty`, preserving `AlwaysOn`), pass 2 against pass 1's
+#   fresh margin — otherwise bistable content latches the with-bar layout
+#   depending on resize history.
 # * W16 — `@_content_version` / `CLines#content_version` widened to `Int64`
 #   in lockstep, so a long-lived appending widget can't hit `Int32::MAX`'s
 #   checked-add OverflowError.
@@ -53,10 +53,10 @@ describe "BUGS13 W6: AsNeeded scrollbar margin isn't seeded from the stale wrap"
     box.content_margin_x.should eq 1
     wrapped_lines(box).size.should eq 16
 
-    # Back to the original width. Pre-fix, pass 1 seeded the margin from the
-    # previous 16-line wrap, so the content stayed wrapped at 11 columns and
-    # the bar latched forever (16 lines + bar); a fresh identical widget
-    # shows 8 lines and no bar.
+    # Back to the original width. Seeding pass 1's margin from the previous
+    # 16-line wrap would keep the content wrapped at 11 columns with the bar
+    # latched forever (16 lines + bar); a fresh identical widget shows 8 lines
+    # and no bar.
     box.width = 12
     box.process_content
 
@@ -100,8 +100,8 @@ describe "BUGS13 W16: content version is Int64 (no Int32::MAX overflow)" do
     # literal here).
     w._clines.content_version = big
 
-    # The version bump in set_content must not raise (pre-widening this was a
-    # checked Int32 `+= 1` at MAX+…), and the mismatch must reparse.
+    # The version bump in set_content must not raise (a checked Int32 `+= 1`
+    # overflows past MAX), and the mismatch must reparse.
     w.content = "two"
     w.version_peek.should eq big + 1
     w._clines.content_version.should eq big + 1

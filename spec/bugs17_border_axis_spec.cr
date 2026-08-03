@@ -9,7 +9,7 @@ include Crysterm
 # (top/bottom <-> left/right) read the OTHER axis's stale resolved value as
 # if it were the new consume axis's raw size, poisoning it (e.g. a 30-wide
 # panel re-docked from :top to :left would swallow the full interior width).
-# The fix keys bookkeeping by axis (@raw_width/@assigned_width,
+# Bookkeeping is keyed by axis (@raw_width/@assigned_width,
 # @raw_height/@assigned_height), restored and recorded for every managed
 # child -- edges and center alike -- every frame.
 
@@ -28,11 +28,12 @@ describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
     pl = panel.lpos.not_nil!
     (pl.xl - pl.xi).should eq 80
 
-    # Re-dock to :left: width becomes the consume axis. Pre-fix, the single
-    # consume map compared the old (height) assigned value against the new
-    # raw width read (the poisoned 80 written during the :top frame), always
-    # mismatched, and adopted 80 as the child's "raw" width -- swallowing the
-    # whole interior. Fixed: the explicit 30 resurfaces.
+    # Re-dock to :left: width becomes the consume axis. Guards against a
+    # single consume map comparing the old (height) assigned value against
+    # the new raw width read (the poisoned 80 written during the :top frame),
+    # which would always mismatch and adopt 80 as the child's "raw" width --
+    # swallowing the whole interior; axis-keyed bookkeeping resurfaces the
+    # explicit 30.
     panel.layout_hint = Layout::Border::Hint.new(:left)
     s.repaint
     pl2 = panel.lpos.not_nil!

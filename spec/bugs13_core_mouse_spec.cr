@@ -10,7 +10,7 @@ include Crysterm
 #       OUTERMOST ancestor's z too: an occluded child with a high nested z
 #       must not steal clicks from the plane actually painted above it.
 # C4  — double-click detection must be per-button: a right-then-left pair at
-#       the same cell used to read as `click_count == 2` on the left click.
+#       the same cell must not read as `click_count == 2` on the left click.
 # C18 — a drag commits its Drop only on the ARMING button's release (a stray
 #       other-button tap mid-gesture is swallowed); Escape cancels a
 #       mouse-sensor drag; a mouse capture likewise ends only on the arming
@@ -60,7 +60,7 @@ describe "BUGS13 C2: hit-test ranks by the OUTERMOST z-indexed ancestor" do
       s.repaint # hit-testing uses the painted lpos
 
       # (8, 7) lies inside r1, c1 AND r2. The z=2 plane is painted above the
-      # z=1 plane, so r2 must win — pre-fix, c1's own nested z 9 out-ranked it.
+      # z=1 plane, so r2 must win — c1's own nested z 9 must not out-rank it.
       s.widget_at(8, 7).should eq r2
 
       # Control: (13, 6) is covered only by the z=1 plane (r2 ends at col 13,
@@ -115,8 +115,7 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
       s.drag_session.should_not be_nil
 
       # Stray right-button tap mid-gesture: both reports are swallowed by the
-      # in-flight drag — no Drop, drag still active (pre-fix the up committed
-      # the Drop at the pointer).
+      # in-flight drag — no Drop, drag still active.
       b13m_down s, 32, 1, ::Tput::Mouse::Button::Right
       b13m_up s, 32, 1, ::Tput::Mouse::Button::Right
       s.drag_session.should_not be_nil
@@ -149,8 +148,8 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
       b13m_move s, 32, 1
       s.drag_session.should_not be_nil
 
-      # Pre-fix, `_drag_key_handled` early-returned for non-keyboard sensors,
-      # so a mouse drag had no cancel path at all.
+      # `_drag_key_handled` must not early-return for non-keyboard sensors —
+      # a mouse drag needs a cancel path too.
       s._drag_key_handled(b13m_key('\0', ::Tput::Key::Escape)).should be_true
       s.drag_session.should be_nil
       drops.should eq 0
@@ -207,11 +206,10 @@ describe "BUGS13 C21: drag ghost sized by terminal columns, not codepoints" do
 
       ghost = s.children.find { |c| !c.same?(source) }
       ghost.should_not be_nil
-      # Column-based width: Unicode.display_width(label) + 2 == 12. The
-      # pre-fix codepoint sizing (`label.size + 2` == 9) clipped the label
-      # mid-glyph. (The first cut of the fix used `Unicode.width`, which
-      # measures a single grapheme — 2 — and shrank the ghost to the 6-column
-      # floor; `display_width` is the whole-string sum.)
+      # Column-based width: Unicode.display_width(label) + 2 == 12. Codepoint
+      # sizing (`label.size + 2` == 9) would clip the label mid-glyph, and
+      # `Unicode.width` measures only a single grapheme (2) — `display_width`
+      # is the whole-string sum.
       ::Crysterm::Unicode.display_width(label).should eq 10
       ghost.not_nil!.awidth.should eq 12
 

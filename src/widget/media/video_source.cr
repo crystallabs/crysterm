@@ -2,12 +2,11 @@ require "pnggif"
 require "../media"
 
 # Crysterm-side adapter for `PNGGIF::VideoSource`, the ffmpeg/ffprobe video →
-# frames decoder that moved into the pnggif shard (REARRANGE R-34). The shard
-# takes plain parameters (with `DEFAULT_*` constants as defaults) where this
-# module used to read `Crysterm::Config`; the redefinitions below reinstate
-# those config values as the parameter defaults via `previous_def`, so every
-# existing call site (`Media::Base`'s stream open/mode probe, `Media.new`'s
-# decode pipeline, `Widget::Video`) behaves exactly as before. The
+# frames decoder that lives in the pnggif shard. The shard takes plain
+# parameters (with `DEFAULT_*` constants as defaults) and knows nothing of
+# `Crysterm::Config`; the redefinitions below plug the config values in as the
+# parameter defaults via `previous_def` for every call site (`Media::Base`'s
+# stream open/mode probe, `Media.new`'s decode pipeline, `Widget::Video`). The
 # `Media::VideoSource` alias keeps all call sites compiling unchanged.
 module PNGGIF
   module VideoSource

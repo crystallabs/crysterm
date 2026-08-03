@@ -8,10 +8,10 @@ include Crysterm
 # BUGS15 #90 — `insert_line(line : String)`'s no-index append overload
 # resolved its insert point off `@_clines.ftor.size`, which stays 0 for
 # content seeded while the widget is detached (`process_content` bails until
-# `window?`, so only `fake` fills up). The "append" call then computed index
-# 0 and spliced the new line before all existing ones. Fixed by keying the
-# default off `@_clines.fake.size`, matching `append_line`/`remove_last_line`/
-# `delete_line`'s clamp.
+# `window?`, so only `fake` fills up). The default insert point must key off
+# `@_clines.fake.size` instead, matching `append_line`/`remove_last_line`/
+# `delete_line`'s clamp — otherwise the "append" call computes index 0 and
+# splices the new line before all existing ones.
 describe "BUGS15 90: insert_line's no-index overload appends after the last logical line" do
   it "appends after content seeded while detached, instead of inserting at the top" do
     s = headless_screen(40, 12)
@@ -25,8 +25,8 @@ describe "BUGS15 90: insert_line's no-index overload appends after the last logi
 
     w.replace_line 0, "a"
     w.replace_line 1, "b"
-    # Before the fix: ftor.size == 0 (process_content never ran), so this
-    # resolved to insert_line(0, "c") -> "c", "a", "b".
+    # Keying off ftor.size (which stays 0 here since process_content never ran)
+    # would resolve this to insert_line(0, "c") -> "c", "a", "b".
     w.insert_line "c"
 
     w.lines.should eq ["a", "b", "c"]
@@ -39,7 +39,7 @@ describe "BUGS15 90: insert_line's no-index overload appends after the last logi
     w.replace_line 0, "a"
     w.replace_line 1, "b"
     # Attached: process_content runs on each replace_line, so ftor.size ==
-    # fake.size == 2 already — behavior here must be unchanged by the fix.
+    # fake.size == 2 already — behavior here must be unchanged.
     w.insert_line "c"
 
     w.lines.should eq ["a", "b", "c"]
@@ -75,14 +75,14 @@ end
 # BUGS15 #91 — the opacity pre-blend in `repaint`'s pre-fill block ran
 # unconditionally, painting a `fill: false` widget's padding/valign bands even
 # though its whole contract is to draw no background of its own. The sibling
-# opaque-fill branches were already gated on `fill`; only the opacity branch was
-# not. Fixed by gating it too: `if (opacity = style_opacity) && fill`.
+# opaque-fill branches were already gated on `fill`; the opacity branch must be
+# gated the same way: `if (opacity = style_opacity) && fill`.
 describe "BUGS15 91: opacity pre-blend honors fill: false" do
   it "leaves the padding ring showing the backdrop untouched when fill: false" do
     attr, lp = padding_ring_attr(false)
     expected = backdrop_attr_at(lp.yi, lp.xi)
-    # Before the fix, this padding cell was blended toward blue even though
-    # fill: false means the widget should paint nothing of its own.
+    # Without the fill gate, this padding cell would blend toward blue even
+    # though fill: false means the widget should paint nothing of its own.
     attr.should eq expected
   end
 
@@ -101,8 +101,8 @@ end
 # baked into their geometry and never re-asserted afterward. A runtime
 # `scrollbar_width=`/`scrollbar_height=` change then desynced the reserved
 # content margin from the actual bar size, leaving a dead reserved stripe.
-# Fixed by re-asserting `sb.width`/`hb.height` in `update_scrollbar_widget`'s
-# per-frame reconcile (already change-guarded, so free when unchanged).
+# `update_scrollbar_widget`'s per-frame reconcile re-asserts
+# `sb.width`/`hb.height` (already change-guarded, so free when unchanged).
 describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollBar chrome in sync" do
   it "widens the vertical bar to match content_margin_x after scrollbar_width=" do
     s = headless_screen(40, 12)
@@ -122,8 +122,8 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
 
     box.content_margin_x.should eq 2
     box.content_width.should eq width_before - 1
-    # Before the fix, the memoized bar stayed 1 column wide here, leaving a
-    # dead reserved column between content and bar.
+    # Without the reassert, the memoized bar would stay 1 column wide here,
+    # leaving a dead reserved column between content and bar.
     sb.width.should eq 2
   end
 
@@ -144,7 +144,7 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
 
     box.hscrollbar_rows.should eq 2
     (box.aheight - box.ivertical - box.hscrollbar_rows).should eq rows_before - 1
-    # Before the fix, the memoized bar stayed 1 row tall here.
+    # Without the reassert, the memoized bar would stay 1 row tall here.
     hb.height.should eq 2
   end
 end

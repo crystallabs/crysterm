@@ -2,8 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Coverage for the API4 mechanical container/menu additive conveniences (see
-# plans/API4.md, "Deferred → Fable (mechanical additive conveniences)"):
+# Coverage for the API4 container/menu additive conveniences:
 # Menu/ToolBar `add_action`/`add_actions` symmetry (A4-35/A4-38a/A4-45),
 # `Mixin::PagedContainer#widget`/`#index_of` (A4-36), `Wizard#count` (A4-40),
 # `DialogButtonBox#add_button(StandardButton)`/`#remove_button` (A4-41),

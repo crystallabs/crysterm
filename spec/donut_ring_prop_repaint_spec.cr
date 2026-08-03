@@ -4,11 +4,11 @@ include Crysterm
 
 # `Widget::Graph::Donut` draws its ring on a `Graph::Canvas`, which only
 # re-rasterizes when its `@paint_dirty` flag is set. `#value=` is a custom
-# setter that calls `canvas.invalidate_paint` (+ `request_render`), but the
+# setter that calls `canvas.invalidate_paint` (+ `request_render`), and the
 # ring-shape/color setters (`thickness`, `fill_color`, `track_color`,
-# `show_track`, `minimum`, `maximum`) were plain `property` setters that did
-# neither — so e.g. `donut.thickness = 0.9` left the *old* ring on window until
-# an unrelated repaint. They now invalidate the paint and schedule a render.
+# `show_track`, `minimum`, `maximum`) must do the same — as plain `property`
+# setters, e.g. `donut.thickness = 0.9` leaves the *old* ring on window until
+# an unrelated repaint.
 
 describe "Widget::Graph::Donut ring-parameter setters schedule a repaint" do
   it "marks the Canvas paint dirty when thickness changes" do

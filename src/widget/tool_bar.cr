@@ -8,7 +8,8 @@ module Crysterm
     # Horizontal bar of action buttons, modeled after Qt's `QToolBar`.
     #
     # Holds `Action` buttons (added with `#add_action`), plain command buttons
-    # (`#add_button`), and separators (`#add_separator`). Clicking a button
+    # (`#add_button`), separators (`#add_separator`), and arbitrary embedded
+    # widgets (`#add_widget`), all flowing in one strip. Clicking a button
     # triggers it; a checkable action's button stays highlighted while checked.
     # Each action's `#tool_tip` becomes the button's hover tooltip.
     #
@@ -85,6 +86,44 @@ module Crysterm
       def add_actions(actions : Enumerable(Action)) : self
         actions.each { |a| add_action a }
         self
+      end
+
+      # Embeds an arbitrary *widget* in the action strip and returns it (Qt's
+      # `QToolBar#addWidget`, which likewise hands back a handle — there, the
+      # generated `QWidgetAction` — for later removal; here the widget itself is
+      # the handle, accepted by both `#remove_widget` and `#remove_item`).
+      #
+      # The widget becomes a strip item like any button: appended after the items
+      # already on the bar, re-packed with them whenever the row changes, and
+      # reparented into a host item box that reserves *width* cells for it —
+      # defaulting to the widget's own fixed `#width`, or, for a stretched one,
+      # to whatever it currently resolves to. Its `top`/`left` are pinned to the
+      # host's origin; its size, style, and focus/key handling stay its own. A
+      # widget taller than the bar is clipped by it, like any oversized child.
+      #
+      # Embedded items are deliberately NOT part of the bar's item cycling:
+      # Left/Right, the number keys and Enter step over them just as they do over
+      # separators, and no click-to-trigger handler is installed above them. The
+      # bar has no command to run for them, and hijacking the arrow keys would
+      # fight whatever the widget does with them; reach an embedded widget the
+      # way it is normally reached — by clicking it, or through the window's Tab
+      # focus chain.
+      #
+      # ```
+      # tb.add_button("Find") { search }
+      # tb.add_widget Widget::LineEdit.new(width: 20, height: 1)
+      # ```
+      def add_widget(widget : Widget, width : Int32? = nil) : Widget
+        add_embedded_item widget, width
+        widget
+      end
+
+      # Removes a widget embedded with `#add_widget`, returning it, or `nil` when
+      # it is not on this bar. The widget is detached free-standing (not
+      # destroyed) — it can be re-added here or parented elsewhere — and the
+      # remaining items re-pack on the next render.
+      def remove_widget(widget : Widget) : Widget?
+        remove_item(widget) && widget
       end
 
       # Operator alias for `#add_action`, e.g. `toolbar << action`. `Action` is

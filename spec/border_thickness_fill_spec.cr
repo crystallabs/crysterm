@@ -2,11 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: a border side thicker than one cell used to reserve the space
-# (shrinking the content area) but draw the glyphs only in the outermost
-# row/column, leaving the inner reserved band blank. `Widget#base_render` now fills
-# the whole band, classifying each cell as a horizontal run, a vertical run, or
-# a corner/join cell so the right glyph lands everywhere.
+# Regression: a border side thicker than one cell reserves the space (shrinking
+# the content area), so `Widget#base_render` must fill the whole reserved band —
+# classifying each cell as a horizontal run, a vertical run, or a corner/join
+# cell — not draw glyphs only in the outermost row/column.
 private def rows(s)
   (0...s.lines.size).map do |y|
     row = s.lines[y]

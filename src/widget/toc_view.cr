@@ -57,15 +57,17 @@ module Crysterm
       # Rebuilds the tree from the document's outline, returning whether it
       # changed.
       #
-      # Cheap to call on every document edit: the outline itself is memoized
-      # against the document revision, and an outline whose levels and anchors
-      # are unchanged rebuilds nothing — which is the overwhelmingly common case
-      # while text is being typed or streamed between headings.
+      # Cheap to call on every document edit: `TextDocument#outline` keeps
+      # returning its cached array while no heading's level, text or block
+      # index has changed — the overwhelmingly common case while text is being
+      # typed or streamed between headings — and an outline whose levels and
+      # anchors match the last build is recognized by comparing against
+      # `@signature` in place, so the no-change path allocates nothing and
+      # rebuilds nothing.
       def refresh(force : Bool = false) : Bool
         entries = @document.try(&.outline) || [] of TextOutline::Entry
-        sig = entries.map { |e| {e.level, e.anchor} }
-        return false if !force && sig == @signature
-        @signature = sig
+        return false if !force && signature_matches?(entries)
+        @signature = entries.map { |e| {e.level, e.anchor} }
 
         # Preserve what the reader did to the tree, keyed by anchor so it
         # survives entries appearing above or below.
@@ -96,6 +98,18 @@ module Crysterm
           emit Crysterm::Event::AnchorClick, "##{anchor}"
         end
         super
+      end
+
+      # Whether *entries* still matches `@signature`, entry for entry —
+      # compared in place rather than materializing a fresh signature array,
+      # since this runs on every `Event::ContentsChanged`.
+      private def signature_matches?(entries : Array(TextOutline::Entry)) : Bool
+        return false unless entries.size == @signature.size
+        @signature.each_with_index do |sig, i|
+          e = entries[i]
+          return false unless sig[0] == e.level && sig[1] == e.anchor
+        end
+        true
       end
 
       # Builds the node hierarchy from a flat, level-tagged outline.

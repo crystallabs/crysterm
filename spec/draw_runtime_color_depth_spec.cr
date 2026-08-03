@@ -4,10 +4,10 @@ include Crysterm
 
 # `Window#draw` reduces each cell's SGR colors to the output terminal's color
 # depth. `Screen#colors` resolves that depth fresh (honoring the `colors.depth`
-# config/env override "applied at any point"), but `draw` used to read the
-# frozen `caps.ncolors` snapshot taken once at `compute_draw_caps` — so a depth
-# changed at runtime (e.g. toggling truecolor) never reached the wire. `draw`
-# must use the live depth.
+# config/env override "applied at any point"), and `draw` must use that live
+# depth — reading the frozen `caps.ncolors` snapshot taken once at
+# `compute_draw_caps` means a depth changed at runtime (e.g. toggling
+# truecolor) never reaches the wire.
 private def color_screen(buf)
   s = Crysterm::Window.new(input: IO::Memory.new, output: buf, error: IO::Memory.new,
     width: 6, height: 1)

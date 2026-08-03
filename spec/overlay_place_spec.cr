@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Unit spec for `Overlay.place` (FORMAL-WIDGETS Part A / Piece 3): the pure
+# Unit spec for `Overlay.place`: the pure
 # fit-based auto-placement geometry. All coordinates absolute; no widgets
 # involved, so this pins the geometry in isolation from the adoption sites.
 #

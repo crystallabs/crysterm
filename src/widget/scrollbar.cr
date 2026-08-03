@@ -54,7 +54,7 @@ module Crysterm
       # (`nil`) resolves the CSS `glyph` on `::add-page`/`::groove`/`track`
       # (in that fallback order), then the `Glyphs` registry at the effective
       # tier; assigning a `Char` pins it. Two-slot CSS fallback, so hand-rolled
-      # rather than `pinnable_glyph` (O5-27).
+      # rather than `pinnable_glyph`.
       setter trough_char : Char? = nil
 
       # :ditto:
@@ -104,6 +104,20 @@ module Crysterm
       # Guards against the bar↔target feedback loop.
       @syncing = false
 
+      # `style_to_attr` memos for the per-frame render, one per style slot read
+      # there (the two trough halves, the thumb, and the two stepper arrows):
+      # the bar redraws every frame with unchanged styles, so each derivation
+      # is skipped until that slot's resolved style is mutated or swapped. The
+      # `resolve_slot` fallbacks return varying *objects* only when the styling
+      # changes, which the identity half of the gate catches; each stepper memo
+      # spans its horizontal/vertical arms the same way (only one arm runs per
+      # frame, and an orientation flip swaps the fetched style object).
+      @sub_page_attr_memo = Style::AttrMemo.new
+      @add_page_attr_memo = Style::AttrMemo.new
+      @thumb_attr_memo = Style::AttrMemo.new
+      @dec_attr_memo = Style::AttrMemo.new
+      @inc_attr_memo = Style::AttrMemo.new
+
       # Last `{page_step, minimum, maximum, value}` pushed by `#sync_from_target`,
       # so a scroll event that resolves to the same geometry is a no-op instead of
       # re-assigning and requesting a render.
@@ -118,7 +132,8 @@ module Crysterm
         value : Int32? = nil,
         @minimum = 0,
         @maximum = 100,
-        @step = 1,
+        single_step : Int32? = nil,
+        step : Int32? = nil,
         @page_step = 1,
         @orientation = @orientation,
         @thumb_char = nil,
@@ -127,6 +142,11 @@ module Crysterm
         @show_trough = true,
         **input,
       )
+        # `single_step:` is the blessed Qt-parity spelling; `step:` stays
+        # accepted as a compatibility alias, `single_step:` winning when both
+        # are given.
+        @single_step = single_step || step || 1
+
         super **input
 
         # Never store an inverted range; it would leave `#value` stuck after `clamp`.
@@ -161,7 +181,7 @@ module Crysterm
           # the ends.
           v = (value_at pos.clamp(0, span), span).clamp(@minimum, @maximum)
           self.slider_position = v
-          # `Event::SliderMoved` on every drag motion (A4-62), independent of
+          # `Event::SliderMoved` on every drag motion, independent of
           # `#tracking?` — `#slider_position=` already emits `ValueChanged`
           # per move when tracking, so this never duplicates that.
           emit Crysterm::Event::SliderMoved, v
@@ -268,16 +288,16 @@ module Crysterm
         if decrement
           button = resolve_slot(base.sub_line, base, base)
           if @orientation.horizontal?
-            {style_to_attr(resolve_slot(base.left_arrow, button, base)), left_arrow_char}
+            {@dec_attr_memo.fetch(resolve_slot(base.left_arrow, button, base)), left_arrow_char}
           else
-            {style_to_attr(resolve_slot(base.up_arrow, button, base)), up_arrow_char}
+            {@dec_attr_memo.fetch(resolve_slot(base.up_arrow, button, base)), up_arrow_char}
           end
         else
           button = resolve_slot(base.add_line, base, base)
           if @orientation.horizontal?
-            {style_to_attr(resolve_slot(base.right_arrow, button, base)), right_arrow_char}
+            {@inc_attr_memo.fetch(resolve_slot(base.right_arrow, button, base)), right_arrow_char}
           else
-            {style_to_attr(resolve_slot(base.down_arrow, button, base)), down_arrow_char}
+            {@inc_attr_memo.fetch(resolve_slot(base.down_arrow, button, base)), down_arrow_char}
           end
         end
       end
@@ -303,9 +323,9 @@ module Crysterm
 
           # `::sub-page`/`::add-page` are the trough above/below the handle; both
           # fall back to `::groove` (`track`) when unset.
-          sub_page_attr = style_to_attr resolve_slot(base.sub_page, base.track, base)
-          add_page_attr = style_to_attr resolve_slot(base.add_page, base.track, base)
-          thumb_attr = style_to_attr base.indicator
+          sub_page_attr = @sub_page_attr_memo.fetch(resolve_slot(base.sub_page, base.track, base))
+          add_page_attr = @add_page_attr_memo.fetch(resolve_slot(base.add_page, base.track, base))
+          thumb_attr = @thumb_attr_memo.fetch(base.indicator)
 
           # With the trough hidden, only the thumb is drawn; a space keeps the
           # reserved column empty rather than glyph-filled. Both glyphs hoisted

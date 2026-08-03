@@ -10,12 +10,12 @@ include Crysterm
 # `Window#_plane_dock_stops` (plane-local) instead of `Window#_dock_stops`
 # (base) while a plane is being painted.
 #
-# Before the fix the gate was `@compositing`, set only on the layer root. A
-# bordered descendant paints into the plane too (root redirected
-# `screen.lines` for the whole subtree) but has `@compositing == false`, so its
-# border rows leaked onto the base `_dock_stops`, joining the child's border to
-# content under the overlay. Fix gates on `compositing_layers?` instead, true
-# for the whole subtree.
+# The gate must be `compositing_layers?` (true for the whole subtree), not
+# `@compositing` (set only on the layer root): a bordered descendant paints
+# into the plane too (root redirects `screen.lines` for the whole subtree) but
+# has `@compositing == false`, so gating on it leaks the descendant's border
+# rows onto the base `_dock_stops`, joining the child's border to content under
+# the overlay.
 describe "Widget#register_dock_stops (layer descendants)" do
   it "routes a bordered descendant of a z-indexed widget to the plane, not the base" do
     s = headless_screen(40, 20, default_quit_keys: true)

@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # `CheckBox#check`/`#uncheck`/`#partial` override `AbstractButton`'s versions
-# but used to drop the trailing `request_render`, so a programmatic state
+# but dropped the trailing `request_render`, so a programmatic state
 # change (or a label-click routing through `press` → `toggle`) flipped
 # `checked?` and the marker without scheduling a repaint. The marker-click and
 # activate-key paths masked it by repainting themselves (in `CheckMarker`), but
@@ -14,7 +14,7 @@ include Crysterm
 # top-level ancestor in the screen's pending dirty-roots set under
 # `DamageTracking`) and calls `Window#render`. In a headless spec the render
 # fiber never runs, so `Window#render` only rings the doorbell — the
-# observable, synchronous effect of the fix is the scheduled repaint (dirty
+# observable, synchronous effect is the scheduled repaint (dirty
 # mark), not an updated cell.
 #
 # These specs render once, drain the damage set to a clean baseline, then mutate

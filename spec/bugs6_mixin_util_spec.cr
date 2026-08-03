@@ -2,23 +2,23 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS6 section 3 "Mixin Layer & Misc Utilities".
+# Regression specs — mixin layer & misc utilities:
 #
-#  BUG 1 (fixed in src/mixin/interactive.cr): paging (Ctrl-U/D/B/F) and
+#  BUG 1 (src/mixin/interactive.cr): paging (Ctrl-U/D/B/F) and
 #     jump-to-edge (g/G) were all gated behind `@vi_keys`, and PageUp/PageDown/Home/
 #     End were never bound at all. A `keys: true, vi_keys: false` widget (e.g.
 #     PlainTextEdit) therefore had no half/full-page scroll and no jump keys.
-#     Paging + PageUp/PageDown + Home/End are now bound unconditionally
+#     Paging + PageUp/PageDown + Home/End must be bound unconditionally
 #     (matching ScrollableBox#on_keypress); only k/j/g/G stay vi_keys-gated.
 #
-#  BUG 2 (fixed in src/unicode.cr): `display_width`'s ASCII fast path
+#  BUG 2 (src/unicode.cr): `display_width`'s ASCII fast path
 #     used `ascii_only?`, which is true for C0 controls (TAB/CR/ESC) and DEL —
 #     counting them as width 1, contradicting `codepoint_width` (0). The fast
-#     path now only fires for fully printable-ASCII strings (0x20..0x7E).
+#     path must only fire for fully printable-ASCII strings (0x20..0x7E).
 #
-#  BUG 3 (fixed in src/mixin/instances.cr): `global(create: false)` did
+#  BUG 3 (src/mixin/instances.cr): `global(create: false)` did
 #     `(... || nil).not_nil!`, raising on an empty list instead of returning
-#     nil. The nilable query path no longer asserts non-nil.
+#     nil. The nilable query path must not assert non-nil.
 #
 #  BUG 4 (documented in src/mixin/children.cr): `insert` (and append/prepend/
 #     insert_before/insert_after) is a deliberate no-op when the element is

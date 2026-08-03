@@ -90,14 +90,14 @@ module Crysterm
       # a fresh `Screen` starts at 0. Must run before `start_input` below: the
       # fallback query is a synchronous read that would race the input fiber.
       # Skipped when adopting a device that already ran its live negotiation —
-      # i.e. moving onto a shared device with a live sibling (B17-01): the
+      # i.e. moving onto a shared device with a live sibling: the
       # re-probe would be redundant, its reply reads would race the sibling's
       # input fiber for the same bytes, and its query/cleanup writes would
       # paint over the sibling's frame.
       new_screen.reprobe_and_detect_geometry unless new_screen.probed?
       # An inline surface re-anchors at the NEW terminal's cursor row. Safe
       # here for the same no-input-fiber-yet reason — so skipped when the
-      # adopted device's input fiber is already live (B17-01): the synchronous
+      # adopted device's input fiber is already live: the synchronous
       # read would race it; the anchor keeps its row-0 fallback instead.
       capture_inline_anchor unless @alternate || new_screen.listening?
       # Re-enter + repaint invalidates descendants' memoized device.
@@ -130,9 +130,8 @@ module Crysterm
       width, height,
       cell_pixel_width, cell_pixel_height, to: @screen
 
-    # `Screen#awidth`/`#aheight` were verbatim duplicates of `#width`/`#height`
-    # and were removed there; kept here (returning the screen's `width`/
-    # `height`) since these are widely used across the render/geometry hot path.
+    # `awidth`/`aheight` are aliases of `#width`/`#height` (the screen size),
+    # widely used across the render/geometry hot path.
     def awidth : Int32
       width
     end
@@ -197,7 +196,7 @@ module Crysterm
     # Setters forwarded explicitly (`delegate` doesn't accept assignment forms).
     # An explicit size assignment **pins** that axis on the device
     # (`Screen#width=`), so a later terminal resize no longer overwrites it —
-    # the same semantics as passing `width:`/`height:` at construction (R-84).
+    # the same semantics as passing `width:`/`height:` at construction.
     def width=(value : Int32)
       @screen.width = value
     end
@@ -354,8 +353,8 @@ module Crysterm
 
       register_instance
 
-      # Only a device that has not yet run its live negotiation is probed here
-      # (B17-01). A device adopted via `screen:` that was already probed by its
+      # Only a device that has not yet run its live negotiation is probed
+      # here. A device adopted via `screen:` that was already probed by its
       # first window's constructor must not be re-probed: the result is already
       # known, and on a device whose input fiber is live the probe's
       # synchronous reply reads would race that fiber for the same bytes —
@@ -378,7 +377,7 @@ module Crysterm
       # `report_cursor` reads `@input` synchronously, so the anchor must be
       # captured before `_listen_keys` spawns the input fiber — and never on a
       # device whose input fiber is already live (a sibling's reader would race
-      # it for the reply; the anchor keeps its row-0 fallback instead, B17-01).
+      # it for the reply; the anchor keeps its row-0 fallback instead).
       capture_inline_anchor unless @alternate || @screen.listening?
 
       # In `connect`, not `enter`/`leave`: input listening belongs to the
@@ -404,7 +403,7 @@ module Crysterm
       # Deferred along with the probe (and gated with it): the fallback
       # cell-size query is a synchronous read the tty's previous reader could
       # swallow, and an already-probed shared device detected its geometry
-      # when its first window was constructed (B17-01).
+      # when its first window was constructed.
       @screen.detect_cell_geometry if probe_device
       restyle
 
@@ -669,7 +668,7 @@ module Crysterm
       @render_stop = true
       schedule_render
 
-      # Same for the resize fiber (finding 12): flag it, then poke the channel
+      # Same for the resize fiber: flag it, then poke the channel
       # so it wakes and exits instead of looping forever on `receive`, pinning
       # this destroyed window and possibly resizing it after teardown.
       @resize_stop = true
@@ -685,21 +684,21 @@ module Crysterm
       #
       # Iterate a SNAPSHOT: a top-level widget's `#destroy` ends in
       # `detach_from_tree`, which removes it from `@children` mid-loop — the same
-      # reason `Widget#destroy` dups its own children. The teardown is already
-      # bottom-up: `Widget#destroy` recurses into its children first, then detaches
-      # (this earlier needed "a fix before enabling" — the `.dup` is that fix).
+      # reason `Widget#destroy` dups its own children. The teardown is
+      # bottom-up: `Widget#destroy` recurses into its children first, then
+      # detaches.
       @children.dup.each &.destroy
 
       # Tear down the terminal connection (restores the terminal, stops the
       # input fiber, closes owned IO and any spawned window). For the
-      # launching screen this is the old `leave` plus line-discipline restore;
+      # launching screen this is `leave` plus line-discipline restore;
       # for screens bound to spawned windows it also closes the window.
       disconnect
 
       # Uninstall every action shortcut installed on this window: the
       # class-level `Action` shortcut registry (`@@shortcut_maps`) holds the
       # window and its window-level `KeyPress` subscription, so without this a
-      # destroyed window with installed actions stays pinned forever (R-83).
+      # destroyed window with installed actions stays pinned forever.
       # Idempotent — a no-op when nothing is (or is no longer) installed.
       Action.uninstall_shortcuts self
 

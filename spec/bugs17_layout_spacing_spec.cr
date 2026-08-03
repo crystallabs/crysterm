@@ -22,7 +22,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
       layout: Layout::HBox.new(spacing: Int32::MAX)
     Widget::Box.new parent: box, width: 5, height: 1
     Widget::Box.new parent: box, width: 5, height: 1
-    screen.repaint # pre-fix: OverflowError at the `@cursor` accumulation in place
+    screen.repaint # must not raise OverflowError at the `@cursor` accumulation in place
   end
 
   it "does not raise OverflowError with Int32::MAX spacing and three children" do
@@ -32,7 +32,7 @@ describe "BUGS17 B17-10 Box clamps extreme spacing" do
     Widget::Box.new parent: box, width: 5, height: 1
     Widget::Box.new parent: box, width: 5, height: 1
     Widget::Box.new parent: box, width: 5, height: 1
-    screen.repaint # pre-fix: OverflowError at the `gaps` product in measure
+    screen.repaint # must not raise OverflowError at the `gaps` product in measure
   end
 
   it "does not raise (and does not over-allocate) with negative spacing" do
@@ -68,7 +68,7 @@ describe "BUGS17 B17-11 Form clamps extreme spacing" do
       layout: Layout::Form.new(horizontal_spacing: Int32::MAX)
     Widget::Box.new parent: form, height: 1, content: "Name"
     Widget::Box.new parent: form, height: 1
-    screen.repaint # pre-fix: OverflowError at `lw + @horizontal_spacing`
+    screen.repaint # must not raise OverflowError at `lw + @horizontal_spacing`
   end
 
   it "does not raise OverflowError with Int32::MAX vertical_spacing" do
@@ -77,7 +77,7 @@ describe "BUGS17 B17-11 Form clamps extreme spacing" do
       layout: Layout::Form.new(vertical_spacing: Int32::MAX)
     Widget::Box.new parent: form, height: 1, content: "Name"
     Widget::Box.new parent: form, height: 1
-    screen.repaint # pre-fix: OverflowError at the `y += ... + @vertical_spacing` advance
+    screen.repaint # must not raise OverflowError at the `y += ... + @vertical_spacing` advance
   end
 
   it "does not raise with negative horizontal and vertical spacing" do
@@ -106,9 +106,9 @@ describe "BUGS17 B17-09 Masonry gravitation uses a deferred child's current geom
 
     a.height = 5
     screen.repaint
-    # Pre-fix: B glued to A's STALE 3-tall previous-frame bottom edge for this
-    # frame and only healed one render later. Post-fix: it anchors on A's
-    # assigned geometry (height 5) immediately.
+    # B must anchor on A's assigned geometry (height 5) immediately, not glue
+    # to A's STALE 3-tall previous-frame bottom edge for this frame and heal
+    # only one render later.
     b.lpos.not_nil!.yi.should eq bl.yi + 5
   end
 end

@@ -152,9 +152,9 @@ describe "B16-52: Media::Sixel#dither= invalidates the cached payload" do
     second = img.probe_frame_payloads[0]?
     second.should_not be_nil
 
-    # Pre-fix: the plain `property` setter drops nothing, so `payload_for`
-    # keeps serving the geometry-keyed cache entry built under the old
-    # dither mode — the second render re-emits byte-identical bytes.
+    # A plain `property` setter drops nothing, letting `payload_for` keep
+    # serving the geometry-keyed cache entry built under the old dither mode
+    # — the second render would re-emit byte-identical bytes.
     second.should_not eq first
   ensure
     s.try &.destroy

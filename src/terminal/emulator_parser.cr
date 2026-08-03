@@ -268,7 +268,7 @@ module Crysterm
         # `DCS tmux; <doubled-ESC payload> ST` wrapper) relies on exactly
         # this "ESC not forming ST stays in the string" behavior — aborting
         # on the inner ESC would end the DCS early and leak the remainder of
-        # the wrapped payload to the grid, regressing bug #94's own repro.
+        # the wrapped payload to the grid.
         @osc_buf << '\e' if !@osc_string && @osc_buf.bytesize < OSC_MAX
       end
       case c.ord

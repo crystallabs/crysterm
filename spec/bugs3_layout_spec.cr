@@ -12,7 +12,7 @@ private def unicode_screen(w = 40, h = 20)
     width: w, height: h, full_unicode: true, force_unicode: true)
 end
 
-# Fix #1: `TableLayout#pad_cell` trims an overflowing cell by DISPLAY WIDTH
+# `TableLayout#pad_cell` trims an overflowing cell by DISPLAY WIDTH
 # (per-grapheme `Unicode.display_width` under `full_unicode?`), not by character
 # count. A cell of wide CJK graphemes whose display width exceeds the column
 # width must be trimmed to exactly `width` columns (measured by the same
@@ -84,7 +84,7 @@ describe "TableLayout#pad_cell wide-character trim (display-width)" do
   end
 end
 
-# Fix #2: in the stretched (auto width/height) branch of `awidth`/`aheight`, the
+# In the stretched (auto width/height) branch of `awidth`/`aheight`, the
 # margin is subtracted BEFORE clamping to `[min, max]`, so the constraint applies
 # to the post-margin (used) size, per CSS min/max semantics. With a 10-column
 # slot, 4 columns of horizontal margin and `min_width: 10`, the post-margin size
@@ -103,8 +103,7 @@ describe "Widget size auto-branch clamps the post-margin size" do
     child.awidth.should eq 6
 
     # With min_width: the clamp is applied to the post-margin size (6), lifting
-    # it to 10. Pre-fix, the clamp ran before the margin subtraction and this
-    # would not hold.
+    # it to 10 (the clamp must run after the margin subtraction, not before).
     child.min_width = 10
     child.awidth.should eq 10
   end

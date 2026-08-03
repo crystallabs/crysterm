@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Phase-4 reactivity: `Reactive::ObservableList` + `Reactive.bind_items`, which
-# patches an item view row-by-row from granular list deltas. See REACTIVE.md.
+# patches an item view row-by-row from granular list deltas.
 
 private def rx_screen
   Crysterm::Window.new(

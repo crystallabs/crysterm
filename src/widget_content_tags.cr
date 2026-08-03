@@ -277,13 +277,8 @@ module Crysterm
     # '''
     # box.set_content("escaped content: " + Widget.escape_tags("{bold}{/bold}"))
     # '''
-    def self.escape_tags(text)
-      text.gsub(/[{}]/) do |ch|
-        case ch
-        when "{" then "{open}"
-        when "}" then "{close}"
-        end
-      end
+    def self.escape_tags(text : String) : String
+      Crysterm::Formatting.escape_braces text
     end
 
     # Strips text of "{...}" tags and SGR sequences and removes leading/trailing whitespaces

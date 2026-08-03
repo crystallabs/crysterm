@@ -18,7 +18,7 @@ include Crysterm
 #   `{o}` literal / single-buffer replay of a double-buffered payload); the Kitty
 #   override deletes the now-unused `@id_b` placement on true→false.
 # * #53 — a payload-cache drop (`reset_payload_cache`, reached from `#fit=` /
-#   `double_buffer=` / `z=`) no longer re-arms `@anim_checked`, so a stopped
+#   `double_buffer=` / `z=`) must not re-arm `@anim_checked`, so a stopped
 #   animation/video is not silently resumed by the first-paint auto-play probe.
 #   Only `#load`/`#clear_image` re-arm it.
 
@@ -140,7 +140,7 @@ describe "BUGS15 #24: Kitty graphic deleted when slid to a negative origin" do
     img.top = -2
     s.repaint
 
-    # Pre-fix: redraw_image bailed on `content_rect || return` without clearing,
+    # Without clearing, `redraw_image` would bail on `content_rect || return`,
     # leaving the Kitty layer floating and @last_drawn stuck at the old rect.
     img.cleared_count.should be >= 1   # Kitty a=d delete issued
     img.probe_last_drawn.should be_nil # erased and no longer re-invalidated

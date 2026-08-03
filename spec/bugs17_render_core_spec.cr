@@ -14,7 +14,7 @@ include Crysterm
 #          no fiber identity, so a cross-fiber mutation landing at one of
 #          `_render`'s yield points (the `flush_frame` tty write, a `PreRender`/
 #          `Rendered` handler doing IO) was dropped and never repainted. The
-#          suppression is now scoped to the render fiber, so only same-fiber
+#          suppression is scoped to the render fiber, so only same-fiber
 #          layout setters stay suppressed; cross-fiber updates ring the doorbell.
 
 private def b17_device
@@ -49,8 +49,8 @@ describe "BUGS17 B17-02: background window does not paint the shared device" do
 
       # w1 is now the background window. A widget mutation on it funnels
       # mark_dirty -> request_frame -> schedule_render, ringing w1's render
-      # loop. Pre-fix that loop composited and flushed w1's changed cells onto
-      # the shared tty, over w2's frame. It must now write nothing at all.
+      # loop. That loop must not composite or flush w1's changed cells onto
+      # the shared tty, over w2's frame. It must write nothing at all.
       box.content = "W1CHANGED"
       w1.render # explicitly ring w1's doorbell too
       sleep 80.milliseconds
@@ -81,9 +81,9 @@ describe "BUGS17 B17-03: cross-fiber request_frame during _render is not dropped
       # set. From INSIDE it we run `request_frame` on a DIFFERENT fiber (the
       # cross-fiber mutation the real bug describes — a key handler / spawned
       # worker mutating a widget while the render fiber is parked mid-frame),
-      # synchronizing so it completes before the frame ends. Pre-fix the
-      # window-wide `@in_render` flag suppressed that call and no second frame
-      # ran; the fiber-scoped guard now rings the doorbell.
+      # synchronizing so it completes before the frame ends. The window-wide
+      # `@in_render` flag must not suppress that call; the fiber-scoped guard
+      # rings the doorbell.
       fired = false
       win.on(Crysterm::Event::PreRender) do
         unless fired
@@ -98,8 +98,8 @@ describe "BUGS17 B17-03: cross-fiber request_frame during _render is not dropped
       end
 
       win.render # ring the doorbell -> frame -> PreRender -> cross-fiber request_frame
-      # Fix produces two frames (this one plus the scheduled follow-up); pre-fix
-      # only one, because the cross-fiber request_frame was suppressed.
+      # Two frames occur (this one plus the scheduled follow-up); the
+      # cross-fiber request_frame must not be suppressed.
       wait_until { win.renders >= baseline + 2 }
     ensure
       win.destroy

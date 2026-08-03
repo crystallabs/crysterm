@@ -70,8 +70,8 @@ module Crysterm
 
       # Backing per-item `Box` widgets, one per row, parallel to `@ritems`. This
       # is the render/geometry store the mixin (and includers) mutate; the
-      # public *model* is `#items` (the texts). Moved off the `Widget` base here
-      # so only item views carry it.
+      # public *model* is `#items` (the texts). Lives here, not on the `Widget`
+      # base, so only item views carry it.
       property item_boxes = [] of Widget::Box
 
       @ritems = [] of String

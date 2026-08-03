@@ -9,8 +9,8 @@ include Crysterm
 # When a value is wider than the viewport and the caret is at the very end,
 # `#ensure_visible_x` can only scroll the horizontal base to
 # `full_width - content_width`, leaving the caret at display offset
-# `content_width` (the reserved column). The placement clamp used to cap at
-# `content_width - 1`, drawing the caret one column too far left.
+# `content_width` (the reserved column). The placement clamp must not cap at
+# `content_width - 1`, which draws the caret one column too far left.
 describe "Mixin::TextEditing caret in the reserved end column" do
   it "places an end-of-line caret in the reserved column when the line overflows" do
     s = Crysterm::Window.new(
@@ -34,7 +34,7 @@ describe "Mixin::TextEditing caret in the reserved end column" do
     pte._update_cursor
 
     # Caret display column 12 minus base 5 = offset 7, the reserved column
-    # (left == 0). Previously clamped to 6 (last visible char).
+    # (left == 0) — not clamped to 6 (last visible char).
     s.tput.cursor.x.should eq 7
   end
 

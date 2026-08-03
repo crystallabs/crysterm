@@ -1,5 +1,6 @@
 require "../terminal/pty"
 require "../terminal/emulator"
+require "../mixin/emulator_blit"
 
 module Crysterm
   class Widget
@@ -32,6 +33,8 @@ module Crysterm
     # ![Terminal screenshot](../../tests/widget/terminal/terminal.5s.apng)
     # <!-- /widget-examples:capture -->
     class Terminal < Widget
+      include Mixin::EmulatorBlit
+
       # A terminal manages its own scrollback; it is not a scrollable Box.
       @scrollable = false
 
@@ -402,6 +405,8 @@ module Crysterm
         coords
       end
 
+      # Syncs the emulator's default attr to the live style, then blits the
+      # grid via `Mixin::EmulatorBlit`, overlaying the cursor when visible.
       private def draw(coords) : Nil
         em = @emulator
         return unless em
@@ -411,113 +416,22 @@ module Crysterm
         @dattr = style_to_attr style
         em.default_attr = @dattr
 
-        lines = window.lines
-
+        # Cursor position in window coordinates, mapped exactly like the blit
+        # maps grid cells: rows through `coords.base`, columns through the
+        # unclipped content origin (see `Mixin::EmulatorBlit`).
         xi, xl, yi, yl = content_edges coords
-
-        # When an ancestor clips this widget, `coords` moves `coords.xi`/`coords.yi`
-        # inward to the clip edge and folds the clipped-top row count into
-        # `coords.base`. Rows must map through `coords.base` and columns through
-        # the unclipped content origin — the true position of emulator column 0,
-        # since horizontal clipping has no `base` — or a partially clipped
-        # terminal shows its top-left corner instead of the correct grid region.
-        origin_x = aleft + ileft
-
-        disp = em.ydisp
-        focused = window.focused == self
         cur_y = yi + em.cursor_y - coords.base
-        cur_x = origin_x + em.cursor_x
+        cur_x = aleft + ileft + em.cursor_x
         # The cursor is hidden while the user is scrolled back into history, and
         # skipped when it maps outside the (possibly clipped) visible viewport.
-        show_cursor = focused && !em.cursor_hidden? && disp == em.ybase &&
+        show_cursor = window.focused == self && !em.cursor_hidden? && em.ydisp == em.ybase &&
                       cur_y >= Math.max(yi, 0) && cur_y < yl &&
                       cur_x >= Math.max(xi, 0) && cur_x < xl
-        full_unicode = window.full_unicode_effective?
 
-        y = Math.max yi, 0
-        while y < yl
-          line = lines[y]?
-          break unless line
-          src = em.lines[disp + coords.base + (y - yi)]?
-          break unless src
-
-          cursor_col = (show_cursor && y == cur_y) ? cur_x : -1
-
-          x = Math.max xi, 0
-          while x < xl
-            cell = line[x]?
-            break unless cell
-            scell = src[x - origin_x]?
-            break unless scell
-
-            attr = scell.attr
-            ch = scell.char
-            # The emulator parks a NUL in the trailing half of a wide glyph;
-            # render it blank. In full-unicode mode the wide-glyph branch below
-            # claims the following cell as a real continuation, skipping this.
-            ch = ' ' if ch == TerminalEmulator::CONTINUATION
-
-            if x == cursor_col
-              attr, ch = apply_cursor attr, ch
-            end
-
-            # Both wide-glyph branches below need the glyph's column count and
-            # the following window cell; derive each once per cell. Folding
-            # `full_unicode` into `cw` (a window without full-unicode support
-            # treats every cell as one column) reproduces the previous
-            # `full_unicode && Unicode.width(ch) == 2` guards exactly, while
-            # sparing every interior cell a second `Unicode.width` walk and a
-            # second bounds-checked row lookup. Safe to hoist `nxt` above the
-            # write below: that write targets `line[x]`, never `line[x + 1]`.
-            cw = full_unicode ? ::Crysterm::Unicode.width(ch) : 1
-            nxt = line[x + 1]?
-
-            # A wide (2-column) glyph whose continuation cell cannot be claimed —
-            # past the content region or absent from the window row — is blanked
-            # to a space, upholding the invariant "a width-2 cell is always
-            # followed by an in-region continuation" that the flush code relies on
-            # (mirrors the end-of-line safeguard in widget_rendering.cr:540-553).
-            # Terminal overrides #draw with its own loop, so it needs its own copy;
-            # without it a bare wide lead — e.g. one stranded in the last column by
-            # a column-shrink resize — would over-claim and paint across the
-            # widget's edge into the neighbouring cell. Must stay the exact
-            # complement of the continuation-claim block below.
-            if cw == 2 && (x + 1 >= xl || nxt.nil?)
-              ch = ' '
-              # Load-bearing: the blanked lead is now one column wide, so the
-              # claim block below must not also consume the next column.
-              cw = 1
-            end
-
-            if cell != {attr, ch}
-              cell.attr = attr
-              cell.char = ch
-              line.dirty = true
-            end
-
-            # Wide glyph: claim the following window cell as its continuation so
-            # the window grid stays 1 cell == 1 terminal column. This holds even
-            # when the cursor sits on the lead half — `attr` already carries the
-            # cursor styling — so both columns are still consumed.
-            if cw == 2 && nxt && x + 1 < xl
-              nxt_attr = attr
-              # With the cursor on the TRAILING half of a wide glyph, `x += 2`
-              # would skip its column and leave it invisible; carry the cursor
-              # styling onto the continuation cell instead.
-              if x + 1 == cursor_col
-                nxt_attr, _ = apply_cursor attr, ' '
-              end
-              nxt.attr = nxt_attr
-              nxt.continuation!
-              line.dirty = true
-              x += 2
-              next
-            end
-
-            x += 1
-          end
-
-          y += 1
+        if show_cursor
+          blit_emulator_grid(em, coords, cur_x, cur_y) { |attr, ch| apply_cursor attr, ch }
+        else
+          blit_emulator_grid em, coords
         end
       end
 
@@ -529,7 +443,7 @@ module Crysterm
         when .underline?
           {Attr.pack(Attr.flags(attr) | Attr::UNDERLINE, Attr.fg(attr), Attr.bg(attr)), ch}
         when .block?
-          # Invert the cell. Toggle (not OR) REVERSE, mirroring the B16-05 fix in
+          # Invert the cell. Toggle (not OR) REVERSE, matching the same toggle in
           # `window_cursor.cr`: a cell the child already rendered reversed (SGR 7 —
           # selections, status bars, hlsearch matches) must flip back to normal
           # video so the cursor stays visible instead of no-op'ing into invisibility.

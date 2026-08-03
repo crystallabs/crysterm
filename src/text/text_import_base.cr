@@ -48,8 +48,7 @@ module Crysterm
       @pending_checked = false
 
       # Pushes an inline-format patch for the duration of the block, clearing
-      # the memoized current format on both edges. Byte-identical in both
-      # importers.
+      # the memoized current format on both edges.
       private def with_patch(patch : TextCharFormat, &) : Nil
         @patches << patch
         @fmt = nil

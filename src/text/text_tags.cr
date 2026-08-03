@@ -37,7 +37,7 @@ module Crysterm
     # The canonical tag regex. Owned here — `text/` is the potential future
     # standalone shard, so it must not require widget files — and aliased by
     # `Widget::TAG_REGEX` (the reverse direction, widget requiring text/, is
-    # already the require order), so the two spellings cannot drift (R-75).
+    # already the require order), so the two spellings cannot drift.
     TAG_REGEX  = /\{(\/?)([\w\-,;!#]*)\}/
     LINK_REGEX = /\{link=([^}]*)\}/
 

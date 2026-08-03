@@ -11,8 +11,8 @@ module Crysterm
       # Cache for the pure (non-`currentColor`) `resolve` results, keyed by the
       # stripped value. A cascade re-runs `resolve` for the same color string
       # once per widget that shares it (40 buttons, one `#223`), and the fold +
-      # `gradient`/`rgb`/`hsl` pre-scan below is otherwise uncached — only the
-      # final `Colors.convert` was memoized. Bounded so a pathological sheet
+      # `gradient`/`rgb`/`hsl` pre-scan below is otherwise uncached (only the
+      # final `Colors.convert` is memoized). Bounded so a pathological sheet
       # can't grow it without limit.
       @@resolve_cache = Cache::Bounded(String, Int32 | String?).new(Cache::COLOR_CAPACITY, "css_color_resolve", register: true)
 
@@ -101,7 +101,7 @@ module Crysterm
         rgb r // n, g // n, b // n
       end
 
-      # `rgb()`/`hsl()` function parsing lives in the term_colors shard now
+      # `rgb()`/`hsl()` function parsing lives in the term_colors shard
       # (`parse_rgb_function`/`parse_hsl_function` — generic CSS color-function
       # grammar, not stylesheet policy); these wrappers keep the local names
       # the dispatch below uses.

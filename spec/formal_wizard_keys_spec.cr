@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the FORMAL-WIDGETS Wizard fix (live bug B0.4): the Wizard
+# Regression spec (live bug B0.4): the Wizard
 # had no Enter-to-advance / Escape-to-cancel handling — the modal-dialog
 # convention `ColorDialog`/`Question` already follow — so cancel was reachable
 # only via the button. The keys are guarded so a focused text editor still gets

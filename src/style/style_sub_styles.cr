@@ -1,5 +1,5 @@
 module Crysterm
-  # The nested sub-`Style` slots of `Style` (split out of style.cr): the
+  # The nested sub-`Style` slots of `Style`: the
   # `sub_style_accessor` slot declarations, the composed alternate-row
   # machinery, and the canonical slot-name mapping the CSS cascade addresses
   # them by.

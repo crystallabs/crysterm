@@ -8,7 +8,7 @@ include Crysterm
 # cascade first adds a border/padding (after the constructor's `#rows=`, with no
 # `Resize` since the outer `@width` is unchanged), nothing marks the cache
 # dirty, so the columns permanently fill the *pre-cascade* interior — `ihorizontal`
-# columns too wide. The fix also keys the cache on `{@width, ihorizontal,
+# columns too wide. The cache is also keyed on `{@width, ihorizontal,
 # @column_spacing}` so it recomputes exactly when a dependency moved.
 
 describe "BUGS16 B16-34 table column-width cache invalidation on inset change" do

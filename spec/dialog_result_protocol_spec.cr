@@ -5,13 +5,10 @@ include Crysterm
 # The `Widget::Dialog` result protocol (Qt's `QDialog`): `#result` / `#done` /
 # `#accept` / `#reject`, `Event::Accepted`/`Rejected`/`Finished`, and modality.
 #
-# Before this, `Dialog`'s entire public surface was `accept`/`cancel` — both
-# no-ops — and every subclass invented its own entry point and outcome
-# reporting: `ColorDialog`/`DialogButtonBox` emitted `Accepted`/`Rejected` while
-# `Question`, `Prompt`, `Message` and `Wizard` emitted neither, and nothing
-# carried a result. These pin the protocol down at the base *and* assert that
-# each subclass's block-based convenience form (`#ask`, `#read_input`,
-# `#display`, `#pick`) now agrees with the signals, so the two can't drift.
+# Pins the protocol down at the base *and* asserts that each subclass's
+# block-based convenience form (`#ask`, `#read_input`, `#display`, `#pick`)
+# agrees with the signals, so the two can't drift — subclasses must not invent
+# their own entry points and outcome reporting.
 
 # The minimal concrete dialog: the base class is abstract, so the base-level
 # protocol needs a subclass that adds nothing.

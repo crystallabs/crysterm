@@ -15,9 +15,9 @@ include Crysterm
 #   `BorderType`'s tuple against its pre-refactor literal.
 # * O5-35 — `truncate(str, len)` was byte-identical in
 #   src/widget/pine/message_index.cr and src/widget/mutt/message_index.cr, now
-#   homed once in `Crysterm::Widget::Mutt.truncate`
-#   (src/widget/mutt/formatting.cr). Pins the shared helper directly and pins
-#   both widgets' rendered rows use it.
+#   homed once in `Crysterm::Formatting.truncate` (src/formatting.cr; it lived
+#   in `Widget::Mutt` until R-65 moved it out of the Mutt suite). Pins the
+#   shared helper directly and pins both widgets' rendered rows use it.
 
 private def o5msc_window(output : IO) : Crysterm::Window
   Crysterm::Window.new(
@@ -122,14 +122,14 @@ describe "OPT5 O5-18: BorderType#line_glyphs (macro-generated)" do
   end
 end
 
-describe "OPT5 O5-35: Crysterm::Widget::Mutt.truncate shared by Pine/Mutt message indexes" do
+describe "OPT5 O5-35: Crysterm::Formatting.truncate shared by Pine/Mutt message indexes" do
   it "leaves a string at or under the limit unchanged" do
-    Crysterm::Widget::Mutt.truncate("short", 20).should eq "short"
-    Crysterm::Widget::Mutt.truncate("exact", 5).should eq "exact"
+    Crysterm::Formatting.truncate("short", 20).should eq "short"
+    Crysterm::Formatting.truncate("exact", 5).should eq "exact"
   end
 
   it "clips a longer string to len-1 chars plus a trailing ~" do
-    Crysterm::Widget::Mutt.truncate("a very long sender name here", 10).should eq "a very lo~"
+    Crysterm::Formatting.truncate("a very long sender name here", 10).should eq "a very lo~"
   end
 
   it "Pine::MessageIndex's rendered sender column is truncated via the shared helper" do

@@ -4,7 +4,7 @@ include Crysterm
 
 # Invalidation contract of the frame-memoized style resolution
 # (`Mixin::Style#style` + `Widget#frame_insets` + the `minimal_rectangle`
-# frame memo — see PERF.md 1.1/1.2/2.4). The caches are stamped by
+# frame memo). The caches are stamped by
 # `Window#renders` and invalidated eagerly by `#state=`, `#style=`, `#styles=`,
 # `#css_styled=` (the cascade) and `#mark_dirty`, so every externally-visible
 # change must be reflected no later than the next render — and same-frame for

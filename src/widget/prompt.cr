@@ -32,8 +32,7 @@ module Crysterm
 
       # Bottom-right anchored (see `OkCancelDialog.ok_button`); the `#line_edit`
       # above sits at `top: 3`, so on the default height-7 dialog the buttons land
-      # on the last interior row instead of the old `top: 5`, which fell on the
-      # bottom border.
+      # on the last interior row.
       @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button
       @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button
 

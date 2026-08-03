@@ -292,13 +292,12 @@ module Crysterm
     # post-parse text, and any later cache-miss reparse (width change, resize,
     # scroll, re-attach, style change) re-runs `_parse_tags` over true raw
     # source — escaped braces (`{open}`/`{close}`, `{escape}` bodies) survive
-    # every reparse instead of only the first (BUGS15 #18 / B17-04).
+    # every reparse instead of only the first.
     #
     # Empty `@_clines.fake` means the widget currently renders no logical lines
     # (no content at all, or content whose cleaned/parsed form is empty). The
     # editors index off `fake`, so mirror that here as "no raw lines"; an edit
-    # then discards such invisible content, exactly as the old fake-join
-    # rebuild did.
+    # then discards such invisible content.
     #
     # Never-parsed literal braces: with tag parsing on but no recognized tag in
     # the content (`@_content_has_tags` false), stray braces render literally

@@ -24,12 +24,18 @@ module Crysterm
         value : Int32? = nil,
         @minimum = 0,
         @maximum = 100,
-        @step = 1,
+        single_step : Int32? = nil,
+        step : Int32? = nil,
         @page_step = 10,
         wrapping = false,
         @text_visible = true,
         **input,
       )
+        # `single_step:` is the blessed Qt-parity spelling; `step:` stays
+        # accepted as a compatibility alias, `single_step:` winning when both
+        # are given.
+        @single_step = single_step || step || 1
+
         super **{keys: true}.merge(input)
 
         @wrapping = wrapping
@@ -78,6 +84,13 @@ module Crysterm
       @value_plain : String = ""
       @value_bracketed : String = ""
 
+      # `style_to_attr` memos for the per-frame render, one per style slot read
+      # there (`style` for the knob fill, `style.indicator` for the pointer):
+      # the dial redraws every frame with unchanged styles, so each derivation
+      # is skipped until that slot's style is mutated or swapped.
+      @attr_memo = Style::AttrMemo.new
+      @indicator_attr_memo = Style::AttrMemo.new
+
       # Returns the value string for the current focus state, rebuilding the
       # cached pair only when `@value` changed since the last call.
       private def value_text : String
@@ -90,7 +103,7 @@ module Crysterm
 
       def render(with_children = true)
         with_inner_coords(with_children) do |xi, xl, yi, yl|
-          window.fill_region style_to_attr(style), style.fill_char, xi, xl, yi, yl
+          window.fill_region @attr_memo.fetch(style), style.fill_char, xi, xl, yi, yl
 
           # Pointer in the middle of the knob. When the value is shown it owns the
           # bottom row (`yl - 1`), so center the pointer in the rows above it
@@ -99,7 +112,7 @@ module Crysterm
           pointer_bottom = text_visible? ? Math.max(yi, yl - 2) : yl
           cx = xi + (xl - xi) // 2
           cy = yi + (pointer_bottom - yi) // 2
-          window.fill_region style_to_attr(style.indicator), pointer, cx, cx + 1, cy, cy + 1
+          window.fill_region @indicator_attr_memo.fetch(style.indicator), pointer, cx, cx + 1, cy, cy + 1
 
           # Draw the value on the reserved bottom row, but only when it does not
           # land on the pointer row: on a 1-row dial there is no spare row, so

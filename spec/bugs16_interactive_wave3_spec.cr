@@ -32,7 +32,7 @@ end
 # B16-36 — DateEdit/TimeEdit inherited `date_time` accessors that tracked the
 # parent's unused `@datetime` ivar: the setter emitted `Event::DateChanged`
 # without changing the widget's value or display, and the getter returned the
-# construction-time `Time.local`. They now delegate to `date`/`time`.
+# construction-time `Time.local`. They delegate to `date`/`time`.
 describe "BUGS16 B16-36: DateEdit/TimeEdit date_time delegation" do
   it "TimeEdit#date_time= updates the time and fires one DateChanged" do
     s = headless_screen(40, 10)
@@ -75,7 +75,7 @@ describe "BUGS16 B16-37: slider tick guard near Int32::MIN" do
     Widget::Slider.new parent: s, top: 0, left: 0, width: 30, height: 2,
       minimum: Int32::MIN, maximum: Int32::MIN + 5,
       tick_position: Widget::Slider::TickPosition::Below
-    s.repaint # pre-fix: OverflowError from the guard's Int32 subtraction
+    s.repaint # guards against OverflowError from the guard's Int32 subtraction
   ensure
     s.try &.destroy
   end

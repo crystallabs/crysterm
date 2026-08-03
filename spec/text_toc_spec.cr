@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Inline table of contents (TOC.md Phases 4-5, 7): a `TextToc` frame whose
+# Inline table of contents: a `TextToc` frame whose
 # entries are ordinary list blocks. Pure model.
 
 private def toc_doc(md : String, opts = Crysterm::TocOptions.new) : Crysterm::TextDocument

@@ -16,7 +16,7 @@ end
 # #2 — `Docking.dock` resolved each stop row with `lines[y]?`, whose negative
 # index counts from the END of the array. A negative stop (an off-top widget's
 # unclamped `coords.yi`) therefore borrowed and corrupted a row near the bottom
-# of the screen. The fix skips negative stop rows when collecting them.
+# of the screen. Negative stop rows are skipped when collecting them.
 describe "Docking.dock (negative stop rows, BUGS15 #2)" do
   it "does not corrupt a bottom row when a negative stop wraps to it" do
     # Row 0 holds a `┴` (has an UP arm); the last row (index -1) holds a plain
@@ -43,8 +43,8 @@ end
 
 # #30 — In ASCII-tier docking (`ascii: true`) `+` is a full four-arm junction.
 # A plain-text `+` next to another `+`/`-`/`|` on a stop row reciprocated a
-# single arm, so `ascii_angle` rewrote it to `-`/`|` (e.g. "C++" -> "C--"). The
-# fix keeps a four-arm `+` intact unless at least two neighbors reciprocate.
+# single arm, so `ascii_angle` rewrote it to `-`/`|` (e.g. "C++" -> "C--"). A
+# four-arm `+` stays intact unless at least two neighbors reciprocate.
 describe "Docking ASCII mode (text '+', BUGS15 #30)" do
   it "keeps a text '+' adjacent to another '+' (single reciprocating arm)" do
     Docking.angle_at(grid(["C++"]), 1, 0, DockContrast::Ignore, ascii: true).should eq '+'
@@ -78,7 +78,7 @@ end
 # #42 — `Widget::Line#register_dock_stops` wrote its horizontal-line rows to the
 # base `_dock_stops` unconditionally, ignoring the compositing-plane gate the
 # base implementation uses. A separator Line inside a z-indexed overlay then
-# docked against base content below it. The fix routes through the same gate.
+# docked against base content below it. The rows route through the same gate.
 describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
   it "routes an overlay Line's rows to the plane stops, not the base" do
     s = headless_screen(40, 20)

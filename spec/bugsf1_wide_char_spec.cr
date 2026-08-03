@@ -5,7 +5,7 @@ include Crysterm
 # BUGS-F1 wide-character / grapheme rendering findings: 26 (WIDE table gap),
 # 11 (orphan continuation at the left screen edge), 10 (changed continuation
 # cell counted as a column in `#draw`), and 28 (plane fold skips a
-# grapheme-overlay difference). See BUGS-F1.md for full detail.
+# grapheme-overlay difference).
 
 private def fu_screen(width, height)
   outio = IO::Memory.new
@@ -22,8 +22,8 @@ end
 # ---------------------------------------------------------------------------
 describe "BUGS-F1 #26: WIDE table covers the U+231A..U+27BF emoji gap" do
   # A representative sample from every inserted range/singleton. All are
-  # East-Asian-Width = W and render 2 cells wide in conforming terminals; before
-  # the fix `codepoint_width` returned 1 for each, shifting content after them.
+  # East-Asian-Width = W and render 2 cells wide in conforming terminals;
+  # `codepoint_width` returning 1 for them shifts all following content.
   {
     '\u{231A}', '\u{231B}',             # ⌚⌛
     '\u{23E9}', '\u{23EC}',             # ⏩⏬
@@ -133,9 +133,9 @@ describe "BUGS-F1 #10: changed continuation cell in the draw diff" do
     emitted = outio.to_s
 
     emitted.should contain 'Z'
-    # The 'Z' cell (screen column 2, 1-based column 3) must be repositioned to
+    # The 'Z' cell (screen column 2, 1-based column 3) must be repositioned
     # absolutely — otherwise it prints one column too far left. The absolute
-    # cursor move to column 3 is the fix's signature; without it there is no
+    # cursor move to column 3 is the signature; without it there is no
     # reposition before 'Z' at all.
     idx = emitted.index!('Z')
     emitted[0, idx].should contain ";3H"
@@ -160,7 +160,7 @@ describe "BUGS-F1 #28: plane fold installs a grapheme overlay under a matching b
     prow.has_graphemes?.should be_true
 
     # Base already shows a bare 'e' with the SAME composited attr and NO cluster,
-    # so the old attr/base-char change test sees "equal" and would skip the fold.
+    # so an attr/base-char-only change test sees "equal" and would skip the fold.
     base = [Crysterm::Window::Row.new(3)]
     3.times { base[0].push a, ' ' }
     base[0].attrs[0] = Crysterm::Colors.composite(a, a)

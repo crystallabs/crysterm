@@ -10,14 +10,14 @@ include Crysterm
 #     `mark_structure_changed`. Under `OptimizationFlag::DamageTracking` a lone
 #     `to_front`/`to_back` left the dirty set empty, so the compositor produced a
 #     fast frame and the new stacking order was not painted; order-dependent CSS
-#     selectors also did not re-evaluate. The fix marks the moved widget dirty,
-#     forces a full re-composite, and invalidates the CSS tree.
+#     selectors also did not re-evaluate. The reorder must mark the moved widget
+#     dirty, force a full re-composite, and invalidate the CSS tree.
 #
 #  2. `Window#capture_animation` registered the `Rendered` frame-writer handler
 #     BEFORE writing the first frame. The first frame overflows the pipe buffer
 #     and yields mid-write, during which the render fiber could emit `Rendered`
 #     and interleave a second frame into ffmpeg's stdin, corrupting the stream.
-#     The fix writes the first frame before registering the handler. A runtime
+#     The first frame must be written before the handler registers. A runtime
 #     spec would need ffmpeg and a live render loop, so this is guarded with a
 #     source-order assertion instead (see note in that describe block).
 
@@ -94,15 +94,14 @@ end
 
 describe "BUGS5 capture_animation first-frame ordering (fix #2)" do
   # A true runtime test needs ffmpeg plus a live render loop racing pipe writes,
-  # which isn't feasible here. Instead assert the structural invariant the fix
-  # relies on: the first-frame `input.write` must complete before the async
-  # frame writer starts, so the two never interleave on ffmpeg's stdin. Since
-  # BUGS13 C11 the async writer is a `FrameClock` sampler (`feed_animation_frames`)
-  # rather than a `Rendered` handler, so the invariant is now "first write
-  # precedes `clock.start`".
+  # which isn't feasible here. Instead assert the structural invariant: the
+  # first-frame `input.write` must complete before the async frame writer
+  # starts, so the two never interleave on ffmpeg's stdin. The async writer is
+  # a `FrameClock` sampler (`feed_animation_frames`), so the invariant is
+  # "first write precedes `clock.start`".
   it "writes the first frame before starting the FrameClock sampler" do
-    # `feed_animation_frames` stayed in window_capture.cr; its former neighbor
-    # `run_ffmpeg` moved to capture.cr, so the slice now ends at the next def.
+    # `feed_animation_frames` lives in window_capture.cr; the examined slice
+    # ends at the next def.
     src = File.read(File.join(__DIR__, "..", "src", "window_capture.cr"))
     body_start = src.index!("def feed_animation_frames")
     body_end = src.index!("def capture_cursor_overlay", body_start)

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# The pragmatic "always-measure" cell path (GLYPHS.md §4/§5): the *single-
+# The pragmatic "always-measure" cell path: the *single-
 # placement* affordance roles — the non-`cell?` glyphs a widget paints once
 # into a box it can size (`SizeGrip`, `DockWidget`'s close/float buttons) —
 # keep a wide or multi-codepoint override whole and reserve its measured width,

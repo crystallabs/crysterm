@@ -6,7 +6,7 @@ include Crysterm
 # through the shared `Mixin::TextEditing` machinery running over the
 # document adapter, the reverse-video selection highlight, and
 # `ExtraSelection` format overlays incl. the full-width current-line
-# highlight (TEXTEDIT.md Phase 2).
+# highlight.
 
 # A drag-to-select motion with the (left) button still held.
 private def drag_move(s, x, y)

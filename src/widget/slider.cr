@@ -2,9 +2,6 @@ require "./abstract_slider"
 require "../mixin/track_geometry"
 
 module Crysterm
-  # `Macros.pinnable_glyph` and `Event::SliderMoved`, formerly defined here,
-  # now live in their toolkit-wide homes (src/macros.cr, src/event.cr).
-
   class Widget
     # Slider element, modeled after Qt's `QSlider`.
     #
@@ -60,6 +57,13 @@ module Crysterm
       # (falling back to `#step`).
       property tick_interval : Int32 = 0
 
+      # `style_to_attr` memos for the per-frame render, one per style slot read
+      # there (`style` for the track and ticks, `style.indicator` for the
+      # handle): the slider redraws every frame with unchanged styles, so each
+      # derivation is skipped until that slot's style is mutated or swapped.
+      @attr_memo = Style::AttrMemo.new
+      @indicator_attr_memo = Style::AttrMemo.new
+
       # Glyph used for a tick mark. Unset (`nil`) resolves from the `Glyphs`
       # registry at the effective tier.
       setter tick_char : Char? = nil
@@ -73,7 +77,8 @@ module Crysterm
         value : Int32? = nil,
         @minimum = 0,
         @maximum = 100,
-        @step = 1,
+        single_step : Int32? = nil,
+        step : Int32? = nil,
         @page_step = 10,
         @orientation = @orientation,
         @inverted_appearance = false,
@@ -85,6 +90,11 @@ module Crysterm
         @tick_char = nil,
         **input,
       )
+        # `single_step:` is the blessed Qt-parity spelling; `step:` stays
+        # accepted as a compatibility alias, `single_step:` winning when both
+        # are given.
+        @single_step = single_step || step || 1
+
         super **{keys: true}.merge(input)
 
         # Never store an inverted range; it would leave `#value` stuck after `clamp`.
@@ -110,7 +120,7 @@ module Crysterm
           # moves only its handle until release.
           v = (value_at pos, span_px).clamp(@minimum, @maximum)
           self.slider_position = v
-          # `Event::SliderMoved` on every drag motion (A4-62), independent of
+          # `Event::SliderMoved` on every drag motion, independent of
           # `#tracking?` — `#slider_position=` already emits `ValueChanged`
           # per move when tracking, so this never duplicates that.
           emit Crysterm::Event::SliderMoved, v
@@ -154,7 +164,7 @@ module Crysterm
       # Effective value-space spacing between ticks.
       private def effective_tick_interval : Int32
         return @tick_interval if @tick_interval > 0
-        @page_step > 0 ? @page_step : Math.max(@step, 1)
+        @page_step > 0 ? @page_step : Math.max(@single_step, 1)
       end
 
       # Reused scratch for the (at most two) tick-mark edge rows/columns, so
@@ -190,7 +200,9 @@ module Crysterm
       private def draw_ticks(xi, xl, yi, yl)
         return if value_span == 0
         interval = effective_tick_interval
-        attr = style_to_attr style
+        # Same slot as `#render`'s track attr, so this fetch is a memo hit on
+        # the frame that just painted the track.
+        attr = @attr_memo.fetch(style)
         edges = @tick_edges
         # Hoisted out of the per-tick loops: registry resolution walks to the window.
         tick_ch = tick_char
@@ -228,10 +240,10 @@ module Crysterm
         # include padding, so anything else makes the drawn handle and the
         # click-mapped value disagree on a padded slider.
         with_content_coords(with_children) do |xi, xl, yi, yl|
-          track_attr = style_to_attr style
+          track_attr = @attr_memo.fetch(style)
           window.fill_region track_attr, track_char, xi, xl, yi, yl
 
-          handle_attr = style_to_attr style.indicator
+          handle_attr = @indicator_attr_memo.fetch(style.indicator)
           # The handle is a contiguous run across the cross axis, so it goes
           # through the batched `fill_region`, not a per-cell loop.
           if @orientation.horizontal?

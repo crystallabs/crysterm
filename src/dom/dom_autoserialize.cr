@@ -136,14 +136,10 @@ end
 
 macro finished
   {% for t in Crysterm::Widget.all_subclasses %}
-    # Generated on every concrete widget, not just direct children of Widget: a
-    # verbatim body re-resolves @type only on a statically-known concrete
-    # receiver, so under virtual dispatch an inherited branch-root method would
-    # run with @type pinned to the branch root and silently miss a deeper
-    # subclass's own options. Defining it per concrete subclass gives each its own
-    # specialization. super keeps @type at the concrete type, so each level
-    # re-scans the same option set into the shared hash (idempotent), bottoming
-    # out at the hand-written Widget base handler.
+    # Defined per concrete subclass (see "Mechanics" in the file header).
+    # super keeps @type at the concrete type, so each level re-scans the same
+    # option set into the shared hash (idempotent), bottoming out at the
+    # hand-written Widget base handler.
     {% if !t.abstract? &&
             !t.methods.any? { |m| m.name == "dom_attributes" || m.name == "dom_apply" } %}
       class ::{{ t }}

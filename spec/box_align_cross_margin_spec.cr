@@ -30,7 +30,7 @@ describe "Box non-stretch cross-axis align reserves child margins" do
 
     rect = render_children(s, box)[0]
     # Margin box flush to the bottom: border box far edge at 10 - 2 = 8, near at
-    # 4. Pre-fix it rendered {0,6,8,12}, overflowing the interior by 2.
+    # 4. The broken End branch rendered {0,6,8,12}, overflowing the interior by 2.
     rect.should eq({0, 6, 4, 8})
     rect[3].should be <= 10 # bottom edge does not overflow the interior height
   end
@@ -44,7 +44,7 @@ describe "Box non-stretch cross-axis align reserves child margins" do
 
     rect = render_children(s, box)[0]
     # Margin box height 4 + 2 + 2 = 8, centered in 10 -> margin box [1, 9],
-    # border box [3, 7]. Pre-fix it rendered {0,6,5,9}, overflowing to row 11.
+    # border box [3, 7]. The broken Center branch rendered {0,6,5,9}, overflowing to row 11.
     rect.should eq({0, 6, 3, 7})
     rect[3].should be <= 10
   end
@@ -57,6 +57,6 @@ describe "Box non-stretch cross-axis align reserves child margins" do
       style: Style.new(margin: Margin.new(left: 0, top: 2, right: 0, bottom: 2))
 
     rect = render_children(s, box)[0]
-    rect.should eq({0, 6, 2, 6}) # near (top) margin of 2, unchanged by the fix
+    rect.should eq({0, 6, 2, 6}) # near (top) margin of 2; Start alignment is unaffected
   end
 end

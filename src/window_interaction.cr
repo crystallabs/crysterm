@@ -33,8 +33,8 @@ module Crysterm
     # `#always_propagated_keys` OR its `#char` is here.
     #
     # (Arbitrary multi-key *sequences* — e.g. `g` then `g` — remain future work.
-    # The rich per-event data this note once wanted — modifiers, produced text,
-    # auto-repeat — already rides on `Event::Key#key_event` / `Tput::KeyEvent`.)
+    # Per-event modifiers, produced text and auto-repeat ride on
+    # `Event::Key#key_event` / `Tput::KeyEvent`.)
     property always_propagated_chars = Array(Char).new
 
     # Sets up IO listeners for keyboard and mouse input.

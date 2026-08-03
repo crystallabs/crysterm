@@ -147,7 +147,7 @@ module Crysterm
               # Unreachable today: `.parse` stores only `FEATURES` (plus the
               # glyph tiers), all matched above. Fail *closed* — if the parser
               # ever learns a feature this matcher doesn't, its rules must not
-              # silently apply everywhere (R-86).
+              # silently apply everywhere.
               false
             end
           end

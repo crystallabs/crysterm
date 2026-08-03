@@ -17,8 +17,8 @@ include Crysterm
 # unpaired `width == 2` cell and `draw` emitted a 2-column glyph into the single
 # remaining column → cursor/glyph desync.
 #
-# Fix: blank the lead when the continuation cell does not exist in the buffer,
-# making the guard the exact complement of the continuation-claim gate
+# The lead must be blanked when the continuation cell does not exist in the
+# buffer, making the guard the exact complement of the continuation-claim gate
 # (`(x + 1 < xl) && line[x + 1]?`).
 
 private def fu_screen(width, height)

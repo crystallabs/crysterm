@@ -8,9 +8,9 @@ include Crysterm
 # With `dock_borders`, the screen re-derives every line-drawing junction from its
 # neighbors. Where a parent's right border continues past an overlapping child's
 # top-left `┌` (child opens one row lower, sharing the column), the parent's
-# top-right `┐` found no down-neighbor "pointing back" and was reduced to `─` —
-# dropping the corner while the overlay was up. `Docking.angle_at` now keeps a
-# cell's own arm toward any present line neighbor, so the corner survives.
+# top-right `┐` finds no down-neighbor "pointing back" — `Docking.angle_at`
+# keeps a cell's own arm toward any present line neighbor, so the corner
+# survives instead of being reduced to `─` while the overlay is up.
 describe "border docking with an overlapping popup" do
   it "keeps the parent's top-right corner cell above the popup's shared edge" do
     s = headless_screen(40, 16, default_quit_keys: true)

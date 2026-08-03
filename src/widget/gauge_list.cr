@@ -193,8 +193,7 @@ module Crysterm
       # and bar widths, the shared range, the unicode mode the label is fitted
       # with, and the fill-ramp inputs. While this holds, a row whose
       # `{value, color, label}` is unchanged renders byte-identically, so its
-      # `Item#row_cache` can be reused instead of rebuilt — a value change on
-      # one gauge no longer rebuilds every other row's tagged string.
+      # `Item#row_cache` can be reused instead of rebuilt.
       @row_list_key : Tuple(Int32, Int32, Float64, Float64, Bool, {String?, Glyphs::Tier, UInt64})? = nil
 
       def render(with_children = true)
@@ -267,11 +266,16 @@ module Crysterm
 
         # Label (default style), fit to exactly `lw` *display columns* so a wide
         # grapheme (1 codepoint, 2 columns) doesn't push the bar/percentage past
-        # the border and wrap the row.
+        # the border and wrap the row. Widths come straight from
+        # `Unicode.width(Char)` rather than `str_width(ch.to_s)` — no per-char
+        # String — which is equivalent here: a 1-char string can never form an
+        # SGR sequence, so `str_width`'s escape-stripping could never fire, and
+        # the loop is per-codepoint either way.
         i = 0
         used = 0
+        fu = full_unicode?
         item.label.each_char do |ch|
-          cw = str_width(ch.to_s)
+          cw = fu ? Unicode.width(ch) : 1
           break if used + cw > lw
           cells[i] = ch
           i += 1

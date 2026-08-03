@@ -34,7 +34,7 @@ describe "BUGS5 scrolling & item-view fixes" do
       log.child_base.should eq(40)
 
       # The heart of the bug: `w.scroll_percent = w.scroll_percent` must be
-      # a no-op. Pre-fix, get returned 40/(100-20)=0.5 but set did
+      # a no-op. The buggy pair returned 40/(100-20)=0.5 from get but set did
       # `scroll_to(0.5 * 100) = scroll_to(50)`, jumping the base 40 -> 50.
       log.scroll_percent = log.scroll_percent
       log.child_base.should eq(40)
@@ -55,7 +55,7 @@ describe "BUGS5 scrolling & item-view fixes" do
       lt.current_index.should eq(3)
 
       # PageUp / Ctrl-B near the top does `current_index=(selected - visible)`, which is
-      # negative. Pre-fix that clamped to 0 (the header spacer), making @value "".
+      # negative. Clamping to 0 would land on the header spacer, making @value "".
       lt.current_index = 3 - 10
       lt.current_index.should be >= 1
       lt.current_text.should_not eq("")
@@ -81,8 +81,8 @@ describe "BUGS5 scrolling & item-view fixes" do
       visible = 5                                        # borderless height
       row = list.current_index * (1 + list.item_spacing) # item_row(selected) == 38
       # The item's spaced row must fall inside [child_base, child_base + visible).
-      # Pre-fix, `scroll_to @selected` left child_base ~15 (item_row not applied
-      # and _scroll_bottom == items.size), so row 38 was far off-screen.
+      # A `scroll_to @selected` that ignores spacing (item_row not applied and
+      # _scroll_bottom == items.size) leaves child_base ~15, row 38 far off-screen.
       list.child_base.should be <= row
       (list.child_base + visible).should be > row
     end

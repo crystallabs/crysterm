@@ -7,8 +7,8 @@ include Crysterm
 #
 # `Mixin::ItemView#cancel_current` (reached from Escape) emits BOTH `ItemActivated`
 # and `ItemCancelled`. Menu treats `ItemActivated` as activation (its handler calls
-# `activate_index`), so before the fix Escape fired the highlighted — possibly
-# destructive — action. `Menu#cancel_current` now emits only `ItemCancelled`.
+# `activate_index`), which would make Escape fire the highlighted — possibly
+# destructive — action; `Menu#cancel_current` must emit only `ItemCancelled`.
 
 describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
   it "does not fire the highlighted action on Escape, and emits ItemCancelled" do

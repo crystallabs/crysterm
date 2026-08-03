@@ -4,11 +4,11 @@ require "./spec_helper"
 # ActionBar-family bars (ListBar / MenuBar / ToolBar) as ordinary containers —
 # a snapshot serialized their macro-built item boxes as `<w-box>` children, and
 # a reload rebuilt those as plain dead widgets with an empty command model (a
-# lookalike but completely dead bar). Fixed via `Widget#dom_owns_children?`:
-# the serializer skips descending into model-owned children and emits the
+# lookalike but completely dead bar). Via `Widget#dom_owns_children?`,
+# the serializer must skip descending into model-owned children and emit the
 # command model as an `items` attribute instead; the loader rebuilds through
 # `#add_item` and skips serialized child nodes (including the ghost `<w-box>`
-# children of pre-fix snapshots). Guarded by -Dremote like the other layout-DOM
+# children of older snapshots). Guarded by -Dremote like the other layout-DOM
 # specs; run with:
 #   crystal spec -Dremote spec/bugs18_dom_bars_spec.cr
 {% if flag?(:remote) %}
@@ -26,8 +26,8 @@ require "./spec_helper"
       html.should contain %(<w-listbar)
       html.should contain %(items="Open\nSave\nQuit")
       # The bar is childless in the markup — its item boxes are model-owned,
-      # not reconstructable children. Before the fix each command leaked out as
-      # a dead <w-box content="…1…:Open"> child.
+      # not reconstructable children, and no command may leak out as a dead
+      # <w-box content="…1…:Open"> child.
       html.should_not contain "<w-box"
     end
 
@@ -42,8 +42,8 @@ require "./spec_helper"
       s2.load_layout s.to_layout_html
       bar2 = s2.children.first.as(Widget::ListBar)
 
-      # Live model, not ghosts: before the fix commands/item_boxes were empty
-      # while two dead plain Boxes carried the old labels.
+      # Live model, not ghosts: commands/item_boxes must be populated rather
+      # than two dead plain Boxes carrying the labels.
       bar2.items.size.should eq 3
       bar2.item_texts.should eq %w[Open Save Quit]
       bar2.item_boxes.size.should eq 3
@@ -52,7 +52,7 @@ require "./spec_helper"
       bar2.children.should eq bar2.item_boxes.map &.as(Widget)
 
       # Activation is wired: selecting/firing routes through the rebuilt model
-      # (before the fix activate_item was a silent no-op on empty @commands).
+      # (on an empty @commands, activate_item would be a silent no-op).
       activated = [] of Int32
       bar2.on(Crysterm::Event::ItemActivated) { |e| activated << e.index }
       bar2.activate_item 1

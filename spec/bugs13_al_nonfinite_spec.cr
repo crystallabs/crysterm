@@ -71,7 +71,7 @@ describe "BUGS13 A6: LineChart filters non-finite points" do
       {Float64::INFINITY, 3.0},
       {2.0, 4.0},
     ]
-    s.repaint # crashed with OverflowError at the tick-label math before the fix
+    s.repaint # must not raise OverflowError in the tick-label math
   end
 
   it "falls back to a sane range when an explicit axis bound is non-finite" do
@@ -92,7 +92,7 @@ describe "BUGS13 A7/A8: Map non-finite markers and graticule step" do
     m.add_marker latitude: Float64::NAN, longitude: 10.0
     m.add_marker latitude: 10.0, longitude: Float64::NAN
     m.add_marker latitude: 40.71, longitude: -74.0, label: "NYC"
-    s.repaint # the inverted NaN visibility filter crashed on .round.to_i before
+    s.repaint # the NaN visibility filter must not crash on .round.to_i
   end
 
   it "terminates the graticule paint for a non-positive step" do
@@ -100,7 +100,7 @@ describe "BUGS13 A7/A8: Map non-finite markers and graticule step" do
     m = Widget::Graph::Map.new parent: s, top: 0, left: 0, width: 50, height: 15,
       show_graticule: true
     m.graticule_step = -10.0
-    s.repaint # infinite loop before the fix
+    s.repaint # must terminate, not loop forever
     m.graticule_step = 0.0
     s.repaint
   end
@@ -113,6 +113,6 @@ describe "BUGS13 A16: PieChart legend survives non-finite slice values" do
       width: 30, height: 15
     pie.add_slice "a", 30
     pie.add_slice "b", Float64::INFINITY
-    s.repaint # Inf/Inf = NaN; NaN.round.to_i raised before the fix
+    s.repaint # Inf/Inf = NaN; NaN.round.to_i must not raise
   end
 end

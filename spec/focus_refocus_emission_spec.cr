@@ -8,10 +8,10 @@ include Crysterm
 # actually moves. Re-focusing the already-focused widget through a screen-level
 # entry point (`Window#focus`, or `focus_offset`/Tab wrapping onto the sole
 # focusable widget) routes straight to `_focus el, el`. The `old == cur` handling
-# already suppresses the spurious `FocusOut` and state clobber, but the terminating
-# `Event::FocusIn` used to still fire, re-running focus side effects on a widget
-# already focused (same family of defect `window_rendering.cr#repaint` guards
-# against per frame).
+# suppresses the spurious `FocusOut` and state clobber, and must also suppress
+# the terminating `Event::FocusIn` — else it re-runs focus side effects on a
+# widget already focused (same family of defect `window_rendering.cr#repaint`
+# guards against per frame).
 describe "Window#_focus re-focus emission" do
   it "emits Event::FocusIn once on a real change but not on re-focus" do
     s = headless_screen(default_quit_keys: true)

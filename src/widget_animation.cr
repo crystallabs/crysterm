@@ -208,8 +208,7 @@ module Crysterm
     # the conditional reassignments union their types), exactly one declares it
     # → carry that value as a constant, neither → leave the base style value.
     # One expansion for all five channels so a future channel (or a fix to one)
-    # can't regress the carry — fg/bg used to lack it, silently dropping a
-    # color declared at a stop whose segment partner omitted it.
+    # can't regress the carry.
     private macro kf_channel(chan, &interp)
       if ({{ interp.args[0] }} = a.{{ chan.id }}) && ({{ interp.args[1] }} = b.{{ chan.id }})
         st.{{ chan.id }} = {{ interp.body }}

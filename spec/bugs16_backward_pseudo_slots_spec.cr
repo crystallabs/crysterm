@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS16 B16-25: backward/only structural pseudo-classes
+# Regression: backward/only structural pseudo-classes
 # (`:last-child`, `:nth-last-child`, ...) never matched sub-element slot
 # subjects. A slot rule like `Box:last-child::scrollbar` lowers to
 # `.Box:last-child .Scrollbar`, whose subject exists only in the *full* CSS
 # document — where the host's backward pseudo miscounts against the trailing
 # `<w-scrollbar>`/`<w-track>` pseudo-nodes (the very miscount the structural
 # document fixed for widget subjects), and whose `A > B:last-child .Slot`
-# shape the selector engine can't even compile. The cascade now splits such a
+# shape the selector engine can't even compile. The cascade splits such a
 # rule at the last top-level combinator: the prefix matches hosts against the
 # structural document, the slot compound matches slot nodes against the full
 # document, joined by host uid (is-or-descends-from, matching the descendant
@@ -34,8 +34,8 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
   it "matches Host:last-child::slot despite the host parent's trailing pseudo-nodes" do
     screen = headless_screen(default_quit_keys: true)
     # The parent's own scrollbar emits trailing <w-scrollbar>/<w-track> nodes
-    # after the real children, which used to steal the last-child slot in the
-    # full document (the only place slot subjects were matched).
+    # after the real children; matching the host in the full document would let
+    # them steal the last-child slot.
     parent = Widget::Box.new(scrollbar: true)
     screen.append parent
     c1 = Widget::Box.new(parent: parent, scrollbar: true)

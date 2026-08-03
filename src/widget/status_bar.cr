@@ -51,6 +51,12 @@ module Crysterm
       @_trunc : String = ""
       @_trunc_key : Tuple(Int32, String)?
 
+      # `style_to_attr` memo for the per-frame permanent-section overlay: the
+      # bar redraws every render with an unchanged style, so the attr
+      # derivation is skipped until a style setter (or a cascade swap)
+      # invalidates it.
+      @attr_memo = Style::AttrMemo.new
+
       def initialize(**box)
         super **box
       end
@@ -162,7 +168,7 @@ module Crysterm
             text = @_trunc
             tw = str_width text
           end
-          draw_text_run yi, xl - tw, text, xl, style_to_attr(style)
+          draw_text_run yi, xl - tw, text, xl, @attr_memo.fetch(style)
         end
       end
     end

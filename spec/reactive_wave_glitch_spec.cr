@@ -7,7 +7,7 @@ include Crysterm
 # opens a propagation wave (`Reactive.propagate`); every leaf `Effect`/`Binding`
 # woken during that wave must be deferred and flushed once, after the wave
 # settles — never on an impossible pair of derived values that both descend from
-# the same upstream signal. See REACTIVE.md.
+# the same upstream signal.
 
 private def rx_screen
   Crysterm::Window.new(

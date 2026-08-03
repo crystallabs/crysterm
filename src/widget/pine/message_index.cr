@@ -90,7 +90,9 @@ module Crysterm
             s << "  "
             s << m.date.ljust(7)
             s << "  "
-            s << Mutt.truncate(m.from, 20).ljust(20)
+            # Suite-neutral helper, not `Mutt.truncate` — Pine must not depend
+            # on the Mutt suite.
+            s << Crysterm::Formatting.truncate(m.from, 20).ljust(20)
             s << " ("
             # Stdlib thousands grouping, e.g. `1234 => "1,234"`.
             s << m.size.format.rjust(7)

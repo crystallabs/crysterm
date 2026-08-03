@@ -4,10 +4,9 @@ include Crysterm
 
 # `Widget::Line` (and its `HLine`/`VLine` aliases) take a convenience `line_size`
 # argument that sets the line's length (`width` when horizontal, `height` when
-# vertical). It used to default to `"100%"` and apply unconditionally,
-# silently overwriting an explicit `width:`/`height:` passed through `**box`:
-# `HLine.new(width: 40)` rendered full-width regardless. An explicit dimension
-# must now win; only a line given no length falls back to filling its parent.
+# vertical). An explicit `width:`/`height:` passed through `**box` must win over
+# the `"100%"` default (`HLine.new(width: 40)` renders 40 wide, not full-width);
+# only a line given no length falls back to filling its parent.
 
 describe Crysterm::Widget::Line do
   it "honors an explicit width on a horizontal line" do

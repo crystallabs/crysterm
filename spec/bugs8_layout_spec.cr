@@ -32,7 +32,7 @@ describe "BUGS8 Box main-axis packing reserves child margins (fix #6)" do
     a, b, c = coords[0], coords[1], coords[2]
     a.should eq({0, 10, 0, 2})
     b.should eq({13, 23, 0, 2}) # shifted right 3 by its margin
-    c.should eq({23, 33, 0, 2}) # flush after b — pre-fix it was {20,30,..}, overlapping b
+    c.should eq({23, 33, 0, 2}) # flush after b — {20,30,..} would overlap b
     b[0].should be >= a[1]      # no-overlap invariant
     c[0].should be >= b[1]
   end
@@ -49,7 +49,7 @@ describe "BUGS8 Box Stretch align reserves cross-axis margins (fix #5)" do
     coords = render_children s, box
     rect = coords[0]
     # Inset 2 on the near sides, 26 wide (30 - 2 - 2), 3 tall — fully inside the
-    # interior [0,30). Pre-fix the width stayed 30 and xl overflowed to 32.
+    # interior [0,30). An unshrunk width of 30 would overflow xl to 32.
     rect.should eq({2, 28, 2, 5})
     rect[1].should be <= box.awidth.not_nil! # right edge does not clip past interior
   end

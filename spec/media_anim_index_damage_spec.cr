@@ -6,14 +6,14 @@ include Crysterm
 # external clock after `#pause`, as in `tests/misc/netscape.cr`) must repaint
 # under `OptimizationFlag::DamageTracking` (on by default).
 #
-# `anim_index=` is a supported way to drive playback, but the internal loops
+# `anim_index=` is a supported way to drive playback; the internal loops
 # advance the frame *and* call `request_render` (which marks the widget dirty),
-# whereas an external `anim_index =` used to be a plain property assignment. The
-# selective damage composite only repaints widgets in the dirty set, so a
-# fixed-size image whose only per-frame change was `anim_index=` was carried
-# over stale and appeared frozen — animating only on the occasional full frame
-# (resize, re-probe), i.e. "stops at random, resumes minutes later". The fix
-# makes `anim_index=` mark the widget dirty when the index actually changes.
+# so an external `anim_index =` must mark the widget dirty too (when the index
+# actually changes). The selective damage composite only repaints widgets in the
+# dirty set, so a fixed-size image whose only per-frame change is `anim_index=`
+# would otherwise be carried over stale and appear frozen — animating only on
+# the occasional full frame (resize, re-probe), i.e. "stops at random, resumes
+# minutes later".
 
 private def headless_screen(width : Int32? = nil, height : Int32? = nil,
                             optimization : Crysterm::OptimizationFlag = Crysterm::OptimizationFlag::None)
@@ -87,8 +87,8 @@ describe "Widget::Media::Base#anim_index= damage tracking" do
     base = region_sig s, img
 
     # Drive later frames purely via `anim_index=` + a selective render. At least
-    # one throbber frame must differ from frame 0 — before the fix these were all
-    # carried over as `base` because the widget was never marked dirty.
+    # one throbber frame must differ from frame 0 — a widget never marked dirty
+    # would carry them all over as `base`.
     changed = (1..8).any? do |i|
       img.anim_index = i
       s.repaint

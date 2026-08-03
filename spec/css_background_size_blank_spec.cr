@@ -5,10 +5,9 @@ include Crysterm
 # Focused spec for the CSS `background-size` longhand parser
 # (`Crysterm::CSS::Properties.apply`). An undefined `var(--x)` collapses to ""
 # before reaching the property; per CSS's "drop the invalid declaration" rule
-# it must be ignored, leaving any previously-cascaded size intact. The old
-# unguarded form ran `parse_background_size("")`, which falls through to its
-# `Cover` default, silently resetting an already-set size. The sibling
-# `background-image` longhand already guards this case; size must too.
+# it must be ignored, leaving any previously-cascaded size intact rather than
+# falling through to the `Cover` default. The sibling `background-image`
+# longhand already guards this case; size must too.
 describe "CSS background-size blank longhand" do
   it "drops a blank value, keeping a previously-set size" do
     s = Style.new

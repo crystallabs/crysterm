@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the BUGS13 layout batch:
+# Regression specs for the layout batch:
 #
 # * S10 — flipping `layout_excluded = true` at runtime clears the subtree's
 #   last-rendered rects (mirroring `Layout#skip_subtree`), so the invisible
@@ -73,7 +73,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     b = Widget::Box.new parent: g # auto-flow
 
     started = Time.instant
-    screen.repaint # pre-fix: ~2^31 Set inserts per span axis (effectively a hang)
+    screen.repaint # unclamped: ~2^31 Set inserts per span axis (effectively a hang)
     (Time.instant - started).should be < 5.seconds
 
     a.lpos.should_not be_nil
@@ -90,7 +90,7 @@ describe "BUGS13 S16 Grid clamps extreme spans and rows" do
     Widget::Box.new parent: g,
       layout_hint: Layout::Grid::Hint.new(row: Int32::MAX, column: 0)
     Widget::Box.new parent: g # auto-flow
-    screen.repaint            # pre-fix: OverflowError in the checked `p[1] + p[3]`/`p[1] + 1`
+    screen.repaint            # guards against OverflowError in the checked `p[1] + p[3]`/`p[1] + 1`
   end
 
   it "keeps ordinary spans and occupancy intact (no regression)" do

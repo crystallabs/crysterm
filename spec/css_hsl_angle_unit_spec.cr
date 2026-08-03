@@ -3,11 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # `Crysterm::CSS::ColorValue.resolve` with `hsl()` hues carrying a CSS angle
-# unit (`deg`, `grad`, `rad`, `turn`; bare number is degrees).
-#
-# The parser used to read every hue as degrees regardless of unit, so
-# `hsl(0.5turn, …)` (180°, cyan) resolved to 0.5° (red). Unit is now converted
-# to degrees before the wrap.
+# unit (`deg`, `grad`, `rad`, `turn`; bare number is degrees). The unit must be
+# converted to degrees before the wrap — reading `hsl(0.5turn, …)` (180°, cyan)
+# as bare degrees yields 0.5° (red).
 describe "Crysterm::CSS::ColorValue hsl() angle units" do
   cyan = (0 << 16) | (255 << 8) | 255 # hsl(180, 100%, 50%)
 

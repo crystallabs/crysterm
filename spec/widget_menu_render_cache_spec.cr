@@ -2,17 +2,17 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for ALLOCS.md Group J (menu per-frame allocation caches).
+# Regression spec for the menu per-frame allocation caches.
 #
 # A menu's `#render` runs `#fit_width`/`#fit_height`/`#size_rows` and re-docks
-# its separators every frame. Group J made the derived data cached instead of
-# rebuilt per frame:
-#   J1 — separator dock-row indices reuse `@dock_rows_buf`.
-#   J2 — `@visible_actions` / `@row_lefts` / `@row_rights` rebuilt only in
-#        `#sync_items`; `#size_rows` early-returns on an unchanged width.
-#   J4 — `#fit_width`/`#fit_height` read the cached visible-actions array.
-#   J5 — `#item_on_surface` caches the surfaced style per source style.
-#   J6 — `#separator_render_style` caches the derived line style.
+# its separators every frame. The derived data is cached instead of rebuilt
+# per frame:
+#   * separator dock-row indices reuse `@dock_rows_buf`.
+#   * `@visible_actions` / `@row_lefts` / `@row_rights` rebuilt only in
+#     `#sync_items`; `#size_rows` early-returns on an unchanged width.
+#   * `#fit_width`/`#fit_height` read the cached visible-actions array.
+#   * `#item_on_surface` caches the surfaced style per source style.
+#   * `#separator_render_style` caches the derived line style.
 #
 # These specs render a menu (separators + multiple actions) twice and assert
 # (a) the content is laid out correctly and (b) the cached arrays/styles are the

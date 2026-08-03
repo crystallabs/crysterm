@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the BUGS15 formerly-deferred findings #6/#7, #16, #63.
+# Regression specs:
 #
 # #6/#7: a bare `Screen#enable_mouse` re-assert (as `Window#listen` and
 #        `Window#register_clickable` issue) must not downgrade an active
-#        SGR-Pixels (DEC 1016) session — previously it wiped the parser's
-#        cached cell size while the terminal kept reporting pixels, and
-#        teardown then never sent DECRST 1016 either.
+#        SGR-Pixels (DEC 1016) session: a bare re-assert wiping the parser's
+#        cached cell size while the terminal kept reporting pixels would leave
+#        teardown never sending DECRST 1016 either.
 # #16:   `Event::Paste` is routed to the focused widget and up its parent
 #        chain until accepted (like a key press), with the window-level emit
 #        as the unaccepted fallback; text widgets insert it, and
@@ -69,9 +69,8 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
     scr = s.screen
     scr.apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
-    # The formerly-broken sequence: a bare re-assert used to wipe the cache,
-    # after which teardown skipped the DECRST and left the terminal in
-    # pixel-reporting mode.
+    # A bare re-assert must not wipe the cache here — if it did, teardown
+    # would skip the DECRST and leave the terminal in pixel-reporting mode.
     scr.enable_mouse
     seq = scr.tput.capture { scr.disable_mouse }
     seq.should contain "\e[?1016l"

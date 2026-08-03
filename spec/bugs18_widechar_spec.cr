@@ -7,15 +7,17 @@ include Crysterm
 # display-column width (`str_width`/`Unicode.width`), which under
 # `full_unicode` undersizes or garbles wide (CJK/emoji) glyphs.
 #
-#   * B18-50 — DialogButtonBox#make_button sized a button as `text.size + 2`,
-#     clipping/undersizing wide labels. Fixed to `str_width(text) + 2`.
-#   * B18-65 — Marquee/SineScroller (via Effect::TextScroll) painted one
-#     codepoint per terminal column, so wide glyphs swallowed/overwrote their
-#     neighbor. Fixed with a display-column table (`rebuild_scroll_columns`/
-#     `scroll_column`) and a `Window#put_wide` lead+continuation writer.
-#   * B18-89 — StackedBar#legend_line budgeted the one-row legend with
-#     `entry.size`, so a wide segment-label legend silently overran its
-#     column budget and wrapped onto a second row. Fixed to `str_width(entry)`.
+#   * B18-50 — DialogButtonBox#make_button must size a button using
+#     `str_width(text) + 2`, not `text.size + 2` (which clips/undersizes wide
+#     labels).
+#   * B18-65 — Marquee/SineScroller (via Effect::TextScroll) must paint by
+#     display column, not one codepoint per terminal column (which lets wide
+#     glyphs swallow/overwrite their neighbor), via a display-column table
+#     (`rebuild_scroll_columns`/`scroll_column`) and a `Window#put_wide`
+#     lead+continuation writer.
+#   * B18-89 — StackedBar#legend_line must budget the one-row legend with
+#     `str_width(entry)`, not `entry.size` (which lets a wide segment-label
+#     legend silently overrun its column budget and wrap onto a second row).
 #
 # Everything is driven headlessly over in-memory IOs, mirroring
 # spec/bugs17_effects_spec.cr and the full_unicode `pending!` convention from
@@ -42,8 +44,8 @@ describe "BUGS18 wide-char measuring/painting" do
 
       text.size.should eq 4
       Crysterm::Unicode.display_width(text).should eq 8
-      # Pre-fix this was `text.size + 2` == 6, undersizing the button and
-      # clipping the label under the content engine's display-column wrap.
+      # Guards against `text.size + 2` == 6, which would undersize the button
+      # and clip the label under the content engine's display-column wrap.
       btn.width.should eq 10
     end
 

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS11 findings #10 and #11 (src/terminal/emulator.cr).
+# Regression specs for src/terminal/emulator.cr.
 # The emulator is pure (depends only on Attr), so it is exercised directly with
 # no Window/PTY — matching spec/terminal_emulator_spec.cr.
 

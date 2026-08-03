@@ -43,6 +43,20 @@ module Crysterm
       # push following rows down and desync the cell borders.
       @wrap_content = false
 
+      # `style_to_attr` memos for the per-frame recolor/gridline pass, one per
+      # style slot read there (`style`, `style.header`, `style.cell`,
+      # `style.alternate_row`): a table redraws its borders every render with
+      # unchanged styles, so each derivation is skipped until that slot's style
+      # is mutated or swapped. The sub-style getters fall back to `self` /
+      # a composed copy, but their identity is steady across frames (the
+      # alternate-row composition is itself memoized), which is what makes the
+      # {identity, revision} gate effective. Gridlines (`style.border`) stay
+      # unmemoized: `Border` deliberately carries no `attr_revision`.
+      @dattr_memo = Style::AttrMemo.new
+      @hattr_memo = Style::AttrMemo.new
+      @cattr_memo = Style::AttrMemo.new
+      @aattr_memo = Style::AttrMemo.new
+
       # Whether the box is sized to its content width (no explicit `width:`).
       # When true, `#rows=`/`#render` keep pinning `@width = row_width +
       # ihorizontal` so the box fits every column, but clear it before each
@@ -164,23 +178,35 @@ module Crysterm
       end
 
       # Recolors header/cell text and draws the internal cell borders.
-      # ameba:disable Metrics/CyclomaticComplexity
       private def draw_borders(coords)
+        recolor_cells coords
+
+        return if !style.border.any? || !cell_borders?
+
+        draw_junction_rows coords
+        draw_grid_runs coords
+      end
+
+      # The gridline attribute: `gridline-color`, when set, overrides just the
+      # gridlines' foreground while keeping the border's background/text
+      # attributes.
+      private def gridline_attr : Int64
+        if gc = style.gridline_color
+          style_to_attr style.border, fg: gc, bg: style.border.bg
+        else
+          style_to_attr style.border
+        end
+      end
+
+      # Applies header/cell attributes to the rendered text cells.
+      private def recolor_cells(coords)
         lines = window.lines
         xi, yi, width, height = border_extent coords
 
-        dattr = style_to_attr style
-        hattr = style_to_attr style.header
-        cattr = style_to_attr style.cell
-        aattr = style_to_attr style.alternate_row
-        # `gridline-color`, when set, overrides just the gridlines' foreground
-        # while keeping the border's background/text attributes.
-        battr =
-          if gc = style.gridline_color
-            style_to_attr style.border, fg: gc, bg: style.border.bg
-          else
-            style_to_attr style.border
-          end
+        dattr = @dattr_memo.fetch(style)
+        hattr = @hattr_memo.fetch(style.header)
+        cattr = @cattr_memo.fetch(style.cell)
+        aattr = @aattr_memo.fetch(style.alternate_row)
 
         # Maps each relative text-column x to its table column index, so CSS
         # per-cell styles can override the row default. Built only when per-cell
@@ -224,7 +250,7 @@ module Crysterm
                                  (col = rm[x]?) ? css_cell_style(row_index, col) : nil
                                end
                   cell.attr = cell_style ? style_to_attr(cell_style) : default_attr
-                  line.dirty = true
+                  cell.mark_dirty
                 end
               else
                 break
@@ -236,33 +262,32 @@ module Crysterm
           end
           y += 1
         end
+      end
 
+      # Buffer row of the first internal grid row. The internal grid is addressed
+      # relative to the real content origin, never a hardcoded `itop == 1`: with
+      # vertical padding the whole doubled-row grid shifts down with the text, so
+      # the `─` fills and `┼` junctions must follow it rather than overwrite the
+      # padded cell text. The outer `┬`/`┴` rows stay pinned to the actual
+      # top/bottom border rows.
+      private def grid_top(coords) : Int32
+        coords.yi + itop - 1
+      end
+
+      # Draws the border junctions row by row: the outer `┬`/`┴` rows on the box
+      # border and the internal `├─┼─┤` rows between table rows (each table row
+      # spans two grid rows).
+      private def draw_junction_rows(coords)
+        lines = window.lines
+        xi, yi, _width, _height = border_extent coords
         border = style.border
-        return if !border.any? || !cell_borders?
-
+        battr = gridline_attr
+        hattr = @hattr_memo.fetch(style.header)
+        cattr = @cattr_memo.fetch(style.cell)
+        g_cross = glyph Glyphs::Role::JunctionCross
+        ytop = grid_top coords
         rows_n = @rows.size
 
-        # Internal grid rows are addressed relative to the real content origin,
-        # never a hardcoded `itop == 1`: with vertical padding the whole
-        # doubled-row grid shifts down with the text, so the `─` fills and `┼`
-        # junctions must follow it rather than overwrite the padded cell text. The
-        # outer `┬`/`┴` rows stay pinned to the actual top/bottom border rows.
-        ytop = yi + itop - 1
-
-        # Gridline glyphs at the effective tier, hoisted out of the per-cell loops
-        # below: `#glyph` walks to the window, and once per render is enough.
-        tier = glyph_tier
-        g_h = Glyphs[Glyphs::Role::LineHorizontal, tier]
-        g_cross = Glyphs[Glyphs::Role::JunctionCross, tier]
-        g_tee_l = Glyphs[Glyphs::Role::JunctionTeeLeft, tier]
-        g_tee_r = Glyphs[Glyphs::Role::JunctionTeeRight, tier]
-
-        # Within-content offset of the trailing spare column after the last
-        # cell (`sum(@maxes) + last` — the column contents plus the one-column
-        # separators between them; see `#row_width`).
-        rx_last = row_width - 1
-
-        # Draw border junctions row by row (each table row spans two grid rows).
         ry = 0
         while ry <= rows_n * 2
           bottom = (ry // 2) == rows_n
@@ -293,15 +318,7 @@ module Crysterm
 
           internal = ry != 0 && !bottom
 
-          # Left edge on the box border, independent of the right-edge handling
-          # below, so a single-column table gets both.
-          if xi >= 0 && (cell = line[xi]?)
-            cell.attr = battr
-            if internal
-              cell.char = border.left > 0 ? g_tee_l : g_h
-            end
-            line.dirty = true
-          end
+          draw_junction_row_ends line, xi, battr, internal: internal, right_limit: coords.xl
 
           # Center junctions between adjacent columns — the shared boundary
           # walk (`TableLayout`), clipped at the visible right edge; columns
@@ -311,68 +328,88 @@ module Crysterm
             each_junction_cell(line, xi, right_limit: coords.xl) do |jcell|
               jcell.attr = junction_attr(battr, ry <= 2 ? hattr : cattr)
               jcell.char = g_cross
-              line.dirty = true
+              jcell.mark_dirty
             end
           else
             draw_edge_junctions line, xi, battr, top: ry == 0, right_limit: coords.xl
           end
 
-          # The last cell is followed by a trailing spare column, with the
-          # box's right border one column further. On an internal separator
-          # row, continue the rule across the spare column and place ┤ on the
-          # border itself; a naive `xi + rx_last - 1` would leave a stray char
-          # short of it. Content begins at the left inset `ileft`, not a
-          # hardcoded one column, hence `xi + ileft + rx_last`.
-          edge = xi + ileft + rx_last
-          if 0 <= edge < coords.xl && (cell = line[edge]?)
-            cell.attr = battr
-            cell.char = g_h if internal
-            line.dirty = true
-            if internal && 0 <= edge + 1 < coords.xl && (border_cell = line[edge + 1]?)
-              border_cell.attr = battr
-              border_cell.char = border.right > 0 ? g_tee_r : g_h
-              line.dirty = true
-            end
-          end
-
           ry += 2
         end
+      end
 
-        # Draw internal horizontal/vertical border runs, relative to `ytop`.
-        ry = 1
-        while ry < rows_n * 2
-          row = ytop + ry
-          break if row >= coords.yl
-          # Rows scrolled above the screen are skipped, not wrapped.
-          if row < 0
-            ry += 1
-            next
+      # Stamps the two ends of one junction *line*: the box's left border, and
+      # the trailing spare column the last cell is followed by plus the right
+      # border one column further. On an internal row the rule continues across
+      # the spare column with `├`/`┤` on the borders themselves; a naive
+      # `xi + rx_last - 1` would leave a stray char short of the right one.
+      # Content begins at the left inset `ileft`, not a hardcoded one column.
+      private def draw_junction_row_ends(line, xi : Int32, battr : Int64, internal : Bool, right_limit : Int32) : Nil
+        border = style.border
+        tier = glyph_tier
+        g_h = Glyphs[Glyphs::Role::LineHorizontal, tier]
+
+        # The left end is handled independently of the right one, so a
+        # single-column table gets both.
+        if xi >= 0 && (cell = line[xi]?)
+          cell.attr = battr
+          if internal
+            cell.char = border.left > 0 ? Glyphs[Glyphs::Role::JunctionTeeLeft, tier] : g_h
           end
-          line = lines[row]?
-          break unless line
+          cell.mark_dirty
+        end
 
+        # Within-content offset of the trailing spare column after the last cell
+        # (`sum(@maxes) + last` — the column contents plus the one-column
+        # separators between them; see `#row_width`).
+        edge = xi + ileft + row_width - 1
+        if 0 <= edge < right_limit && (cell = line[edge]?)
+          cell.attr = battr
+          cell.char = g_h if internal
+          cell.mark_dirty
+          if internal && 0 <= edge + 1 < right_limit && (border_cell = line[edge + 1]?)
+            border_cell.attr = battr
+            border_cell.char = border.right > 0 ? Glyphs[Glyphs::Role::JunctionTeeRight, tier] : g_h
+            border_cell.mark_dirty
+          end
+        end
+      end
+
+      # Draws the internal horizontal/vertical border runs, relative to the
+      # content-origin grid top: each table row spans a text row (carrying the
+      # `│` separators) and a separator row (carrying the `─` fills).
+      private def draw_grid_runs(coords)
+        lines = window.lines
+        xi, _yi, width, _height = border_extent coords
+        battr = gridline_attr
+
+        each_interior_grid_line(lines, grid_top(coords), @rows.size * 2, coords.yl) do |line, ry|
           if ry.odd?
             draw_vertical_separators line, xi, battr, width: width
           else
-            # Horizontal `─` fill across each column's content cells, starting at
-            # the left content inset `ileft`, not a hardcoded column 1.
-            rx = ileft
-            @maxes.each do |max|
-              max.times do
-                break unless line[xi + rx + 1]?
-                break if (xi + rx) >= coords.xl
-                if (xi + rx) >= 0 && (cell = line[xi + rx]?)
-                  cell.attr = junction_attr(battr, cell.attr)
-                  cell.char = g_h
-                  line.dirty = true
-                end
-                rx += 1
-              end
-              rx += 1
-            end
+            draw_horizontal_rule line, xi, battr, right_limit: coords.xl
           end
+        end
+      end
 
-          ry += 1
+      # Horizontal `─` fill across each column's content cells on one grid
+      # *line*, starting at the left content inset `ileft`, not a hardcoded
+      # column 1.
+      private def draw_horizontal_rule(line, xi : Int32, battr : Int64, right_limit : Int32) : Nil
+        g_h = glyph Glyphs::Role::LineHorizontal
+        rx = ileft
+        @maxes.each do |max|
+          max.times do
+            break unless line[xi + rx + 1]?
+            break if (xi + rx) >= right_limit
+            if (xi + rx) >= 0 && (cell = line[xi + rx]?)
+              cell.attr = junction_attr(battr, cell.attr)
+              cell.char = g_h
+              cell.mark_dirty
+            end
+            rx += 1
+          end
+          rx += 1
         end
       end
     end

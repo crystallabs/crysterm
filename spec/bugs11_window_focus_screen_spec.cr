@@ -4,14 +4,14 @@ include Crysterm
 
 # Regression coverage for two BUGS11 findings:
 #
-#  #4 (src/window_focus.cr) `focus_pop` never blurred the popped widget when
-#     the history emptied: the widget stayed in `WidgetState::Focused` and no
-#     `Event::FocusOut` fired. It now mirrors `rewind_focus`'s empty-history branch
-#     (`blur_state_reset` + `FocusOut` with a nil payload).
+#  #4 (src/window_focus.cr) `focus_pop` must blur the popped widget when the
+#     history empties — otherwise the widget stays in `WidgetState::Focused` and
+#     no `Event::FocusOut` fires. It must mirror `rewind_focus`'s empty-history
+#     branch (`blur_state_reset` + `FocusOut` with a nil payload).
 #
-#  #5 (src/window.cr) `Window#screen=` tore down the old device but never
-#     started input listening on a genuinely new device, so a moved window went
-#     deaf. It now captures the listening state before teardown and re-`listen`s
+#  #5 (src/window.cr) `Window#screen=` tears down the old device and must also
+#     start input listening on a genuinely new device — otherwise a moved window
+#     goes deaf. It captures the listening state before teardown and re-`listen`s
 #     on the new device, mirroring `Window#connect`.
 
 private def bugs11_device
@@ -41,8 +41,8 @@ describe "BUGS11 #4: focus_pop blurs the popped widget when the history empties"
 
     popped.should be(a)
     win.focused.should be_nil
-    a.state.focused?.should be_false # was still :focused before the fix
-    blurred.should be_true           # no Blur emitted before the fix
+    a.state.focused?.should be_false # the pop must reset :focused
+    blurred.should be_true           # and emit Blur
     blur_payload.should be_nil       # nil payload: no widget takes over focus
   end
 end
@@ -60,6 +60,6 @@ describe "BUGS11 #5: Window#screen= starts input listening on a genuinely new de
 
     w.screen = dev_b # move onto a fresh device (no sibling backs it)
 
-    dev_b.listening?.should be_true # was deaf on the new device before the fix
+    dev_b.listening?.should be_true # the move must re-listen on the new device
   end
 end

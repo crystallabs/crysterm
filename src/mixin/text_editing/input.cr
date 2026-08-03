@@ -297,7 +297,7 @@ module Crysterm
 
       # Whether *c* is a control character that should never be typed into the
       # buffer: tested straight on the codepoint — no per-keystroke `to_s`
-      # `String` and no regex/`MatchData`. Equivalent to the old
+      # `String` and no regex/`MatchData`. Equivalent to
       # `/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f]/`: every C0 control plus DEL, but
       # NOT TAB (0x09) / LF (0x0a) / CR (0x0d), which fall outside this class
       # and are kept. Shared with `Widget::TextEdit#table_guard`, whose
@@ -465,6 +465,15 @@ module Crysterm
         else
           emit Crysterm::Event::Cancelled, value
         end
+
+        # Exactly one `EditingFinished` per read session, emitted at
+        # the session boundary regardless of how the session ended — Enter
+        # (which also emits `Submitted` above, once, in this same single
+        # teardown), focus-out, or Escape (which ends the whole session in
+        # this model, so it counts as a finish, unlike Qt's revert-in-place).
+        # The `@_reading` guard at the top of this method makes a re-entrant
+        # blur during teardown a no-op, so this cannot double-fire.
+        emit Crysterm::Event::EditingFinished
 
         emit Crysterm::Event::Activated, value
 

@@ -2,14 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS16 B16-26 — the `border-color` shorthand's 2-4
-# token path used to resolve each token through `coerce_color_int` and assign
-# the result unconditionally: a malformed color function (`nil`) clobbered a
-# per-side color a lower-priority rule had set, and an unknown color name (the
-# `-1` sentinel) got stored, painting that side in the terminal-default color.
-# Both violate CSS's drop-the-invalid-declaration rule that the same file
-# already implements for the 1-token path (`with_color`) and the `border`
-# shorthand (`parse_border`). (`Crysterm::CSS::Properties.apply`.)
+# The `border-color` shorthand's 2-4 token path must honor CSS's
+# drop-the-invalid-declaration rule, like the 1-token path (`with_color`) and
+# the `border` shorthand (`parse_border`): a malformed color function (`nil`)
+# must not clobber a per-side color a lower-priority rule set, and an unknown
+# color name (the `-1` sentinel) must not be stored — it would paint that side
+# in the terminal-default color. (`Crysterm::CSS::Properties.apply`.)
 describe "CSS border-color shorthand (multi-value) invalid-declaration handling" do
   it "drops the whole declaration on a malformed color function, keeping the prior color" do
     s = Style.new

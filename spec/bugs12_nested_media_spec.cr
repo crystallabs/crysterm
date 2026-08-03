@@ -5,8 +5,8 @@ include Crysterm
 # BUGS12 #38 — a nested `@media` REPLACED the enclosing `@media` condition
 # instead of AND-ing with it (CSS Conditional Rules): in
 # `@media (min-width: 100) { Box { @media (max-height: 20) { … } } }` the inner
-# rule applied on any short terminal even when the width guard failed. The fix
-# combines outer and inner queries via `MediaQuery#and` — the cross-product of
+# rule applied on any short terminal even when the width guard failed. Outer
+# and inner queries combine via `MediaQuery#and` — the cross-product of
 # their OR-groups, each pairing AND-ing (concatenating) its conditions.
 
 # The media condition of the single guarded rule in *css* (the parse must
@@ -87,7 +87,7 @@ describe "BUGS12 #38 nested @media ANDs with the enclosing condition" do
     {
       {120, 10, "green"}, # both hold
       {120, 30, "white"}, # height guard fails
-      {50, 10, "white"},  # width guard fails (pre-fix: green)
+      {50, 10, "white"},  # width guard fails (the replace bug yielded green)
       {50, 30, "white"},  # both fail
     }.each do |(w, h, expected)|
       screen = headless_screen(default_quit_keys: true)

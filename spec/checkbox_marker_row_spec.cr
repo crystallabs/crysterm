@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Mixin::CheckMarker` (shared by `CheckBox`/`RadioButton`) used to hit-test
+# `Mixin::CheckMarker` (shared by `CheckBox`/`RadioButton`) hit-tested
 # only the click's x against the marker columns (`[ ]` / `( )`), ignoring y.
 # Since `Mouse` events fire anywhere inside the widget's rect, a multi-row
 # control toggled whenever the marker column was clicked on any row, not just
@@ -32,7 +32,7 @@ describe "CheckMarker marker-click hit-test is row-aware" do
     s.repaint
     cb.checked?.should be_false
 
-    # Same column, one row below the marker. Before the fix this toggled the box.
+    # Same column, one row below the marker. This must not toggle the box.
     cmr_down s, cb.aleft + 1, cb.atop + 1
     cb.checked?.should be_false
   end

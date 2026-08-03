@@ -2,15 +2,15 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS5.
+# Regression specs:
 #
-#  BUG 1 (already fixed in src/widget/form.cr): `Form#offset_focusable` used a
+#  BUG 1 (src/widget/form.cr): `Form#offset_focusable` used a
 #     hardcoded `-1` start sentinel for both directions, so a backward step from
-#     an unselected form landed on the second-to-last field. It is now
+#     an unselected form landed on the second-to-last field. It is
 #     direction-aware. Covered by spec/bugs4_form_spec.cr; a guarding case for a
 #     2-field form is added here (the smallest form that exposed the off-by-one).
 #
-#  BUG 2 (fixed in src/mixin/spinbox_editing.cr): `#commit_edit` routed the
+#  BUG 2 (src/mixin/spinbox_editing.cr): `#commit_edit` routed the
 #     parsed edit buffer straight through `#value=`. On a `#wrap?` box, `#value=`
 #     treats any out-of-range value as a single-step overshoot and snaps to the
 #     *opposite* bound, so typing an absolute value like 150 on a 0..100 wrap box

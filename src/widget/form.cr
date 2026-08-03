@@ -36,7 +36,7 @@ module Crysterm
       # Nested-name aliases for the submission types, which live at the
       # `Crysterm` level (in `event.cr`, beside the `Event::FormSubmitted`
       # event that carries them) so the core event catalog does not reference
-      # a concrete widget type (R-82). `Widget::Form::FormData` remains the
+      # a concrete widget type. `Widget::Form::FormData` remains the
       # conventional spelling for form users.
       alias FormData = ::Crysterm::FormData
 

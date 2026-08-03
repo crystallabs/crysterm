@@ -14,8 +14,8 @@ include Crysterm
 #   alpha (which crashed `Colors.mix` on the first blended cell).
 # * S13 — `parse_time` rejects overflow/nan/inf durations instead of raising
 #   `OverflowError` mid-cascade.
-# * S14 — a negative `transition` duration invalidates the entry (previously
-#   it built an immortal 30fps FrameClock pinned at the from-value).
+# * S14 — a negative `transition` duration invalidates the entry (instead of
+#   building an immortal 30fps FrameClock pinned at the from-value).
 # * S15 — comment stripping honors quoted strings (`url("/a/*x*/b.png")`).
 
 describe "BUGS13 S5 url(...) is matched case-insensitively" do
@@ -57,8 +57,8 @@ describe "BUGS13 S7 alternate-background-color seeds from the cell fallback" do
     Crysterm::CSS::Properties.apply(s, "alternate-background-color", "blue")
     alt = s.alternate_row
     alt.bg.should eq rgb("blue")
-    alt.fg.should eq rgb("yellow") # was nil (style_to_attr maps nil fg -> -1)
-    alt.bold?.should be_true       # was false
+    alt.fg.should eq rgb("yellow") # not nil (style_to_attr maps nil fg -> -1)
+    alt.bold?.should be_true
   end
 
   it "seeds from an explicit cell sub-style when one is set" do

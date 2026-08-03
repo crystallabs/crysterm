@@ -8,10 +8,10 @@ include Crysterm
 # flags are set and their doorbells rung), drops the window from
 # `Window.instances` and from its `Application`'s routing table, and leaves a
 # dangling (unsubscribed) global-resize handler. `Window#connect` deliberately
-# supports rebinding a destroyed window, but used to only clear `@destroyed` —
-# yielding a window that claimed to be alive while every `render` rang
+# supports rebinding a destroyed window; merely clearing `@destroyed` would
+# yield a window that claims to be alive while every `render` rings
 # `@render_wakeup` with no receiver (permanently blank terminal) and resizes
-# were never processed. `#connect` now calls `#revive`, which resets the stop
+# are never processed. `#connect` must call `#revive`, which resets the stop
 # flags before respawning both loops (generation-tagged, so a not-yet-exited
 # old fiber can't race its replacement) and re-registers the window.
 

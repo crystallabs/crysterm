@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Group F (allocation reduction) behaviour specs for `TerminalEmulator`:
+# Allocation-reduction behaviour specs for `TerminalEmulator`:
 #   F1 — in-place UTF-8 decode of multibyte glyphs (no `String` remainder copy)
 #   F2 — charset-designation escape sets the right G-index
 #   F3 — in-place OSC title code parse (only 0/1/2 fire on_title)

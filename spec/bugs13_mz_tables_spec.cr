@@ -37,7 +37,7 @@ describe "BUGS13 M3: Table#draw_borders row/column clamping" do
       rows: [["Name", "Email"], ["a", "b"], ["c", "d"]],
       style: Style.new(border: true))
     s.repaint
-    # Grid rows -3..-1 used to wrap (`lines[-3]?` == `lines[9]`) and stamp
+    # Grid rows -3..-1 must not wrap (`lines[-3]?` == `lines[9]`) and stamp
     # border glyphs onto the bottom rows of the screen buffer.
     (9..11).each do |y|
       row_text(s, y).strip.should eq ""
@@ -55,8 +55,8 @@ describe "BUGS13 W14 + M3: ListTable#draw_borders clipping" do
       style: Style.new(border: Border.new(right: 0)))
     s.repaint
     # Columns are wider than the 8-cell viewport; the first separator falls at
-    # content offset 7, which the off-by-`ileft` clip used to paint at
-    # absolute column 8 — one column OUTSIDE the widget (columns 0..7).
+    # content offset 7, which an off-by-`ileft` clip would paint at absolute
+    # column 8 — one column OUTSIDE the widget (columns 0..7).
     (0...6).each do |y|
       s.lines[y][8].char.should eq ' '
     end

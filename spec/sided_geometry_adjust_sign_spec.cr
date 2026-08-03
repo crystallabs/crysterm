@@ -1,7 +1,7 @@
 require "./spec_helper"
 
-# Locks the sign semantics of `SidedGeometry#adjust`, documented (incorrectly,
-# before the fix) as "Grows (sign = 1) or shrinks (sign = -1)". The actual
+# Locks the sign semantics of `SidedGeometry#adjust`, once mis-documented as
+# "Grows (sign = 1) or shrinks (sign = -1)". The actual
 # behavior — relied on by every call site in `widget_rendering.cr`, and by that
 # file's own comment ("`adjust(pos)` shrinks in place") — is the opposite:
 #   * sign = 1 (the default) INSETS: moves each edge inward, SHRINKING the rect.

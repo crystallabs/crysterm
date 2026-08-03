@@ -7,12 +7,12 @@ include Crysterm
 # #22 — `Scale.eighths` fed a non-finite value passed straight through `clamp`
 # (NaN survives, since all NaN comparisons are false) into `NaN.round.to_i`,
 # which raises `OverflowError` and crashes the render of Bar/StackedBar/Gauge.
-# It now guards non-finite input at the top (like sibling `Scale.fmt`).
+# Non-finite input must be guarded at the top (like sibling `Scale.fmt`).
 #
 # #23 — `Scale.center_to`/`center` measured/truncated captions in CODEPOINTS
 # (`text.size` / `text[0, width]`) while plot rows are laid out in terminal
-# DISPLAY columns, so wide (CJK/emoji) labels overflowed their field. It now
-# takes a `full_unicode` flag (threaded from the widget via `BarChart#field_line`)
+# DISPLAY columns, so wide (CJK/emoji) labels overflowed their field. It takes
+# a `full_unicode` flag (threaded from the widget via `BarChart#field_line`)
 # and, when true, measures/truncates by Unicode display width (mirroring
 # `TableLayout#pad_cell_to`); when false the legacy codepoint behavior is kept.
 
@@ -35,7 +35,7 @@ describe "BUGS11 #22 Scale.eighths guards non-finite values" do
     s = headless_screen(80, 24)
     bar = Crysterm::Widget::Graph::Bar.new parent: s, top: 0, left: 0, width: 20, height: 6, maximum: 100.0
     bar.values = [50.0, 0.0/0.0]
-    # Without the #22 fix this render pass crashes with OverflowError.
+    # This render pass must not crash with OverflowError.
     s.repaint
     bar.values[0].should eq 50.0
     bar.values[1].nan?.should be_true
@@ -62,10 +62,10 @@ describe "BUGS11 #23 Scale.center_to measures by display width under full_unicod
   end
 
   it "keeps the legacy codepoint sizing when full_unicode is false" do
-    # Old behavior: measured/padded by `text.size` (3), so it fits width 4 and
+    # Legacy sizing: measured/padded by `text.size` (3), so it fits width 4 and
     # is padded to 4 CODEPOINTS (display width is not consulted).
     fu_off = Crysterm::Widget::Graph::Scale.center("日本語", 4, full_unicode: false)
-    # Matches the pre-fix implementation exactly: pad = 4 - 3 = 1, left = 0.
+    # Matches the legacy implementation exactly: pad = 4 - 3 = 1, left = 0.
     fu_off.should eq "日本語 "
     fu_off.size.should eq 4
     # The default (no flag) must be the legacy codepoint behavior.

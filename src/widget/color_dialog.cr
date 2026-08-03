@@ -117,7 +117,7 @@ module Crysterm
       # Per-frame draw caches. The field's cell backgrounds depend only on
       # `@hue` (plus the folded style flags), the hue bar's on nothing, so the
       # packed attrs are cached instead of deriving 260 cells per frame. The
-      # marker cell is still drawn per frame, keeping output byte-identical.
+      # marker cell is still drawn per frame.
       @field_attrs = [] of Int64
       @field_attrs_hue : Float64? = nil # `@hue` the field cache was built for
       @field_attrs_flags : Int64? = nil # style flags folded into that cache

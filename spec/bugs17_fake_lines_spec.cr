@@ -32,8 +32,9 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
     w.insert_line 0, "header"
     w.rendered_content.should eq "header\nbrace: {literal}"
 
-    # Pre-fix: `@content` now held "header\nbrace: {literal}"; this reparse
-    # matched `{literal}` as an unknown tag and dropped it -> "brace: ".
+    # Guards against `@content` holding post-parse text
+    # ("header\nbrace: {literal}"); reparsing that would match `{literal}` as
+    # an unknown tag and drop it -> "brace: ".
     force_full_reparse(w)
     w.rendered_content.should eq "header\nbrace: {literal}"
 
@@ -51,7 +52,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
     w.insert_line 0, "x"
     w.rendered_content.should eq "x\n{bold}"
 
-    # Pre-fix: the reparse turned the literal "{bold}" into live SGR.
+    # Guards against the reparse turning the literal "{bold}" into live SGR.
     force_full_reparse(w)
     w.rendered_content.should eq "x\n{bold}"
     w.rendered_content.should_not contain "\e["

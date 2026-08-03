@@ -29,8 +29,8 @@ describe "BUGS13 M1: Pine Compose#reset clears the document" do
     compose.values["body"].should eq "old body text"
 
     compose.reset
-    # `set_content ""` only blanked the display; the document (what #values
-    # reads and what the next keystroke re-sets) still held the old body.
+    # `set_content ""` alone would only blank the display; the document (what
+    # #values reads and what the next keystroke re-sets) would keep the old body.
     compose.values["body"].should eq ""
     compose.body.value.should eq ""
   ensure
@@ -88,7 +88,7 @@ describe "BUGS13 M7: ToolTip sizes by display width" do
     tt = Widget::ToolTip.new parent: s
     tt.show_at 0, 0, "日本語"
     # 6 display cells + 1 leading/trailing pad cell each side + insets;
-    # codepoint counting (3) clipped the text inside the box.
+    # codepoint counting (3) would clip the text inside the box.
     tt.width.should eq 6 + 2 + tt.ihorizontal
   ensure
     s.try &.destroy
@@ -116,8 +116,8 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
     bar = Widget::StatusBar.new parent: s, top: 0, left: 0, width: 6, height: 1
     bar.add_permanent "ABCDE日本" # 9 cells into 6
     s.repaint
-    # Must drop A,B,C (3 cells) keeping "DE日本" (6 cells) — the codepoint
-    # slice dropped only one character and started the run off-cell.
+    # Must drop A,B,C (3 cells) keeping "DE日本" (6 cells) — a codepoint
+    # slice would drop only one character and start the run off-cell.
     s.lines[0][0].char.should eq 'D'
   ensure
     s.try &.destroy
@@ -137,9 +137,9 @@ describe "BUGS13 M11: hidden Wizard stands down from Enter/Escape" do
     wiz.hide
 
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Enter)
-    wiz.current_index.should eq 0 # used to advance while invisible
+    wiz.current_index.should eq 0 # must not advance while invisible
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Escape)
-    cancelled.should eq 0 # used to emit Cancel while invisible
+    cancelled.should eq 0 # must not emit Cancel while invisible
 
     wiz.show
     s.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::Enter)
@@ -161,7 +161,7 @@ describe "BUGS13 M13: ToolBox#add_item while hidden" do
     s.repaint
 
     header = tb.sections[0].header
-    # The header used to dup the toolbox's hidden style and stay invisible
+    # The header must not dup the toolbox's hidden style and stay invisible
     # forever (nothing re-shows section headers).
     header.style.visible?.should be_true
     header.visible_in_tree?.should be_true

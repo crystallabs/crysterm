@@ -19,7 +19,7 @@ describe Crysterm::Widget::Message do
     msg.destroy
 
     # Simulate the still-armed timeout fiber waking after destroy and invoking
-    # `end_it` with the generation it captured. After the fix this is a no-op.
+    # `end_it` with the generation it captured. This must be a no-op.
     msg.end_it(1) { ran = true }
     ran.should be_false
   ensure

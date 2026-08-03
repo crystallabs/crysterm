@@ -5,9 +5,9 @@ include Crysterm
 # Spec for `Crysterm::CSS::ColorValue.resolve` with out-of-range `rgb()` channels.
 #
 # CSS clamps an out-of-range channel into `0..255`, so a negative channel
-# resolves to `0`. The per-channel regex used to omit the sign, so
-# `rgb(-10, …)` silently parsed as `rgb(10, …)` (magnitude instead of
-# clamped-to-zero). `hsl()` already used a signed pattern; `rgb()` now matches.
+# resolves to `0` — the per-channel regex must accept the sign, else
+# `rgb(-10, …)` silently parses as `rgb(10, …)` (magnitude instead of
+# clamped-to-zero).
 describe "Crysterm::CSS::ColorValue rgb() negative channel" do
   it "clamps a negative channel to 0 rather than reading its magnitude" do
     # red is negative -> 0; green/blue pass through

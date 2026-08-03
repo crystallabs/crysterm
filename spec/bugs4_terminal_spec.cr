@@ -2,12 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS4 terminal-emulator fix: SU (`CSI Ps S`) and SD
+# Regression spec: SU (`CSI Ps S`) and SD
 # (`CSI Ps T`) must only act on a *plain* CSI. A prefixed form is a different
 # command — `CSI ? Pi;Pa;Pv S` is XTSMGRAPHICS (a common sixel-capability probe
 # at startup) and `CSI > Pm T` resets xterm title modes — and must NOT scroll the
-# screen. Without the `@csi_prefix.nil?` gate, the probe's first numeric field was
-# read as a line count and the live screen scrolled.
+# screen. Without the `@csi_prefix.nil?` gate, the probe's first numeric field
+# would be read as a line count and scroll the live screen.
 
 private def default_attr : Int64
   Attr.pack(0_i64, -1, -1)

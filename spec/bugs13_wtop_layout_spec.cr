@@ -5,17 +5,16 @@ include Crysterm
 # Regression specs for the BUGS13 "Widget top-level" layout findings:
 #
 # * W8 — `minimal_children_rectangle` (the shrink-to-content measurer) skips
-#   `layout_excluded?` chrome exactly as the layout engines do. Pre-fix, a
-#   background `Media` layer pinned 0/0/0/0 spanned the widget's whole
-#   stretched slot, so a `shrink_to_fit` widget locked at its parent's full size
+#   `layout_excluded?` chrome exactly as the layout engines do: a background
+#   `Media` layer pinned 0/0/0/0 spans the widget's whole stretched slot, so
+#   without the skip a `shrink_to_fit` widget locks at its parent's full size
 #   after the first frame instead of tracking its real children.
 # * W19 — the +/- offset parser accumulates only digit bytes; any other byte
-#   makes the expression malformed. Historically malformed meant "resolves to
-#   0 per frame"; with typed `Dim` geometry the same spellings are rejected up
-#   front — `Dim.parse?` returns nil (the resolvers' cold raw-String arm then
-#   reads 0) and assignment raises `ArgumentError`. Pre-fix any byte was
-#   folded through the `*10 +` accumulator, producing garbage coordinates
-#   ("50%+1.5" → 135, "50% + 5" → -155).
+#   makes the expression malformed. With typed `Dim` geometry a malformed
+#   spelling is rejected up front — `Dim.parse?` returns nil (the resolvers'
+#   cold raw-String arm then reads 0) and assignment raises `ArgumentError`,
+#   rather than folding arbitrary bytes through the `*10 +` accumulator and
+#   producing garbage coordinates ("50%+1.5" → 135, "50% + 5" → -155).
 
 private def lpos_size(widget)
   l = widget.lpos.not_nil!
@@ -42,8 +41,8 @@ describe "BUGS13 W8: shrink-to-content skips layout_excluded chrome" do
     first = lpos_size(shrink)
     first.should eq lpos_size(ref)
 
-    # Pre-fix the balloon hit on frames 2+ (the excluded child then measured
-    # as the full stretched slot), so re-render and re-check.
+    # Re-render and re-check: without the skip, the excluded child would be
+    # measured as the full stretched slot on frames 2+, ballooning the size.
     s.repaint
     lpos_size(shrink).should eq first
     lpos_size(ref).should eq first
@@ -60,8 +59,8 @@ describe "BUGS13 W19: malformed +/- offsets are rejected" do
     Dim.parse("50%+5").resolve(100).should eq 55
     Dim.parse("50%-3").resolve(100).should eq 47
     # ...malformed ones are rejected at parse time instead of folding
-    # arbitrary bytes through the `*10 +` accumulator (pre-fix: "50%+1.5"
-    # → 135, "50% + 5" → -155).
+    # arbitrary bytes through the `*10 +` accumulator (which produced
+    # "50%+1.5" → 135, "50% + 5" → -155).
     Dim.parse?("50%+1.5").should be_nil
     Dim.parse?("50%+5x").should be_nil
     Dim.parse?("50%+").should be_nil

@@ -21,12 +21,12 @@ include Crysterm
 # * B18-08 — an exception in a `FrameClock` tick block unwound the loop fiber
 #   past the finalization, leaving the clock stuck `running? == true` with
 #   `on_stop` never fired (contract promises it fires for *any* loop end).
-#   Ticks are now isolated per invocation and finalization is in an `ensure`.
+#   Ticks are isolated per invocation and finalization runs in an `ensure`.
 #
 # * B18-09 — `Window#disable_mouse` nil'd `@_hover` without emitting
 #   `MouseLeave` on the hovered widget; with reporting off no later event
 #   could ever deliver it, so a visible tooltip/hover highlight stayed stale
-#   forever. A synthetic leave at the last pointer position is now emitted.
+#   forever. A synthetic leave at the last pointer position is emitted.
 
 private def b18_move(s, x, y)
   s.dispatch_mouse ::Tput::Mouse::Event.new(

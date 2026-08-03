@@ -5,7 +5,7 @@ include Crysterm
 # Phase-1 reactivity: `Reactive::Signal` + `Reactive.bind` + `Reactive.batch`.
 # Signals emit `Event::Changed`; `bind` is a managed permanent subscription that
 # assigns a widget property and schedules a repaint; `batch` dedups binding runs
-# across a burst of writes. See REACTIVE.md.
+# across a burst of writes.
 
 private def rx_screen
   Crysterm::Window.new(

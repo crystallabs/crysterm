@@ -41,7 +41,7 @@ describe "Calendar year drop-down visibility (bug A)" do
     ym.content_margin_x.should be > 0
 
     # The shown year (2024) must actually be painted somewhere in the menu's rows,
-    # not swallowed by a wrapped/clipped item. (Before the fix every row was blank.)
+    # not swallowed by a wrapped/clipped item (guards against all-blank rows).
     x0 = ym.aleft
     x1 = ym.aleft + ym.awidth
     rows = (ym.atop...(ym.atop + ym.aheight)).map { |y| row_text(s, y, x0...x1) }

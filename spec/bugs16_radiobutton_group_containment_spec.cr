@@ -11,7 +11,7 @@ include Crysterm
 # nothing selected" revert (its suppressed re-check re-emits StateChanged,
 # re-running the containment handler while @suppress is raised).
 #
-# Fix: RadioButton#on_statechanged now defers entirely to its `ButtonGroup`
+# RadioButton#on_statechanged defers entirely to its `ButtonGroup`
 # (the `group` back-reference) when one owns the button -- matching Qt, where
 # per-parent autoExclusive behavior applies only to ungrouped radios.
 

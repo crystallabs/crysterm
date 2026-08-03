@@ -5,8 +5,8 @@ include Crysterm
 # Regression spec for BUGS12 #6 (src/screen_input.cr): a stop_input ->
 # start_input cycle must not "un-cancel" the previous input fiber still blocked
 # in `tput.listen` (unowned STDIN survives `Window#disconnect`, so that fiber
-# only wakes on its next event). With the old shared `@_keys_stopped` boolean,
-# re-arming reset the flag to false, so the zombie fiber resumed dispatching
+# only wakes on its next event). A shared `@_keys_stopped` boolean would be
+# reset by the re-arm, letting the zombie fiber resume dispatching
 # alongside the new one — two interleaved readers on one fd. The per-spawn
 # generation keeps the zombie cancelled: it drops its final consumed event (the
 # check runs BEFORE dispatch) and exits, so every event dispatches exactly once.
@@ -51,8 +51,8 @@ describe "BUGS12 #6 start_input must not re-arm a stopped input fiber" do
 
       # Detach and immediately re-arm, as a disconnect-then-listen does, while
       # the first fiber is still blocked in `tput.listen` (the pipe stays open,
-      # mirroring unowned STDIN). With a shared stop flag this un-cancelled the
-      # zombie and left two concurrent readers.
+      # mirroring unowned STDIN). A shared stop flag would un-cancel the zombie
+      # and leave two concurrent readers.
       screen.stop_input
       screen.start_input
       screen.listening?.should be_true

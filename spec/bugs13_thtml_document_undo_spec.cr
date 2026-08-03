@@ -14,7 +14,7 @@ describe "BUGS13 T9 forward-delete coalescing leaves the returned fragment alone
     first.to_plain_text.should eq "b"
     doc.remove(1, 1)                  # "c" — coalesces with the previous command at the same pos
     doc.remove(1, 1)                  # "d"
-    first.to_plain_text.should eq "b" # was "bcd" before the fix
+    first.to_plain_text.should eq "b" # must not grow to "bcd"
 
     # The coalesced command still undoes the whole run.
     doc.undo.should be_true
@@ -32,7 +32,7 @@ describe "BUGS13 T10 insert_fragment at a block start keeps the head block's mem
     doc.to_plain_text.should eq "a\nbx"
     lf0 = doc.blocks[0].block_format.list_format
     lf1 = doc.blocks[1].block_format.list_format
-    lf0.should_not be_nil # was nil (membership dropped) before the fix
+    lf0.should_not be_nil # membership must not be dropped
     lf1.should_not be_nil
     lf0.try(&.same?(lf1)).should be_true
   end

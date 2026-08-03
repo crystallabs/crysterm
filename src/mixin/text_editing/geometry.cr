@@ -14,8 +14,7 @@ module Crysterm
       #   authoritative painted box. Reuse it rather than recomputing.
       #
       # (The two are NOT interchangeable: using `@lpos` in the interactive path
-      # would place the caret against a stale box — the bug an earlier `# XXX`
-      # here suspected was inverted; it is not.)
+      # would place the caret against a stale box.)
       def _update_cursor(rendered = false)
         return unless focused? # if window.focused != self
 

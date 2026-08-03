@@ -39,6 +39,11 @@ module Crysterm
       # `Marquee::Direction` call sites keep working.
       alias Direction = Effect::TextScroll::Direction
 
+      # `style_to_attr` memo for the per-frame render: the animation redraws
+      # every interval with an unchanged style, so the attr derivation is
+      # skipped until a style setter (or a cascade swap) invalidates it.
+      @attr_memo = Style::AttrMemo.new
+
       def initialize(
         @text = "",
         @interval = 0.07.seconds,
@@ -64,8 +69,13 @@ module Crysterm
           h = yl - yi
           next if w <= 0 || h <= 0
 
+          # One memoized derivation serves both the background fill and the
+          # per-glyph base: `style_to_attr(style, style.fg, style.bg)` packs
+          # the identical attr as the plain form (see `Style::AttrMemo#fetch`).
+          base = @attr_memo.fetch(style)
+
           # The field the glyphs ride over, and the inter-glyph gaps.
-          window.fill_region(style_to_attr(style), ' ', xi, xl, yi, yl)
+          window.fill_region(base, ' ', xi, xl, yi, yl)
 
           next if @scroll_width == 0
 
@@ -74,22 +84,12 @@ module Crysterm
           # Hoisted out of the column loop: in rainbow mode only the foreground
           # varies, so flags and bg are reused and just the fg is repacked per
           # column via `Attr.with_fg`.
-          base = style_to_attr style, style.fg, style.bg
 
           (0...w).each do |x|
-            ch, width, offset = scroll_column(f, x)
-            # A continuation column was either already written by its lead
-            # (the previous loop iteration) or, if the lead scrolled off the
-            # left edge (x == 0 here), stays the background blank filled above.
-            next if offset == 1
-            next if ch == ' '
+            next unless glyph = visible_scroll_glyph(f, x)
+            ch, width = glyph
             attr = rainbow? ? Attr.with_fg(base, rainbow_fg(x, f)) : base
-            if width == 2
-              next if x + 1 >= w # right-edge straddle: half a glyph can't render
-              window.put_wide(attr, ch, xi + x, yi)
-            else
-              window.fill_region(attr, ch, xi + x, xi + x + 1, yi, yi + 1)
-            end
+            put_scroll_glyph(attr, ch, width, xi + x, yi, xl)
           end
         end
       end

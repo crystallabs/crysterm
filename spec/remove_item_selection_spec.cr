@@ -6,8 +6,8 @@ include Crysterm
 # logical item when an *earlier* row is removed — rows below the deletion
 # (including the selected one) shift down by one, so the cursor must slide
 # with them. Mirrors the multi-selection-index alignment the method already
-# performs. Before the fix `@selected` stayed put, pointing at the wrong item
-# or (if selection was the last row) a phantom index past the end.
+# performs. A `@selected` that stays put points at the wrong item or (if
+# selection was the last row) a phantom index past the end.
 describe "ItemView#remove_item single-selection cursor alignment" do
   it "slides the cursor down when an earlier row is removed" do
     s = headless_screen(80, 24)

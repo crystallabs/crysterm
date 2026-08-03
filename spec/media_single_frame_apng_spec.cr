@@ -7,9 +7,10 @@ include Crysterm
 # A single-frame APNG decodes to a `PNGGIF::PNG` whose `frames` is non-nil but
 # holds exactly one frame (unlike a GIF, which leaves `frames` nil below two
 # frames). `Media::Base#play` bails on a single frame and never builds
-# `@src_frames`, but `Media::Cells#load` used `!frames.nil?` to set `@animated`,
-# so the cell backends entered the animation branch, found no `@src_frames`,
-# and drew nothing. Fix: gate `@animated` on `frames.size > 1`, matching `#play`.
+# `@src_frames`, so `Media::Cells#load` must gate `@animated` on
+# `frames.size > 1`, matching `#play` — a `!frames.nil?` test sends the cell
+# backends into the animation branch, which finds no `@src_frames` and draws
+# nothing.
 
 describe "Media::Cells single-frame APNG" do
   it "renders a 1-frame APNG as a still (not a blank animated widget)" do

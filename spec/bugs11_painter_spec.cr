@@ -2,20 +2,19 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS11 findings #9 and #13, both in
-# src/widget/graph/painter.cr.
+# Regression specs, both in src/widget/graph/painter.cr:
 #
 #  #9 [HIGH]: Painter#dx/#dy (and draw_ellipse / fill_ring plot coords) did
 #     `.round.to_i` on a Float64 with no finiteness/range guard. In Crystal
 #     Float64#to_i raises OverflowError on NaN, Infinity or out-of-Int32 values,
 #     which unwound and killed the render fiber. A NaN/Infinity/1e18 data point
 #     (ordinary from 0/0, log(0), missing samples, or outliers against a pinned
-#     axis) now maps to an off-canvas sentinel (Int32::MIN, rejected by #plot's
+#     axis) maps to an off-canvas sentinel (Int32::MIN, rejected by #plot's
 #     bounds check) or is clamped — never raising.
 #
 #  #13 [LOW]: Painter#fill_ring looped forever when step_deg <= 0 (a positive
 #     sweep never reaches `stop`), and NaN angles either looped forever or
-#     crashed on the first NaN->Int32 conversion. fill_ring now bails on
+#     crashed on the first NaN->Int32 conversion. fill_ring bails on
 #     non-finite start/stop and clamps a non-positive/non-finite step to 0.7.
 
 private def new_painter(w = 80, h = 24)

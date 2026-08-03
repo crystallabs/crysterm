@@ -209,7 +209,7 @@ module Crysterm
         # this menu has no inline style.
         child = Menu.new(window: window, style: inline_style.try(&.dup))
         # One row rebuild for the whole submenu, not one per action: this runs on
-        # *every* open, so the per-add `#sync_items` made opening O(A²).
+        # *every* open, so per-add `#sync_items` would make opening O(A²).
         child.batch_update { subs.each { |a| child << a } }
         child.parent_menu = self
 

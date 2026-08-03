@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::TextEdit` rendering: document fragments written directly into the
-# cell buffer with packed attributes (TEXTEDIT.md Phase 2). Headless harness
+# cell buffer with packed attributes. Headless harness
 # like `text_editing_keys_spec.cr`: a `Window` over in-memory IOs and a
 # synchronous `Window#repaint` (NOT `#render`, which only rings the async
 # render-loop doorbell), then cells asserted straight off `Window#lines`.

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# In-table editing in `Widget::TextEdit` (TEXTEDIT.md follow-up): editing
+# In-table editing in `Widget::TextEdit`: editing
 # keys become cell operations while the caret is inside a table — typing/
 # Backspace/Delete edit the cell (padding re-rendered), Tab/Shift-Tab move
 # between cells (Tab past the last cell appends a row), Enter inserts a row

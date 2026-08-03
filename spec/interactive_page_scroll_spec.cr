@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Mixin::Interactive`'s vi_keys page-scroll keys (Ctrl-U/D/B/F) used to be gated on
-# `height.is_a? Int`, so a scrollable widget with a percentage height (`"100%"`)
-# or no explicit height dropped every page-scroll key (line scrolling still
-# worked). The handler now sizes the page step off the resolved `aheight`.
+# `Mixin::Interactive`'s vi_keys page-scroll keys (Ctrl-U/D/B/F) must work for a
+# scrollable widget with a percentage height (`"100%"`) or no explicit height:
+# the handler sizes the page step off the resolved `aheight`, not a
+# `height.is_a? Int` gate that would drop every page-scroll key.
 describe "Mixin::Interactive page scroll with non-Int height" do
   it "pages down with Ctrl-D when height is a percentage" do
     s = headless_screen(80, 24)

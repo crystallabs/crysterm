@@ -3,10 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 # An inherited value (`color`/`font-weight`/`font-style`) is stateless, so it
-# must reach every state a widget renders in, not only `normal`. A materialized
-# non-normal state (given its own `:focus`/`:selected` rule) that left an
-# inherited property unset previously reverted to the terminal default the
-# moment the widget entered the state.
+# must reach every state a widget renders in, not only `normal` — a
+# materialized non-normal state (given its own `:focus`/`:selected` rule) that
+# leaves an inherited property unset must not revert to the terminal default
+# the moment the widget enters the state.
 describe "CSS inheritance into materialized states" do
   it "inherits color/weight/slant into a state materialized by a non-color rule" do
     screen = headless_screen(default_quit_keys: true)

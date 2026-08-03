@@ -16,11 +16,11 @@ include Crysterm
 # variant leaked the same way (self `visible?` true, but `redraw_image` bails
 # on `visible_in_tree?` and nothing erases).
 #
-# Fix: the "no longer drawable" decision in `invalidate_old_position` /
+# The "no longer drawable" decision in `invalidate_old_position` /
 # `overlay_rendered` is made by the shared `#overlay_drawable_rect`
 # (`visible_in_tree?` + resolvable, non-degenerate rect) instead of skipping
 # the clear while hidden. Sibling `Media::Ueberzug#redraw_image` (its own
-# `Rendered` hook, erased only via `on(Event::Hide) { remove }`) now calls
+# `Rendered` hook, erased only via `on(Event::Hide) { remove }`) calls
 # `remove` when the geometry is not drawable, taking the always-on-top helper
 # window down on a CSS-driven hide.
 

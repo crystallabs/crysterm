@@ -119,7 +119,7 @@ describe "BUGS13 C9: invalidate_region repaints a wide glyph straddling its left
     out.clear
 
     # Invalidate a rect whose LEFT edge is the continuation column. The '\0'
-    # poison equals the continuation sentinel, so pre-fix nothing repainted.
+    # poison equals the continuation sentinel and must not compare as unchanged.
     w.invalidate_region 5, 10, 1, 2
     w.draw
     out.to_s.includes?("日").should be_true
@@ -146,8 +146,8 @@ describe "BUGS13 C16: fill_region clears the link overlay" do
   it "rewrites an already-blank cell that still carries a link" do
     w = b13dr_window
     line = w.lines[1]
-    # Cell content already equals the fill (default attr + space): pre-fix the
-    # write guard skipped it entirely, keeping the stale link.
+    # Cell content already equals the fill (default attr + space): the write
+    # guard must still rewrite it rather than keep the stale link.
     line.set_link 2, 9_u16
 
     w.fill_region w.default_attr, ' ', 0, 10, 1, 2

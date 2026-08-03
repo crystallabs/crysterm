@@ -11,8 +11,8 @@ include Crysterm
 # black-on-black (invisible text).
 
 describe "BUGS3: scrollable text box per-line attr fallback" do
-  # Lock in the invariant the fix relies on: the DEFAULT_ATTR the fallback now
-  # uses is *not* a packed zero, and the two decode to different colors.
+  # Lock in the invariant the fallback relies on: the DEFAULT_ATTR it uses
+  # is *not* a packed zero, and the two decode to different colors.
   it "distinguishes DEFAULT_ATTR from a packed-0 (black-on-black) attr" do
     # A packed-0 attr decodes to concrete black fg on black bg.
     Attr.fg(0_i64).should eq 0_i64
@@ -46,7 +46,7 @@ describe "BUGS3: scrollable text box per-line attr fallback" do
     s.repaint
 
     # Drop the cached per-line attr array to force the fallback branch, then
-    # re-render. With the fix this yields DEFAULT_ATTR; before it, `0_i64`.
+    # re-render. This must yield DEFAULT_ATTR, not `0_i64`.
     b._clines.attr = nil
     s.repaint
 

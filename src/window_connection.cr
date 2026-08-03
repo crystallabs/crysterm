@@ -31,14 +31,14 @@ module Crysterm
     @was_listening = false
 
     # The spawned emulator window backing this screen, if any.
-    @window : Terminal::Window? = nil
+    @window : Terminal::EmulatorWindow? = nil
 
     getter? connected : Bool
-    getter window : Terminal::Window?
+    getter window : Terminal::EmulatorWindow?
 
     # Registers *win* as this (freshly constructed) screen's window and starts
     # watching it. The screen is already connected via its constructor.
-    def adopt_window(win : Terminal::Window) : Nil
+    def adopt_window(win : Terminal::EmulatorWindow) : Nil
       @owns_io = true
       @window = win
       start_window_watcher
@@ -49,7 +49,7 @@ module Crysterm
     # left intact; only the connection is (re)established. Geometry is taken
     # from the new terminal, so a differently-sized window is handled like a
     # resize.
-    def connect(input : IO, output : IO, window : Terminal::Window? = nil) : Nil
+    def connect(input : IO, output : IO, window : Terminal::EmulatorWindow? = nil) : Nil
       # Tear down any existing connection first, so reattaching never leaks
       # the previous window, its fibers, or its watcher.
       disconnect if @connected
@@ -272,7 +272,7 @@ module Crysterm
       end
     end
 
-    private def on_window_closed(win : Terminal::Window) : Nil
+    private def on_window_closed(win : Terminal::EmulatorWindow) : Nil
       return if @destroyed
       # Ignore an app-initiated teardown: `#disconnect` closes the socket
       # itself, waking this watcher on EOF. React only to an external close
@@ -330,16 +330,16 @@ module Crysterm
         terminfo: Unibilium.from_terminal(term),
         title: @title,
         # Carry the pin STATE, not the current size as unconditional pins:
-        # passing plain Int32s set `explicit_width/height` on the new device,
-        # so `adopt_terminal_size`/`refresh_size` no-op'd forever and the
-        # replacement window stopped tracking terminal resizes, frozen at the
-        # moment-of-switch size. Only an axis that was pinned stays pinned.
+        # passing plain Int32s would set `explicit_width/height` on the new
+        # device, so `adopt_terminal_size`/`refresh_size` would no-op forever
+        # and the replacement window stop tracking terminal resizes, frozen at
+        # the moment-of-switch size. Only an axis that was pinned stays pinned.
         width: (@screen.explicit_width? ? width : nil),
         height: (@screen.explicit_height? ? height : nil),
         # Surface mode/geometry knobs: without these an inline (`alternate:
-        # false`) window came back as a full-screen alt-buffer window with
-        # default padding and cursor. The new window re-captures its own inline
-        # anchor for `alternate: false` in its initializer.
+        # false`) window would come back as a full-screen alt-buffer window
+        # with default padding and cursor. The new window re-captures its own
+        # inline anchor for `alternate: false` in its initializer.
         alternate: @alternate, auto_grow: @auto_grow, max_height: @max_height,
         padding: @padding, cursor: carried_cursor,
         dock_borders: @dock_borders, dock_contrast: @dock_contrast,
@@ -372,9 +372,8 @@ module Crysterm
     end
 
     # Runtime-settable options the constructor can't take. THE single list —
-    # add new runtime properties here, not as another inline patch (see the
-    # size-pin / inline-knob / glyph-tier comments in `#switch_terminal` for
-    # the history of piecemeal additions). Deliberately excluded: `grab_keys`
+    # add new runtime properties here, not as another inline patch.
+    # Deliberately excluded: `grab_keys`
     # (transient grab state managed by the widget grab lifecycle),
     # `render_row_offset`/`anchor_row` (the replacement re-captures its own
     # inline anchor by design), and `application` (documented usage re-`exec`s

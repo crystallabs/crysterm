@@ -7,11 +7,9 @@ include Crysterm
 # horizontal/bottom). The renderer paints each edge from its per-side color
 # (`Border#top_fg`/`#right_fg`/…, falling back to whole-border `#fg`), so a
 # multi-value `border-color` must populate those per-side slots — the analog
-# of the multi-value `border-width` shorthand.
-#
-# The old form passed the whole multi-token value to `with_color`, which
-# resolved e.g. `"red green blue yellow"` to the `-1` unknown sentinel and
-# cleared every side. (`Crysterm::CSS::Properties.apply`.)
+# of the multi-value `border-width` shorthand — not resolve the whole
+# multi-token value to the `-1` unknown sentinel and clear every side.
+# (`Crysterm::CSS::Properties.apply`.)
 describe "CSS border-color shorthand (multi-value TRBL)" do
   it "applies four colors in top/right/bottom/left order" do
     s = Style.new

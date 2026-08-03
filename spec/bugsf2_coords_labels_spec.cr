@@ -65,8 +65,8 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
     s.repaint
 
     # The container's own bottom-left corner must survive (not be punched
-    # through by the scrolled child's border). Before the fix all four clip
-    # compensations were zeroed for the labeled child, corrupting the frame.
+    # through by the scrolled child's border). Zeroing all four clip
+    # compensations for the labeled child corrupts the frame.
     bl = box.lpos.not_nil!
     corner = s.lines[bl.yl - 1][bl.xi]?.try(&.char)
     corner.should eq '└'
@@ -121,9 +121,9 @@ describe "BUGS-F2 finding 34: TrackGeometry vertical offset uses painted coords"
     f2_down s, lp.xi + 1, lp.yi
     sl.value.should eq 100
 
-    # Painted BOTTOM row: the low end == minimum. With the old layout-coord
-    # formula the scroll base drove `pos` negative and `invert` clamped this to
-    # 100 as well — the discriminating assertion.
+    # Painted BOTTOM row: the low end == minimum. With a layout-coord formula
+    # the scroll base drives `pos` negative and `invert` clamps this to 100 as
+    # well — the discriminating assertion.
     sl.value = 50
     f2_down s, lp.xi + 1, lp.yi + span
     sl.value.should eq 0

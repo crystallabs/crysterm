@@ -140,10 +140,9 @@ describe "Window#_artificial_cursor_attr" do
   end
 
   # `None` is the custom cursor (blessed's "object shape"): drawn from its own
-  # `style` rather than a predefined shape. Previously unreachable:
-  # `CursorShape` was a `@[Flags]` enum with `Block = 0`, so auto-generated
-  # `None` was also `0` and `shape.block?` was always true, swallowing the
-  # custom branch. `None` and `Block` now have distinct values.
+  # `style` rather than a predefined shape. `None` and `Block` must have
+  # distinct enum values — with `Block = 0` an auto-generated `None` is also
+  # `0`, so `shape.block?` is always true and swallows the custom branch.
   describe "None / custom shape" do
     it "is distinct from Block" do
       Tput::Namespace::CursorShape::None.should_not eq Tput::Namespace::CursorShape::Block

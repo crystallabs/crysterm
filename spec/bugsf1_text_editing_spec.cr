@@ -7,20 +7,20 @@ include Crysterm
 #  #4  — Triple-click on an empty logical line planted a dangling selection
 #        anchor (anchor == caret), so later keystrokes ate characters (and could
 #        crash with IndexError). The double-click branch nils the anchor on an
-#        empty span; the triple-click branch now does too.
+#        empty span; the triple-click branch must too.
 #  #5  — `delete_selection` returned false on the collapsed (no-range) path
 #        WITHOUT clearing `@selection_anchor`, so a stale collapsed anchor
-#        (Shift+Right then Shift+Left) resurrected as a phantom 1-char selection
-#        that swallowed the next keystroke. Now cleared on that path too.
+#        (Shift+Right then Shift+Left) resurrects as a phantom 1-char selection
+#        that swallows the next keystroke. It must clear on that path too.
 #  #18 — `PlainTextEdit` mixes in both `Mixin::Interactive` (viewport scroll
-#        keys) and `Mixin::TextEditing` (editing keys); both fired on the same
-#        key while reading. `viewer_scroll_keys?` now stands the Interactive
+#        keys) and `Mixin::TextEditing` (editing keys); both fire on the same
+#        key while reading unless `viewer_scroll_keys?` stands the Interactive
 #        handler down while `@_reading`.
 #  #27 — In non-wrap mode each `@_clines[rl]` is only the visible slice, but the
 #        caret/selection math used its size as the full line width, so Up/Down
 #        snapped a caret past the viewport back to ~viewport width and a
-#        selection right of the viewport painted no highlight. Line extents are
-#        now derived from `@value` in non-wrap mode.
+#        selection right of the viewport painted no highlight. Line extents
+#        must be derived from `@value` in non-wrap mode.
 #
 # Same headless harness as bugs8_text_editing_spec.cr / text_editing_keys_spec.cr:
 # a Window over in-memory IOs and a synchronous `Window#repaint` (so painted-line
@@ -60,7 +60,7 @@ describe "BUGS-F1 #4 triple-click on an empty line plants no dangling anchor" do
     f1_press s, 0, 0
     s.click_count.should eq 3
 
-    le.selection_anchor.should be_nil # was 0 (== caret) before the fix
+    le.selection_anchor.should be_nil # no dangling anchor == caret
     le.selection?.should be_false
   end
 
@@ -76,7 +76,7 @@ describe "BUGS-F1 #4 triple-click on an empty line plants no dangling anchor" do
     le._listener f1_key('a')
     le._listener f1_key('b')
     le._listener f1_key('c')
-    le.value.should eq "abc" # was "bc" before the fix (each key ate the prior one)
+    le.value.should eq "abc" # no keystroke eaten by a phantom selection
   end
 end
 
@@ -93,7 +93,7 @@ describe "BUGS-F1 #5 collapsed selection anchor is cleared so it can't swallow a
 
     le._listener f1_key('a')
     le._listener f1_key('b')
-    le.value.should eq "abz" # was "bz" before the fix (the "a" was silently destroyed)
+    le.value.should eq "abz" # the "a" must not be silently destroyed
   end
 end
 
@@ -126,7 +126,7 @@ describe "BUGS-F1 #18 reading PlainTextEdit does not double-handle viewer scroll
     pte.emit Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Down)
 
     # The caret (line 1) is still on screen, so nothing should have scrolled.
-    pte.child_base.should eq 0 # was 1 before the fix (Interactive also scrolled)
+    pte.child_base.should eq 0 # the Interactive handler must not also scroll
   end
 
   it "LineEdit is unaffected (not scrollable)" do
@@ -148,8 +148,8 @@ describe "BUGS-F1 #27 non-wrap caret/selection use full line width, not the view
     pte.cursor_pos = 50 # column 50 on line 0 — well past the 20-column viewport
     pte._listener f1_ctl(::Tput::Key::Down)
 
-    # Line 1 starts at index 101; column 50 within it is 151. Before the fix the
-    # goal column was clamped to the ~20-wide slice, landing near 121.
+    # Line 1 starts at index 101; column 50 within it is 151. The goal column
+    # must not be clamped to the ~20-wide slice (which would land near 121).
     pte.cursor_pos.should eq 151
   end
 
@@ -163,8 +163,8 @@ describe "BUGS-F1 #27 non-wrap caret/selection use full line width, not the view
     pte.selection_anchor = 50
     pte.cursor_pos = 60
 
-    # Before the fix the row's end was computed from the ~20-wide slice, so the
-    # 50..60 selection fell entirely past it and returned nil (no highlight).
+    # A row end computed from the ~20-wide slice would put the 50..60 selection
+    # entirely past it and return nil (no highlight).
     pte.sel_cols(0).should_not be_nil
   end
 end

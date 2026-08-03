@@ -69,9 +69,13 @@ module Crysterm
 
       # Run the live capability probe `Screen.new` skips (`probe: false`); it can
       # upgrade the terminal to confirmed truecolor, so SGR emission reduces to
-      # the right depth. Direct mode has no input listen fiber, so the synchronous
-      # round-trip races nothing. No-ops on a non-tty / when disabled.
-      @screen.probe
+      # the right depth. A standalone (not `screen:`-adopted) device has no input
+      # listen fiber here, so the synchronous round-trip races nothing — but an
+      # adopted shared `screen:` may already be probed, or may already have a
+      # sibling `Window`'s input fiber live on the same fd; re-probing either
+      # would be redundant at best and, on a listening device, race that fiber
+      # for the reply bytes. No-ops on a non-tty / when disabled.
+      @screen.probe unless @screen.probed? || @screen.listening?
     end
 
     # Terminal width in cells (columns).

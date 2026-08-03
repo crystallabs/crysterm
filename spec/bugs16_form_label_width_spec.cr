@@ -7,9 +7,9 @@ include Crysterm
 # bookkeeping. On the next arrange `measured_label_width` saw the assigned Int
 # and returned it instead of re-measuring content, so an auto (`label_width:
 # nil`) column froze at frame 1's widest content and a label's own raw
-# `nil`/`String` width was destroyed. The fix mirrors the height bookkeeping
-# (@raw_width/@assigned_width), restoring each child's raw width *before* the
-# column is measured.
+# `nil`/`String` width was destroyed. Restoring each child's raw width
+# *before* the column is measured mirrors the height bookkeeping
+# (@raw_width/@assigned_width).
 
 private def rendered_width(el)
   l = el.lpos.not_nil!
@@ -29,7 +29,8 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
 
     label.set_content "A much longer label"
     s.repaint
-    # Pre-fix: column frozen at 4, label clipped. Fixed: re-measures to 19.
+    # Without restoring the raw width the column would stay frozen at 4,
+    # clipping the label; restoring it re-measures to 19.
     rendered_width(label).should eq 19
   end
 
@@ -45,7 +46,8 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
 
     label.set_content "Hi"
     s.repaint
-    # Pre-fix: stuck at 19. Fixed: re-measures to 2.
+    # Without restoring the raw width the column would stay stuck at 19;
+    # restoring it re-measures to 2.
     rendered_width(label).should eq 2
   end
 
@@ -54,8 +56,9 @@ describe "BUGS16 B16-17 Form auto label column re-derives across frames" do
     form = Widget::Box.new parent: s, top: 0, left: 0, width: 60, height: 30,
       layout: Layout::Form.new
     # A String width is not the explicit-Int32 case, so the column tracks the
-    # label's content. Pre-fix the "50%" was overwritten by the assigned Int on
-    # the first arrange and the column never re-derived.
+    # label's content: without restoring the raw width, the "50%" would be
+    # overwritten by the assigned Int on the first arrange and the column
+    # would never re-derive.
     label = Widget::Box.new parent: form, height: 1, width: "50%", content: "Name"
     Widget::Box.new parent: form, height: 1
 

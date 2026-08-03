@@ -7,8 +7,8 @@ include Crysterm
 #
 # C13 — `DockContrast::Blend` must blend only the COLORS of a contrasting
 #       neighbor into the junction cell: `Colors.blend` returns the FIRST
-#       argument's flags, which used to transplant the neighbor's
-#       reverse/bold/underline onto the docked cell.
+#       argument's flags, and the neighbor's reverse/bold/underline must not
+#       be transplanted onto the docked cell.
 # C17 — `Plane#composite_onto` must carry the OSC-8 link overlay both ways:
 #       a layered widget's links fold onto the base, and an opaque overlay
 #       cell CLEARS the base cell's old link (no bleed-through).
@@ -52,7 +52,7 @@ describe "BUGS13 C13: DockContrast::Blend keeps the docked cell's own flags" do
 
     docked = g[1][1].attr
     # The junction keeps its OWN flags: BOLD stays, the neighbor's REVERSE is
-    # NOT transplanted (pre-fix `Colors.blend` returned the neighbor's flags).
+    # NOT transplanted.
     Attr.flags(docked).should eq Attr::BOLD
     # ...while the colors are still blended toward the neighbor's.
     blended = Colors.blend(neighbor, center)
@@ -103,8 +103,8 @@ describe "BUGS13 C17: composite_onto carries the OSC-8 link overlay" do
 
       pl.composite_onto s.lines
 
-      # Pre-fix the raw-array fold bypassed `Cell#char=`'s link-clear
-      # invariant, so the overlay cell kept clicking as the base's old link.
+      # A raw-array fold bypassing `Cell#char=`'s link-clear invariant would
+      # leave the overlay cell clicking as the base's old link.
       base.link_at(4).should eq 0_u16
       base.has_links?.should be_false
     ensure
@@ -131,8 +131,8 @@ describe "BUGS13 C17: composite_onto carries the OSC-8 link overlay" do
 
       pl.composite_onto s.lines
 
-      # Pre-fix the change test compared only attr/char/grapheme, so the
-      # link-only difference was skipped and the link never reached the base.
+      # A change test comparing only attr/char/grapheme would skip the
+      # link-only difference, so the link would never reach the base.
       base.link_at(4).should eq 5_u16
     ensure
       s.destroy
@@ -142,8 +142,8 @@ end
 
 # C22 scene: base blue underlay; two independent same-z (10) layer roots:
 # `oa` is red at opacity 0.5, `ob` is green with no opacity (1.0). Each must
-# fold with its own alpha regardless of declaration order — pre-fix the whole
-# z-10 plane took whichever root was collected first.
+# fold with its own alpha regardless of declaration order — not the alpha of
+# whichever root was collected first.
 private def b13cp_build_scene(s, oa_first : Bool)
   Widget::Box.new(parent: s, top: 0, left: 0, width: 30, height: 6).add_css_class "b13under"
   mk_oa = -> { Widget::Box.new(parent: s, top: 0, left: 2, width: 8, height: 4).add_css_class "b13oa" }
@@ -178,7 +178,7 @@ describe "BUGS13 C22: same-z layers fold each with their OWN alpha" do
     begin
       b13cp_build_scene s, oa_first: false
       s.repaint
-      # Pre-fix, collecting `ob` first pinned the whole z-10 plane at ITS
+      # Collecting `ob` first must not pin the whole z-10 plane at ITS
       # alpha (1.0), flipping the result with declaration order.
       cell_bg(s, 5, 2).should eq 0x7f007f
       cell_bg(s, 18, 2).should eq 0x00ff00

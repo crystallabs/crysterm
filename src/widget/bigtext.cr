@@ -14,7 +14,7 @@ module Crysterm
     class BigText < Widget::Box
       # Optional font-file overrides; `nil` uses the bundled Terminus normal/bold.
       # Getter-only: the fonts are loaded once in the constructor, so assigning
-      # after construction had no effect.
+      # after construction would have no effect.
       getter font : String?
       getter font_bold : String?
 
@@ -25,8 +25,8 @@ module Crysterm
       # The big-font text.
       getter text = ""
 
-      # Assigning routes through `#set_content` so a runtime text change repaints
-      # (a plain setter left the rendered glyphs stale).
+      # Assigning routes through `#set_content` so a runtime text change
+      # repaints (a plain setter would leave the rendered glyphs stale).
       def text=(value : String) : String
         set_content value
         value
@@ -50,6 +50,12 @@ module Crysterm
       @graphemes = [] of String
       @_graphemes_src : String?
       @_shrink_width_value : Int32?
+
+      # `style_to_attr` memo for the per-frame render: the glyph field redraws
+      # every frame with an unchanged style, so the attr derivation is skipped
+      # until a style setter (or a cascade swap) invalidates it. Caches the
+      # plain form; the reverse-video swap in `#render` stays per-frame bit ops.
+      @attr_memo = Style::AttrMemo.new
 
       # Character used to paint the "on" pixels of the bitmap font. The default
       # space paints them as reverse-video blocks of the fg color; any other
@@ -151,7 +157,7 @@ module Crysterm
         lines = window.lines
         left, right, top, bottom = content_edges coords
 
-        default_attr = style_to_attr style
+        default_attr = @attr_memo.fetch(style)
         # Swap fg/bg so the "lit" glyph pixels invert the base colors.
         attr = Attr.pack(Attr.flags(default_attr), Attr.bg(default_attr), Attr.fg(default_attr))
 
@@ -221,7 +227,7 @@ module Crysterm
 
               mx += 1
             end
-            lines[y]?.try &.dirty = true
+            lines[y]?.try &.mark_dirty_range Math.max(x, Math.max(left, 0)), Math.min(x + gw, right) - 1
 
             y += 1
           end

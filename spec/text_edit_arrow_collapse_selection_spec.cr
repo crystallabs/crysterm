@@ -5,9 +5,9 @@ include Crysterm
 # A plain (non-shift) Left/Right arrow over an active selection must collapse the
 # caret to the selection's near edge — its END for Right, its START for Left —
 # rather than stepping one grapheme *past* the selection. This is the universal
-# GUI/editor convention (Qt's `QLineEdit`, browsers, VS Code, …). Before the fix
-# `Mixin::TextEditing#_listener` always did `@cursor_pos ± width`, so Right after
-# selecting "he" (caret already at index 2) skipped to index 3 — swallowing a
+# GUI/editor convention (Qt's `QLineEdit`, browsers, VS Code, …). A bare
+# `@cursor_pos ± width` step in `Mixin::TextEditing#_listener` would take Right
+# after selecting "he" (caret already at index 2) to index 3 — swallowing a
 # character — instead of settling at the selection end (2).
 private def new_lineedit(s, value : String)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1

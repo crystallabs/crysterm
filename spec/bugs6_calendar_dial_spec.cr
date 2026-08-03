@@ -7,28 +7,28 @@ include Crysterm
 #  BUG 1 (src/widget/dial.cr): the Dial constructor assigned `@minimum`/`@maximum`
 #     directly then `@value = (value || @minimum).clamp(@minimum, @maximum)`,
 #     bypassing `set_range`'s `max = min if max < min` guard. `Dial.new(minimum:
-#     50, maximum: 10)` stored an inverted range, so `50.clamp(50, 10) == 10` and
-#     every step re-clamped to 10 — the dial could never move. Fixed by
-#     normalizing `@maximum = Math.max(@minimum, @maximum)` before clamping.
+#     50, maximum: 10)` stores an inverted range, so `50.clamp(50, 10) == 10` and
+#     every step re-clamps to 10 — the dial can never move. `@maximum` must be
+#     normalized to `Math.max(@minimum, @maximum)` before clamping.
 #
 #  BUG 2 (src/widget/slider.cr): identical unguarded inverted-range pattern in the
-#     Slider constructor; same fix.
+#     Slider constructor; same guard.
 #
 #  BUG 3 (src/widget/calendar.cr): `default_today` is deliberately wrapped so
 #     construction never raises where `Time.local` is unavailable, but the
-#     render/setter/constructor paths called `Time.local(y, m, d)` unguarded,
-#     defeating that fallback. All such calls now route through a guarded
+#     render/setter/constructor paths calling `Time.local(y, m, d)` unguarded
+#     defeat that fallback. All such calls must route through a guarded
 #     `local_date` helper, so construction and the key/setter paths can't raise.
 #
 #  BUG 4 (src/widget/dial.cr): the pointer glyph and the value text collided when
 #     the inner height was <= 2 (both landed on the same row and the value,
-#     drawn last, hid the pointer). Fixed by reserving the bottom row for the
-#     value and centering the pointer in the rows above it.
+#     drawn last, hid the pointer). The bottom row is reserved for the value,
+#     with the pointer centered in the rows above it.
 #
 #  BUG 5 (src/widget/calendar.cr `#day_at`): `c //= 3` mapped a separator column
 #     onto the day cell to its left, and trailing columns past the grid onto the
 #     last day, so a click in blank/separator area could select an adjacent day.
-#     Fixed by rejecting separator columns (`rel % 3 == 2`).
+#     Separator columns (`rel % 3 == 2`) must reject the hit.
 
 describe "BUGS6 Dial inverted range (bug 1)" do
   it "normalizes an inverted minimum/maximum and keeps stepping working" do
@@ -40,8 +40,8 @@ describe "BUGS6 Dial inverted range (bug 1)" do
     dial.minimum.should eq 50
     dial.maximum.should eq 50
 
-    # Value clamps into the (collapsed) range instead of getting stuck at the
-    # bogus lower `maximum` (10, which was below `minimum`) as it did before.
+    # Value clamps into the (collapsed) range instead of sticking at the bogus
+    # lower `maximum` (10, below `minimum`).
     dial.value.should eq 50
 
     # Widen the range so stepping has room, then verify it moves.
@@ -100,8 +100,8 @@ describe "BUGS6 Dial pointer/value collision on a short dial (bug 4)" do
     x0 = dial.aleft; x1 = dial.aleft + dial.awidth
     y0 = dial.atop; y1 = dial.atop + dial.aheight
 
-    # The pointer must survive on its own row (was overwritten by the value on a
-    # 2-row dial before the fix, so no pointer glyph appeared at all).
+    # The pointer must survive on its own row — the value, drawn last, must not
+    # overwrite it on a 2-row dial.
     prow = bugs6cd_pointer_row(s, y0, y1, x0, x1)
     prow.should_not be_nil
 
@@ -135,7 +135,7 @@ describe "BUGS6 Calendar guarded date construction (bug 3)" do
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 15)
     s.repaint
 
-    # Home/End and month stepping all build dates through local_date now.
+    # Home/End and month stepping all build dates through local_date.
     cal.on_keypress Crysterm::Event::KeyPress.new(' ', Tput::Key::Home)
     cal.date.day.should eq 1
     cal.on_keypress Crysterm::Event::KeyPress.new(' ', Tput::Key::End)

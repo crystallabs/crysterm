@@ -4,9 +4,9 @@ include Crysterm
 
 # Destroying a top-level widget (added straight onto a Window, so it has no
 # widget parent — only a stored `@screen`) must detach it from the screen.
-# `Widget#destroy` used to only call `remove_from_parent`, a no-op for a
-# parent-less widget, leaving the destroyed widget in `screen.children` —
-# still painted, keyable, possibly focused.
+# A bare `remove_from_parent` is a no-op for a parent-less widget and would
+# leave the destroyed widget in `screen.children` — still painted, keyable,
+# possibly focused.
 
 describe "Widget#destroy (top-level)" do
   it "removes a destroyed top-level widget from the screen's children" do

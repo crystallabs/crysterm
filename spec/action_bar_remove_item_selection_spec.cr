@@ -12,9 +12,8 @@ end
 # `MenuBar`, `ToolBar`) must keep the selection cursor on the same logical
 # command when an earlier command is removed: commands at and after the
 # deletion shift down by one, so `selected` (= `left_base + left_offset`) must
-# slide down too. Mirrors `ItemView#remove_item`. Previously only the
-# `i == selected` case was handled, so removing an earlier command left the
-# cursor pointing at the wrong command (or past the end).
+# slide down too. Mirrors `ItemView#remove_item`. Guards against removing an
+# earlier command leaving the cursor on the wrong command (or past the end).
 describe "Mixin::ActionBar#remove_item selection alignment" do
   it "slides the cursor down when an earlier command is removed" do
     s = headless_screen(80, 24)

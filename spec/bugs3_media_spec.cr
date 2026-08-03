@@ -88,14 +88,14 @@ describe Crysterm::Widget::Media::Kitty do
     s = headless_screen(10, 5, default_quit_keys: true)
     k = Crysterm::Widget::Media::Kitty.new parent: s, width: 4, height: 3
     # A single-frame (bitmap-injected) source keeps anim_index at 0, mimicking a
-    # streaming video: the OLD parity-by-anim_index logic would pick the same
-    # buffer every time. The fix toggles per emit.
+    # streaming video: parity-by-anim_index would pick the same buffer every
+    # time, so parity must toggle per emit instead.
     bmp = solid_bitmap(r: 1, g: 2, b: 3)
     k.bitmap = bmp
     k.anim_index.should eq 0
     k.double_buffer?.should be_true
 
-    # `#encode` no longer bakes the id in (it would be frozen by
+    # `#encode` does not bake the id in (it would be frozen by
     # `#payload_for`'s per-frame cache); the concrete id is chosen at *emit* time
     # by `#finalize_payload`. So finalize the SAME cached payload repeatedly —
     # exactly the cache-hit path a fixed-size loop hits after its first pass —
@@ -146,8 +146,8 @@ describe "Widget CSS transition cancel-before-return" do
     b.transition_running?.should be_true # tween is in flight toward white
 
     # Re-apply transitions with a snapshot whose bg equals the current style bg:
-    # transition_color then hits `return if from == to`. With the fix, the stale
-    # tween is cancelled first, so nothing keeps advancing.
+    # transition_color then hits `return if from == to`. The stale tween must be
+    # cancelled first, so nothing keeps advancing.
     st = b.style
     prev = Crysterm::Widget::TransitionFrom.new(
       fg: st.fg, bg: st.bg, opacity: st.opacity,

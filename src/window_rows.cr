@@ -293,6 +293,20 @@ module Crysterm
         @dirty_max = x if x > @dirty_max
       end
 
+      # Marks the inclusive column range `[lo, hi]` dirty — the batch form of
+      # `#mark_dirty` for a writer that sweeps a contiguous run of cells (one
+      # call per row instead of one per cell). An empty range (`lo > hi`) is a
+      # no-op, so clip-derived bounds can be passed unchecked; *hi* past the
+      # row's last cell is fine — the draw scan clamps to the row width, as it
+      # already must for `dirty = true`'s `Int32::MAX`.
+      @[AlwaysInline]
+      def mark_dirty_range(lo : Int32, hi : Int32) : Nil
+        return if lo > hi
+        @dirty = true
+        @dirty_min = lo if lo < @dirty_min
+        @dirty_max = hi if hi > @dirty_max
+      end
+
       getter attrs : Array(Int64)
       getter chars : Array(Char)
 

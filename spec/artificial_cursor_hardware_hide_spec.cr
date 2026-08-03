@@ -53,8 +53,8 @@ describe "Window#draw hardware cursor hide during the frame" do
 
     s.draw
 
-    # The hardware hide escape is present (absent before the fix, since the
-    # artificial branch of Window#hide_cursor emitted nothing).
+    # The hardware hide escape is present (the artificial branch of
+    # Window#hide_cursor emits no escape, so the burst must not go through it).
     art_out.to_s.includes?("\e[?25l").should be_true
     # The artificial cursor's own visibility was untouched by the burst.
     s.cursor._hidden.should be_false

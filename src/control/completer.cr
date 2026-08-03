@@ -1,4 +1,5 @@
 require "../widget/list"
+require "../mixin/popup_controller"
 
 module Crysterm
   # Autocompletion helper for a text input, modeled after Qt's `QCompleter`.
@@ -17,6 +18,9 @@ module Crysterm
   #
   # Matching is case-insensitive prefix matching by default; set
   # `#case_sensitive` and/or `#mode` to change that.
+  #
+  # The attach/filter/popup plumbing is `Mixin::PopupController`; this class
+  # supplies the whole-value matching policy against `#model`.
   #
   # NOTE: the per-keystroke filter handler is (re)registered *after* the box's
   # own input handler so it always sees the updated value; relies on the box
@@ -53,10 +57,6 @@ module Crysterm
 
     # The matching strategy (Qt's `QCompleter#filterMode`).
     property mode : Mode = Mode::PrefixMatch
-
-    # Maximum rows shown before the popup scrolls (Qt's
-    # `QCompleter#maxVisibleItems`).
-    property max_visible_items : Int32 = 6
 
     # The drop-down list. A single click on a row commits it (rather than the
     # list's default two-click select-then-activate), and selection routes back
@@ -129,116 +129,34 @@ module Crysterm
       end
     end
 
-    # The `Widget::LineEdit` this completer is attached to, or `nil` when
-    # detached (Qt's `QCompleter#widget`).
-    getter widget : Widget::LineEdit?
-    @popup : Popup?
-    @open = false
-    @matches = [] of String
-
-    # The box handlers installed for the completer's lifetime, torn down together
-    # in `#detach`. Each `Subscription` captures the box, so teardown reaches it
-    # without re-fetching `@widget` (which `#detach` may already have nilled).
-    @subs = Crysterm::Subscriptions.new
-    # The per-keystroke filter, re-armed at the tail on every focus. A
-    # `Subscription`, so re-arming cancels the previous one.
-    @filter = Crysterm::Subscription.new
-    # "Click-away to dismiss" lifecycle, live only while the drop-down is open.
-    # Takes no modal grab — the box must keep reacting to keystrokes.
-    @dismiss : Crysterm::Overlay::DismissSession?
-    # Set when the intercept handler has consumed a key, so the filter handler
-    # skips that same keypress.
-    @suppress_filter = false
-    # The box value the per-keystroke filter last acted on. Used to dedupe:
-    # a keypress that leaves `#value` unchanged (cursor movement) never reopens
-    # a dismissed popup — only a text change does. `#close` records the current
-    # value here so Escape-then-arrow stays closed; the attach/detach/commit
-    # paths reset it to nil so retyping the same text after a commit still
-    # reopens on the change.
-    @last_filter_value : String?
+    include Mixin::PopupController(Widget::LineEdit, Popup, String)
 
     def initialize(@model : Array(String) = [] of String)
     end
 
-    # Attaches the completer to *widget*. Installs the navigation interceptor
-    # immediately, and the per-keystroke filter handler so that it runs after the
-    # box's input handler (now if already focused, otherwise on first focus).
-    def attach(widget : Widget::LineEdit) : Nil
-      detach
-      @widget = widget
-      @last_filter_value = nil
-
-      # Runs *before* the box's input handler: when the popup is open it owns the
-      # navigation keys (and neutralizes them so the box ignores them); when
-      # closed, Down opens the popup.
-      @subs.on(widget, Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) do |e|
-        handle_intercept e
-      end
-
-      # The filter must be (re)installed at the tail on *every* focus, not just
-      # the first: the box re-registers its own input handler each time it
-      # re-enters read mode, appending it after ours, so a once-installed filter
-      # would from the second focus on run before the box updates `#value` and
-      # miss the keystroke.
-      @subs.on(widget, Crysterm::Event::FocusIn) { install_filter widget }
-      install_filter widget if widget.focused?
-
-      # A press on the box while already focused toggles the popup. `Event::Mouse`
-      # is emitted before click-to-focus is applied, so on the press that first
-      # focuses the box `focused?` is still false here — that press only focuses.
+    # A press on the box while already focused toggles the popup. `Event::Mouse`
+    # is emitted before click-to-focus is applied, so on the press that first
+    # focuses the box `focused?` is still false here — that press only focuses.
+    private def attach_extras(widget : Widget::LineEdit) : Nil
       @subs.on(widget, Crysterm::Event::Mouse) do |e|
         toggle if e.action.down? && widget.focused?
       end
-
-      # Don't leave an orphaned popup behind when focus leaves the box.
-      @subs.on(widget, Crysterm::Event::FocusOut) { close }
-
-      # Tear down with the box: the popup is a *window* child, so destroying the
-      # box alone would leave it in the window's children forever, with the
-      # completer referencing a dead widget.
-      @subs.auto_dispose(widget) { detach }
     end
 
-    # Removes all handlers and tears down the popup.
-    def detach : Nil
-      @subs.off
-      @filter.off
-      @dismiss.try &.close
-      @dismiss = nil
-      Widget.destroy_satellite @popup
-      @popup = nil
-      @open = false
-      @widget = nil
-      @last_filter_value = nil
-    end
-
-    # Whether the completion popup is currently shown.
-    def open? : Bool
-      @open
-    end
-
-    # The per-keystroke filter handler. Re-registered at the tail (removing any
-    # prior one) so it always runs after the box's input handler and sees the
-    # post-keystroke `#value`.
-    private def install_filter(widget : Widget::LineEdit) : Nil
-      # `#on` cancels the previously-armed filter, so re-focusing can't stack them.
-      @filter.on(widget, Crysterm::Event::KeyPress, at: ::EventHandler.at_end) do |_|
-        if @suppress_filter
-          @suppress_filter = false
-        else
-          refilter
-          val = widget.value
-          if @matches.empty? || (@matches.size == 1 && @matches.first == val)
-            close
-          elsif val == @last_filter_value
-            # Value unchanged since the last filter pass (e.g. cursor movement):
-            # keep an open popup fresh, but never reopen a dismissed one.
-            refresh if @open
-          else
-            @last_filter_value = val
-            @open ? refresh : open
-          end
-        end
+    # The per-keystroke filter pass: recompute the matches for the box's whole
+    # value, then close / refresh / open the drop-down accordingly.
+    private def filter_pass(widget : Widget::LineEdit) : Nil
+      refilter
+      val = widget.value
+      if @matches.empty? || (@matches.size == 1 && @matches.first == val)
+        close
+      elsif val == @last_filter_value
+        # Value unchanged since the last filter pass (e.g. cursor movement):
+        # keep an open popup fresh, but never reopen a dismissed one.
+        refresh if @open
+      else
+        @last_filter_value = val
+        @open ? refresh : open
       end
     end
 
@@ -261,23 +179,6 @@ module Crysterm
           consume e
         end
       end
-    end
-
-    # Moves the popup's highlight (Up/Down) and re-renders — `List#current_index=`
-    # updates the cursor but doesn't itself repaint.
-    private def move_popup(&block : Popup ->) : Nil
-      return unless pop = @popup
-      block.call pop
-      pop.request_render
-    end
-
-    # Stops the keypress: accepts it (so it doesn't bubble to ancestors) and
-    # blanks it so the box's input handler, which runs afterwards, ignores it.
-    private def consume(e : Crysterm::Event::KeyPress) : Nil
-      e.accept
-      e.key = nil
-      e.char = '\u0000'
-      @suppress_filter = true
     end
 
     # The completions for *text* under the current `#mode`/`#case_sensitive?`
@@ -309,42 +210,9 @@ module Crysterm
       @matches = val.empty? ? @model.dup : completions(val)
     end
 
-    # Loads the current `@matches` into *pop*, re-parks the highlight on the
-    # first row, and repositions the drop-down under *widget*. Shared by `#open`
-    # and `#refresh`.
-    private def populate(pop : Popup, widget : Widget::LineEdit) : Nil
-      pop.items = @matches
-      pop.reset_cursor
-      position pop, widget
-    end
-
     private def open : Nil
-      return unless widget = @widget
       return if @matches.empty?
-      pop = ensure_popup widget
-      populate pop, widget
-      pop.show
-      pop.to_front
-      @open = true
-      # Dismiss on a press outside both the drop-down and its box (a press on
-      # the box itself is "inside" — its own handler toggles the list). No modal
-      # grab: the box keeps focus and keeps filtering as you type.
-      s = Crysterm::Overlay::DismissSession.new(
-        widget.window, grab_owner: nil,
-        inside: ->(x : Int32, y : Int32) {
-          (@popup.try(&.contains_point?(x, y)) || false) || (@widget.try(&.contains_point?(x, y)) || false)
-        }) { close }
-      s.open
-      @dismiss = s
-      widget.request_render
-    end
-
-    private def refresh : Nil
-      return unless widget = @widget
-      if pop = @popup
-        populate pop, widget
-        widget.request_render
-      end
+      open_popup
     end
 
     # Toggles the popup: opens it on the current matches (the whole model for an
@@ -356,22 +224,6 @@ module Crysterm
         refilter
         open unless @matches.empty?
       end
-    end
-
-    # Hides the popup (no change to the box). Public so the popup's
-    # `cancel_current` can route an Escape/outside dismissal back here.
-    def close : Nil
-      return unless @open
-      @open = false
-      # Record the value at dismissal so a following non-modifying key (cursor
-      # movement, unchanged text) doesn't reopen the popup; only a real text
-      # change will differ from this and reopen. Nil-resetting here instead
-      # would reintroduce the reopen-on-Escape bug.
-      @last_filter_value = @widget.try &.value
-      @popup.try &.hide
-      @dismiss.try &.close
-      @dismiss = nil
-      @widget.try &.request_render
     end
 
     # Inserts the completion at *index* into the box and closes the popup. Public
@@ -386,70 +238,21 @@ module Crysterm
       @last_filter_value = nil
     end
 
-    private def accept_current : Nil
-      commit_index(@popup.try(&.current_index) || 0)
+    # The drop-down rows are the matched candidates themselves.
+    private def popup_rows : Array(String)
+      @matches
     end
 
-    private def ensure_popup(widget : Widget::LineEdit) : Popup
-      # A cross-window reparent of the box strands the cached popup on the old
-      # window (it is a *window* child): reopening would render the list over
-      # there while placement and the dismiss watcher use the new window. Drop
-      # the stale popup and rebuild on the box's current window.
-      if (stale = @popup) && stale.window? != widget.window?
-        Widget.destroy_satellite stale
-        @popup = nil
-      end
-      @popup ||= begin
-        pop = Popup.new(
-          window: widget.window,
-          top: 0, left: 0,
-          width: 16, height: 3,
-          style: Style.new(border: true),
-          overflow: Crysterm::Overflow::MoveWidget,
-        )
-        pop.completer = self
-        # The wheel scrolls the list while it's open. A wheel over a *row* is
-        # handled by `List`'s per-item handler; this covers a wheel over the
-        # popup's border/padding, going through the same `#wheel_scroll` so both
-        # behave identically.
-        pop.on(Crysterm::Event::Mouse) do |e|
-          if e.action.wheel_down?
-            pop.wheel_scroll 1; e.accept; pop.request_render
-          elsif e.action.wheel_up?
-            pop.wheel_scroll -1; e.accept; pop.request_render
-          end
-        end
-        widget.window.append pop
-        pop.hide
-        pop
-      end
-    end
-
-    private def position(pop : Widget::List, widget : Widget::LineEdit) : Nil
-      rows = Math.min(Math.max(@matches.size, 1), @max_visible_items)
-      # Outer height = visible rows plus the popup's own border/padding
-      # (`#ivertical`), so a themed/padded popup sizes correctly — mirrors
-      # ComboBox#place_popup's `pop.visible_rows + pop.ivertical`. `ivertical`
-      # is 2 for the default `Style.new(border: true)` popup (1-cell top/bottom
-      # border, no padding), matching the `+ 2` this replaces.
-      h = rows + pop.ivertical
-      pop.height = h
-      w = Math.max(widget.awidth, 8)
-      pop.width = w
-      # Prefer directly below the field; flip above only when the list can't fit
-      # below. `Overlay.place_child` owns the fit choice, the on-window clamp, and
-      # the absolute→window-local inset conversion the window-appended popup needs.
-      #
-      # Anchor on the field's *painted* rect (`Widget#painted_rect`, with a
-      # pre-render layout fallback), not its layout coords: inside a
-      # scrolled/child_base ancestor the two diverge by the ancestor's scroll
-      # base, and the popup (a window child) is painted exactly where we put
-      # it — so layout coords would open the list detached from the visible
-      # field. Mirrors ComboBox#place_popup / DateEdit#position_popup.
-      Overlay.place_child(pop, widget.painted_rect,
-        {w, h}, [Overlay::Side::Below, Overlay::Side::Above])
-    rescue
-      # Not laid out yet — keep defaults.
+    private def build_popup(widget : Widget::LineEdit) : Popup
+      pop = Popup.new(
+        window: widget.window,
+        top: 0, left: 0,
+        width: 16, height: 3,
+        style: Style.new(border: true),
+        overflow: Crysterm::Overflow::MoveWidget,
+      )
+      pop.completer = self
+      pop
     end
   end
 end

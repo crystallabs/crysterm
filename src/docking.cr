@@ -255,15 +255,14 @@ module Crysterm
       #   unconditionally on a single recip, `preserve` or not: the adjacent
       #   text `+` is itself a line glyph, so `preserve` legitimately equals
       #   `recip` here, and gating this arm on `preserve == 0` would reject the
-      #   very case it exists to protect (reintroducing BUGS15 #30 — "C++"
-      #   rendering as "C--").
+      #   very case it exists to protect ("C++" rendering as "C--").
       # * A `-`/`|` text glyph (self_bits a single L|R or U|D pair) whose lone
       #   reciprocating neighbor is PERPENDICULAR to it (`self_bits & recip ==
       #   0`) — e.g. a text '-' with a border '+' directly above rewriting it
-      #   to '|' (B18-28). Scoped to `preserve == 0`: a genuine border run-end
-      #   always carries a `preserve` arm from its adjacent line-glyph
-      #   neighbors (line 240), so real junction merging is untouched — this
-      #   only catches text, which never contributes `preserve`.
+      #   to '|'. Scoped to `preserve == 0`: a genuine border run-end always
+      #   carries a `preserve` arm from its adjacent line-glyph neighbors (the
+      #   preserve accumulation above), so real junction merging is untouched —
+      #   this only catches text, which never contributes `preserve`.
       return ch if ascii && (recip & (recip - 1)) == 0 &&
                    (self_bits == (BITWISE_L_ANGLE | BITWISE_U_ANGLE | BITWISE_R_ANGLE | BITWISE_D_ANGLE) ||
                    ((self_bits & recip) == 0 && preserve == 0))

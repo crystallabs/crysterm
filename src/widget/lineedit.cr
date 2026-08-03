@@ -1,4 +1,5 @@
 require "./input"
+require "../mixin/input_history"
 require "../mixin/text_editing"
 
 module Crysterm
@@ -16,6 +17,10 @@ module Crysterm
     class LineEdit < Input
       include Mixin::TextEditing
       include Mixin::TextEditing::FlatBuffer
+      # Shell-style Up/Down input history (`#history`, `#history_keys?`,
+      # `#record_history`/`#history_prev`/`#history_next`); the Up/Down key
+      # arms below decide when to walk it.
+      include Mixin::InputHistory
 
       # How the value is displayed, mirroring Qt's `QLineEdit::EchoMode`.
       enum EchoMode
@@ -50,26 +55,6 @@ module Crysterm
       # Greyed-out prompt shown while the box is empty, like Qt's
       # `QLineEdit#placeholderText`. It is purely visual: `#value` stays empty.
       property placeholder_text : String = ""
-
-      # Whether Up/Down walk the input history. On by default (shell-prompt
-      # style); set false so the keys pass through for the host to navigate, e.g.
-      # to move between form fields.
-      property? history_keys : Bool = true
-
-      # Submitted lines, oldest first — the input history walked by Up/Down
-      # (like a shell prompt or Qt's editable combo). Public so an app can
-      # pre-seed or inspect it.
-      getter history = [] of String
-
-      # Cursor into `@history`; `nil` is the sentinel "on the live line you're
-      # typing" (Up steps back from the newest entry, Down returns here). Left
-      # lazily `nil` rather than eagerly `history.size`, so a pre-seeded history
-      # is reachable from the start; walkers resolve it as
-      # `@history_pos || @history.size`.
-      @history_pos : Int32? = nil
-      # The half-typed line stashed on the first Up, restored when Down walks
-      # back past the newest entry — so browsing history never loses your draft.
-      @history_draft = ""
 
       def initialize(
         echo_mode : EchoMode? = nil,
@@ -130,46 +115,6 @@ module Crysterm
       private def sanitize_paste(text : String) : String
         return text unless text.includes? '\n'
         text.chomp.gsub(/\r?\n/, ' ')
-      end
-
-      # Append a just-submitted line to the history and reset the cursor to the
-      # live line. Blank lines and an immediate repeat of the last entry are
-      # skipped (shell `ignoredups`), so Up gives back meaningful commands.
-      private def record_history(line)
-        @history_pos = nil
-        @history_draft = ""
-        return if line.empty?
-        return if !@history.empty? && @history.last == line
-        @history << line
-      end
-
-      # Up: recall an older entry. On the first step off the live line, stash the
-      # draft so Down can bring it back.
-      private def history_prev
-        return if @history.empty?
-        # `nil` (live line) resolves to the sentinel `history.size`.
-        pos = @history_pos || @history.size
-        return if pos == 0
-        @history_draft = @value if pos == @history.size
-        pos -= 1
-        @history_pos = pos
-        # A non-nil `value=` is an external set, which parks the cursor at the end.
-        self.value = @history[pos]
-      end
-
-      # Down: recall a newer entry, or step back onto the stashed draft once you
-      # walk past the newest entry.
-      private def history_next
-        pos = @history_pos || @history.size
-        return if pos >= @history.size
-        pos += 1
-        if pos == @history.size
-          @history_pos = nil
-          self.value = @history_draft
-        else
-          @history_pos = pos
-          self.value = @history[pos]
-        end
       end
 
       # Expanded-codepoint index of the first content column currently shown —

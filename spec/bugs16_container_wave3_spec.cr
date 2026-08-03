@@ -2,8 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS16 wave-3 container findings: B16-45, B16-46.
-
 # B16-45 — `DockWidget#area=` to `Floating` skipped `toggle_floating`'s
 # bookkeeping: the docked anchors (`right`/`bottom`) survived and fought the
 # drag handler, `@prev_area` was never recorded (a later re-dock went to

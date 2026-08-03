@@ -3,7 +3,7 @@ module Crysterm
     # Convenience regex for matching Crysterm tags and their content (i.e. '{bold}This text is bold{/bold}').
     # An alias of the canonical `TextTags::TAG_REGEX` (the document framework
     # owns it, so `text/` can stand alone; widgets already require text/) —
-    # referenced, not duplicated, so the two cannot drift (R-75).
+    # referenced, not duplicated, so the two cannot drift.
     TAG_REGEX = TextTags::TAG_REGEX
 
     # Convenience regex for matching line-alignment tags (`{center}`, `{/right}`, ...).
@@ -30,7 +30,7 @@ module Crysterm
     property? parse_tags = false
 
     # Alignment of contained text. (The `align`-consuming reads live in
-    # `widget_content_wrap.cr`, after the content-file split.)
+    # `widget_content_wrap.cr`.)
     Crystallabs::Helpers::Enums.enum_property align : Tput::AlignFlag = Tput::AlignFlag::Top | Tput::AlignFlag::Left
 
     # `wrap_content`/`parse_tags`/`align` all change wrap output, so their setters

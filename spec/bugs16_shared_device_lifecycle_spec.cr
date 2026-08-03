@@ -59,9 +59,9 @@ describe "BUGS16 B16-03: non-active sibling realloc leaves the shared tty alone"
       sleep 80.milliseconds
       out.clear
 
-      # The non-active sibling's `on_resize` reallocs synchronously; pre-fix
-      # `alloc` ended with `tput.clear` on the SHARED tty, erasing the active
-      # window's frame behind its back. It must write nothing at all.
+      # The non-active sibling's `on_resize` reallocs synchronously; `alloc`
+      # must not end with `tput.clear` on the SHARED tty, which would erase
+      # the active window's frame behind its back. It must write nothing at all.
       size = ::Crysterm::Size.new(a.awidth - 4, a.aheight - 2)
       b.emit ::Crysterm::Event::Resize.new size
       sleep 80.milliseconds
@@ -87,10 +87,10 @@ describe "BUGS16 B16-04: switch_terminal input-fiber handover" do
     w2 = w.switch_terminal "xterm"
     begin
       spy.stop_input_window_counts.empty?.should be_false
-      # At the first `stop_input` the replacement must NOT exist yet: pre-fix
-      # the old input fiber was stopped only inside `destroy` (via
-      # `reparent_onto`), AFTER the replacement was built — and probed — while
-      # the old fiber still read the same tty.
+      # At the first `stop_input` the replacement must NOT exist yet: stopping
+      # the old input fiber only inside `destroy` (via `reparent_onto`), AFTER
+      # the replacement was built — and probed — would race the old fiber
+      # against the same tty.
       spy.stop_input_window_counts.first.should eq baseline
     ensure
       w2.destroy
@@ -109,9 +109,9 @@ describe "BUGS16 B16-04: switch_terminal input-fiber handover" do
 
     w2 = w.switch_terminal "xterm"
     begin
-      # Pre-fix nothing restored input on the replacement — the old fiber
-      # was left racing the constructor probe and the new window came up
-      # deaf until an explicit `start_input`.
+      # Restoring input on the replacement guards against the old fiber
+      # racing the constructor probe and the new window coming up deaf
+      # until an explicit `start_input`.
       w2.screen.listening?.should be_true
     ensure
       w2.destroy
@@ -147,8 +147,9 @@ describe "BUGS16 B16-06: in-band resize reaches every window on the device" do
         resize: Tput::Resize.new(rows: rows, cols: cols, pixel_height: 0, pixel_width: 0))
       app.route_input dev, e
 
-      # Each window debounces the report on its own resize loop; pre-fix only
-      # the active w2 ever saw it and w1's buffers stayed stale forever.
+      # Each window debounces the report on its own resize loop; the broadcast
+      # must reach every window on the device, not just the active w2, or
+      # w1's buffers would stay stale forever.
       wait_until { w2.lines.size == rows }
       wait_until { w1.lines.size == rows }
       w1.lines[0].size.should eq cols

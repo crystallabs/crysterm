@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `TextTable` editing (TEXTEDIT.md follow-up: editable tables + cell
+# `TextTable` editing (editable tables + cell
 # cursors). Pure model: cell location primitives (`cell_at`,
 # `cell_text_range`, `cell_cursor`), cell rewriting with padding re-render,
 # and row/column restructuring — each op one undo step through the

@@ -6,12 +6,12 @@ include Crysterm
 #
 # `Media::Base#bitmap=` replaces the source content without changing box
 # geometry and calls `#reset_sample_cache` to drop per-size derived caches.
-# `Media::Cells` overrides that hook, but `Media::Graphics` (sixel/Kitty/
-# iTerm/ReGIS) used to inherit the no-op base version. Its `#payload_for`
-# cache is keyed only on geometry, so a same-size live update kept serving the
-# previous frame's encoded payload, freezing the graphic on a stale image. Fix:
-# override clears that cache (and emit-tracking keys) so the next render
-# re-encodes the new bitmap.
+# `Media::Cells` overrides that hook, and `Media::Graphics` (sixel/Kitty/
+# iTerm/ReGIS) must too — its `#payload_for` cache is keyed only on geometry,
+# so with the inherited no-op base version a same-size live update keeps
+# serving the previous frame's encoded payload, freezing the graphic on a
+# stale image. The override clears that cache (and emit-tracking keys) so the
+# next render re-encodes the new bitmap.
 
 private def solid(r, g, b, w = 4, h = 4) : PNGGIF::Bitmap
   Array.new(h) { Array.new(w) { PNGGIF::Pixel.new(r, g, b, 255) } }

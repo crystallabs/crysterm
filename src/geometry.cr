@@ -408,7 +408,6 @@ module Crysterm
 
       @renders = @renders,
 
-      # Disable all this:
       @aleft = @aleft,
       @atop = @atop,
       @aright = @aright,

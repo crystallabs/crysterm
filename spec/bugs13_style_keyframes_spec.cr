@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the BUGS13 keyframes/animation batch:
+# Regression specs for the keyframes/animation batch:
 #
 # * S2 — `@keyframes` inside `@media` keeps the guard: a media-gated override
 #   must not clobber the general definition on every terminal; the lookup

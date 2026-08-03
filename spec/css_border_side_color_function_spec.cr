@@ -7,9 +7,7 @@ include Crysterm
 #
 # A color function carries internal spaces/commas (`rgb(30, 30, 46)`), so the
 # shorthand must tokenize on top-level whitespace only, keeping the function
-# whole, like `border` and `border-color` already do. Plain `value.split` used
-# to shred it into junk fragments (`rgb(30,`, `30,`, `46)`) that each resolved
-# to the `-1` "unknown" sentinel.
+# whole, like `border` and `border-color` already do.
 describe "CSS border-<side> shorthand with a color function" do
   it "keeps an rgb(...) value whole and routes it to the per-side color slot" do
     s = Style.new

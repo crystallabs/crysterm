@@ -31,7 +31,7 @@ describe "BUGS12 #33 Enter without a focused link" do
     clicked = [] of String
     tb.on(Crysterm::Event::AnchorClick) { |e| clicked << e.url }
 
-    # Enter with nothing focused: previously activated links[-1] (the last).
+    # Enter with nothing focused must not activate links[-1] (the last).
     tb._listener ctl(::Tput::Key::Enter)
     clicked.should be_empty
   end

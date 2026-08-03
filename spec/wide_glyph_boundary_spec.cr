@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression (BUGS.md #8): a wide (2-column) grapheme whose lead cell lands on
+# Regression: a wide (2-column) grapheme whose lead cell lands on
 # the LAST content column has no room for its continuation cell inside the
 # content region. The renderer's continuation claim is gated on `x + 1 < xl`,
-# so it used to leave a width-2 glyph at the boundary with real content (the
-# border) in the very next column. `draw` (window_drawing) then claimed that
+# so a width-2 glyph could be left at the boundary with real content (the
+# border) in the very next column; `draw` (window_drawing) would then claim that
 # neighbor as a continuation purely from the lead cell's width — corrupting the
 # border cell and desyncing cell-index from terminal column.
 #
@@ -16,7 +16,7 @@ include Crysterm
 # into a too-narrow region rather than dropped. A 1-column content area (a
 # width-3 bordered box) is the minimal trigger.
 #
-# The fix blanks an unshowable half-glyph to a space at render time, preserving
+# An unshowable half-glyph is blanked to a space at render time, preserving
 # the invariant "a width-2 cell is always followed by an in-region continuation".
 
 private def fu_screen(width, height)
@@ -66,8 +66,7 @@ describe "wide glyph at a content boundary" do
 
   # The invariant across a broad sweep of narrow bordered boxes, wrap on/off, and
   # horizontal scroll offsets: no width-2 cell is ever left without an in-region
-  # continuation cell immediately after it. (Fails on every buggy combination
-  # before the fix; the search surfaced 91.)
+  # continuation cell immediately after it.
   it "never leaves a width-2 cell without an in-region continuation" do
     {"aあ漢い", "😀😀😀", "漢漢漢漢"}.each do |content|
       (3..6).each do |w|

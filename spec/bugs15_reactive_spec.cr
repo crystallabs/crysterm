@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS15 #68 and #74 (reactive subsystem).
+# Regression specs (reactive subsystem):
 #
 # #68: `Reactive.flush` must be re-entrancy-safe. A deferred effect that
 # writes a signal during the flush opens a nested propagation wave whose

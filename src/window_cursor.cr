@@ -6,14 +6,25 @@ module Crysterm
   class Cursor < Tput::Namespace::Cursor
     property style : Style = Style.new(fill_char: Config.cursor_glyph)
 
-    # Artificial (software-drawn) cursor state. These lived on
-    # `Tput::Namespace::Cursor` historically, but tput never reads them — the
+    # Artificial (software-drawn) cursor state. Tput never reads these — the
     # artificial cursor is a Crysterm *rendering* concern (composited into the
-    # cell buffer by `#draw`), so the fields moved down here (R-29).
+    # cell buffer by `#draw`), so the fields live here rather than on
+    # `Tput::Namespace::Cursor`.
     property? artificial : Bool = false
     property _state = 1
     property _hidden = true
     property char = '▮'
+
+    @attr_memo = Style::AttrMemo.new
+
+    # `Widget.style_to_attr(style)` for this cursor, memoized on
+    # {style identity, `Style#attr_revision`} — the artificial `None`-shape
+    # renderer re-derives it every frame with an unchanged style. An in-place
+    # `set_cursor_color` (`style.fg = ...`) bumps the revision, and a `style =`
+    # swap changes identity, so both invalidate.
+    def style_attr : Int64
+      @attr_memo.fetch(@style)
+    end
   end
 
   class Window
@@ -177,8 +188,9 @@ module Crysterm
         # so the cursor stays visible instead of no-op'ing into invisibility.
         attr = Attr.pack(Attr.flags(attr) ^ Attr::REVERSE, Attr.fg(attr), Attr.bg(attr))
       elsif cursor.shape.none?
-        # `None` is the custom cursor: draw it from the cursor's own `style` (glyph and colors).
-        cattr = Widget.style_to_attr cursor.style
+        # `None` is the custom cursor: draw it from the cursor's own `style`
+        # (glyph and colors), via the cursor's memoized attr.
+        cattr = cursor.style_attr
         flags = Attr.flags(attr)
         if cursor.style.bold? || cursor.style.underline? || cursor.style.blink? || cursor.style.reverse? || cursor.style.italic? || cursor.style.strike? || !cursor.style.visible?
           flags = Attr.flags(cattr)

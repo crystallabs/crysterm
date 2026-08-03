@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Rich clipboard (TEXTEDIT.md Phase 3): the in-process clipboard carries a
+# Rich clipboard: the in-process clipboard carries a
 # `TextDocumentFragment` alongside its plain text; the OSC-52/terminal side
 # stays text-only. Copy sets both; paste prefers the fragment only where the
 # buffer can take it (`Widget::TextEdit`'s document buffer) and only while

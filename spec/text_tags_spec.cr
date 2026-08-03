@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Tag-markup interchange (`TextTags`, TEXTEDIT.md Phase 3): the native
+# Tag-markup interchange (`TextTags`): the native
 # serialization of `TextDocument` content. Pure model, no screen needed.
 
 private def doc_from(tags : String) : Crysterm::TextDocument

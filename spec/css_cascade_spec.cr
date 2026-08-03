@@ -1454,9 +1454,9 @@ describe "CSS cascade" do
   end
 
   it "preserves a widget hidden before the first cascade" do
-    # Regression: a widget hidden at construction must stay hidden once CSS
-    # takes over. The cascade used to rebuild from a `visible: true` snapshot
-    # and `fold_inline` didn't carry `visible`.
+    # A widget hidden at construction must stay hidden once CSS takes over —
+    # the cascade must not rebuild from a `visible: true` snapshot, and
+    # `fold_inline` must carry `visible`.
     screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: screen, style: Style.new(border: true)
     box.hide

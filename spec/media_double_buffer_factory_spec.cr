@@ -6,9 +6,9 @@ include Crysterm
 #
 # The factory builds the graphics backend with its own default
 # (`media.double_buffer`, `true`) then overrides it from `double_buffer:`.
-# The override used a plain truthiness test (`if (db = double_buffer)`), so
-# an explicit `double_buffer: false` was silently dropped. Fixed by
-# distinguishing "not given" (nil) from an explicit `false`.
+# The override must distinguish "not given" (nil) from an explicit `false` —
+# a plain truthiness test (`if (db = double_buffer)`) silently drops
+# `double_buffer: false`.
 
 describe "Widget::Media.new double_buffer: forwarding" do
   it "honours an explicit double_buffer: false on a graphics backend" do

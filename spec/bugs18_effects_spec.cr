@@ -8,16 +8,16 @@ include Crysterm
 #     repeat mode, `@frame % cycle`. With `spacing: 0, travel: 0, hold: 0`
 #     ("fill instantly, loop immediately") the cycle was 0 and the modulo
 #     raised `DivisionByZeroError`, killing the animation fiber and leaving
-#     `running?` stuck. The cycle is now floored at 1, so the degenerate
+#     `running?` stuck. The cycle is floored at 1, so the degenerate
 #     configuration renders the fully-landed pattern instead (and a negative
-#     `hold` can no longer freeze the spray in the pending-spark state).
+#     `hold` cannot freeze the spray in the pending-spark state).
 #
 #   * B18-85 — `Effect::Direct#paint` (and `SineScroller#render`) derived the
 #     simulation size from the clip-adjusted visible rectangle. Each scroll
 #     step of a clipping ancestor changed the visible height, re-running
 #     `resize` and wiping the whole simulation state, while the visible slice
 #     showed a re-simulated shrunken field instead of the correct region of
-#     the full one. Both now size from the UNCLIPPED interior and map visible
+#     the full one. Both size from the UNCLIPPED interior and map visible
 #     cells through the clip (rows via `coords.base`, columns via the
 #     unclipped origin), per the `Widget::Terminal#draw` convention.
 #
@@ -25,11 +25,11 @@ include Crysterm
 #     consumed only when slots are (re)built, which happened only in `resize`
 #     — a mid-run reassignment silently did nothing until an unrelated
 #     resize. `origin=` was half-live: the emitter moved but a `Fill::Radial`
-#     order stayed sorted around the old origin. All three now apply live.
+#     order stayed sorted around the old origin. All three apply live.
 #
 #   * B18-88 — `Effect::Animated#interval=` only wrote the widget ivar; the
 #     running `FrameClock` keeps its own copy (read live each tick), so a
-#     cadence change was inert until stop/start. The setter now forwards to
+#     cadence change was inert until stop/start. The setter forwards to
 #     the running clock.
 #
 # Everything is driven headlessly over in-memory IOs; `#render`/`#advance` are
@@ -79,8 +79,8 @@ describe "BUGS18 B18-84: Spray degenerate cycle" do
     sp = Widget::Effect::Spray.new parent: s, top: 0, left: 0, width: 6, height: 4,
       spacing: 0, travel: 0, hold: 0
     sp.resize 6, 4
-    # Pre-fix: cycle == 0 and `@frame % 0` raised DivisionByZeroError on the
-    # first advance, killing the animation fiber unrecoverably.
+    # Guards against cycle == 0 and `@frame % 0` raising DivisionByZeroError
+    # on the first advance, which would kill the animation fiber unrecoverably.
     3.times { sp.advance 6, 4 }
     # With the cycle floored at 1 every slot is landed each frame: the full
     # pattern shows instead of a dead fiber.
@@ -95,8 +95,9 @@ describe "BUGS18 B18-84: Spray degenerate cycle" do
     sp = Widget::Effect::Spray.new parent: s, top: 0, left: 0, width: 4, height: 3,
       spacing: 1, travel: 1, hold: -100
     sp.resize 4, 3
-    # Pre-fix `f = @frame % cycle` took the negative divisor's sign, wedging
-    # the spray in the pending-spark state (with a 1-frame landed flicker).
+    # Guards against `f = @frame % cycle` taking the negative divisor's sign,
+    # which would wedge the spray in the pending-spark state (with a 1-frame
+    # landed flicker).
     3.times { sp.advance 4, 3 }
   ensure
     s.try &.destroy
@@ -112,8 +113,8 @@ describe "BUGS18 B18-85: clipped Effect::Direct keeps the full-size simulation" 
     par.child_base = 2
     s.repaint
 
-    # Pre-fix: resize {10, 4} — the visible slice. The simulation must be
-    # allocated at the full 10x8 interior.
+    # The simulation must be allocated at the full 10x8 interior, not
+    # resize {10, 4} (the visible slice).
     eff.resize_calls.should eq [{10, 8}]
     eff.cell_sizes.uniq.should eq [{10, 8}]
     # The 2 rows hidden above the clip edge (`coords.base`) offset the lookup:
@@ -145,9 +146,9 @@ describe "BUGS18 B18-85: clipped Effect::Direct keeps the full-size simulation" 
     eff.step
     s.repaint
 
-    # Pre-fix each scroll step changed the visible height and re-ran `resize`,
-    # resetting the whole effect state (Fire heat, Matrix drops, Spray slots)
-    # per step.
+    # Guards against each scroll step changing the visible height and
+    # re-running `resize`, which would reset the whole effect state (Fire
+    # heat, Matrix drops, Spray slots) per step.
     eff.resize_calls.should eq [{10, 8}]
     cell_char(s, 0, 0).should eq 'C'
   ensure
@@ -167,8 +168,8 @@ describe "BUGS18 B18-85: clipped Effect::Direct keeps the full-size simulation" 
     hits = 0
     (0...20).each do |x|
       # Full-field wave row for column x at frame 0 — the amplitude comes from
-      # the FULL height 8, not the visible 4 (pre-fix: amp squashed to 1.5 and
-      # every row re-mapped into the slice).
+      # the FULL height 8, not the visible 4 (guards against the amplitude
+      # squashing to 1.5 with every row re-mapped into the slice).
       r = (3.5 * (1.0 + Math.sin(x * 0.32))).round.to_i.clamp(0, 7)
       col = (0...4).map { |sy| cell_char(s, x, sy) }
       if 2 <= r < 6
@@ -193,8 +194,8 @@ describe "BUGS18 B18-86: Spray pattern=/fill=/origin= apply live" do
     sp.slots.first[2].should eq '▒'
 
     sp.pattern = "AB"
-    # Pre-fix: nothing changed until an unrelated resize. The glyphs must be
-    # remapped in place, keeping the visit order (rows: {0,0} then {1,0}).
+    # The glyphs must be remapped in place, keeping the visit order (rows:
+    # {0,0} then {1,0}), not wait for an unrelated resize.
     sp.slots.map { |sl| sl[2] }.first(4).should eq ['A', 'B', 'A', 'B']
     sp.slots.first.should eq({0, 0, 'A'})
     sp.slots[1].should eq({1, 0, 'B'})
@@ -209,7 +210,7 @@ describe "BUGS18 B18-86: Spray pattern=/fill=/origin= apply live" do
     sp.slots[1][0..1].should eq({1, 0}) # row-major
 
     sp.fill = Widget::Effect::Spray::Fill::Columns
-    # Pre-fix the old row-major slots kept projecting forever.
+    # Guards against the old row-major slots projecting forever.
     sp.slots[1][0..1].should eq({0, 1}) # column-major
   ensure
     s.try &.destroy
@@ -223,8 +224,8 @@ describe "BUGS18 B18-86: Spray pattern=/fill=/origin= apply live" do
     sp.slots.first[0..1].should eq({0, 0}) # nearest the old emitter
 
     sp.origin = {5, 2}
-    # Pre-fix glyphs launched from the new origin but landed in the OLD
-    # origin's radial order.
+    # Guards against glyphs launching from the new origin but landing in
+    # the OLD origin's radial order.
     sp.slots.first[0..1].should eq({5, 2})
   ensure
     s.try &.destroy
@@ -262,7 +263,8 @@ describe "BUGS18 B18-88: Animated#interval= forwards to the running clock" do
 
       eff.interval = 0.02.seconds
       eff.interval.should eq 0.02.seconds
-      # Pre-fix the clock kept its construction-time copy until stop/start.
+      # Guards against the clock keeping its construction-time copy until
+      # stop/start.
       clock.interval.should eq 0.02.seconds
     ensure
       eff.stop

@@ -47,9 +47,9 @@ require "./spec_helper"
     end
 
     # A string option with a non-empty constructor default (e.g.
-    # `ProgressBar#format = "%p%"`) must round-trip when cleared to "".
-    # The auto-serializer previously skipped empty strings, so a cleared value
-    # silently reverted to the default on reload.
+    # `ProgressBar#format = "%p%"`) must round-trip when cleared to "" — an
+    # auto-serializer that skips empty strings silently reverts a cleared
+    # value to the default on reload.
     it "round-trips a non-empty-default string option cleared to empty" do
       s = headless_screen(default_quit_keys: true)
       pb = Crysterm::Widget::ProgressBar.new window: s

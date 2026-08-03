@@ -2,15 +2,15 @@ require "./spec_helper"
 
 include Crysterm
 
-# FORMAL-WIDGETS Part B / B8 — shared behavioral conformance for the paged
-# container family (`StackedWidget`, `TabWidget`, `ToolBox`, `Wizard`). Only the
+# Shared behavioral conformance for the paged container family
+# (`StackedWidget`, `TabWidget`, `ToolBox`, `Wizard`). Only the
 # *adding* verb still differs per widget (`add_widget`/`add_tab`/`add_item`); the
 # selection contract (`count`, `current_index`/`current_index=`,
 # `current_widget`/`current_widget=`, `Event::CurrentChanged`) is one shared
 # `Mixin::PagedContainer`, so the adapter differs only where it must. Pins the
 # empty-state contract — `current_index == -1` and the current widget is `nil`,
-# never the *last* element — which is the live B0.1 drift (`ToolBox` used to
-# return the last section for an empty toolbox).
+# never the *last* element — guarding the drift where `ToolBox` returned the
+# last section for an empty toolbox.
 
 # `current_widget` / `set_current` are nil for `Wizard` (no per-index widget
 # getter and no direct index setter — it navigates via `advance`/`back`).

@@ -6,9 +6,9 @@ include Crysterm
 #
 # * W11 — `Painter#fill_rect` clamps its loop bounds to the bitmap after the
 #   coordinate swap, so a non-finite or far-off-canvas rect returns promptly
-#   (pre-fix, `to_px` mapped non-finite coords to the ±PX_LIMIT sentinel and
-#   the loops iterated the full sentinel span — ~10^12 plot calls for a
-#   NaN×NaN rect, wedging the render fiber).
+#   (an unclamped `to_px` maps non-finite coords to the ±PX_LIMIT sentinel,
+#   and the loops would iterate the full sentinel span — ~10^12 plot calls
+#   for a NaN×NaN rect, wedging the render fiber).
 # * W12 — `Painter#fill_ring` refines its angular spoke step by the outer
 #   radius (adjacent spokes ≤ ~0.5 px apart at the outer rim, floored at
 #   0.05°), so large-radius rings show no radial pinhole banding (the fixed
@@ -33,8 +33,8 @@ describe "BUGS13 W11: Painter#fill_rect clamps its iteration to the bitmap" do
     p.fill_rect inf, 0, 10, 10
     p.fill_rect 0, -inf, 5, nan
     p.fill_rect nan, 2, 3, 3
-    # Completing at all proves the fix (pre-fix each call iterated ~10^12
-    # pixels); the bound just keeps a regression from hanging the suite.
+    # Completing at all matters: an unclamped call would iterate ~10^12
+    # pixels; the bound just keeps a regression from hanging the suite.
     (Time.instant - started).should be < 10.seconds
     filled_count(bmp).should eq 0
   end
@@ -79,9 +79,9 @@ describe "BUGS13 W12: Painter#fill_ring spoke density at large radii" do
     p.fill_ring c, c, ri, ro
 
     # Every pixel whose center lies safely inside the annulus band must be
-    # painted (pre-fix the fixed 0.7° spokes were ~1.8 px apart tangentially
-    # at r=150, leaving unpainted pinholes); pixels safely outside the band
-    # must stay untouched.
+    # painted (a fixed 0.7° spoke step leaves spokes ~1.8 px apart
+    # tangentially at r=150, opening unpainted pinholes); pixels safely
+    # outside the band must stay untouched.
     holes = 0
     leaks = 0
     size.times do |y|

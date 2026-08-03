@@ -6,7 +6,7 @@ include Crysterm
 # B17-23 (SizeGrip): mouse/drag hit-tests and resize math used layout coords
 # (`aleft`/`atop`) where the *painted* origin (`@lpos`) is required. Inside a
 # scrolled container the two differ by the enclosing scroll base, so a drag or
-# click landed offset by the scroll amount. The fixes resolve the pointer
+# click landed offset by the scroll amount. The pointer must be resolved
 # against the painted origin (`Widget#painted_origin`, or the painted `lpos`
 # rects directly), matching `Mixin::TrackGeometry#pointer_offset`.
 #
@@ -49,8 +49,8 @@ describe "BUGS17 B17-22: Splitter divider drag inside a scrolled container" do
     session = Crysterm::DragSession.new(div, data, lp.xi, py, Crysterm::DragSensor::Mouse)
     div.emit Crysterm::Event::Drag, session
 
-    # Post-fix: the divider lands exactly at the wanted offset. Pre-fix it used
-    # the layout origin (atop == lp.yi + k), yielding target - k == 2.
+    # The divider must land exactly at the wanted offset; resolving against
+    # the layout origin (atop == lp.yi + k) yields target - k == 2.
     sp.divider_position(0).should eq target
   end
 end
@@ -84,7 +84,7 @@ describe "BUGS17 B17-23: SizeGrip drag-resize inside a scrolled container" do
     grip.emit Crysterm::Event::DragStart, session
 
     # Drag with the pointer held on the grip (no motion). The target must keep
-    # its size — pre-fix it shrank by the scroll offset k (8 -> 5).
+    # its size, not shrink by the scroll offset k (8 -> 5).
     session.x = gx
     session.y = gy
     grip.emit Crysterm::Event::Drag, session
@@ -122,8 +122,8 @@ describe "BUGS17 B17-18: ColorDialog gradient hit-test inside a scrolled contain
 
     # Default state is fully-saturated (1.0). Click the top-left painted cell of
     # the 2-D field (saturation 0.0). This lands in the first k painted rows,
-    # which pre-fix mapped to a negative offset (outside the field) and fell
-    # through to begin_move, leaving the color untouched.
+    # which layout-coord math maps to a negative offset (outside the field),
+    # falling through to begin_move and leaving the color untouched.
     ox = lp.xi + cd.ileft
     oy = lp.yi + cd.itop
     px = ox + Crysterm::Widget::ColorDialog::FIELD_X
@@ -132,8 +132,8 @@ describe "BUGS17 B17-18: ColorDialog gradient hit-test inside a scrolled contain
     cd.saturation.should eq 1.0
     cd.emit Crysterm::Event::Mouse, pc_mouse(Tput::Mouse::Action::Down, px, py)
 
-    # Post-fix: the click picks saturation 0.0 from the leftmost field column.
-    # Pre-fix: begin_move ran instead and saturation stayed 1.0.
+    # The click must pick saturation 0.0 from the leftmost field column —
+    # not fall through to begin_move with saturation stuck at 1.0.
     cd.saturation.should eq 0.0
   end
 end

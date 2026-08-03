@@ -6,8 +6,7 @@ include Crysterm
 # (`Crysterm::CSS::Properties.apply`). The interesting case is weight: the
 # shorthand must recognize the same numeric/relative CSS weights the
 # `font-weight` longhand does (via `font_weight_bold`) — `font: 700 14px serif`
-# is bold, not only the literal `bold` keyword. It used to test for the bare
-# string "bold" alone, silently rendering a clearly-bold shorthand non-bold.
+# is bold, not only the literal `bold` keyword.
 describe "CSS font shorthand" do
   it "is bold for the literal `bold` keyword" do
     s = Style.new

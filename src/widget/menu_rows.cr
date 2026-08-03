@@ -20,7 +20,7 @@ module Crysterm
       # would see the momentarily-wrong highlight and force-close an open submenu
       # on any unrelated row rebuild (an external `action.text=`/`enabled=`, an
       # appended action, …). `#sync_items` reconciles the submenu explicitly once
-      # the final rows are in place (B17-16).
+      # the final rows are in place.
       @syncing_items = false
 
       # The item boxes that render as separator rules, rebuilt once per
@@ -461,7 +461,7 @@ module Crysterm
         # action was removed or hidden it can no longer be anchored — close the
         # submenu; otherwise its row may have shifted, so re-anchor
         # `@submenu_anchor` to the action's current item box so the outside-click
-        # watcher keeps tracking the right row (B17-16).
+        # watcher keeps tracking the right row.
         if act = @submenu_action
           if idx = @visible_actions.index act
             @submenu_anchor = @item_boxes[idx]?

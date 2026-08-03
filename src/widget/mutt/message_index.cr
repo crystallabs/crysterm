@@ -105,9 +105,9 @@ module Crysterm
             s << ' '
             s << item.date.ljust(6)
             s << "  "
-            s << Mutt.truncate(item.from, 16).ljust(16)
+            s << Crysterm::Formatting.truncate(item.from, 16).ljust(16)
             s << " ("
-            s << Mutt.human_size(item.size).rjust(5)
+            s << Crysterm::Formatting.human_size(item.size).rjust(5)
             s << ") "
             s << thread_prefix(index)
             s << item.subject
@@ -129,9 +129,9 @@ module Crysterm
         end
 
         # Builds every row's thread prefix in a single pass from the *last* message
-        # backwards, replacing the two forward scans `#thread_prefix` used to run
-        # per ancestor level (O(n²·depth) for the whole list, O(n + depth changes)
-        # here).
+        # backwards, avoiding the two forward scans the `#thread_prefix` fallback
+        # runs per ancestor level (O(n²·depth) for the whole list, O(n + depth
+        # changes) here).
         #
         # Both scans answer the same question — "is the first later message at a
         # depth ≤ *L* exactly at depth *L*?" — with opposite polarity:

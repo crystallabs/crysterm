@@ -2,8 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# FORMAL-WIDGETS Part B / B8 — shared behavioral conformance for the checkable
-# family. Two matrices:
+# Shared behavioral conformance for the checkable family. Two matrices:
 #
 #   * `it_behaves_like_a_checkable` — a single toggling control (`CheckBox`,
 #     `RadioButton`, a checkable `Button`, a checkable `ToolButton`): `check`/
@@ -12,7 +11,7 @@ include Crysterm
 #     checked. (All four subclass `AbstractButton`, so one adapter cast covers
 #     them.)
 #   * `it_behaves_like_an_exclusive_group` — the "exactly one selected" invariant
-#     encoded three ways in the tree (B5.7): `ButtonGroup` (explicit group) and a
+#     encoded three ways in the tree: `ButtonGroup` (explicit group) and a
 #     `RadioSet` of `RadioButton`s (tree-scoped) must keep exactly one member set.
 
 private record CheckableCase,

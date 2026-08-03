@@ -9,13 +9,13 @@ include Crysterm
 # `Stream` and uses its 1-frame "vehicle" `PNGGIF::PNG` purely as the resampling
 # dimension source; real frames arrive one at a time from the stream loop.
 #
-# `Media::Cells#load` (the `Ansi`/`Glyph` cell-grid backends) gated `@animated`
-# — and therefore `#play` — on `frames.size > 1`. The vehicle has exactly one
-# frame, so a streaming video never played: frozen first frame shown, and the
-# launched ffmpeg subprocess sat open but unread. (In-band graphics backends
-# avoided this via `#ensure_animation`, which plays on any non-nil `frames`.)
-# Fix: also treat a non-nil `@stream` as animated, so the stream loop runs and
-# cell backends play streaming video too.
+# `Media::Cells#load` (the `Ansi`/`Glyph` cell-grid backends) must also treat a
+# non-nil `@stream` as animated, so the stream loop runs and cell backends play
+# streaming video too. Gating `@animated` — and therefore `#play` — on
+# `frames.size > 1` alone never plays the 1-frame vehicle: frozen first frame
+# shown, and the launched ffmpeg subprocess sits open but unread. (In-band
+# graphics backends avoid this via `#ensure_animation`, which plays on any
+# non-nil `frames`.)
 
 describe "Media::Cells streaming video" do
   it "plays a streaming video on a cell-grid backend" do
@@ -37,9 +37,9 @@ describe "Media::Cells streaming video" do
     img = Crysterm::Widget::Media::Ansi.new(
       file: tmp.path, parent: s, top: 0, left: 0, width: 8, height: 4)
 
-    # `#load` opened the live stream during construction; with the fix it also
-    # started playback (previously `@animated` stayed false, `#play` was never
-    # called, freezing on the first frame and leaking the ffmpeg pipe).
+    # `#load` opened the live stream during construction and must also have
+    # started playback — otherwise `@animated` stays false, `#play` is never
+    # called, freezing on the first frame and leaking the ffmpeg pipe.
     img.playing?.should be_true
   ensure
     img.try &.stop # closes the ffmpeg pipe / halts the stream loop

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# GLYPHS.md phase 2: the CSS `glyph` property family (`glyph`, per-tier
+# The CSS `glyph` property family (`glyph`, per-tier
 # longhands, `glyph-open`/`glyph-close`), sub-control addressing
 # (`CheckBox::indicator:checked`, `ComboBox::drop-down`, `Slider::handle`,
 # `Menu::separator`, …), and the composed/measured markers that replace the

@@ -27,9 +27,9 @@ describe "BUGS16 18: Masonry gravitation respects the above child's bottom margi
     al = a.lpos.not_nil!
     bl = b.lpos.not_nil!
     # A renders at yi=0..yl=3. B wraps (row offset correctly advanced to
-    # 3+2=5 by flow_place/row_tallest) but pre-fix gravitation overwrote its
-    # top back to 3, gluing it directly under A and collapsing the 2-row
-    # bottom margin. Post-fix B must start at yi=5, respecting the margin.
+    # 3+2=5 by flow_place/row_tallest); gravitation must not overwrite that
+    # top back to 3, which would glue it directly under A and collapse the
+    # 2-row bottom margin. B must start at yi=5, respecting the margin.
     al.yi.should eq 0
     al.yl.should eq 3
     bl.yi.should eq 5

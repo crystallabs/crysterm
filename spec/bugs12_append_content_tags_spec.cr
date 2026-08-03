@@ -21,9 +21,9 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
     s = headless_screen(80, 24, default_quit_keys: true)
     box = make_box(s, parse_tags: true)
     # Two unclosed openers: a full reparse's fg stack is [red, blue] at the
-    # append boundary. Before the fix, the fast path parsed the pushed line
-    # standalone (empty stack), emitting the default-fg off-SGR, while a resize's
-    # full reparse popped blue and restored red — same content, different bytes.
+    # append boundary. A fast path parsing the pushed line standalone (empty
+    # stack) emits the default-fg off-SGR, while a resize's full reparse pops
+    # blue and restores red — same content, different bytes.
     box.set_content "{red-fg}{blue-fg}a"
     box.process_content
 
@@ -81,9 +81,9 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     force_full_reparse(box)
     box._clines.lines.map(&.to_s).should eq ["hello", "{bold}world"]
 
-    # The supported runtime flip must reparse the appended tag too. Before the
-    # fix, `@_content_has_tags` stayed false (the append gated it on
-    # `@parse_tags`), so the reparse skipped `_parse_tags` and the tag stayed
+    # The supported runtime flip must reparse the appended tag too. If the
+    # append gated `@_content_has_tags` on `@parse_tags`, the flag would stay
+    # false, the reparse would skip `_parse_tags`, and the tag would stay
     # literal permanently.
     box.parse_tags = true
     box.process_content

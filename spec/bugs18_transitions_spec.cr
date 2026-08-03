@@ -80,14 +80,14 @@ describe "B18-94 transition_color and the -1 terminal-default sentinel" do
 
     b.state = Crysterm::WidgetState::Hovered
     sleep 0.1.seconds
-    # Pre-fix every tick wrote mix(-1, #ffffff, v) = 0xFFFFFF (white-to-white);
-    # fixed, the tween blends toward the configured default (0xc0c0c0), so the
-    # mid value is never pure white.
+    # Each tick must blend toward the configured default (0xc0c0c0), not
+    # mix(-1, #ffffff, v) = 0xFFFFFF (white-to-white), so the mid value is
+    # never pure white.
     b.style.fg.should_not eq 0xffffff
 
     wait_until { b.style.fg == -1 }
     # Natural completion must restore the exact raw target — the sentinel -1 —
-    # not permanently stamp the final mix product (pre-fix: literal 0xFFFFFF).
+    # not permanently stamp the final mix product (e.g. literal 0xFFFFFF).
     b.style.fg.should eq(-1)
   end
 
@@ -99,7 +99,8 @@ describe "B18-94 transition_color and the -1 terminal-default sentinel" do
                    ".g94 { color: #123456; animation: ghost 0.15s linear 1; }"
     s.repaint
     wait_until { b.style.fg == -1 } # past the single iteration: settle branch ran at frac 1.0
-    # Pre-fix: lerp read -1's bits as 0xFFFFFF and stamped white permanently.
+    # Guards against lerp reading -1's bits as 0xFFFFFF and stamping white
+    # permanently.
     b.style.fg.should eq(-1)
   end
 end

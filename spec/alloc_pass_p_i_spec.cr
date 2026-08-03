@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Behaviour-preservation specs for the WARM/COLD allocation reductions in
-# Groups P and I (ALLOCS.md): calendar weekday-header caching (P1), tree indent
+# Groups P and I: calendar weekday-header caching (P1), tree indent
 # memoization (P7), scrollbar no-op sync early-return (P6), and BitmapFont glyph miss
 # caching (I1). Each verifies the observable output is unchanged after the
 # allocation optimization.

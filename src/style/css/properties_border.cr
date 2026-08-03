@@ -3,9 +3,9 @@ module Crysterm
     # The `border*` property family of `Properties`, reopened here: the
     # `apply_border` dispatch `Properties.apply` hands every `border*`
     # declaration to, plus its helpers — the per-side/shorthand appliers,
-    # the width/type/char resolvers and `parse_border`. Split out of
-    # `properties.cr`, which keeps the shared parsing helpers these lean on
-    # (`with_color`, `with_cell_char`, `parse_char`, `trbl_indices`, ...).
+    # the width/type/char resolvers and `parse_border`. The shared parsing
+    # helpers these lean on (`with_color`, `with_cell_char`, `parse_char`,
+    # `trbl_indices`, ...) live in `properties.cr`.
     module Properties
       # Applies any `border*` property. Per-side colors and widths are honored
       # individually (`border-top-color`/`border-left-width` & co.); the border
@@ -375,8 +375,7 @@ module Crysterm
       private def self.apply_border_style(border : Border, value : String, sides : Tuple) : Nil
         # CSS `border-style` accepts 1–4 space-separated keywords (TRBL). `Border#type`
         # is whole-border (no per-side type), so honor the *first* token rather
-        # than folding the whole multi-value string and matching nothing — which
-        # silently dropped the declaration.
+        # than folding the whole multi-value string and matching nothing.
         first = value.strip.split.first?
         return unless first
         if Case.fold_keyword(first) == "none"

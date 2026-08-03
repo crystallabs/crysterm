@@ -110,8 +110,8 @@ describe Crysterm::Widget::Media do
 
     it "maps a truecolour background (48;2;r;g;b) to the nearest palette entry" do
       # Pure red maps to normal red (index 1, 0xAA0000). The `0` green/blue
-      # channels must NOT be misread as SGR 0 (reset all) — the old
-      # fall-through did this, leaving the bg at default black.
+      # channels must NOT be misread as SGR 0 (reset all) — a fall-through
+      # would leave the bg at default black.
       px = png("\e[48;2;255;0;0m ").bmp[0][0]
       {px.r, px.g, px.b}.should eq({0xAA, 0x00, 0x00})
     end

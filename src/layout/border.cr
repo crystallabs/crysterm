@@ -58,10 +58,9 @@ module Crysterm
       @assigned_height = {} of Widget => Int32
 
       # Reused, cleared-not-reallocated per-region buckets: one bucketing pass
-      # over the children fills these, replacing the five full `region_of`-
-      # filtering scans. Within-region order is preserved (children append in
-      # child order), and the edges are still processed top/bottom→left/right→
-      # center by iterating the buckets in that order.
+      # over the children fills these. Within-region order is preserved
+      # (children append in child order), and the edges are processed
+      # top/bottom→left/right→center by iterating the buckets in that order.
       @bucket_top = [] of Widget
       @bucket_bottom = [] of Widget
       @bucket_left = [] of Widget
@@ -81,10 +80,8 @@ module Crysterm
         x1 = interior.width
         y1 = interior.height
 
-        # One bucketing pass over the children instead of five full
-        # `region_of`-filtering scans: fill the five reused buckets in child
-        # order (preserving within-region order), then process them top/bottom→
-        # left/right→center below.
+        # Fill the five reused buckets in child order, then process them
+        # top/bottom→left/right→center below.
         @bucket_top.clear
         @bucket_bottom.clear
         @bucket_left.clear

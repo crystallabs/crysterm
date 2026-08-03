@@ -120,8 +120,8 @@ module Crysterm
       # RGB of an xterm-256 palette index (0..255). Indices below 16 map through
       # this decoder's own VGA `ANSI_PALETTE` (art was authored against VGA, not
       # xterm system colours); the cube + grayscale range comes from the
-      # term_colors shard's `HI2RGB` table (identical to the standard xterm
-      # 95/135/175/215/255 ramp math this used to duplicate).
+      # term_colors shard's `HI2RGB` table (the standard xterm
+      # 95/135/175/215/255 ramp).
       private def self.xterm256_rgb(n : Int32) : Tuple(Int32, Int32, Int32)
         n = n.clamp(0, 255)
         n < 16 ? rgb24(ANSI_PALETTE[n]) : ::TermColors::HI2RGB[n]

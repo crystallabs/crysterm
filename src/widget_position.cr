@@ -109,7 +109,7 @@ module Crysterm
 
     # Cold arm for a raw `String` written directly into a geometry ivar
     # (bypassing the normalizing setters): parsed per frame, with a malformed
-    # expression degrading to the historical 0 — a frame must never raise.
+    # expression degrading to 0 — a frame must never raise.
     # *size* selects the `"half"` alias over `"center"`.
     private def resolve_dim(o : String, against : Int32, size : Bool = false) : Int32
       (d = Dim.parse?(o, size: size)) ? resolve_dim(d, against) : 0
@@ -357,12 +357,9 @@ module Crysterm
       xi = aleft(rendered, w, ppos, with_margin: false)
       # Saturating, not checked: a pathological (e.g. `Int32::MAX`) fixed
       # width/height combined with a nonzero absolute origin overflows plain
-      # `Int32 + Int32` here and raises `OverflowError` in the render fiber
-      # (B18-25) — an origin-0 widget with the same size happens to land
-      # exactly on `Int32::MAX` and doesn't overflow, which is what let this
-      # slip through as "renders fine". Clamping the far edge instead is
-      # behavior-preserving: downstream clipping already tolerates
-      # `xl == Int32::MAX` today.
+      # `Int32 + Int32` here and raises `OverflowError` in the render fiber.
+      # Clamp the far edge instead; downstream clipping tolerates
+      # `xl == Int32::MAX`.
       xl = (xi.to_i64 + w).clamp(Int32::MIN.to_i64, Int32::MAX.to_i64).to_i32
       yi = atop(rendered, h, ppos, with_margin: false)
       yl = (yi.to_i64 + h).clamp(Int32::MIN.to_i64, Int32::MAX.to_i64).to_i32
@@ -530,9 +527,9 @@ module Crysterm
           else
             # Is partially covered below: clamp `yl` to the parent's inner
             # bottom. Widening the rect by this widget's own border thickness
-            # instead (the pre-clamp behavior) leaked `lpos` past the viewport:
-            # clicks/hover, `style.tint`/shadow bands and dock-stop rows all
-            # landed on cells outside the container.
+            # instead would leak `lpos` past the viewport: clicks/hover,
+            # `style.tint`/shadow bands and dock-stop rows would all land on
+            # cells outside the container.
             no_bottom = true
             v = yl - (scrollable_parent_lpos.yl - bb)
             hidden_bottom = v

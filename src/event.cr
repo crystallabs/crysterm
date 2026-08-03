@@ -17,7 +17,7 @@ module Crysterm
   #
   # Declared here — beside the `Event::FormSubmitted` event that carries it —
   # rather than inside `Widget::Form`, so the core event catalog references no
-  # concrete widget type (R-82). `Widget::Form::FormData`/`Widget::Form::
+  # concrete widget type. `Widget::Form::FormData`/`Widget::Form::
   # FieldValue` alias these for the conventional form-side spelling.
   class FormData
     # The natively-typed value of one submitted field: text widgets and item
@@ -189,7 +189,7 @@ module Crysterm
     # event Warning, message : String
 
     # Emitted when screen is resized. `size` is Crysterm's own `Size` record
-    # (the single geometry vocabulary — R-30), not tput's mutable class.
+    # (the single geometry vocabulary), not tput's mutable class.
     event Resize, size : Crysterm::Size? = nil
 
     # Emitted when the user pastes text and bracketed paste (DEC 2004) is
@@ -315,7 +315,7 @@ module Crysterm
     # `[minimum, maximum]`) — Qt's `QAbstractSlider#sliderMoved(int)`. Fires
     # on every move regardless of `#tracking?` (Qt fires it unconditionally);
     # `Event::ValueChanged` already covers the tracking-on per-move case, and
-    # `SliderMoved` never also emits it (A4-62).
+    # `SliderMoved` never also emits it.
     event SliderMoved, position : Int32
 
     # Emitted when a floating-point numeric widget's value changes (e.g.
@@ -367,6 +367,28 @@ module Crysterm
     # value when one applies (text editors), `nil` for a bare dismissal.
     event Cancelled, value : String? = nil
 
+    # Emitted when editing of a persistent form field finishes — Qt's
+    # `editingFinished`. Fires once per completed edit session,
+    # whichever way the session ends; `Submitted`/`Cancelled` keep their
+    # narrower meanings (explicit submit / explicit-or-implicit dismissal)
+    # and distinguish the *outcome*, while this marks the session boundary
+    # itself. The firing contract per emitter:
+    #
+    # * `Widget::LineEdit` (the `Mixin::TextEditing` read session): emitted
+    #   exactly once when the read session ends — Enter (submit), focus-out,
+    #   or Escape (which ends the whole session in this model, unlike Qt's
+    #   revert-in-place). When Enter both submits and ends the session,
+    #   `Submitted` and `EditingFinished` each fire once, in one teardown —
+    #   never doubled.
+    # * The spin boxes (`Mixin::SpinBoxEditing`): emitted when Enter commits a
+    #   typed entry, and on every focus-out (Qt's `QAbstractSpinBox` fires
+    #   there unconditionally — stepping counts as editing too). A silent
+    #   in-place buffer discard (Escape, or a step/wheel abandoning a
+    #   half-typed entry) is not a finish: the user is still in the field.
+    #
+    # Parameterless, as in Qt: listeners read the sender's `#value`/`#text`.
+    event EditingFinished
+
     # Emitted by `Widget::FileManager` when the current directory changes.
     # `path` is the directory just entered; `previous` is the directory left behind.
     event DirectoryChanged, path : String, previous : String
@@ -398,7 +420,7 @@ module Crysterm
 
     # `item` is typed as the `Widget` base — emitters pass their item boxes
     # (`Mixin::ItemView`/`Mixin::ActionBar` rows, a `ToolBox` header), but the
-    # core catalog must not reference concrete widget types (R-82), and
+    # core catalog must not reference concrete widget types, and
     # handlers only need the identity/index.
     event ItemCancelled, item : Widget, index : Int32
     # :ditto:
@@ -416,8 +438,21 @@ module Crysterm
     # :ditto:
     event Collapsed, index : Int32
 
+    # Emitted by the chat composer (`Widget::Chat::ChatBox`) when the
+    # permission mode changes — the typed complement to the status line's
+    # `CurrentChanged`, which carries only the mode's raw enum value.
+    # `Chat::Mode` is a model type (like `FormData` above), not a widget type,
+    # so the no-widget-types rule for this catalog is respected.
+    event ModeChanged, mode : ::Crysterm::Chat::Mode
+
+    # Emitted by the chat composer when a background task first reaches a
+    # terminal state (ok/fail/cancelled) — the typed completion notification
+    # layered over the registry's row-level `ListChanged` `Update`, which
+    # fires on *any* field change.
+    event TaskCompleted, task : ::Crysterm::Chat::Task
+
     # Emitted on selection of an item in list. `item` is the `Widget` base for
-    # the same reason as `ItemActivated` (R-82).
+    # the same reason as `ItemActivated`.
     event ItemSelected, item : Widget, index : Int32
 
     # Emitted when an `Action` is triggered (Qt's `QAction::triggered(bool)`).

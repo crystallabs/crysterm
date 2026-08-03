@@ -7,7 +7,7 @@ require "http/client"
 # tearing down by one subscription's recorded keys alone silently stopped
 # delivery for the survivor. Guarded by -Dremote like the other bridge specs;
 # run both ways:
-#   crystal spec -Dremote spec/bugs10_35_remote_spec.cr   # exercises the fix
+#   crystal spec -Dremote spec/bugs10_35_remote_spec.cr   # exercises the bridge path
 #   crystal spec          spec/bugs10_35_remote_spec.cr   # must still compile
 {% if flag?(:remote) %}
   include Crysterm

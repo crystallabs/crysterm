@@ -12,7 +12,7 @@ include Crysterm
 #     `window?.not_nil!`, raising `NilAssertionError`; nor
 #   * hand focus to an off-window widget (state `:focused`, keys routed off the
 #     window).
-# `focus_pop` now prunes invalid trailing entries with the same predicate as
+# `focus_pop` prunes invalid trailing entries with the same predicate as
 # `rewind_focus` before restoring focus. Headless, no real terminal.
 describe "Window#focus_pop with stale history entries" do
   it "does not raise or focus a detached entry when its scrollable ancestor was removed" do

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `TextDocument` (src/text/, TEXTEDIT.md Phase 1) is a pure model — these
+# `TextDocument` (src/text/) is a pure model — these
 # specs need no screen/PTY. Positions are codepoint indexes over blocks
 # joined by an implicit 1-position '\n' separator.
 describe Crysterm::TextDocument do

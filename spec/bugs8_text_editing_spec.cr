@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS8 text-editing fix: the double-click branch of
+# Regression spec: the double-click branch of
 # `_setup_text_mouse` seeded `@selection_anchor` at the word bounds
 # unconditionally. On non-word text `word_bounds_at` returns an empty
-# `{pos, pos}`, so it left a dangling anchor equal to the caret — the exact
+# `{pos, pos}`, leaving a dangling anchor equal to the caret — the exact
 # landmine the single-click branch nils out. A later edit shrinks `@value` and
 # resurrects the anchor as an out-of-bounds range, crashing `delete_selection`
 # with an IndexError. Same headless harness as `text_editing_keys_spec.cr`.
@@ -25,7 +25,7 @@ describe "BUGS8 double-click on non-word text leaves no stale selection anchor" 
     mouse_down s, 3, 0 # double-click at a non-word (past-end) position
 
     le.selection?.should be_false
-    le.selection_anchor.should be_nil # would be 3 (== caret) before the fix
+    le.selection_anchor.should be_nil # not a dangling 3 (== caret)
   end
 
   it "does not crash on a follow-up edit after a non-word double-click" do
@@ -35,9 +35,9 @@ describe "BUGS8 double-click on non-word text leaves no stale selection anchor" 
     mouse_down s, 3, 0
     mouse_down s, 3, 0
 
-    # Before the fix: Backspace shrinks the value to "ab" while the stale anchor
-    # (3) turns selection_range into 2...3; the next edit slices "ab"[3..] and
-    # raises IndexError. Must be safe now.
+    # A stale anchor (3) would turn selection_range into 2...3 once Backspace
+    # shrinks the value to "ab"; the next edit then slices "ab"[3..] and raises
+    # IndexError. Both edits must be safe.
     le._listener kp('\0', ::Tput::Key::Backspace)
     le.value.should eq "ab"
     le._listener kp('\0', ::Tput::Key::Backspace)

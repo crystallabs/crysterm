@@ -3,12 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Dial#pointer` maps the current value onto one of eight compass
-# glyphs. The old mapping used `frac * POINTERS.size` unconditionally, correct
-# only for a *wrapping* dial (max rolls back onto min's "north"). For a
-# non-wrapping dial this was a bug: `frac == 1.0` rounded to `size` and wrapped
-# (`% size`) back to index 0, so the maximum showed `↑` same as the minimum,
-# and an in-between direction could be skipped. Fix: non-wrapping dials spread
-# the range across the arc (`frac * (size - 1)`) so the ends differ.
+# glyphs. A *wrapping* dial maps `frac * POINTERS.size` (max rolls back onto
+# min's "north"); a non-wrapping dial must spread the range across the arc
+# (`frac * (size - 1)`) so the ends differ — with the wrapping mapping,
+# `frac == 1.0` rounds to `size` and wraps (`% size`) back to index 0, showing
+# the maximum as `↑` same as the minimum.
 #
 # Driven headlessly: the dial paints its pointer glyph into the center cell of
 # its interior, read back after one render.

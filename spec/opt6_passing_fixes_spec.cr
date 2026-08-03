@@ -2,8 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for a bundle of small OPT6/OPT4 "bugs noticed in passing"
-# items (plans/ALL.md "Bugs noticed in passing" #2/#3, plans/OPT4.md O4-16):
+# Regression specs for a bundle of small "bugs noticed in passing" items:
 #
 #  1. `StackedWidget` never emitted `Event::ItemRemoved` on `#remove_widget`/
 #     `#remove`, unlike its `TabWidget`/`ToolBox` siblings.

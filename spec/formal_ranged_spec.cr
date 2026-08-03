@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Conformance-style specs for the shared `Mixin::RangedValue` stepping/guards
-# after the FORMAL-WIDGETS consolidation (Part B / B1, fixing live bugs B0.2 and
+# after consolidation (fixing live bugs B0.2 and
 # B0.3). `ScrollBar` now shares `init_range` and the invert-aware
 # `ranged_step_key`/`ranged_wheel` with `Slider`/`Dial` instead of hand-rolling
 # copies that had drifted (missing the h/j/k/l keys; missing the range guard).

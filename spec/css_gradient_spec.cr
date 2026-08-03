@@ -5,11 +5,11 @@ include Crysterm
 # Focused spec for `Crysterm::CSS::ColorValue.gradient_color`.
 #
 # A terminal cell can't paint a real gradient, so a CSS/Qt gradient collapses to
-# the channel-wise average of its stop colors. The stop scanner used to match
-# only `#hex`/`rgb()` stops, so a plain gradient with named/`hsl()` stops —
-# `linear-gradient(to right, red, blue)` — harvested no color and fell back to
-# the terminal default. Named colors, `hsl()`, and non-color keywords
-# (`to`/`right`/...) are now all tokenized; only real colors enter the average.
+# the channel-wise average of its stop colors. Named colors, `hsl()`, and
+# non-color keywords (`to`/`right`/...) are all tokenized; only real colors
+# enter the average — a gradient with named/`hsl()` stops
+# (`linear-gradient(to right, red, blue)`) must not fall back to the terminal
+# default.
 private def avg(*colors : Int32) : Int32
   r = colors.sum { |c| (c >> 16) & 0xff } // colors.size
   g = colors.sum { |c| (c >> 8) & 0xff } // colors.size

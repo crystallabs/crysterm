@@ -66,11 +66,11 @@ module Crysterm
       @avail = 0
       # `@spacing` clamped against the live main extent each `#measure`
       # (negatives -> 0, over-extent -> the extent), stashed for `#place` since
-      # it runs per child. Beyond the main extent there is no room anyway, so
-      # this is behavior-preserving while keeping the gap product and the cursor
-      # accumulation from overflowing checked `Int32` (B17-10).
+      # it runs per child. Beyond the main extent there is no room anyway, and
+      # clamping keeps the gap product and the cursor
+      # accumulation from overflowing checked `Int32`.
       @spacing_gap = 0
-      # `Int64` because `@avail * @grow_seen` (line ~247) can exceed `Int32::MAX`
+      # `Int64` because `@avail * @grow_seen` (in `#place`) can exceed `Int32::MAX`
       # well before either factor does; stretch factors are clamped in
       # `#stretch_of` but the *sum* over many children is not.
       @total_grow : Int64 = 0
@@ -180,7 +180,7 @@ module Crysterm
             # before accumulating: an unclamped `Int32::MAX`-ish size (a
             # child's own `awidth`/`aheight` isn't bounded by the parent)
             # overflows checked `Int32` the moment a second child's size is
-            # added (B18-25).
+            # added.
             ms = clamped_size a_main_size(el), main
             @measured[el] = ms
             fixed += ms
@@ -248,10 +248,10 @@ module Crysterm
           # Align moved off Stretch (or a per-child `Hint#alignment` overrides
           # a still-Stretch box) — release a cross size this layout previously
           # assigned back to the user's raw `nil` before measuring, mirroring
-          # Form's restore-before-measure (B16-17). Without this the child
+          # Form's restore-before-measure. Without this the child
           # stays frozen at whatever cross extent the Stretch branch last
           # wrote forever: it stops tracking container resizes and the user's
-          # raw `nil` (auto) is destroyed for good (B18-23). Safe: a child only
+          # raw `nil` (auto) is destroyed for good. Safe: a child only
           # ever enters `@filled_size` when its raw cross size was `nil` (the
           # `cross_flex?` test above), so `nil` is always the correct
           # value to restore; a user-reclaimed explicit size (raw no longer
@@ -327,7 +327,7 @@ module Crysterm
         # min/max size makes the child render at `a_main_size`, so advancing by
         # the raw share would overlap the next child or leave a gap. An
         # unconstrained child clamps back to exactly the share. Also clamp
-        # against the main extent (B18-25): a min-size constraint can push
+        # against the main extent: a min-size constraint can push
         # `a_main_size` arbitrarily high regardless of the share/`@avail`.
         size =
           if main_w
@@ -455,8 +455,7 @@ module Crysterm
       axis_pair a_main_size, a_cross_size, el.awidth, el.aheight, Int32
 
       # Writes `v` as the child's cross size (placement itself goes through
-      # `el.set_geometry`, so only the cross-size writer is needed; the main-size
-      # and position twins this used to generate had no callers).
+      # `el.set_geometry`, so only the cross-size writer is needed).
       private def set_cross_size(el : Widget, v) : Nil
         orientation.horizontal? ? (el.height = v) : (el.width = v)
       end

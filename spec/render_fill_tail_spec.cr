@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Gating specs for the content-loop restructure (PERF.md Phase 3): once a
+# Gating specs for the content-loop restructure: once a
 # widget's content is exhausted, the rest of the box is painted by a per-row
 # `fill_region` sweep instead of the per-cell machinery, and the padding/valign
 # pre-fill covers only the bands the content loop doesn't visit. These pin the

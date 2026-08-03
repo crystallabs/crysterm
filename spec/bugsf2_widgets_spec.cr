@@ -158,7 +158,7 @@ describe "BUGS-F2 21: per-line attr cache refreshes on a single-line base-style 
     # Reparse directly (a full `s.render` would re-run the CSS cascade and replace
     # `style` wholesale, dropping the inline fg). Even though the widget is
     # single-line and unscrolled, the cache-hit path must refresh the packed attr —
-    # leaving it stale used to bleed the old color into later appended/scrolled
+    # leaving it stale bleeds the old color into later appended/scrolled
     # lines forever.
     box.process_content
 
@@ -388,7 +388,7 @@ describe "BUGS-F2 40: Form submits and resets every item view, not just List" do
 
     form.reset
     # Reset selects the first row (`current_index= 0`, clamped past the header spacer);
-    # before the fix a `ListTable` was never reset and stayed on row 3.
+    # a `ListTable` skipped by the reset would stay on row 3.
     lt.current_index.should eq 1
   end
 end

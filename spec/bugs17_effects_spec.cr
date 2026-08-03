@@ -9,14 +9,14 @@ include Crysterm
 #   * B17-38 — effect color math added an Int32 term on the LEFT of an Int64
 #     `@frame` product. Crystal mixed-width arithmetic returns the LEFT operand's
 #     type (checked), so once `frame * speed` exceeded `Int32::MAX` the addition
-#     raised `OverflowError` and killed the animation/render fiber. The fix puts
-#     the wide Int64 operand first and narrows only the post-`% 360` result.
+#     raised `OverflowError` and killed the animation/render fiber. The wide
+#     Int64 operand must come first, narrowing only the post-`% 360` result.
 #
 # Everything is driven headlessly over in-memory IOs; `#step`/`#render` are
 # synchronous so no animation fiber is needed.
 
-# A frame value large enough that `frame * speed` blows past Int32::MAX for any
-# of the default hue speeds (6/8/9), reproducing the pre-fix OverflowError.
+# A frame value large enough that `frame * speed` blows past Int32::MAX for
+# any of the default hue speeds (6/8/9) — the guarded overflow condition.
 private BIG_FRAME = Int32::MAX.to_i64
 
 # Test subclasses that expose the otherwise-encapsulated `@frame` counter so the
@@ -71,14 +71,14 @@ describe "BUGS17 effects" do
         width: 8, height: 1, text: "AB", rainbow: true, hue_speed: 8, hue_spread: 7
       m.frame = BIG_FRAME
 
-      (BIG_FRAME.to_i64 * 8).should be > Int32::MAX # pre-fix overflow condition
-      s.repaint                                     # rainbow_fg used to raise OverflowError here
+      (BIG_FRAME.to_i64 * 8).should be > Int32::MAX # the guarded overflow condition
+      s.repaint                                     # rainbow_fg must not raise OverflowError here
     end
 
     it "does not raise scrolling a :right marquee past the Int32 frame horizon" do
       s = headless_screen(default_quit_keys: true)
-      # `:right` computes `-f + x`; the pre-fix `x - f` overflowed Int32 once
-      # f exceeded Int32::MAX in magnitude.
+      # `:right` computes `-f + x`; an Int32-first `x - f` overflows once
+      # f exceeds Int32::MAX in magnitude.
       m = FrameMarquee.new parent: s, top: 0, left: 0,
         width: 8, height: 1, text: "ABCDE", direction: :right
       m.frame = 3_000_000_000_i64
@@ -91,7 +91,7 @@ describe "BUGS17 effects" do
         width: 10, height: 1, hue_offset: 0, hue_speed: 9
       bar.frame = BIG_FRAME
 
-      c = bar.color # used to raise OverflowError
+      c = bar.color # must not raise OverflowError
       c.should be_a Int32
       # Equivalent to the safe Int64-first computation.
       hue = ((BIG_FRAME.to_i64 * 9 + 0) % 360).to_i32

@@ -4,9 +4,9 @@ include Crysterm
 
 # Reparenting a *top-level* widget (listed directly in a screen's `children`)
 # into another widget must remove it from the screen's `children`, or it stays
-# double-parented (rendered twice). `Widget#insert` previously only called
-# `element.remove_from_parent`, which can't detach a top-level widget (it has
-# no widget `@parent`, only a stored screen), so the move leaked.
+# double-parented (rendered twice). `element.remove_from_parent` alone can't
+# detach a top-level widget (it has no widget `@parent`, only a stored screen),
+# so `Widget#insert` needs the explicit screen-side removal.
 
 describe "Widget#insert reparenting a top-level widget" do
   it "removes it from the screen's children (no double-parenting)" do

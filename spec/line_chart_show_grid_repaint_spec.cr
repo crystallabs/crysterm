@@ -5,10 +5,10 @@ include Crysterm
 # `Widget::Graph::LineChart` draws its optional grid lines on the plot
 # `Graph::Canvas` (in `#paint_plot`, gated by `show_grid?`). The Canvas only
 # re-rasterizes when its `@paint_dirty` flag is set. Data mutators
-# (`#add_series`/`#clear_series`/`#refresh`) call `plot.invalidate_paint`, but
-# `show_grid=` was a plain `property?` setter that did not — so toggling the
-# grid left the *old* grid state painted on window until an unrelated repaint.
-# `show_grid=` now invalidates the plot raster and schedules a render.
+# (`#add_series`/`#clear_series`/`#refresh`) call `plot.invalidate_paint`;
+# `show_grid=` must invalidate the plot raster and schedule a render too — a
+# plain `property?` setter would leave the *old* grid state painted on window
+# until an unrelated repaint.
 
 describe "Widget::Graph::LineChart#show_grid= schedules a plot repaint" do
   it "marks the plot Canvas dirty when the grid is toggled" do
@@ -22,7 +22,7 @@ describe "Widget::Graph::LineChart#show_grid= schedules a plot repaint" do
 
     c.show_grid = false
 
-    # The plotted grid changed, so the Canvas must repaint (was stale before).
+    # The plotted grid changed, so the Canvas must repaint.
     c.plot.@paint_dirty.should be_true
   end
 

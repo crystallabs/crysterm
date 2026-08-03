@@ -16,7 +16,7 @@ describe "BUGS14 M2 KeyMenu rows clamped to >= 1" do
       Crysterm::Widget::Pine::KeyMenu::Entry.new("?", "Help"),
       Crysterm::Widget::Pine::KeyMenu::Entry.new("O", "Other"),
     ]
-    # Pre-fix: this raised DivisionByZeroError inside #build.
+    # Without the clamp, this would raise DivisionByZeroError inside #build.
     menu = Crysterm::Widget::Pine::KeyMenu.new(parent: s, bottom: 0, entries: entries, rows: 0)
     menu.rows.should eq 1
     menu.cells.size.should eq 2
@@ -28,16 +28,16 @@ describe "BUGS14 M2 KeyMenu rows clamped to >= 1" do
       Crysterm::Widget::Pine::KeyMenu::Entry.new("?", "Help"),
       Crysterm::Widget::Pine::KeyMenu::Entry.new("O", "Other"),
     ])
-    # Pre-fix: the setter's rebuild divided by zero.
+    # Without the clamp, the setter's rebuild would divide by zero.
     menu.rows = 0
     menu.rows.should eq 1
   end
 end
 
 # M4 — a `SizeGrip` placed at its target's inner corner (`bottom: 0, right: 0`,
-# the documented placement) resized the target as if the grip sat on the outer
-# corner, so a bordered box tracked the pointer `iright`/`ibottom` columns short.
-# The fix folds in the grip's own offset from the target's outer edge.
+# the documented placement) must fold in its own offset from the target's
+# outer edge; otherwise a bordered box tracks the pointer `iright`/`ibottom`
+# columns short.
 describe "BUGS14 M4 SizeGrip inner-corner drag tracks the pointer" do
   it "keeps the outer edge under the pointer for a bordered target" do
     s = headless_screen(80, 24)
@@ -64,7 +64,7 @@ describe "BUGS14 M4 SizeGrip inner-corner drag tracks the pointer" do
     grip.emit Crysterm::Event::DragStart, session
 
     # Drag with the pointer held on the grip (no motion). The box must keep its
-    # size — pre-fix it shrank by iright/ibottom (30->29, 10->9).
+    # size — without the fold-in it would shrink by iright/ibottom (30->29, 10->9).
     session.x = gx
     session.y = gy
     grip.emit Crysterm::Event::Drag, session
@@ -72,7 +72,7 @@ describe "BUGS14 M4 SizeGrip inner-corner drag tracks the pointer" do
     box.height.should eq 10
 
     # Now move the pointer 5 right and 3 down: the outer edge must follow by
-    # exactly that much (35 / 13). Pre-fix it lagged by the border (34 / 12).
+    # exactly that much (35 / 13); without the fold-in it would lag by the border (34 / 12).
     session.x = gx + 5
     session.y = gy + 3
     grip.emit Crysterm::Event::Drag, session

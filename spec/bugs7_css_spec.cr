@@ -6,11 +6,10 @@ include Crysterm
 #
 # 1. A comma in an `@media` prelude is a logical OR of full queries, not an AND
 #    of feature groups. `(max-width: 40), (min-width: 100)` must match a narrow
-#    *or* a wide terminal; before the fix every group was AND-ed, so such a list
-#    matched nothing.
+#    *or* a wide terminal (AND-ing every group makes such a list match nothing).
 #
 # 2. `!important` may carry interior whitespace (`red ! important`); the spaced
-#    form was mis-parsed as a normal declaration with a bogus value.
+#    form must not be mis-parsed as a normal declaration with a bogus value.
 #
 # 3. Pseudo-class/element names are case-insensitive: `:CHECKED`, `::SLOT` and
 #    `:HAS(...)` must lower like their lowercase forms, not silently drop the

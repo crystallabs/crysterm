@@ -2,12 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS18 B18-29, B18-30, B18-31, B18-37 —
-# `Crysterm::CSS::Properties.apply` / `SidedGeometry#any?` bugs.
+# Regression specs for `Crysterm::CSS::Properties.apply` /
+# `SidedGeometry#any?` bugs.
 describe "BUGS18 CSS parsing fixes" do
   # B18-29: `with_color` (shared by `color`, `background-color`,
   # `alternate-background-color`, `gridline-color`, and the 1-token
-  # `border-color` branch) used to let an unknown color name (a typo like
+  # `border-color` branch) let an unknown color name (a typo like
   # "bleu") through to the setter, which stores `Colors.convert_cached`'s -1
   # unknown-name sentinel and clobbers whatever color was previously set. CSS
   # requires the invalid declaration to be dropped instead.
@@ -59,8 +59,8 @@ describe "BUGS18 CSS parsing fixes" do
   end
 
   # B18-30: standard `animation` shorthand keywords (fill-mode/play-state/
-  # direction) and a fractional iteration count used to fall through to the
-  # keyframes-name fallback and hijack the name (last-wins), so the animation
+  # direction) and a fractional iteration count fell through to the
+  # keyframes-name fallback and hijacked the name (last-wins), so the animation
   # silently never resolved any @keyframes stops.
   describe "animation shorthand keyword/fractional-count hijack" do
     it "does not let `forwards` (fill-mode) hijack the keyframes name" do

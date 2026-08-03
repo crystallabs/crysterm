@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Markdown interchange (`TextMarkdown`, TEXTEDIT.md Phase 3). Pure model.
+# Markdown interchange (`TextMarkdown`). Pure model.
 # Import walks the markd AST into blocks/fragments; export keys on semantic
 # properties (heading_level, code flag, anchors), so the theme colors the
 # importer applies don't affect round-trips.

@@ -70,7 +70,7 @@ module Crysterm
         @screen.refresh_cell_geometry
         # NOTE Tput#screen should have been called `size` or `screen_size`.
         # Converted to Crysterm's own `Size` record — the event's single
-        # geometry vocabulary (R-30).
+        # geometry vocabulary.
         s = tput.screen
         emit ::Crysterm::Event::Resize.new ::Crysterm::Size.new(s.width, s.height)
       end

@@ -154,7 +154,7 @@ module Crysterm
             rgb = prow ? prow[sx] : Colors.rgb(px.r, px.g, px.b)
             paint_cell cell, px, a, rgb
           end
-          row.dirty = true
+          row.mark_dirty_range Math.max(xi, 0), xl - 1
         end
       end
 

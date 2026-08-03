@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Phase-2 reactivity: auto-tracking `Reactive::Effect` (re-tracks its dependency
-# set each run) and derived `Reactive::Computed`. See REACTIVE.md.
+# set each run) and derived `Reactive::Computed`.
 
 private def rx_screen
   Crysterm::Window.new(

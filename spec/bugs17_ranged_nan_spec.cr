@@ -7,9 +7,10 @@ include Crysterm
 # and the B16-38 convention.
 #
 # NaN survives `clamp` (every comparison with NaN is false) and never equals
-# `@value`, so before the fix `value = Float64::NAN` stored NaN — the box rendered
-# "nan" and re-fired `Event::DoubleValueChanged(NaN)` on every step. `set_range`
-# with a non-finite bound likewise stored NaN bounds, wedging clamp/stepping.
+# `@value`, so an unsanitized `value = Float64::NAN` stores NaN — the box
+# renders "nan" and re-fires `Event::DoubleValueChanged(NaN)` on every step.
+# `set_range` with a non-finite bound likewise stores NaN bounds, wedging
+# clamp/stepping.
 
 describe "B17-19 RangedValue(Float64) non-finite sanitization" do
   it "value = NaN falls back to the minimum (a finite value) and does not render \"nan\"" do

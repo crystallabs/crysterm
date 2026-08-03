@@ -2,11 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# A function color (`rgb()`/`hsl()`) carries internal spaces/commas. The
-# `background`/`tint` shorthand used to tokenize with a plain `String#split`,
-# shredding `rgb(30, 30, 46)` into `["rgb(30,", "30,", "46)"]` and silently
-# dropping the color (the `background-color` longhand handled it fine).
-# `Properties.split_top_level` now keeps parenthesized argument lists intact.
+# A function color (`rgb()`/`hsl()`) carries internal spaces/commas, so the
+# `background`/`tint` shorthand must tokenize with `Properties.split_top_level`,
+# which keeps parenthesized argument lists intact — a plain `String#split`
+# shreds `rgb(30, 30, 46)` and silently drops the color.
 describe "CSS background/tint shorthand with a function color" do
   it "pulls an rgb() color out of the `background` shorthand" do
     s = Style.new

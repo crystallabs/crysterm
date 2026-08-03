@@ -2,10 +2,9 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: clearing a hardware cursor color with `Window#cursor_color = nil`
-# must restore the terminal's default (OSC 112). It used to be a silent no-op —
-# the `try`-guarded emission did nothing when `style.fg` was nil — leaving no way
-# to reset the hardware cursor once a color was set. See
+# Clearing a hardware cursor color with `Window#cursor_color = nil` must
+# restore the terminal's default (OSC 112), not be a silent no-op that leaves
+# no way to reset the hardware cursor once a color was set. See
 # `src/window_cursor.cr#set_cursor_color`.
 
 describe "Window#cursor_color clearing (hardware path)" do

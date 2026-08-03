@@ -5,7 +5,7 @@ include Crysterm
 # `Widget::TextEdit` layout: per-block wrapping into display rows, cache
 # invalidation on document edits, undo/redo through the editing keys, and
 # the caret geometry shared with `PlainTextEdit` via `Mixin::TextEditing`
-# running over the `DocumentBuffer` adapter (TEXTEDIT.md Phase 2 / §5).
+# running over the `DocumentBuffer` adapter.
 
 private def ctl(k : ::Tput::Key)
   kp key: k

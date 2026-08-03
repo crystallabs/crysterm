@@ -77,7 +77,7 @@ describe Crysterm::Widget::Media::Glyph do
     end
 
     it "never assigns a codepoint past the end of the Block Octant range" do
-      # Old table walked U+1CD00 sequentially for 250 masks, overrunning the
+      # A sequential walk of U+1CD00 for 250 masks would overrun the
       # 230-codepoint block (ending U+1CDE5). No glyph may land in U+1CDE6..U+1CDFF.
       OCTANT.count { |c| (0x1CDE6..0x1CDFF).includes?(c.ord) }.should eq 0
     end

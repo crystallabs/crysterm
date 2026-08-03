@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Same-document anchor navigation in `TextBrowser` (TOC.md Phase 2). Without
+# Same-document anchor navigation in `TextBrowser`. Without
 # this, `[x](#install)` — and every link a `TextToc` generates — was handed to
 # the loader whole and went nowhere.
 

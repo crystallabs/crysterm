@@ -54,7 +54,7 @@ describe "Window#focus_offset" do
     a.focus
     s.remove stale # stale stays registered in @keyable but is now detached
 
-    s.focus_next # would raise NilAssertionError before the fix
+    s.focus_next # must not raise NilAssertionError on the stale entry
     s.focused.should_not be_nil
     s.focused.should_not eq stale
   end

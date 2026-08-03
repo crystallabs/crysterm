@@ -10,7 +10,7 @@ include Crysterm
 # offset isn't a multiple of the sub-grid, the edge cells straddle the
 # image↔letterbox boundary — sampled partly image, partly transparent margin —
 # and render as a dim fringe hugging the border (and flicker as a resizing box
-# crosses cell parities). The fix snaps the drawn size and offset to the
+# crosses cell parities). The drawn size and offset are snapped to the
 # sub-grid; this asserts the resulting image bounding box lands on cell edges.
 
 private WHITE = PNGGIF::Pixel.new(255, 255, 255, 255)
@@ -43,7 +43,7 @@ describe "Media::Fitting cell alignment (sub-cell letterbox)" do
   png = PNGGIF::PNG.from_frames([{opaque_src(10, 10), 0}], 10, 10)
 
   # A spread of box sizes, deliberately including odd cell counts (which give an
-  # odd sub-pixel offset — the pre-fix straddle case) for both dimensions.
+  # odd sub-pixel offset — the straddle case) for both dimensions.
   [{14, 40}, {15, 40}, {30, 21}, {31, 22}, {40, 13}].each do |(cols, rows)|
     bw = cols * sub_w
     bh = rows * sub_h

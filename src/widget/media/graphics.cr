@@ -70,8 +70,8 @@ module Crysterm
       end
 
       # Shared `dither=` for the in-band graphics backends that expose a
-      # settable `dither` (`Media::Sixel`, `Media::Regis` — byte-identical
-      # bodies in both): `dither` is not part of the payload cache key
+      # settable `dither` (`Media::Sixel`, `Media::Regis`):
+      # `dither` is not part of the payload cache key
       # (`#payload_for` keys on geometry only), so a plain assignment would
       # silently keep re-emitting the stale cached payload. Drop it and request
       # a render, but only on an actual change.

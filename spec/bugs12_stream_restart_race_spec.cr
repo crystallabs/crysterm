@@ -15,7 +15,7 @@ include Crysterm
 # this with a post-loop ownership check, and `#advance_stream` checked
 # ownership *before* restart — but nothing re-checked *after* it.
 #
-# Fix: `#advance_stream` re-checks `stream.same?(@stream)` after `restart`
+# `#advance_stream` re-checks `stream.same?(@stream)` after `restart`
 # returns, closing the disowned stream (reaping the relaunched ffmpeg) and
 # returning false — without latching `@load_failed` for a failure that the
 # disowning itself caused. `#tick_frame` correspondingly ends playback only

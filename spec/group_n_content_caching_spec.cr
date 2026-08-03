@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Group N (ALLOCS.md) — the simple per-frame content rebuilds were converted to
-# state-change-driven caches (CheckBox/RadioButton marker line, Loading compact
-# line, BigText grapheme array + shrink width, Splitter even positions, StatusBar
-# truncation). These specs assert the *observable* rendered value is unchanged by
+# State-change-driven content caches (CheckBox/RadioButton marker line, Loading
+# compact line, BigText grapheme array + shrink width, Splitter even positions,
+# StatusBar truncation) replace simple per-frame content rebuilds.
+# These specs assert the *observable* rendered value is unchanged by
 # the caching: it is correct after the first render, identical after a redundant
 # second render, and updated after the relevant state change.
 

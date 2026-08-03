@@ -3,14 +3,14 @@ require "./spec_helper"
 include Crysterm
 
 # B16-02: `FrameClock`'s loop fiber, when a tick's work costs more than
-# `@interval`, takes the behind-schedule branch (`delay <= 0`). That branch used
-# to only resync the phase (`next_at = Time.instant`) and loop straight back into
-# the next `@on_tick.call` with no `sleep`/`Fiber.yield`. Crystal fibers are
-# cooperative, so an iteration that performs no blocking operation never returns
-# the thread to the scheduler: a ticker whose block keeps costing >= interval
-# monopolizes it, and the render/input fibers (and every other fiber) are starved
-# for the whole overload. The fix yields on the behind-schedule branch, so an
-# overloaded ticker degrades to best-effort cadence instead of freezing everything.
+# `@interval`, takes the behind-schedule branch (`delay <= 0`). A branch that
+# only resyncs the phase (`next_at = Time.instant`) and loops straight back into
+# the next `@on_tick.call` with no `sleep`/`Fiber.yield` starves the scheduler:
+# Crystal fibers are cooperative, so an iteration that performs no blocking
+# operation never returns the thread, and a ticker whose block keeps costing
+# >= interval monopolizes it — render/input fibers (and every other fiber) hang
+# for the whole overload. The branch must yield, so an overloaded ticker
+# degrades to best-effort cadence instead of freezing everything.
 
 describe "BUGS16 B16-02: FrameClock yields when behind schedule" do
   it "lets a competing fiber run between ticks when the tick block outruns the interval" do

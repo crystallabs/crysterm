@@ -110,7 +110,7 @@ module Crysterm
     # grow; `Int64` so it never wraps for the life of the process.
     @damage_stamp = 0_i64
 
-    # --- Overlap-grow via cell grid + union-find (replaces the O(N^3) fixpoint) -
+    # --- Overlap-grow via cell grid + union-find ----------------------------
     #
     # The connected cluster of overlapping top-level subtrees is found by
     # rasterizing each base child's rectangle into a screen-sized cell grid and

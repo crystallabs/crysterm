@@ -97,7 +97,7 @@ module Crysterm
     # index key on every re-cascade.
     @css_widget_index_has_slots = false
 
-    # Cross-cascade `var()` caches (O7-20): the custom properties merged across
+    # Cross-cascade `var()` caches: the custom properties merged across
     # the default and author stylesheets, and the per-value `var()` resolution
     # memo built against them. Both are a pure function of those two sheets — a
     # `Stylesheet`'s `variables` hash is populated only at parse time — so they
@@ -545,25 +545,15 @@ module Crysterm
       @css_patch_widgets.clear
     end
 
-    # Reverts every widget to its pristine pre-CSS look: styles back to a fresh
-    # dup of the base snapshot, `css_styled` off (so `#style` honors the inline
-    # `@style` short-circuit again), extra computed state cleared, and any
-    # CSS-written geometry restored — the cascade's own reset, minus the
+    # Reverts every widget to its pristine pre-CSS look
+    # (`Widget#css_reset_to_base`) — the cascade's own reset, minus the
     # re-apply. Run when styling transitions to "no active rules" after a
     # cascade styled widgets. Also drops `@css_last_document`, so a later
     # re-assigned stylesheet recascades from scratch.
     private def css_reset_styled_widgets : Nil
       # `each_descendant` on the window is the whole widget tree, pre-order
       # (the window itself is not a widget).
-      each_descendant do |widget|
-        widget.styles = widget.css_base_styles.deep_dup
-        widget.css_styled = false
-        widget.css_reset_extra
-        # The wipe removed any pushed sub-control style, so the `apply_substyle`
-        # memo must not keep skipping the push.
-        widget._substyle_src = nil
-        widget.restore_css_base_geometry
-      end
+      each_descendant &.css_reset_to_base
       @css_widgets_styled = false
       @css_last_document = nil
     end

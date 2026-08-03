@@ -16,9 +16,9 @@ include Crysterm
 
 # Build a scrollable container nested inside a *bordered* outer box placed
 # below the window top. The nesting (outer `ibottom > 0`) is what makes the
-# pre-fix, window-based viewport formula
+# buggy, window-based viewport formula
 #   `window.aheight - el.atop - el.itop - el.abottom - el.ibottom`
-# disagree with the element-based one
+# disagree with the correct, element-based one
 #   `el.aheight - el.itop - el.ibottom`
 # by the outer box's `ibottom`: for a direct child of the window the two are
 # algebraically identical, so the bug only surfaces one level down. The
@@ -48,7 +48,7 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
     element_based = (container.aheight || 0) - container.itop - container.ibottom
     window_based = s.aheight - container.atop - container.itop -
                    container.abottom - container.ibottom
-    # If these were equal the scenario wouldn't exercise the fix at all.
+    # If these were equal the scenario wouldn't distinguish the two formulas.
     element_based.should_not eq window_based
     element_based.should be > window_based
   end
@@ -69,9 +69,9 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
     s.render
 
     base = container.child_base
-    # The focused child's content row must now sit inside the visible window
-    # `[base, base + visible)`. With the pre-fix (smaller) viewport the
-    # container over-scrolled and this fell outside the window.
+    # The focused child's content row must sit inside the visible window
+    # `[base, base + visible)`. With the smaller, window-based viewport the
+    # container over-scrolls and this falls outside the window.
     (target.rtop >= base).should be_true
     (target.rtop < base + visible).should be_true
   end

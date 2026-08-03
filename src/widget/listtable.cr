@@ -455,11 +455,9 @@ module Crysterm
 
       # Replaces the table data and rebuilds items + header.
       #
-      # A real setter, not the one `property rows` used to generate: that one
-      # assigned `@rows` and stopped, bypassing `#reload_rows`, so the column
-      # widths and rendered rows kept describing the OLD data (see
-      # `Widget::Table#rows=`). `set_data`/`set_rows` — the two names the working
-      # path used to carry — are folded in here.
+      # A real setter, not a bare `property rows=` assignment: assigning
+      # `@rows` alone would bypass `#reload_rows`, leaving the column widths
+      # and rendered rows describing the OLD data (see `Widget::Table#rows=`).
       def rows=(rows)
         sel = @ritems[current_index]?
         prev_selected = current_index
@@ -642,7 +640,7 @@ module Crysterm
               cell_style = col ? css_cell_style(row, col) : nil
               if cell_style && (cell = line[xi + x]?)
                 cell.attr = style_to_attr cell_style
-                line.dirty = true
+                cell.mark_dirty
               end
               x += 1
             end
@@ -683,21 +681,10 @@ module Crysterm
             start_col: @first_col, width: width
         end
 
-        # Internal vertical separators. Rows scrolled above the screen are
-        # skipped, not wrapped (see the junction pass).
-        ry = 1
-        while ry < height
-          row = yi + ry
-          if row < 0
-            ry += 1
-            next
-          end
-          line = lines[row]?
-          break unless line
-
+        # Internal vertical separators, over the shared interior row walk
+        # (`TableLayout#each_interior_grid_line`).
+        each_interior_grid_line(lines, yi, height) do |line|
           draw_vertical_separators line, xi, battr, start_col: @first_col, width: width
-
-          ry += 1
         end
       end
     end

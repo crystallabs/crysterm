@@ -49,6 +49,24 @@ module Crysterm
         # command (Qt's `QToolBar#addSeparator`).
         property? separator = false
 
+        # Widget embedded in this item instead of a label (`ToolBar#add_widget`,
+        # Qt's `QToolBar#addWidget` / `QWidgetAction`). It is hosted *inside*
+        # `#widget`, the box that reserves the item's strip cells; `nil` for an
+        # ordinary command.
+        property embedded : Widget?
+
+        # Whether this item hosts an embedded widget rather than a label.
+        def embedded? : Bool
+          !@embedded.nil?
+        end
+
+        # Whether this command takes part in selection and keyboard navigation.
+        # False for separators (nothing to select) and for embedded widgets,
+        # which run their own focus/key handling — see `ToolBar#add_widget`.
+        def selectable? : Bool
+          !separator? && !embedded?
+        end
+
         # Window-level subscription for this command's global hotkeys (`#keys`).
         # A `Subscription` captures the *window it was installed on* at subscribe
         # time, so `#off` removes it from that exact window regardless of the
@@ -61,8 +79,8 @@ module Crysterm
 
       # Backing per-command `Box` widgets, one per command, parallel to
       # `#commands`/`@ritems`. The render/geometry store the bar mutates; the
-      # public *model* is `#items` (the commands). Moved off the `Widget` base
-      # here so only bars carry it.
+      # public *model* is `#items` (the commands). Lives here, not on the
+      # `Widget` base, so only bars carry it.
       property item_boxes = [] of Widget::Box
 
       @ritems = [] of String
@@ -229,7 +247,7 @@ module Crysterm
       # plain strings.
       def items=(commands : Array(Command))
         @item_boxes.each &.detach_from_tree
-        @commands.each { |cmd| detach_command cmd }
+        @commands.each { |cmd| release_command cmd }
         @item_boxes.clear
         @ritems.clear
         @commands.clear
@@ -276,6 +294,32 @@ module Crysterm
         cmd
       end
 
+      # Appends a command hosting *widget* instead of a label and returns its
+      # `Command` — the plumbing behind `ToolBar#add_widget` (Qt's
+      # `QToolBar#addWidget`), where the semantics are documented.
+      #
+      # *width* overrides the cells reserved for it; the reservation is stored on
+      # the `Command` up front because `#add_item` sizes the host box from
+      # `cmd.width` *before* the widget is reparented into it.
+      private def add_embedded_item(widget : Widget, width : Int32? = nil) : Command
+        cmd = Command.new ""
+        cmd.embedded = widget
+        cmd.width = width || embedded_width(widget)
+        add_item cmd
+        cmd
+      end
+
+      # Cells to reserve for an embedded widget: its own fixed cell width when it
+      # has one, else whatever it currently resolves to (`#awidth` is safe on an
+      # unparented widget — it falls back to the global window). Floored at 1, so
+      # a widget that resolves to nothing still gets a slot rather than
+      # collapsing the row.
+      private def embedded_width(widget : Widget) : Int32
+        w = widget.width
+        n = w.is_a?(Int32) ? w : widget.awidth
+        n > 0 ? n : 1
+      end
+
       # Appends a `Command`.
       def add_item(cmd : Command)
         # Pack each item flush after the ones already added: its left is the sum of
@@ -284,7 +328,7 @@ module Crysterm
         # bar is parented/rendered.
         drawn = @commands.sum(&.width) + item_gap * @commands.size
 
-        unless cmd.separator?
+        if cmd.selectable?
           # Auto prefixes are position numbers, so a command re-added at a new
           # position (`items=` reorder/filter, remove + re-add) must be
           # renumbered — number-key selection routes by raw index, and a stale
@@ -335,12 +379,26 @@ module Crysterm
         @commands.push cmd
         append item
 
+        # An embedded widget (`ToolBar#add_widget`) lives *inside* its host item
+        # box: the host reserves the strip cells and carries the widget along as
+        # the row re-packs, while the widget keeps its own size, style and
+        # focus/key handling. Pinned to the host's content origin; a re-add
+        # (`items=` reorder) simply re-hosts it under the new box.
+        cmd.embedded.try do |w|
+          w.top = 0
+          w.left = 0
+          item.append w
+        end
+
         # Per-command hotkeys are global accelerators (fire regardless of focus).
         # Installed only when the bar is attached; the `Event::Attached` handler
         # re-covers commands added while detached.
         install_command_hotkey cmd
 
-        if @mouse && !cmd.separator?
+        # No click-to-trigger over a separator, nor over an embedded widget —
+        # the latter handles its own clicks, and a host-level handler would fire
+        # a command the user never asked for on top of them.
+        if @mouse && cmd.selectable?
           item.on(::Crysterm::Event::Click) do
             trigger cmd
           end
@@ -353,7 +411,7 @@ module Crysterm
         # window math is gated on a laid-out `@lpos` and can't move the index before
         # the first render. `@left_base` stays 0 so every command, separators
         # included, remains visible.
-        if !cmd.separator? && @commands.count { |c| !c.separator? } == 1
+        if cmd.selectable? && @commands.count(&.selectable?) == 1
           @left_base = 0
           @left_offset = @item_boxes.size - 1
           self.current_index = current_index
@@ -450,16 +508,17 @@ module Crysterm
         validated_index child, @commands.size
       end
 
-      # Removes the command at *child* — a row index or the item/element widget —
-      # and returns its box (`nil` when *child* resolves to no command).
-      # An out-of-range or negative row index is a no-op.
+      # Removes the command at *child* — a row index, the item/element widget, or
+      # a widget embedded with `ToolBar#add_widget` — and returns its box (`nil`
+      # when *child* resolves to no command). An out-of-range or negative row
+      # index is a no-op.
       def remove_item(child : Int | Widget)
-        i = child.is_a?(Int) ? index_of(child) : @item_boxes.index(child)
+        i = child.is_a?(Int) ? index_of(child) : (@item_boxes.index(child) || index_of_embedded(child))
         return unless i && @item_boxes[i]?
 
         item = @item_boxes.delete_at i
         @ritems.delete_at i
-        detach_command @commands.delete_at i
+        release_command @commands.delete_at i
         remove item
 
         # Auto prefixes are baked in at `#add_item` time as position numbers, but
@@ -494,7 +553,12 @@ module Crysterm
       # Builds a command's displayed title from its (optionally prefixed) text,
       # and updates `cmd.width` to match.
       private def command_title(cmd : Command) : String
-        if cmd.separator?
+        if cmd.embedded?
+          # The embedded widget paints itself; its host box only reserves the
+          # strip cells (`cmd.width`, set by `#add_embedded_item` before the box
+          # is built), so there is no title to render under it.
+          ""
+        elsif cmd.separator?
           cmd.width = str_width(cmd.text) + 2
           cmd.text
         else
@@ -577,6 +641,24 @@ module Crysterm
         cmd.key_handler = nil
       end
 
+      # Releases a command being dropped from the bar: its hotkey handler, plus
+      # any widget embedded with `ToolBar#add_widget`. The embedded widget is the
+      # caller's, so it is detached free-standing rather than going down with the
+      # discarded host item box, and can be re-parented or re-added afterwards.
+      # (`#destroy` deliberately keeps the narrower `#detach_command`: a
+      # destroyed bar takes its whole subtree with it.)
+      private def release_command(cmd : Command)
+        detach_command cmd
+        cmd.embedded.try &.detach_from_tree
+      end
+
+      # Index of the command hosting *widget* as an embedded item, else `nil`.
+      # Lets the widget handed back by `ToolBar#add_widget` be passed straight to
+      # `#remove_item`, exactly like an item box.
+      private def index_of_embedded(widget : Widget) : Int32?
+        @commands.index { |cmd| cmd.embedded == widget }
+      end
+
       # Tears down every command's global-hotkey handler so none linger on the
       # window after the bar is destroyed.
       def destroy
@@ -584,15 +666,16 @@ module Crysterm
         super
       end
 
-      # The nearest selectable (non-separator) command index at or before
-      # *from*, else the nearest one after it, or `nil` when the bar holds no
-      # selectable command at all.
+      # The nearest selectable command index at or before *from*, else the
+      # nearest one after it, or `nil` when the bar holds no selectable command
+      # at all. "Selectable" is `Command#selectable?`: neither a separator nor an
+      # embedded widget.
       private def nearest_selectable(from : Int32) : Int32?
-        NavKeys.nearest_selectable(@commands.size, from, -1) { |i| @commands[i].separator? }
+        NavKeys.nearest_selectable(@commands.size, from, -1) { |i| !@commands[i].selectable? }
       end
 
       # Moves the selection by *delta* (negative = left), stepping over any
-      # separator commands so the highlight never lands on one.
+      # non-selectable command so the highlight never lands on one.
       def move_selection(delta : Int32)
         n = @commands.size
         return if n == 0
@@ -600,7 +683,7 @@ module Crysterm
         dir = delta >= 0 ? 1 : -1
         idx = current_index
         delta.abs.times do
-          ni = NavKeys.nearest_selectable(n, idx + dir, dir) { |i| @commands[i].separator? }
+          ni = NavKeys.nearest_selectable(n, idx + dir, dir) { |i| !@commands[i].selectable? }
           break unless ni
           idx = ni
         end
@@ -627,10 +710,11 @@ module Crysterm
         # validates instead of letting `Array#[]?` resolve `-1` from the end.
         return unless i = index_of index
         cmd = @commands[i]
-        # A separator is not a real item: selecting one would settle the highlight
-        # on a non-selectable command. `auto_command_keys` routes here by raw
-        # index, so a number landing on a separator must be a no-op too.
-        return if cmd.separator?
+        # A separator (or an embedded widget, which owns its own focus) is not a
+        # real item: selecting one would settle the highlight on a non-selectable
+        # command. `auto_command_keys` routes here by raw index, so a number
+        # landing on one must be a no-op too.
+        return unless cmd.selectable?
         self.current_index = i
         request_render
         emit ::Crysterm::Event::CurrentChanged, i
@@ -643,7 +727,7 @@ module Crysterm
       # emits `Event::ItemActivated` exactly like Enter/click/hotkey do.
       def activate_item(index : Int)
         return unless i = index_of index
-        return if @commands[i].separator?
+        return unless @commands[i].selectable?
         select_item i
         fire i
       end

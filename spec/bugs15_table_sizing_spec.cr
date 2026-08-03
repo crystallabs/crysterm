@@ -11,7 +11,7 @@ include Crysterm
 # pinned, a content-sized table (a) can never shrink when its data gets
 # narrower, and (b) — with the vertical scroll bar shown — folds the bar's
 # reserve column into the column widths and grows one column per refresh,
-# unbounded. The fix clears the pinned width before each remeasure for
+# unbounded. The pinned width is cleared before each remeasure for
 # content-sized tables only; fixed-width tables keep distributing slack.
 
 describe "BUGS15 #85 content-sized table sizing" do

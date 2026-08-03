@@ -75,17 +75,46 @@ module Crysterm
 
     # The document's headings in document order, with unique derived anchors.
     #
-    # Memoized against `#revision`, which is documented as bumped by every
-    # mutation, so equal readings guarantee identical content *and* formatting
-    # — the same cache-key contract `TextList`'s member memo relies on.
+    # Memoized heading-aware. `#revision` — bumped by every mutation — is the
+    # fast "nothing changed at all" key; on a revision miss the cache is
+    # re-validated against the actual heading blocks (`#outline_current?`,
+    # allocation-free) before anything is rebuilt. Edits that touch no heading
+    # — the overwhelmingly common case while text is typed or streamed between
+    # headings — therefore keep returning the same cached array, which is what
+    # lets a live consumer (`Widget::TocView`) read this on every
+    # `Event::ContentsChanged` without re-slugging the document per keystroke.
+    # Only a mutation that changes a heading's level or text, or shifts one to
+    # a different block index, falls through to `build_outline`.
     #
     # Blocks inside a `TextToc` frame are excluded: a generated contents list
     # is derived data, and indexing it would make every refresh grow it.
     def outline : Array(TextOutline::Entry)
-      cached = @outline_cache
-      return cached if cached && @outline_revision == revision
+      if (cached = @outline_cache) && (@outline_revision == revision || outline_current?(cached))
+        @outline_revision = revision
+        return cached
+      end
       @outline_revision = revision
       @outline_cache = build_outline
+    end
+
+    # Whether *cached* still describes this document's headings: the same
+    # heading blocks at the same indexes, with the same levels and the very
+    # same text objects. `TextBlock#text` is memoized and every block mutator
+    # drops the memo, so *object identity* proves a heading's text untouched —
+    # no content is compared and nothing is allocated. Conservative by design:
+    # a rebuilt-but-equal text object just means one spare `build_outline`,
+    # never a stale entry.
+    private def outline_current?(cached : Array(TextOutline::Entry)) : Bool
+      n = 0
+      blocks.each_with_index do |b, i|
+        bf = b.block_format
+        next unless bf.heading?
+        next if bf.frame_formats.try(&.any?(TextTocFormat))
+        e = cached[n]?
+        return false unless e && e.block == i && e.level == bf.heading_level && e.text.same?(b.text)
+        n += 1
+      end
+      n == cached.size
     end
 
     private def build_outline : Array(TextOutline::Entry)

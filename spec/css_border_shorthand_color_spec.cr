@@ -7,11 +7,6 @@ include Crysterm
 # `currentColor` and color functions (`rgb()`/`hsl()`) work and a function's
 # internal spaces/commas survive tokenization.
 # (`Crysterm::CSS::Properties.apply`, `border` shorthand → `parse_border`.)
-#
-# Regression: `parse_border` used to split on whitespace and assign the raw
-# token straight to `Border#fg`, so `border: solid rgb(255,0,0)` was torn into
-# `rgb(255,`/`0,`/`0)` (each an unknown sentinel), and `currentColor` resolved
-# to garbage instead of the text color.
 describe "CSS border shorthand color" do
   it "resolves an rgb() color with internal spaces/commas" do
     s = Style.new

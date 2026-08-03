@@ -2,8 +2,6 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS16 wave-3 CSS findings: B16-27, B16-28, B16-29.
-
 # B16-27 — `split_top_level` tracked paren depth but not quoted strings, so a
 # quoted space glyph value shredded into bare `"` tokens and the whole
 # declaration was dropped by the shorthand's token-count check.

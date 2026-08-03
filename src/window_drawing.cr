@@ -230,10 +230,11 @@ module Crysterm
       # Whether non-ASCII glyphs must be reduced to a 1-column ASCII fallback.
       ascii_reduce = !term_unicode && (u8 != 1)
       # Whether the per-row scan may be bounded to the dirty-column range. BCE's
-      # clear look-ahead reaches past the changed span and full_unicode's
-      # wide-grapheme continuations straddle cell boundaries, so both force a
-      # full-width scan.
-      may_bound = !bce_opt && !fu
+      # clear look-ahead (and its `el` + mirror writes) reaches past the changed
+      # span, so it forces a full-width scan. full_unicode does NOT: a wide
+      # grapheme couples only its two adjacent cells, which the per-row bound
+      # below covers by widening one cell at each edge of the dirty range.
+      may_bound = !bce_opt
 
       if @_buf.size > 0
         @main.print @_buf
@@ -307,15 +308,36 @@ module Crysterm
         any_l = l_has_l || o_has_l
 
         # Bound the per-cell scan to the columns that actually changed, read before
-        # the dirty flag is cleared below. Only on the common fast path — BCE,
-        # full_unicode, or an artificial cursor on this row force a full-width scan.
+        # the dirty flag is cleared below. Only on the common fast path — BCE or
+        # an artificial cursor on this row force a full-width scan, and a rare
+        # width mismatch between the two buffers does too (cells past `o_size`
+        # have no old side to compare against and are emitted unconditionally,
+        # so only a full scan reaches them all).
         scan_lo = 0
         scan_hi = line_size - 1
-        if may_bound && !(c_artificial && y == cursor_y)
+        if may_bound && o_size == line_size && !(c_artificial && y == cursor_y)
           dmin = line.dirty_min
           dmax = line.dirty_max
           scan_lo = dmin if dmin > scan_lo
-          scan_hi = dmax if dmax < scan_hi
+          if fu
+            # A wide grapheme spans two cells, so the bound must cover a glyph
+            # straddling either edge of the dirty range:
+            #  * right: include `dmax + 1` so a changed wide lead at `dmax` is
+            #    followed by its continuation iteration (`skip_next`), leaving
+            #    the skipped-run bookkeeping (`lx`) identical to a full scan.
+            #    Compare instead of adding — a plain `dirty = true` stores
+            #    `Int32::MAX` as `dirty_max`, which `+ 1` would overflow.
+            #  * left: step back over continuation cells so the scan enters a
+            #    wide glyph at its lead, exactly where a full scan's per-cell
+            #    logic (unchanged-skip, or emit + `skip_next`) picks it up.
+            scan_hi = dmax + 1 if dmax < scan_hi - 1
+            while scan_lo > 0 && scan_lo < line_size &&
+                  l_chars.unsafe_fetch(scan_lo) == Cell::CONTINUATION
+              scan_lo -= 1
+            end
+          else
+            scan_hi = dmax if dmax < scan_hi
+          end
         end
 
         line.dirty = false
@@ -1102,11 +1124,8 @@ module Crysterm
 
     # Alpha-blends every cell in a region toward black (shadow compositing).
     # Shadow callers pass intentionally unclamped bounds and rely on whatever
-    # falls off the grid being skipped — which is exactly what
-    # `#each_region_row`'s clamping does here: the previous unclamped walk ran
-    # `yi.upto(yl - 1)` with a `next if y < 0` and started each row at
-    # `xi < 0 ? 0 : xi`, so it visited precisely the rows and columns clamping
-    # the origins to 0 visits.
+    # falls off the grid being skipped — `#each_region_row`'s clamping provides
+    # exactly that.
     #
     # With *glyph* set (a half-block such as `▀`/`▄`/`▌`/`▐`), the band is painted
     # with that character instead of darkening the whole cell, so only part of the

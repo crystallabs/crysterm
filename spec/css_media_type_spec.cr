@@ -5,11 +5,8 @@ include Crysterm
 # `Crysterm::CSS::MediaQuery` with a bare (featureless) media *type*.
 #
 # A featureless query with a supported media type (`@media screen` / `@media
-# all`) must match a terminal — a terminal is a screen device. The parser used
-# to reject *every* featureless non-empty query as unmatchable, which also
-# killed `screen`/`all`, contradicting the media-type scan that classifies them
-# as satisfiable. Only unsupported types (`print`/`speech`/…) and negation
-# (`not …`) stay unmatchable.
+# all`) must match a terminal — a terminal is a screen device. Only unsupported
+# types (`print`/`speech`/…) and negation (`not …`) stay unmatchable.
 describe "Crysterm::CSS::MediaQuery bare media type" do
   it "matches a bare `screen` (a terminal is a screen device)" do
     q = Crysterm::CSS::MediaQuery.parse("screen")

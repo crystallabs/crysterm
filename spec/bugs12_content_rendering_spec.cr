@@ -41,7 +41,7 @@ end
 
 # BUGS12 #13 — `rebuild_content_from_fake` called `set_content(joined, true)`,
 # letting `no_tags` default to false and permanently flipping a literal-tags
-# widget back into tag-parsing mode. It now forwards `@_content_no_tags`.
+# widget back into tag-parsing mode. It must forward `@_content_no_tags`.
 describe "Widget#rebuild_content_from_fake preserves no_tags mode" do
   it "keeps tags literal after a fake-array rebuild (delete_line)" do
     box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 5

@@ -2,14 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Pinning specs for four OPT5 items (plans/OPT5.md):
+# Pinning specs for four style/media items:
 #
-# * O5-20 — `Style#initialize` used to coerce `border`/`padding`/`margin`/
-#   `shadow` through `X.from` itself and *then* hand the already-typed result
-#   to the `X=` setter, which coerces again. The ctor now passes the raw
-#   argument straight to the setter (one coercion, not two) — these specs pin
-#   that construction still produces the exact same `Style` for every
-#   currently-accepted argument type of each property.
+# * O5-20 — `Style#initialize` passes the raw `border`/`padding`/`margin`/
+#   `shadow` argument straight to the `X=` setter (one coercion, not two) —
+#   these specs pin that construction still produces the exact same `Style`
+#   for every currently-accepted argument type of each property.
 # * O5-29 — `Style#without_border` (border-only strip, unlike the full
 #   `#stripped_frame`) and `GroupBox` routing its `::title` sub-style memo
 #   through it via `Style.memo_derive`.

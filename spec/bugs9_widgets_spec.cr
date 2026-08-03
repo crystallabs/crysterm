@@ -2,20 +2,20 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS9 #1 — `ProgressBar#maximum=` discarded a new maximum below the current
-# minimum. It called `set_range(@minimum, v)`, whose inverted-range guard
-# (`max = min if max < min`) then pulled the maximum back *up* to `@minimum`,
-# throwing `v` away entirely — so `bar.maximum = 5` on a bar with `minimum ==
-# 10` left the range at `[10, 10]`. Qt's `setMaximum` is
+# BUGS9 #1 — `ProgressBar#maximum=` must not discard a new maximum below the
+# current minimum. Calling `set_range(@minimum, v)` lets the inverted-range
+# guard (`max = min if max < min`) pull the maximum back *up* to `@minimum`,
+# throwing `v` away entirely — `bar.maximum = 5` on a bar with `minimum == 10`
+# leaves the range at `[10, 10]`. Qt's `setMaximum` is
 # `setRange(qMin(minimum, maximum), maximum)`: the new maximum wins, pulling the
-# minimum down to `[5, 5]`. It was also asymmetric with `#minimum=`, which
-# already honored its bound.
+# minimum down to `[5, 5]` — and symmetric with `#minimum=`, which already
+# honors its bound.
 describe "BUGS9 ProgressBar#maximum= honors a maximum below the minimum" do
   it "pulls the minimum down so the new maximum wins (Qt setMaximum)" do
     s = headless_screen(40, 20)
     bar = Widget::ProgressBar.new parent: s, width: 20, height: 1, minimum: 10, maximum: 100
     bar.maximum = 5
-    bar.maximum.should eq 5 # was 100 before the fix (v silently discarded)
+    bar.maximum.should eq 5 # not silently discarded
     bar.minimum.should eq 5 # dragged down with it, per Qt
   end
 
@@ -39,15 +39,15 @@ end
 # BUGS9 #2 — `needs_cluster?` (widget_content.cr) is the renderer's exclusive
 # gate for grapheme-cluster assembly (widget_rendering.cr): when it returns
 # false the base char is laid into a lone cell and `extend_grapheme` never runs.
-# Its fast-reject compared the successor against U+200D (ZWJ), but combining
-# marks — the lowest cluster extender (`Char#mark?`) — begin at U+0300, far
-# below U+200D. So a base like 'e' followed by U+0301 (NFD "é") was wrongly
-# rejected and rendered as two detached cells instead of one combined cluster.
+# A fast-reject comparing the successor against U+200D (ZWJ) misses combining
+# marks — the lowest cluster extenders (`Char#mark?`) begin at U+0300, far
+# below U+200D — so a base like 'e' followed by U+0301 (NFD "é") is wrongly
+# rejected and renders as two detached cells instead of one combined cluster.
 describe "BUGS9 needs_cluster? accepts base + combining-mark clusters" do
   it "returns true for a letter followed by a combining mark (NFD e + U+0301)" do
     s = headless_screen(40, 20)
     w = Widget::Box.new parent: s, width: 10, height: 1
-    w.needs_cluster?('e', '́').should be_true # was false before the fix
+    w.needs_cluster?('e', '́').should be_true
   end
 
   it "still fast-rejects the plain two-ASCII-char case (no regression)" do

@@ -69,7 +69,7 @@ module Crysterm
               # The real focus-next API (+ repaint, matching the window's own
               # Tab handling) — not a synthetic Tab `KeyPress`, which would
               # ride the whole input-routing path and could be consumed before
-              # reaching focus navigation (R-88).
+              # reaching focus navigation.
               window.focus_next
               window.render
             end

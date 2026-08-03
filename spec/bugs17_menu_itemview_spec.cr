@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# B17-20: `ItemView#items=` used to start with an unconditional
-# `self.current_index = 0`, which on a *rendered* list with a non-zero selection
-# took the full setter path — scrolling to the top and emitting an
-# `ItemSelected` carrying the OLD row-0 item — before the real selection was
-# restored (a second emission). A wholesale `items=` therefore fired listeners
-# twice per assignment, the first spuriously. The reset is now quiet, so exactly
-# one `ItemSelected` fires, at the restored index.
+# B17-20: an unconditional `self.current_index = 0` at the top of
+# `ItemView#items=`, on a *rendered* list with a non-zero selection, took the
+# full setter path — scrolling to the top and emitting an `ItemSelected`
+# carrying the OLD row-0 item — before the real selection was restored (a
+# second emission), so a wholesale `items=` fired listeners twice per
+# assignment, the first spuriously. The reset must be quiet, so exactly one
+# `ItemSelected` fires, at the restored index.
 describe "ItemView#items= single ItemSelected emission" do
   it "emits exactly one ItemSelected (at the restored index) on unchanged items" do
     s = headless_screen(80, 24)
@@ -23,8 +23,8 @@ describe "ItemView#items= single ItemSelected emission" do
     # Same size, same texts: selection is preserved by the restore branch.
     list.items = ["a", "b", "c"]
 
-    # Exactly one emission, and it is the restored row (2) — never the transient
-    # spurious row 0 the old code emitted first.
+    # Exactly one emission, and it is the restored row (2) — never a transient
+    # spurious row 0 first.
     indices.should eq [2]
     list.current_index.should eq 2
     list.current_text.should eq "c"
@@ -51,9 +51,9 @@ end
 # B17-16: while a submenu is open, ANY row rebuild (an external action change, an
 # add/remove) went through `sync_items -> items=`, whose transient index churn
 # dispatched into `Menu#current_index=` and force-closed the submenu the user was
-# navigating. The rebuild is now guarded (`@syncing_items`) and reconciled once at
-# the end of `sync_items`: keep the submenu open (re-anchoring it) when its action
-# survives, close it only when the action was removed/hidden.
+# navigating. The rebuild must be guarded (`@syncing_items`) and reconciled once
+# at the end of `sync_items`: keep the submenu open (re-anchoring it) when its
+# action survives, close it only when the action was removed/hidden.
 describe "Menu submenu survives unrelated row rebuilds" do
   it "leaves an open submenu open when an unrelated action's label changes" do
     s = headless_screen(80, 24)

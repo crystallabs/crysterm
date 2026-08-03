@@ -4,13 +4,13 @@ include Crysterm
 
 # `Widget::Graph::Map` projects/draws its coastlines on a `Graph::Canvas` (in
 # `#paint_map`), which only re-rasterizes when its `@paint_dirty` flag is set.
-# `#look_at`/`#refresh` call `canvas.invalidate_paint`, but the viewport and
-# coastline/graticule properties (`min_lon`/`max_lon`/`min_lat`/`max_lat`,
-# `land_color`, `show_graticule`, `graticule_color`, `graticule_step`) were plain
-# `property` setters that did not — even though the docstring lists setting the
-# bounds directly as a supported path. So e.g. `map.min_lon = -90` left the old
-# projection painted on window. They now invalidate the raster and schedule a
-# render. (Markers are a separate text overlay and keep their own path.)
+# `#look_at`/`#refresh` call `canvas.invalidate_paint`; the viewport and
+# coastline/graticule setters (`min_lon`/`max_lon`/`min_lat`/`max_lat`,
+# `land_color`, `show_graticule`, `graticule_color`, `graticule_step`) must
+# invalidate the raster and schedule a render too — the docstring lists setting
+# the bounds directly as a supported path, and a plain `property` setter would
+# leave the old projection painted on window. (Markers are a separate text
+# overlay and keep their own path.)
 
 describe "Widget::Graph::Map coastline setters schedule a repaint" do
   it "marks the Canvas dirty when a viewport bound changes" do

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# OSC 8 hyperlink emission (TEXTEDIT.md follow-up): anchor runs painted by
+# OSC 8 hyperlink emission: anchor runs painted by
 # `Widget::TextEdit` carry a cell link id (`Window#link_id` registry), and
 # the draw loop brackets them in tput's `begin_hyperlink`/`end_hyperlink`
 # escapes — only when a printed cell's link differs from the one in effect,

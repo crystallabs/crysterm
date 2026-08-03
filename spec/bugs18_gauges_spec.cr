@@ -7,8 +7,8 @@ include Crysterm
 # * B18-57 — Gauge/GaugeList/Donut constructors stored a non-finite
 #   minimum/maximum unsanitized (only `#set_range` guarded it), poisoning
 #   `percent_of` with NaN and crashing the render fiber on `.round.to_i`.
-#   Fixed via a shared `Mixin::PercentRange#sanitize_range` used by all three
-#   constructors.
+#   All three constructors sanitize via a shared
+#   `Mixin::PercentRange#sanitize_range`.
 # * B18-58 — `GroupBox`'s `ChildAdded` handler (and `checkable=`) ran
 #   `apply_enabled` unconditionally, which on a *checked* group takes the
 #   restore branch and force-enables every app-disabled child.
@@ -36,7 +36,7 @@ describe "BUGS18 B18-57: Gauge/GaugeList/Donut constructors sanitize non-finite 
     g = Widget::Gauge.new parent: s, value: 50, minimum: Float64::NAN, maximum: 100.0
     g.minimum.finite?.should be_true
     g.maximum.finite?.should be_true
-    s.repaint # pre-fix: OverflowError in #render via formatted_text's `.round.to_i`
+    s.repaint # guards against OverflowError in #render via formatted_text's `.round.to_i`
   end
 
   it "Gauge.new with a NaN maximum collapses max to the (sanitized) min" do
@@ -52,7 +52,7 @@ describe "BUGS18 B18-57: Gauge/GaugeList/Donut constructors sanitize non-finite 
     gl = Widget::GaugeList.new parent: s, minimum: Float64::NAN, width: 30, height: 5
     gl.minimum.finite?.should be_true
     gl.add_item "cpu", 64
-    s.repaint # pre-fix: OverflowError via gauge_line's `pct.round.to_i`
+    s.repaint # guards against OverflowError via gauge_line's `pct.round.to_i`
   end
 
   it "Donut.new with a NaN maximum does not raise on render" do
@@ -60,7 +60,7 @@ describe "BUGS18 B18-57: Gauge/GaugeList/Donut constructors sanitize non-finite 
     d = Widget::Graph::Donut.new parent: s, value: 50, minimum: 0.0, maximum: Float64::NAN,
       width: 18, height: 9
     d.maximum.finite?.should be_true
-    s.repaint # pre-fix: OverflowError via draw_center_label's `percent.round.to_i`
+    s.repaint # guards against OverflowError via draw_center_label's `percent.round.to_i`
   end
 
   it "an ordinary finite range is unaffected" do
@@ -161,8 +161,9 @@ describe "BUGS18 B18-60: Gauge overlay measures/places captions by display colum
         Widget::Gauge::Segment.new(50, "red", "警告"),
       ]
     s.repaint
-    # One logical content row (height: 1, no border); pre-fix it measured wider
-    # than the box's 40 columns and wrapped onto a second *screen* line.
+    # One logical content row (height: 1, no border); guards against it
+    # measuring wider than the box's 40 columns and wrapping onto a second
+    # *screen* line.
     g.screen_lines.size.should eq 1
   end
 
@@ -199,7 +200,7 @@ describe "BUGS18 B18-61: LCDNumber sanitizes non-finite Float input" do
     s = headless_screen
     lcd = Widget::LCDNumber.new parent: s, digit_count: 3
     lcd.value = 1e300
-    lcd.int_value # pre-fix: OverflowError
+    lcd.int_value # guards against OverflowError
   end
 
   it "an ordinary finite value round-trips through int_value" do
@@ -268,7 +269,7 @@ describe "BUGS18 B18-66: idle-visible setters schedule a repaint" do
     bar = Widget::ProgressBar.new parent: s, width: 20, height: 1, value: 40
     bar.text_visible = true
     bar.format = "%v/%m"
-    s.repaint # pre-fix these were bare properties; just must not raise
+    s.repaint # guards against bare properties that never scheduled a repaint
     bar.text_visible?.should be_true
     bar.format.should eq "%v/%m"
   end

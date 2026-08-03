@@ -70,16 +70,21 @@ module Crysterm
     BARE_MARKERS = {"[toc]", "[[toc]]", "[[_toc_]]"}
 
     # Whether *text* is a bare TOC marker in any accepted spelling.
+    #
+    # Spelled to run per block per parse (`.fold_tocs`' guard) without the
+    # `strip.downcase` copies the obvious form makes: `String#strip` returns
+    # `self` when there is nothing to strip, and each candidate is compared
+    # case-insensitively in place.
     def self.toc_marker?(text : String) : Bool
-      BARE_MARKERS.includes?(text.strip.downcase)
+      s = text.strip
+      BARE_MARKERS.any? { |m| s.size == m.size && s.compare(m, case_insensitive: true).zero? }
     end
 
     # Parses markdown into detached blocks.
     def self.parse(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)
       # `source_pos` records each block's source line/column so the importer
       # can tell a real `[x]` task marker from an escaped `\[x\]` one — markd
-      # resolves the escape before the AST, so the text nodes are identical
-      # (B17-31).
+      # resolves the escape before the AST, so the text nodes are identical.
       doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
       fold_tocs(Importer.new(theme, text).import(doc))
     end
@@ -159,8 +164,21 @@ module Crysterm
     # A bare marker only counts as one where a TOC could actually go: not
     # inside a code block, where `[TOC]` is sample text rather than a
     # directive, and not as a list item.
+    #
+    # The length gate and first-char probe reject almost every block before
+    # `toc_marker?` even strips: no accepted spelling is shorter than `[toc]`,
+    # and all of them open with `[`.
     private def self.bare_marker?(block : TextBlock) : Bool
-      return false unless toc_marker?(block.text)
+      text = block.text
+      return false if text.size < 5 # "[toc]"
+      opener = false
+      text.each_char do |c|
+        next if c.whitespace?
+        opener = c == '['
+        break
+      end
+      return false unless opener
+      return false unless toc_marker?(text)
       return false if block.block_format.list_format
       !block.fragments.first?.try(&.format.code?)
     end
@@ -196,15 +214,251 @@ module Crysterm
     end
 
     private def self.fence_open?(block : TextBlock) : Bool
-      block.text.strip.downcase == FENCE_OPEN
+      fence_eq?(block.text, FENCE_OPEN)
     end
 
     private def self.fence_close?(block : TextBlock) : Bool
-      block.text.strip.downcase == FENCE_CLOSE
+      fence_eq?(block.text, FENCE_CLOSE)
+    end
+
+    # Whether *text* equals *fence* modulo surrounding whitespace and letter
+    # case — `text.strip.downcase == fence` without its two copies, because
+    # the fence guards run per block on every parse: the length gate rejects
+    # most blocks outright (stripping only removes, so a shorter text cannot
+    # match), `String#strip` returns `self` when there is nothing to strip,
+    # and the final comparison is case-insensitive in place.
+    private def self.fence_eq?(text : String, fence : String) : Bool
+      return false if text.size < fence.size
+      s = text.strip
+      s.size == fence.size && s.compare(fence, case_insensitive: true).zero?
     end
 
     private def self.stamp_toc(bf : TextBlockFormat, fmt : TextTocFormat) : TextBlockFormat
       bf.with_frame_formats((bf.frame_formats || [] of TextFrameFormat) + [fmt])
+    end
+
+    # Incremental import for a *streamed* markdown producer (the counterpart
+    # of Textual's `Markdown.append`): a chunk buffer that releases
+    # the largest prefix guaranteed to parse in isolation exactly as it would
+    # inside the finished text, holding everything else pending. Markdown is
+    # not chunk-decomposable — a chunk boundary can fall inside a code fence,
+    # mid table row, or mid paragraph — so the only safe release points are
+    # blank lines that no future chunk can reach back across.
+    #
+    # `#append` buffers a chunk and returns markdown ready to parse, or nil;
+    # `#flush` returns whatever is still pending — the end-of-stream signal.
+    # This class is pure text chunking: `TextDocument#append_markdown` owns one
+    # per document and feeds the released pieces through `.parse`.
+    #
+    # A release point must satisfy, judged per complete line (a trailing line
+    # still missing its `'\n'` is never released — it could yet grow):
+    #
+    # - It sits just past a blank line. Everything blank-terminated is closed
+    #   for good — paragraphs (so a seam can never split what one-shot parsing
+    #   would join: an unterminated paragraph, its soft/hard-break
+    #   continuations and a pending setext underline all wait for their blank
+    #   line), headings, GFM tables, HTML blocks of types 6/7.
+    # - Not inside an open ```` ``` ````/`~~~` fence, where blank lines are
+    #   content.
+    # - Not inside an HTML block of types 1-5 (`<script|pre|style`, `<!--`,
+    #   `<?`, `<!DECL`, `<![CDATA[`) — the kinds whose content runs across
+    #   blank lines until a close condition (`HTML_OPEN_1_5`).
+    # - Not between `FENCE_OPEN` and `FENCE_CLOSE`: the pair must reach
+    #   `.fold_tocs` in one piece or the TOC frame never forms.
+    # - Not while the scanned tail ends in a list, indented code, or a
+    #   blockquote. A later indented line continues list and indented code
+    #   across any number of blank lines (`"- a\n\n  b"` is one item); a
+    #   blockquote *is* closed by its blank line, but the importer emits a
+    #   quote-interior separator block between two abutting quote runs
+    #   (`quote_break?` keys on the previous block's quote level), which
+    #   reaches across a seam — so abutting quotes must parse in one piece.
+    #   All three stay unsafe until a column-0 plain line proves the
+    #   construct over. Conservative — a streamed list or quote run releases
+    #   only once something follows it (or `#flush` forces it) — which
+    #   trades latency, never correctness.
+    #
+    # Known limitation, shared with Textual's incremental path: a link
+    # *reference definition* resolves only within one released piece.
+    # Reference definitions are the one construct with document-wide scope, so
+    # a definition and its use separated by a release stay literal text.
+    class Stream
+      # A list-item marker line at ≤3 indent — bullet or ordered, including a
+      # bare `-` (an empty item). What makes the scanned tail continuable
+      # across blank lines. `---` and `===` do not match (the char after the
+      # marker must be space/tab/EOL), so thematic breaks and setext
+      # underlines stay plain lines.
+      ITEM_LINE = /\A {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|\z)/
+      # A blockquote marker line at ≤3 indent — the third continuable-tail
+      # shape (see the class comment's last rule).
+      QUOTE_LINE = /\A {0,3}>/
+      # An opening code fence (CommonMark 4.5): a backtick fence's info string
+      # may not contain a backtick; a tilde fence's may contain anything.
+      BACKTICK_FENCE = /\A {0,3}(`{3,})[^`]*\z/
+      TILDE_FENCE    = /\A {0,3}(~{3,})/
+      # A closing fence candidate: nothing but a fence run and trailing
+      # spaces. Valid only for the open fence's character at ≥ its length.
+      CLOSING_FENCE = /\A {0,3}(`+|~+)[ \t]*\z/
+      # CommonMark HTML blocks of types 1-5 are the only ones whose content
+      # continues across blank lines (6/7 end at one); open/close line
+      # conditions reused straight from markd so the two stay in lockstep
+      # (`HTML_BLOCK_OPEN` also carries types 6-7 — sliced off; the close
+      # list is types 1-5 already).
+      HTML_OPEN_1_5  = Markd::Rule::HTML_BLOCK_OPEN[0, 5]
+      HTML_CLOSE_1_5 = Markd::Rule::HTML_BLOCK_CLOSE
+
+      # Everything appended and not yet released — the tail the next `#append`
+      # continues scanning from.
+      getter pending : String = ""
+
+      # Byte offset into `@pending` of the first unscanned byte; only whole
+      # `'\n'`-terminated lines are ever classified.
+      @scan_pos = 0
+      # Byte offset of the largest safe release point found so far (always
+      # just past a blank line), or nil.
+      @boundary : Int32?
+      # Byte end of the last content line scanned; a boundary is only worth
+      # releasing when content precedes it.
+      @last_content_end = 0
+      # Open fence state: the fence character and the minimum closing run.
+      @fence_char : Char?
+      @fence_len = 0
+      # Close condition of an open HTML block of types 1-5, else nil.
+      @html_close : Regex?
+      # Between `FENCE_OPEN` and its `FENCE_CLOSE`.
+      @toc_open = false
+      # The scanned tail ends in a seam-crossing construct (list / indented
+      # code / blockquote) — see the class comment's last rule.
+      @unsafe_tail = false
+      # The next content line opens a fresh region (start of input or right
+      # after a blank line) — the one place `@unsafe_tail` can clear: a
+      # column-0 non-item line there ends any open list or indented code
+      # (and a fresh quote region re-flags itself right after).
+      @at_region_start = true
+
+      # Buffers *chunk* and returns the markdown now safe to parse in
+      # isolation, or nil when everything (still) waits on future chunks.
+      def append(chunk : String) : String?
+        return if chunk.empty?
+        @pending += chunk
+        scan
+        release
+      end
+
+      # Returns the pending tail — parse it as-is; whatever construct is open
+      # simply ends, as it would at end of input — and resets the stream. Nil
+      # when nothing but whitespace is pending (a pure-blank tail parses to
+      # nothing).
+      def flush : String?
+        rest = @pending
+        reset
+        rest.each_char.any? { |c| !c.in?(' ', '\t', '\r', '\n') } ? rest : nil
+      end
+
+      private def reset : Nil
+        @pending = ""
+        @scan_pos = 0
+        @boundary = nil
+        @last_content_end = 0
+        @fence_char = nil
+        @fence_len = 0
+        @html_close = nil
+        @toc_open = false
+        @unsafe_tail = false
+        @at_region_start = true
+      end
+
+      # Classifies every newly complete line.
+      private def scan : Nil
+        while nl = @pending.byte_index('\n'.ord, @scan_pos)
+          line = @pending.byte_slice(@scan_pos, nl - @scan_pos).chomp('\r')
+          @scan_pos = nl + 1
+          classify(line, @scan_pos)
+        end
+      end
+
+      # Cuts the pending buffer at the recorded boundary, rebasing the scan
+      # state (all offsets are byte-based; a boundary lies just past a `'\n'`,
+      # so the cut is always on a character boundary).
+      private def release : String?
+        b = @boundary || return
+        piece = @pending.byte_slice(0, b)
+        @pending = @pending.byte_slice(b, @pending.bytesize - b)
+        @scan_pos -= b
+        @boundary = nil
+        @last_content_end = Math.max(@last_content_end - b, 0)
+        piece
+      end
+
+      # The line scanner: tracks open fence / HTML / TOC-fence regions, the
+      # continuable-tail flag, and records a release boundary at every blank
+      # line all the rules pass.
+      private def classify(line : String, line_end : Int32) : Nil
+        if fc = @fence_char
+          if (m = CLOSING_FENCE.match(line)) && m[1][0] == fc && m[1].size >= @fence_len
+            @fence_char = nil
+          end
+          @last_content_end = line_end # blank lines in a fence are content
+          return
+        end
+        if re = @html_close
+          @html_close = nil if line.matches?(re)
+          @last_content_end = line_end
+          return
+        end
+        if blank?(line)
+          @at_region_start = true
+          @boundary = line_end if @last_content_end > 0 && !@unsafe_tail && !@toc_open
+          return
+        end
+        @last_content_end = line_end
+        ind = indent_of(line)
+        if @at_region_start
+          @unsafe_tail = false if ind == 0 && !ITEM_LINE.matches?(line)
+          @at_region_start = false
+        end
+        case line.strip.downcase
+        when FENCE_OPEN
+          @toc_open = true
+          return
+        when FENCE_CLOSE
+          @toc_open = false
+          return
+        end
+        if ind <= 3
+          if m = BACKTICK_FENCE.match(line) || TILDE_FENCE.match(line)
+            @fence_char = m[1][0]
+            @fence_len = m[1].size
+            return
+          end
+          core = line.lstrip
+          if core.starts_with?('<') && (t = HTML_OPEN_1_5.index { |open| core.matches?(open) })
+            # A close condition met on the opening line ends the block there
+            # (`<!-- toc -->` itself is exactly that case).
+            close = HTML_CLOSE_1_5[t]
+            @html_close = close unless core.matches?(close)
+            return
+          end
+        end
+        @unsafe_tail = true if ind >= 4 || ITEM_LINE.matches?(line) || QUOTE_LINE.matches?(line)
+      end
+
+      # Only spaces/tabs (CommonMark's blank line; `'\r'` is chomped before).
+      private def blank?(line : String) : Bool
+        line.each_char.all? { |c| c == ' ' || c == '\t' }
+      end
+
+      # Leading indent in columns, tabs advancing to the next 4-stop.
+      private def indent_of(line : String) : Int32
+        ind = 0
+        line.each_char do |c|
+          case c
+          when ' '  then ind += 1
+          when '\t' then ind += 4 - (ind % 4)
+          else           break
+          end
+        end
+        ind
+      end
     end
 
     # Markd AST → blocks. Inline formatting is a stack of `TextCharFormat`
@@ -245,7 +499,7 @@ module Crysterm
       @strike = false
 
       # Raw source lines, kept so `task_marker` can consult `source_pos` to
-      # reject escaped `\[x\]` markers (B17-31).
+      # reject escaped `\[x\]` markers.
       @source : Array(String)
 
       def initialize(@theme : TextTheme, source : String = "")
@@ -348,9 +602,7 @@ module Crysterm
         # numbering (the exporter's lead escape keeps the `|` roundtrip
         # stable). Since the table path requires an empty list stack, check that
         # first and skip the full recursive `node_text` build entirely for the
-        # (common) list-nested paragraph, which can never be a table. `node_text`
-        # is side-effect-free, so hoisting `structure_separator` above it is
-        # behavior-preserving.
+        # (common) list-nested paragraph, which can never be a table.
         if @list_stack.empty? && (txt = node_text(node)) && TextTable.gfm_table?(txt)
           import_table(txt)
           return
@@ -403,7 +655,7 @@ module Crysterm
       # between successive top-level structures, or between successive
       # structures at the current quote depth. Folds the `top_level? ||
       # quote_break?` gate that every structural walk site shares into one
-      # place (a missed `|| quote_break?` guard was B18-70).
+      # place.
       private def structure_separator : Nil
         separator if top_level? || quote_break?
       end
@@ -531,7 +783,7 @@ module Crysterm
       # markd resolves `\[` to a plain `[` text node, so the AST alone can't
       # distinguish `\[x\]` (a literal `[x]` in a plain bullet) from a real
       # `[x]` task marker; the item's first block starts at the `\` in the
-      # escaped case and at the `[` in the real one (B17-31).
+      # escaped case and at the `[` in the real one.
       private def md_escaped_marker?(item : Markd::Node) : Bool
         para = item.first_child?
         return false unless para
@@ -557,7 +809,7 @@ module Crysterm
       # inline node is plain text (not emphasis/code — GitHub's marker is
       # unformatted) and whose first *line* matches `ALERT_MARKER` exactly,
       # and not backslash-escaped (`\[!NOTE]` stays a plain quote, same
-      # `md_escaped_marker?` idiom as task-list markers, B17-31).
+      # `md_escaped_marker?` idiom as task-list markers).
       private def detect_alert_kind(bq : Markd::Node) : TextBlockFormat::AlertKind?
         para = bq.first_child?
         return unless para && para.type.paragraph?
@@ -700,7 +952,7 @@ module Crysterm
       # True when the block boundary before `blocks[i]` needs a blank
       # separator line: margins, rules, continuation paragraphs, and the
       # re-import guards — lazy continuation after a list item, ordered-list
-      # interruption, table termination (B17-26/B17-27).
+      # interruption, table termination.
       # ameba:disable Metrics/CyclomaticComplexity
       private def separator_blank?(blocks : Array(TextBlock), i : Int32,
                                    pf : TextBlockFormat, cf : TextBlockFormat) : Bool
@@ -721,18 +973,18 @@ module Crysterm
         # swallow a following structured block — "<div>\n# h" reads the
         # heading back as literal html text. Force a blank line unless the
         # follower is a plain body paragraph at the *same* quote level:
-        # that run re-imports as one html_block and re-splits 1:1 (the
-        # BUGS18.md:1121 deferral). A quote-level mismatch still needs the
-        # blank — write_block adds a per-level "> " prefix that plain_body?
-        # doesn't account for, so a bare newline would leak the quote marker
-        # into the html block on re-import (O3-35, B18-70's sibling).
+        # that run re-imports as one html_block and re-splits 1:1.
+        # A quote-level mismatch still needs the blank — write_block adds a
+        # per-level "> " prefix that plain_body? doesn't account for, so a
+        # bare newline would leak the quote marker into the html block on
+        # re-import.
         return true if html_blockish?(blocks[i - 1]) && !html_blockish?(blocks[i]) &&
                        (!plain_body?(blocks[i]) || cf.quote_level != pf.quote_level)
         # A plain body paragraph directly after a list item (or a
         # list-continuation paragraph) at the same quote level would be
         # read as a lazy continuation of the item and merge into it on
         # re-import; force a blank line so it stays a standalone
-        # paragraph (B17-26).
+        # paragraph.
         return true if cf.indent == 0 && plain_body?(blocks[i]) &&
                        pf.quote_level == cf.quote_level &&
                        (pf.list_format || (pf.indent > 0 && pf.list_format.nil?))
@@ -740,7 +992,7 @@ module Crysterm
         # interrupt a preceding paragraph — without a blank line it
         # lazily merges into that paragraph on re-import. The number is
         # `start + count-so-far`, read before write_block increments the
-        # counter, so it equals the number about to render (B17-26).
+        # counter, so it equals the number about to render.
         if (clf = cf.list_format) && clf.style.numbered? &&
            plain_body?(blocks[i - 1]) &&
            clf.start + (@list_items[clf.object_id]? || 0) != 1
@@ -749,17 +1001,17 @@ module Crysterm
         # A non-table block — or a second, distinct table — directly
         # after a table run would be swallowed as a data row by the GFM
         # table detector on re-import; force a blank line to end the
-        # table (B17-27).
+        # table.
         return true if (ptf = pf.table_format) && !ptf.same?(cf.table_format)
         # An empty list item after a plain paragraph renders as a bare
         # marker ("1. "); with only a newline it lazily merges into the
         # paragraph (an empty item can't interrupt a paragraph even with
-        # number 1, so the numbered-!=1 guard above misses it) (B17-45).
+        # number 1, so the numbered-!=1 guard above misses it).
         return true if cf.list_format && blocks[i].fragments.empty? &&
                        plain_body?(blocks[i - 1])
         # A table directly after a plain paragraph would be swallowed into
         # that paragraph on re-import (the GFM detector needs the table to
-        # begin its own paragraph); force a blank line (B17-45).
+        # begin its own paragraph); force a blank line.
         return true if cf.table_format && pf.table_format.nil? &&
                        plain_body?(blocks[i - 1])
         false
@@ -1213,6 +1465,74 @@ module Crysterm
     # The content as markdown (Qt `toMarkdown`).
     def to_markdown : String
       TextMarkdown.generate(blocks)
+    end
+
+    # The per-document `TextMarkdown::Stream` behind `#append_markdown`,
+    # created on first use.
+    @markdown_stream : TextMarkdown::Stream?
+
+    # Streams markdown into the document: buffers *chunk* on the
+    # pending tail and, once the tail contains complete constructs
+    # (`TextMarkdown::Stream`'s release rules), parses only those and appends
+    # the blocks at the document end — what is already in the document is
+    # never re-parsed. A trailing incomplete construct — an unclosed code
+    # fence, a table or paragraph still growing — stays pending for the next
+    # chunk; `#flush_markdown` force-parses it at end of stream.
+    #
+    # Two properties hold:
+    #
+    # - Seam equality: any chunking of a markdown text (plus a final
+    #   `#flush_markdown`) yields the same blocks as parsing it whole. The
+    #   pending-tail rules put every seam on a blank line no construct
+    #   crosses, and the blank a seam consumes re-lands as the appended
+    #   piece's first-block `top_margin` — exactly where one-shot import puts
+    #   it. (Exception: a link reference definition resolves only within one
+    #   released piece; see `TextMarkdown::Stream`.)
+    # - Inline TOCs are NOT refreshed (contrast `#set_markdown`): an append is
+    #   precisely the mid-stream case the manual-refresh policy
+    #   protects the reader from. Call `#refresh_tocs` when the stream ends;
+    #   a `TocView` sidebar tracks `ContentsChanged` on its own either way.
+    #
+    # The first piece released into an empty document adopts `#set_markdown`'s
+    # reset semantics; every later piece is an ordinary undoable insertion
+    # (one undo step per released piece).
+    def append_markdown(chunk : String, theme : TextTheme = TextTheme.default) : Nil
+      stream = (@markdown_stream ||= TextMarkdown::Stream.new)
+      stream.append(chunk).try { |piece| append_markdown_piece(piece, theme) }
+    end
+
+    # Parses and appends whatever `#append_markdown` still holds pending — the
+    # end-of-stream signal. A pure-whitespace tail parses to nothing and is
+    # dropped. No-op when nothing is pending.
+    def flush_markdown(theme : TextTheme = TextTheme.default) : Nil
+      @markdown_stream.try(&.flush).try { |piece| append_markdown_piece(piece, theme) }
+    end
+
+    # Parses one released piece and appends its blocks at the document end.
+    private def append_markdown_piece(text : String, theme : TextTheme) : Nil
+      parsed = TextMarkdown.parse(text, theme)
+      # An empty document adopts the piece wholesale — `#set_markdown`'s reset
+      # semantics, minus the TOC refresh (manual for appends).
+      if size == 0
+        replace_content(parsed)
+        return
+      end
+      # The seam always sits on a blank line, which one-shot import turns
+      # into a `top_margin` on the following structure's first block
+      # (`take_margin`). Replicate it — except onto a folded empty-TOC block,
+      # whose format one-shot builds via `TextToc.context_format`, which
+      # drops margins.
+      first = parsed[0]
+      unless first.size == 0 && first.block_format.frame_formats.try(&.any?(TextTocFormat))
+        first.block_format = first.block_format.merge(TextBlockFormat.new(top_margin: 1))
+      end
+      # Appending must create new blocks, not merge `first` into the current
+      # last block — `raw_insert_fragment` merges a fragment's first block
+      # into the block at the insertion point. Ride behind an empty sentinel
+      # carrying the last block's format: the sentinel merges into that block
+      # (a no-op) and every parsed block materializes after it.
+      sentinel = TextBlock.new("", TextCharFormat.default, blocks.last.block_format)
+      insert_fragment(size, TextDocumentFragment.new([sentinel] + parsed))
     end
   end
 

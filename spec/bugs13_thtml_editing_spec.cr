@@ -44,7 +44,7 @@ describe "BUGS13 T20 Ctrl-Y yank honors max_length and selections" do
     le.max_length = 5
     le.kill_ring.kill "WXYZ"
     t13_press le, Tput::Key::CtrlY
-    le.value.should eq "abcWX" # was "abcWXYZ" (limit bypassed) before the fix
+    le.value.should eq "abcWX" # not "abcWXYZ" (limit bypassed)
     le.cursor_pos.should eq 5
   end
 
@@ -89,7 +89,7 @@ describe "BUGS13 T17 same-string external value= still updates the display curso
     before = w.cursor_updates
     w.value = "hello" # same string: caret jumps to the end, display must follow
     w.cursor_pos.should eq 5
-    w.cursor_updates.should be > before # was equal (update skipped) before the fix
+    w.cursor_updates.should be > before # the update must not be skipped
   end
 
   it "still dedups pure redisplays (nil value)" do

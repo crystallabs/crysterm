@@ -3,7 +3,6 @@ module Crysterm
     # NOTE: method aliasing is provided by `Crystallabs::Helpers::Alias_Methods`
     # (included into `Widget` and the mixins that alias) — it copies every
     # overload's restrictions, so it is safe next to inherited same-name methods.
-    # The unsafe `(*args)` forwarder that used to live here is gone.
 
     # Defines a change-guarded property setter: bail if unchanged, otherwise
     # assign, mark the widget dirty, then emit *event*. The assign happens
@@ -39,12 +38,11 @@ module Crysterm
     #
     # * **Full property** (a non-nil *default* is given): also declares
     #   `@name : type = default` and a plain `#name` getter, so the whole property
-    #   lives in one call. This is the shape Calendar's former `visual` macro had.
+    #   lives in one call.
     # * **Setter only** (*default* omitted): emits just the setter, for a property
     #   whose ivar and getter are already declared elsewhere (e.g. a `getter?`
-    #   predicate, or an `initialize` parameter). This is the shape Box's former
-    #   `css_toggle_setter` and the leaner hand-rolled meter setters had — keep the
-    #   existing `getter`/`getter?` line, it stays the source of the reader.
+    #   predicate, or an `initialize` parameter) — keep the existing
+    #   `getter`/`getter?` line, it stays the source of the reader.
     #
     # *after* is an optional post-assign hook run **before** the unconditional
     # `request_render` — deliberately scoped to hooks that do **not** themselves
@@ -189,7 +187,7 @@ module Crysterm
     #   several glyphs (Mutt's `├─` tee) or of no glyph at all (its blank gap
     #   column). *role* is then omitted.
     #
-    # The `pinnable_glyph` sibling (below, O5-27) covers the *CSS-slot* family
+    # The `pinnable_glyph` sibling (below) covers the *CSS-slot* family
     # instead: it names the accessor `<name>_char` and resolves a sub-control's
     # `glyph` property before the registry. Use that one whenever the glyph has
     # a sub-control to be styled through, this one for plain registry-backed
@@ -211,12 +209,11 @@ module Crysterm
       end
     end
 
-    # Declares a pinnable, CSS-overridable single-char glyph accessor
-    # (O5-27): a `setter <name>_char : Char? = nil` paired with a
+    # Declares a pinnable, CSS-overridable single-char glyph accessor:
+    # a `setter <name>_char : Char? = nil` paired with a
     # `#<name>_char : Char` getter that returns the pinned char when assigned,
     # else resolves *role* through the CSS *sub* sub-style slot, then the
-    # `Glyphs` registry at the effective tier. Precedent:
-    # `repaint_property`/`reactive_property`. The CSS-slot sibling of
+    # `Glyphs` registry at the effective tier. The CSS-slot sibling of
     # `pinnable_registry_glyph` above — see the comparison there.
     # Two-slot fallbacks (a glyph resolved from more than one CSS sub-style,
     # e.g. `ScrollBar#trough_char`'s `::add-page`/`::groove` pair) stay

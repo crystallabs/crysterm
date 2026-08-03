@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# GLYPHS.md phase 3: per-position border char overrides + their CSS spellings
+# Per-position border char overrides + their CSS spellings
 # (`border-chars`, `border-top-left-char` …), the `shadow-char-*` family, and
 # the `@media (glyphs: …)` feature over the support-tier ordering.
 

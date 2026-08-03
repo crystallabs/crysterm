@@ -40,6 +40,11 @@ module Crysterm
         @cols = 0
         @rows = 0
 
+        # `style_to_attr` memo for the per-frame paint: the effect repaints
+        # every frame with an unchanged style, so the base-attr derivation is
+        # skipped until a style setter (or a cascade swap) invalidates it.
+        @attr_memo = Style::AttrMemo.new
+
         # Advance the simulation one frame (state only). Public so the effect can
         # be driven from an external clock instead of its own fiber.
         def step
@@ -79,7 +84,7 @@ module Crysterm
 
           # Default attr carries the widget's bg/flags; only the fg varies per
           # cell, so `Attr.with_fg` reuses `da`'s flags/bg/Opaque alpha.
-          da = style_to_attr style
+          da = @attr_memo.fetch(style)
           deff = Attr.fg da
 
           # Absolute coords (`yi`/`xi`) can be negative when the widget is

@@ -63,9 +63,8 @@ module Crysterm
 
     # NOTE: `hex`, `rgb`, `rgb_channels`, `lighter`/`darker`, `sgr_color_to`,
     # `HSV_LUT` and alpha-hex/case-insensitive spec parsing all live in the
-    # term_colors shard now (this module `extend`s it); the local copies that
-    # used to shadow or extend them are gone. `extend` shares methods but not
-    # constants, hence the explicit constant alias:
+    # term_colors shard (this module `extend`s it). `extend` shares methods but
+    # not constants, hence the explicit constant alias:
     HSV_LUT = ::TermColors::HSV_LUT
 
     # Neutral RGB values substituted for a "default" color when it has to be

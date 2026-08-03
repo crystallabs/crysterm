@@ -5,23 +5,23 @@ include Crysterm
 # Regression specs for the BUGS6 "Core Infrastructure & Events" fixes:
 #
 #  1. `Mixin::ActionShortcuts#uninstall_action_shortcuts` (shared by `ToolBar`
-#     and `MenuBar`) guarded on `window?`, which is already nil inside the `Event::Detached`
-#     handler (`Widget#remove` nulls `parent`/`window` before `Window#detach`
-#     emits `Detached`). So detaching a bar never withdrew its window-level
-#     accelerators — stale handlers kept firing and the `Window` leaked as a hash
-#     key. Fixed to take the previous window from the event payload.
+#     and `MenuBar`) must take the previous window from the `Event::Detached`
+#     payload — `window?` is already nil inside the handler (`Widget#remove`
+#     nulls `parent`/`window` before `Window#detach` emits `Detached`), so
+#     guarding on it means detaching a bar never withdraws its window-level
+#     accelerators: stale handlers keep firing and the `Window` leaks as a hash key.
 #
-#  2. `Widget#hide`/`#show` emitted only on self, so descendants never ran their
-#     own Hide/Show cleanup (tooltip removal, OSC-22 pointer-shape restore) when
-#     an ancestor was hidden. Fixed by `emit_descendants` after the self-emit.
+#  2. `Widget#hide`/`#show` must `emit_descendants` after the self-emit, so
+#     descendants run their own Hide/Show cleanup (tooltip removal, OSC-22
+#     pointer-shape restore) when an ancestor is hidden.
 #
-#  3. `Action#shortcut_hosts` ignored its `window` argument, testing focus across
-#     hosts on *other* windows too — a multi-window shortcut could fire on the
-#     wrong window. Fixed to filter associated widgets to the given window.
+#  3. `Action#shortcut_hosts` must filter associated widgets to its `window`
+#     argument; testing focus across hosts on *other* windows lets a
+#     multi-window shortcut fire on the wrong window.
 #
-#  4. `Action#feed_shortcut` left a half-entered chord prefix stale on an early
-#     return (out-of-context press, disabled action, dropped auto-repeat), so the
-#     chord could complete spuriously later. Fixed to clear the pending prefix.
+#  4. `Action#feed_shortcut` must clear the pending chord prefix on an early
+#     return (out-of-context press, disabled action, dropped auto-repeat), or
+#     the half-entered chord can complete spuriously later.
 
 describe "BUGS6 #1 ToolBar/MenuBar uninstall shortcuts on detach" do
   it "stops firing a ToolBar action's shortcut after the bar is detached" do

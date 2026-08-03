@@ -16,6 +16,22 @@ module Crysterm
       end
     end
 
+    # Memo key of the cache-hit tail of `process_content` below: the resolved
+    # `#style` object, its `Style#attr_revision`, and the `@_parse_attr_default`
+    # value derived from it, at stamp time. All three halves are load-bearing:
+    # identity alone is unsafe (an animation mutates the style in place —
+    # bumping the revision — without swapping the object), revision alone is
+    # unsafe (the cascade swaps in a different `Style` whose counter is
+    # unrelated), and the stamped default guards against `@_parse_attr_default`
+    # having been rewritten from *another* style meanwhile (a reparse under a
+    # substituted state style, then a swap back to this same object at an
+    # unchanged revision, must still refresh). Holding the object reference
+    # rather than an `object_id` also keeps the style alive, so the `same?`
+    # test can't false-hit on a recycled address.
+    @_parse_attr_style : Style?
+    @_parse_attr_style_revision : Int64 = 0_i64
+    @_parse_attr_style_default : Int64? = nil
+
     # `awidth_hint`, when given, is this widget's already-resolved absolute width
     # for the current frame — the render path knows it cheaply (`awidth(true)` is
     # an O(1) `lpos` read once the parent has rendered) and passes it in to skip
@@ -111,15 +127,34 @@ module Crysterm
       # is read unconditionally as the widget's fill/background attr, so freezing
       # it freezes the background of any widget that only changes `style.bg`
       # (e.g. an empty single-line `Effect::CopperBar` stops animating).
-      da = style_to_attr(style)
-      if da != @_parse_attr_default
-        @_parse_attr_default = da
-        # Recompute whenever a packed attr array already exists — never gate this
-        # on line count. A populated-but-stale array is latched forever (`da` now
-        # equals `@_parse_attr_default`, so the refresh never fires again) and
-        # appended/scrolled lines paint with the old default attr permanently.
-        # `nil` means no reader can see it, so nothing to refresh.
-        @_clines.attr = _parse_attr(@_clines) unless @_clines.attr.nil?
+      #
+      # The `style_to_attr` recompute itself is gated on the
+      # `{identity, Style#attr_revision, stamped default}` memo (see the ivar
+      # triple above): every setter of a field `style_to_attr` reads bumps the
+      # revision, so the common steady-state frame (same object, no
+      # attr-relevant mutation) skips the 7-predicate flag walk + pack
+      # entirely, while an in-place `style.bg = color` advances the revision
+      # and still lands in the refresh below. The reparse path above doesn't
+      # stamp this key (`_parse_attr` keeps `@_parse_attr_default` current
+      # itself), so the first cache-hit frame after a reparse recomputes once
+      # and restamps — correct, just not free.
+      st = style
+      unless st.same?(@_parse_attr_style) &&
+             @_parse_attr_style_revision == st.attr_revision &&
+             @_parse_attr_style_default == @_parse_attr_default
+        da = style_to_attr(st)
+        @_parse_attr_style = st
+        @_parse_attr_style_revision = st.attr_revision
+        @_parse_attr_style_default = da
+        if da != @_parse_attr_default
+          @_parse_attr_default = da
+          # Recompute whenever a packed attr array already exists — never gate this
+          # on line count. A populated-but-stale array is latched forever (`da` now
+          # equals `@_parse_attr_default`, so the refresh never fires again) and
+          # appended/scrolled lines paint with the old default attr permanently.
+          # `nil` means no reader can see it, so nothing to refresh.
+          @_clines.attr = _parse_attr(@_clines) unless @_clines.attr.nil?
+        end
       end
 
       false

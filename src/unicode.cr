@@ -1,6 +1,6 @@
 module Crysterm
   # Unicode display-width support for terminal cells — the implementation
-  # lives in the tput shard now (`Tput::Unicode`): terminal column-width is a
+  # lives in the tput shard (`Tput::Unicode`): terminal column-width is a
   # terminal-domain concern shared by anything driving a tty, not toolkit
   # logic. The alias keeps every `Crysterm::Unicode.…` call site working.
   #

@@ -2,11 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression: `ensure_widget_visible` must map the descendant's outer-relative
-# top (`child.rtop`, which folds in the scroll area's near inset `itop`) down to
-# a content-row index before calling `ensure_visible`. The old code passed
-# `child.rtop` verbatim, correct only when `itop == 0`. With a border (`itop ==
-# 1`) it scrolled one row too far, failing to reveal a child above the viewport.
+# `ensure_widget_visible` must map the descendant's outer-relative top
+# (`child.rtop`, which folds in the scroll area's near inset `itop`) down to a
+# content-row index before calling `ensure_visible`. Passing `child.rtop`
+# verbatim is correct only when `itop == 0`; with a border (`itop == 1`) it
+# scrolls one row too far, failing to reveal a child above the viewport.
 describe "Widget#ensure_widget_visible with a bordered scroll area" do
   it "reveals a descendant above the viewport, accounting for the top inset" do
     s = headless_screen(80, 24)

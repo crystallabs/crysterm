@@ -613,10 +613,9 @@ module Crysterm
         # assignment is what scrolls the selected row into view — so the long
         # year list opens on the current year instead of at its top.
         menu.current_index = index
-        # Falls back to layout coords (not a bail) when unrendered, preserving the
-        # original additive-origin behavior. This branch is currently unreachable
-        # anyway — `popup_nav_menu` is only entered via `handle_mouse`, which
-        # already bailed on a nil `@lpos`.
+        # Falls back to layout coords (not a bail) when unrendered. This branch
+        # is currently unreachable — `popup_nav_menu` is only entered via
+        # `handle_mouse`, which already bailed on a nil `@lpos`.
         ox, oy = painted_content_origin? || {aleft + ileft, atop + itop}
         menu.popup ox + col, oy + 1
       end

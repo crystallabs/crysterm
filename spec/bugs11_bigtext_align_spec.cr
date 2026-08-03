@@ -47,7 +47,7 @@ describe "BUGS11 #19: right-aligned BigText with wide CJK glyphs stays in bounds
     end
 
     # Specifically: nothing painted right of the widget's right edge, and nothing
-    # in the far-right columns of the row (where negative indices used to wrap to).
+    # in the far-right columns of the row (where negative indices would wrap to).
     lit_cols = lit.map { |(_y, x)| x }
     lit_cols.max.should be < right
     lit_cols.min.should be >= left

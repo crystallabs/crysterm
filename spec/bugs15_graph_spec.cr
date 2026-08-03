@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Findings #10, #11, #19 (BUGS15.md): NaN/Infinity data points used to crash
-# the render fiber (auto-scale `max`/`max?` over an array containing NaN
-# raises `ArgumentError`) or, for the line-chart painter, draw a visible
-# stray ray plus iterate millions of rejected off-canvas pixels.
+# NaN/Infinity data points must not crash the render fiber (auto-scale
+# `max`/`max?` over an array containing NaN raises `ArgumentError`) nor, for
+# the line-chart painter, draw a visible stray ray plus iterate millions of
+# rejected off-canvas pixels.
 
 describe "Widget::Graph::Bar auto-scale with a NaN value (#10)" do
   it "renders without raising when max is nil (auto-scale) and a value is NaN" do
@@ -14,8 +14,9 @@ describe "Widget::Graph::Bar auto-scale with a NaN value (#10)" do
       width: 40, height: 8
     bar.values = [42.0, Float64::NAN, 13.0]
 
-    # Before the fix, `shown.max` raised ArgumentError ("Comparison of NaN
-    # and ... failed") inside build_content, on the render fiber.
+    # `shown.max` over the NaN-bearing array would raise ArgumentError
+    # ("Comparison of NaN and ... failed") inside build_content, on the
+    # render fiber.
     s.repaint
 
     bar.content.should_not be_empty
@@ -38,8 +39,8 @@ describe "Widget::Graph::StackedBar auto-scale with a NaN segment (#11)" do
       width: 40, height: 8
     sb.values = [[60.0, 30.0], [20.0, Float64::NAN]]
 
-    # Before the fix, `sums.max?` raised ArgumentError when comparing NaN
-    # against a finite sum, inside build_content on the render fiber.
+    # `sums.max?` would raise ArgumentError when comparing NaN against a
+    # finite sum, inside build_content on the render fiber.
     s.repaint
 
     sb.content.should_not be_empty
@@ -52,7 +53,7 @@ describe Crysterm::Widget::Graph::Painter do
       bmp = blank_bitmap(16, 16)
       p = Crysterm::Widget::Graph::Painter.new bmp
       p.pen = 0xFFFFFF
-      # A finite start with a NaN end used to map the end through the
+      # A finite start with a NaN end must not map the end through the
       # off-canvas sentinel and Bresenham-walk a visible ray from the valid
       # start toward the canvas edge.
       p.draw_line 8.0, 8.0, Float64::NAN, Float64::NAN

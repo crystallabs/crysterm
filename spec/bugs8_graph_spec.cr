@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS8 numeric-formatter fix: `Graph::Scale.fmt` used
+# Regression spec: `Graph::Scale.fmt` used
 # `Float64#to_i` (Int32), which raises `OverflowError` for any integer-valued
 # magnitude ≥ ~2.147e9 — ordinary large data (byte counts, populations,
-# timestamps). It now uses `to_i64`.
+# timestamps). It must use `to_i64`.
 
 describe "BUGS8 Graph::Scale.fmt handles integer values ≥ 2³¹" do
   it "does not overflow on a large integer-valued float" do

@@ -15,7 +15,7 @@ module Crysterm
       include Mixin::RangeText
       include Mixin::TrackGeometry
 
-      # `#range=`/`#span` (O5-26): ProgressBar can't include the rest of
+      # `#range=`/`#span`: ProgressBar can't include the rest of
       # `Mixin::RangedValue` — its `complete:`-gated `Event::Completed` doesn't
       # fit that mixin's single clamp-and-emit `#value=` — but these two are
       # pure fragments written only against `#minimum`/`#maximum`/`#set_range`,
@@ -104,7 +104,8 @@ module Crysterm
         value : Int32? = nil,
         @minimum = 0,
         @maximum = 100,
-        @single_step = 5,
+        single_step : Int32? = nil,
+        step : Int32? = nil,
         @text_visible = false,
         @format = "%p%",
         @keys = true,
@@ -112,6 +113,11 @@ module Crysterm
         @orientation = @orientation,
         **input,
       )
+        # `single_step:` is the blessed Qt-parity spelling; `step:` is accepted
+        # as a compatibility alias for consistency with the other ranged
+        # widgets, `single_step:` winning when both are given.
+        @single_step = single_step || step || 5
+
         super **input
 
         # Never start with an inverted range: `#percent`/`#span`/the `%p` text all
@@ -202,6 +208,12 @@ module Crysterm
       @text_cache : String?
       @text_cache_key : Tuple(Int32, Int32, Int32, String)?
 
+      # `style_to_attr` memo for the per-frame fill attr (`style.indicator`):
+      # the bar redraws every frame with an unchanged style, so the derivation
+      # is skipped until the slot's style is mutated or swapped. Caches the
+      # plain (unswapped) form; `#render` swaps the packed fg/bg fields itself.
+      @indicator_attr_memo = Style::AttrMemo.new
+
       # Builds the textual indicator from `#format` (memoized).
       private def formatted_text : String
         key = {@value, @minimum, @maximum, format}
@@ -227,8 +239,13 @@ module Crysterm
 
           # NOTE Invert fg/bg so the filled value renders using the foreground
           # color: visible even when style.indicator isn't specifically defined.
+          # Swapping the packed color fields of the memoized plain attr packs
+          # the identical value as `style_to_attr(ind, ind.bg, ind.fg)`: both
+          # slots carry `pack_color(<color> || -1)`, and the both-`nil`
+          # fallback is symmetric.
           ind = style.indicator
-          default_attr = style_to_attr ind, ind.bg, ind.fg
+          plain = @indicator_attr_memo.fetch(ind)
+          default_attr = Attr.pack(Attr.flags(plain), Attr.bg(plain), Attr.fg(plain))
 
           # Filling via `window.fill_region` is the standard bar/meter draw path,
           # shared with `Slider` / `ScrollBar` / `Dial` / `Gradient`: it writes

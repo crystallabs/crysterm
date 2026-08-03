@@ -447,7 +447,7 @@ module Crysterm
       # e.g. `pulse 2s ease-in-out infinite alternate`. Order after name/duration
       # is flexible. `none`/empty clears it.
       private def self.parse_animation(value : String) : Style::AnimationSpec?
-        # Tokenize paren-aware (like parse_transition, B16-28), so a timing
+        # Tokenize paren-aware (like parse_transition), so a timing
         # function with arguments — `cubic-bezier(0.4, 0, 0.2, 1)`, `steps(2,
         # start)` — stays one token instead of shredding into fragments that each
         # fall into the keyframes-name fallback and hijack the name.
@@ -470,8 +470,7 @@ module Crysterm
             # Per the CSS shorthand the *first* <time> is the duration and the
             # *second* is the delay. Crysterm has no animation-delay, so only the
             # first time token sets the duration; a following delay is consumed
-            # here but ignored — without this it overwrote the duration, so e.g.
-            # `slidein 3s ease-in 1s infinite` ran at the 1s delay instead of 3s.
+            # here but ignored (it must not overwrite the duration).
             dur = span unless dur_seen
             dur_seen = true
           elsif tl == "infinite"
@@ -482,21 +481,19 @@ module Crysterm
             easing = css_easing(t)
           elsif tl.in?("normal", "forwards", "backwards", "both", "paused", "running", "reverse")
             # Recognized standard animation-direction / fill-mode / play-state
-            # keywords (B18-30). Crysterm doesn't implement these (the driver
+            # keywords. Crysterm doesn't implement these (the driver
             # always plays forward, unpaused), but they must still be consumed
             # here so they can't fall through to the name fallback below and
-            # hijack the keyframes name — this is strictly better than the
-            # prior silent no-animation-with-bogus-name behavior. Known
-            # best-effort deviations: "reverse" plays forward, "paused" plays
-            # immediately.
+            # hijack the keyframes name. Known best-effort deviations:
+            # "reverse" plays forward, "paused" plays immediately.
           elsif tl == "alternate-reverse"
             # Best-effort: map onto the existing `alternate` flag (direction
             # reversal itself isn't implemented, same caveat as "reverse").
             alternate = true
           elsif (f = t.to_f?)
-            # `to_f?` subsumes the old `to_i?` branch ("3" -> 3.0 -> 3) and also
-            # accepts a fractional iteration count (`1.5`), which otherwise fell
-            # through to the name fallback and hijacked the name. Guard against
+            # `to_f?` accepts both integer ("3" -> 3.0 -> 3) and fractional
+            # (`1.5`) iteration counts, which otherwise fall
+            # through to the name fallback and hijack the name. Guard against
             # `to_f?`/strtod accepting "nan"/"inf" spellings and huge exponents:
             # `f >= 0` (not `!(f < 0)`) rejects NaN since NaN fails every
             # comparison, and the finite/magnitude check mirrors `sane_time`
@@ -699,7 +696,7 @@ module Crysterm
         # function (`border`, `background`, `tint`, `transition`, `animation`,
         # ...): a plain `value.split` would shred a space-separated color
         # function (`rgb(0.2 0.4 0.6)`) into fragments, and a bare fractional
-        # fragment could then be misread as the opacity below (B18-37).
+        # fragment could then be misread as the opacity below.
         toks = Selectors.split_top_level(value)
         # Count the leading run of length/number tokens (up to the 4 geometry
         # slots). A number within this run is always a geometry offset.

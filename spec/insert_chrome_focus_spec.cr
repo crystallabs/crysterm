@@ -6,8 +6,8 @@ include Crysterm
 # screen has no current focus, but only when the inserted subtree actually
 # contributes one. Inserting non-interactive chrome (decorative box, `Line`,
 # transient drag ghost) must NOT yank focus onto an unrelated pre-existing
-# keyable widget that merely happens to be unfocused — the old unconditional
-# `focus_next` did exactly that.
+# keyable widget that merely happens to be unfocused, as an unconditional
+# `focus_next` would.
 #
 # Headless, no real terminal.
 describe "Window#insert auto-focus" do
@@ -20,8 +20,8 @@ describe "Window#insert auto-focus" do
     s.@history.clear
     s.focused.should be_nil
 
-    # Insert non-interactive chrome. Before the fix this ran `focus_next` and
-    # re-focused `a`; now focus-neutral since the box brings no focusable widget.
+    # Insert non-interactive chrome: focus-neutral, since the box brings no
+    # focusable widget, so it must not `focus_next` back onto `a`.
     Widget::Box.new parent: s
     s.focused.should be_nil
   end

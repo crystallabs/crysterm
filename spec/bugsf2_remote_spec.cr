@@ -27,9 +27,9 @@ require "http/client"
       pb = Widget::ProgressBar.new window: headless_screen(80, 24), width: 20, height: 1
       pb.maximum.should eq 100
 
-      # Runtime setAttribute routes through dom_apply. Before the fix this wrote
-      # @value directly (150, rendered >100%); now it goes through `value=`,
-      # which clamps into [minimum, maximum].
+      # Runtime setAttribute routes through dom_apply. It must go through
+      # `value=`, which clamps into [minimum, maximum] — writing @value
+      # directly would store 150 and render >100%.
       pb.dom_apply "value", "150"
       pb.value.should eq 100
 
@@ -146,8 +146,8 @@ require "http/client"
       s.stylesheet = Crysterm::CSS::Stylesheet.parse("#x { color: red; }")
       s.load_layout %(<w-window><w-box id="x"></w-box></w-window>)
       s.apply_stylesheet
-      # Before the fix, load_layout's add_inline_stylesheet("") recomposed from
-      # only the (empty) tracked text sources and wiped the author sheet.
+      # load_layout's add_inline_stylesheet("") must not recompose from
+      # only the (empty) tracked text sources and wipe the author sheet.
       s.find_by_id("x").not_nil!.styles.normal.fg.should eq rgb("red")
     end
 

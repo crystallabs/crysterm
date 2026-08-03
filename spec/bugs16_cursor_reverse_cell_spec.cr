@@ -2,13 +2,13 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS16.md #B16-05: the artificial Block-shape cursor OR'd Attr::REVERSE onto
-# the cell's own attribute. On a cell that already carries REVERSE (text
-# selections, the reverse-video focused/selected 'floor highlight'), OR is a
-# no-op: the produced attribute is bit-for-bit identical to the cell's own
-# attribute, so `draw` emits nothing and the cursor is invisible while it sits
-# on a reversed cell. Fix: toggle (XOR) REVERSE instead of OR-ing it, matching
-# real hardware block-cursor behavior (reverse of reverse = normal video).
+# The artificial Block-shape cursor must toggle (XOR) Attr::REVERSE, not OR
+# it onto the cell's own attribute. On a cell that already carries REVERSE
+# (text selections, the reverse-video focused/selected 'floor highlight'), OR
+# is a no-op: the produced attribute is bit-for-bit identical to the cell's
+# own, so `draw` emits nothing and the cursor is invisible while it sits on a
+# reversed cell. XOR matches real hardware block-cursor behavior (reverse of
+# reverse = normal video).
 
 private def cursor_screen(output = IO::Memory.new, width = 10, height = 4)
   Crysterm::Window.new(

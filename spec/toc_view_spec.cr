@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# The sidebar outline (`Widget::TocView`, TOC.md Phase 3). Unlike the inline
+# The sidebar outline (`Widget::TocView`). Unlike the inline
 # `TextToc` it tracks the document live: rebuilding it reflows nothing.
 
 private def toc_view(md : String) : Crysterm::Widget::TocView

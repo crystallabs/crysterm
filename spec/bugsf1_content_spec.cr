@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression coverage for BUGS-F1 findings 32-35 in `src/widget_content.cr`.
+# Regression coverage for `src/widget_content.cr` fixes.
 
 describe "Widget#delete_line on content seeded before attach (finding 32)" do
   it "does not raise IndexError when `ftor` is still empty" do
@@ -17,7 +17,7 @@ describe "Widget#delete_line on content seeded before attach (finding 32)" do
     w._clines.fake.should eq ["x"]
     w._clines.ftor.empty?.should be_true
 
-    # Before the fix this raised `IndexError` reading `@_clines.ftor[i][0]`.
+    # Must not raise `IndexError` reading `@_clines.ftor[i][0]`.
     w.delete_line
 
     w.rendered_content.should eq ""
@@ -45,7 +45,7 @@ describe "Widget#append_content alignment-tag carry (finding 33)" do
     box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
 
     # And concretely: the appended "subtitle" row is centered (leading pad),
-    # not left-aligned as the fast path produced before the fix.
+    # not left-aligned by the fast path.
     sub = box._clines.lines.map(&.to_s).find!(&.includes?("subtitle"))
     sub.should start_with(" ")
     sub.strip.should eq "subtitle"
@@ -70,7 +70,7 @@ describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding
     lines = box.lines
     lines.size.should eq 7
     # visible_content_rows = aheight(5) - ivertical(0) - hscrollbar(1) = 4, so the
-    # insert lands at fake index 4, not 5 (the pre-fix `aheight - ivertical`).
+    # insert lands at fake index 4, not 5 (`aheight - ivertical` unadjusted).
     lines[4].should eq "NEW"
   end
 
@@ -87,7 +87,7 @@ describe "Widget#insert_bottom / #delete_bottom vs horizontal scrollbar (finding
     box.delete_bottom 1
 
     # Deletes fake index 3 ("L3"), the visible bottom given the reserved row —
-    # not "L4" as the pre-fix formula did.
+    # not "L4".
     box.lines.should eq ["L0", "L1", "L2", "L4", "L5"]
   end
 end

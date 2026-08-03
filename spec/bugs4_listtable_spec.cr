@@ -7,7 +7,7 @@ include Crysterm
 # row 0), but the body scrolls by `@child_base`. It mapped the screen row
 # straight to the data row, so once scrolled a row-specific rule
 # (`Row:nth-child(N) Cell`) recolored the wrong screen row. Screen row `r >= 1`
-# now maps to data row `r + @child_base` (screen row 0 is the pinned header).
+# must map to data row `r + @child_base` (screen row 0 is the pinned header).
 
 # The content-relative rows (screen row minus the table's content top) that
 # contain at least one cell painted *color*.
@@ -41,7 +41,7 @@ describe "BUGS4 ListTable per-cell CSS recolor honors scroll (child_base)" do
     content_rows_with_fg(screen, lt, 0xff0000).should contain(5)
 
     # Scrolled down by 3: data row 5 now shows at content row 2, NOT row 5. With
-    # the pre-fix screen-row==data-row lookup, the styled-row check would miss
+    # a screen-row==data-row lookup, the styled-row check would miss
     # entirely (screen row 2 != data row 5), painting nothing.
     lt.child_base = 3
     screen.repaint

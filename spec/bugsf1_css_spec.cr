@@ -3,7 +3,7 @@ require "file_utils"
 
 include Crysterm
 
-# Regression specs for the BUGS-F1 CSS findings (21, 22, 23, 42, 45, 46, 47, 48).
+# Regression specs for the BUGS-F1 CSS fixes.
 
 # --- Finding 45: per-side padding/margin longhands drop invalid values --------
 
@@ -177,7 +177,7 @@ describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" d
       box.styles.normal.fg.should eq rgb("white") # 100 > 40, media skipped
 
       screen.width = 40
-      screen.apply_stylesheet                     # was: early-returned on identical document
+      screen.apply_stylesheet                     # must not early-return on the identical document
       box.styles.normal.fg.should eq rgb("green") # narrow: media now applies
     end
   end
@@ -232,7 +232,7 @@ describe "BUGS-F1 #42 swapping animation: to a missing @keyframes stops the old 
       # Swap `animation:` to a name with no `@keyframes`, mutating the already-
       # cascaded style in place (no re-cascade, so the animated `Style` object
       # stays the same and a leaked clock stays observable). The old clock must
-      # be stopped now; before the fix its early return left it ticking forever.
+      # be stopped, not left ticking forever by the missing-name early return.
       Crysterm::CSS::Properties.apply(box.style, "animation", "missing 0.05s linear infinite")
       box.ensure_css_animation
 

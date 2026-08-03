@@ -2,19 +2,19 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS14 findings A3, A4, A5.
+# Regression specs:
 #
 # * A3 — `Calendar#build_content` (ISO-week gutter) added `thursday_offset.days`
 #   to a row date that, for the last grid row of December 9999 (the default
 #   `@maximum_date`), lands in January of year 10000 — outside Crystal's `Time`
 #   range — and raised `ArgumentError` out of the un-rescued `visual` setter.
-#   The computation is now rescued to a blank gutter.
+#   The computation is rescued to a blank gutter.
 # * A4 — `Spray#@frame` was an `Int32` frame counter; `@frame * 9`/`* 6` in
 #   `#colorize` raise `OverflowError` past `Int32::MAX / 9 ≈ 2.4e8` frames.
 #   Widened to `Int64` (matching `CopperBar`/`TextScroll`) so it never wraps.
 # * A5 — an explicit non-finite `#minimum`/`#maximum` poisoned `HeatMap`'s color
 #   scale, so `color_for`/`draw_legend` computed `NaN.round.to_i` →
-#   `OverflowError`. Explicit bounds are now sanitized in `resolved_bounds`
+#   `OverflowError`. Explicit bounds are sanitized in `resolved_bounds`
 #   (non-finite falls back to the finite data range) with a belt-and-braces
 #   `t = 0.0 unless t.finite?` guard in `color_for`.
 
@@ -24,7 +24,8 @@ describe "BUGS14 A3: Calendar ISO week numbers at December 9999" do
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(9999, 12, 15)
     # Turning on the ISO-week gutter reruns `build_content` for the Dec 9999
-    # page; pre-fix its last row pushed a Thursday into year 10000 → ArgumentError.
+    # page; its last row pushes a Thursday into year 10000, which raises
+    # ArgumentError without the rescue.
     cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
     cal.year_shown.should eq 9999
     cal.month_shown.should eq 12
@@ -51,8 +52,8 @@ end
 describe "BUGS14 A4: Spray frame counter is Int64 (no overflow on long loops)" do
   # The overflow only bites past ~2.4e8 frames, which can't be driven in a
   # spec; these prove the Int64-widened paths compile and render without
-  # regression (the fix is the `@frame : Int64` type widening plus the
-  # `@frame.to_i32!` wrap where the counter feeds the Int32 color proc).
+  # regression (the `@frame : Int64` widening, plus the `@frame.to_i32!` wrap
+  # where the counter feeds the Int32 color proc, keeps this path safe).
   it "advances and colorizes many frames without raising" do
     spray = Widget::Effect::Spray.new width: 10, height: 5
     spray.resize 10, 5

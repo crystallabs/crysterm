@@ -2,10 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# FORMAL-WIDGETS Part A / Piece 5 — shared behavioral conformance for the
-# "dropdown family" (`Menu`, `ComboBox`, `Completer`). This is Part A's own
-# governance piece (the four *Part B* family matrices already landed under B8);
-# it retroactively pins the invariants the already-shipped refactors rely on:
+# Shared behavioral conformance for the "dropdown family" (`Menu`, `ComboBox`,
+# `Completer`), pinning the invariants the shared refactors rely on:
 # `Overlay::DismissSession` (the grab + click-away lifecycle, adopted by all
 # three) and `Mixin::ItemView::WheelMode` (the wheel/hover policy the combo and
 # completer share). A single interaction script runs against every member through

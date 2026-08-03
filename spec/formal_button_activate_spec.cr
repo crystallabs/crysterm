@@ -1,6 +1,6 @@
 require "./spec_helper"
 
-# FORMAL-WIDGETS Part B / B5.1 + B5.4 — the button family's keyboard-activation
+# The button family's keyboard-activation
 # wiring lives once in `AbstractButton`. `handle Event::KeyPress` is registered by
 # `AbstractButton#initialize` (not re-declared per subclass, so a subclass can no
 # longer be silently dead to the keyboard), and the single `#on_keypress`

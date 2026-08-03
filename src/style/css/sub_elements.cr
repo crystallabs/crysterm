@@ -14,9 +14,8 @@ module Crysterm
       end
     end
 
-    # `Tree` renders its rows through the same item view as `List` — and so
-    # honors the `item` sub-style already — but never declared the slot, so
-    # `Tree::item { ... }` matched nothing.
+    # `Tree` renders its rows through the same item view as `List`, so it
+    # honors the `item` sub-style too.
     class Tree
       def build_css_sub_elements : Array(String)
         super + ["item"]

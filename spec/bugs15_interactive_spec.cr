@@ -4,17 +4,17 @@ include Crysterm
 
 # BUGS15 #9 / #43 / #44 / #12 — interactive-widget geometry fixes.
 #
-#  #9  Calendar mapped mouse clicks through layout coords (aleft/atop), so a
-#      click inside a scrolled container selected the wrong day. Fixed to map
-#      through the painted position (@lpos), mirroring Mixin::CheckMarker.
-#  #43 Slider/ScrollBar/Dial render math subtracted `value - minimum` in Int32,
-#      overflowing (OverflowError, render fiber crash) for a full-Int32-span
-#      range. Fixed by widening the subtraction to Int64.
-#  #44 Slider painted its track/handle in the border-only interior but mapped
-#      clicks with padding-inclusive insets. Fixed to render into the content
-#      region (border + padding) so both box models agree.
-#  #12 ListTable horizontal scroll floor-snapped the reachable column, leaving
-#      the table's right edge permanently unreachable. Fixed with a ceil bump.
+#  #9  Calendar must map mouse clicks through the painted position (@lpos),
+#      mirroring Mixin::CheckMarker — layout coords (aleft/atop) select the
+#      wrong day for a click inside a scrolled container.
+#  #43 Slider/ScrollBar/Dial render math widens `value - minimum` to Int64 —
+#      the Int32 subtraction overflows (OverflowError, render fiber crash)
+#      for a full-Int32-span range.
+#  #44 Slider renders its track/handle into the content region (border +
+#      padding) so the paint and the padding-inclusive click mapping agree on
+#      one box model.
+#  #12 ListTable horizontal scroll ceil-bumps the reachable column — a floor
+#      snap leaves the table's right edge permanently unreachable.
 
 # ── #9 Calendar painted-coord hit-test ──────────────────────────────────────
 
@@ -46,9 +46,9 @@ describe "BUGS15 9: Calendar hit-tests through the painted position, not layout 
 
     s.dispatch_mouse Tput::Mouse::Event.new(
       Tput::Mouse::Action::Down, Tput::Mouse::Button::Left, ax + 2 * 3, body_y)
-    # Painted-coord mapping resolves the clicked cell to day 9. The old
-    # layout-coord mapping resolved a cell 3 rows too high (nav bar / earlier
-    # week), leaving the selection unchanged at 15.
+    # Painted-coord mapping resolves the clicked cell to day 9. Layout-coord
+    # mapping would resolve a cell 3 rows too high (nav bar / earlier week),
+    # leaving the selection unchanged at 15.
     cal.date.day.should eq 9
   end
 end
@@ -109,7 +109,7 @@ describe "BUGS15 44: Slider paints its track in the content region (padding resp
     lp = sl.lpos.not_nil!
     row = lp.yi
     # The two left and two right padding cells must NOT carry the track/handle:
-    # the old border-only render painted the full 24 cells, overlapping padding.
+    # a border-only render would paint the full 24 cells, overlapping padding.
     sl.ileft.should eq 2
     {lp.xi, lp.xi + 1, lp.xi + 22, lp.xi + 23}.each do |x|
       c = s.lines[row][x].char
@@ -139,13 +139,13 @@ describe "BUGS15 12: ListTable horizontal scroll can reach the table's right edg
     lt.overflows_x?.should be_true
     lt.child_base_x.should eq 0
 
-    # Old floor-snap clamped the reachable column to 0 (offset 0 <= 10), so any
-    # scroll no-op'd and the "City" column tail was unreachable. The ceil bump
-    # lets the scroll snap to column 1 (offset 13).
+    # A floor snap would clamp the reachable column to 0 (offset 0 <= 10),
+    # no-op'ing any scroll and leaving the "City" column tail unreachable; the
+    # ceil bump lets the scroll snap to column 1 (offset 13).
     lt.scroll_by_x 1
     s.repaint
     lt.child_base_x.should eq 13
-    # The right-edge column (data row 1) is now on screen — previously dead.
+    # The right-edge column (data row 1) is on screen.
     row_text(s, 1, 0...12).should contain "bbbbbbbbbb"
 
     # And it can scroll back to the origin.

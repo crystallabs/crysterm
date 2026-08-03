@@ -125,11 +125,11 @@ module Crysterm
 
     # Sanitizes a child's resolved fixed main-axis size against the axis
     # extent it is laid into: a fixed size beyond the interior already means
-    # "fills everything visible" (matches the historical behavior of a huge
-    # child under no layout engine, which renders clipped rather than
-    # crashing), so clamping is behavior-preserving. Keeps a pathological
-    # (e.g. `Int32::MAX`) child size from overflowing the checked `Int32`
-    # fixed-size sum/cursor accumulation in `Box#measure`/`#place` (B18-25).
+    # "fills everything visible" (a huge child under no layout engine renders
+    # clipped rather than crashing), so clamping is behavior-preserving.
+    # Keeps a pathological (e.g. `Int32::MAX`) child size from overflowing
+    # the checked `Int32` fixed-size sum/cursor accumulation in
+    # `Box#measure`/`#place`.
     # Same clamp as `#clamped_spacing` above, under the name callers reach for
     # when the value in hand is a size rather than a spacing/gap.
     protected def clamped_size(v : Int32, extent : Int32) : Int32
@@ -366,8 +366,7 @@ module Crysterm
     # `layout_excluded?` chrome (rendered out-of-band with its own `lpos`) nor
     # `layout_chrome?` chrome (pinned and painted by `#render_chrome`). The
     # single predicate every arrangeable-child filter routes through, so a future
-    # chrome flavor is one edit; inlined, so the sites cost nothing (BUGS15 #20,
-    # where forgetting this pair was missed across the whole Flow family).
+    # chrome flavor is one edit; inlined, so the sites cost nothing.
     @[AlwaysInline]
     protected def arrangeable?(el : Widget) : Bool
       !el.layout_excluded? && !el.layout_chrome?

@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# FORMAL-WIDGETS Part B / B8 — shared behavioral conformance for the modal dialog
-# family (`ColorDialog`, `Question`, `Prompt`, `Wizard`). The dialogs are
+# Shared behavioral conformance for the modal dialog family (`ColorDialog`,
+# `Question`, `Prompt`, `Wizard`). The dialogs are
 # deliberately heterogeneous (some deliver results via emitted events, some via
 # block callbacks; the accept/cancel gesture is a window-level Enter/Escape for
 # most but the embedded field's submit/cancel for `Prompt`), so the adapter's
@@ -11,7 +11,7 @@ include Crysterm
 # script asserts the *outcome*: an accept path and a cancel path both exist and
 # fire. Focus save/restore is a capability flag — `Wizard` intentionally does not
 # save/restore focus, so that example is only run for the three that do. Would
-# have caught the B0.4 drift (Wizard had no Escape-to-cancel at all).
+# have caught the drift where `Wizard` had no Escape-to-cancel at all.
 
 private record DialogHandle,
   accept : Proc(Nil),

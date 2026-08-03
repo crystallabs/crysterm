@@ -3,12 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # `Media::Fitting.source_size` caps an animation's source frames to `cap` on the
-# long edge, deriving the short edge by `short * cap // long`. That integer
-# division used to have no minimum, so an aspect ratio steeper than `cap:1`
-# floored the short edge to 0 — e.g. a 4000x10 banner GIF yielded `{200, 0}`.
-# A 0-sized source resample (`animation_cellmaps(w, 0, ...)`) builds empty
-# frames, so such a source drew nothing. The short edge is now clamped to >= 1,
-# as its siblings (`Fit::None`, `cap_size`) already do.
+# long edge, deriving the short edge by `short * cap // long`. That short edge
+# must be clamped to >= 1, as its siblings (`Fit::None`, `cap_size`) already do:
+# unclamped, an aspect ratio steeper than `cap:1` floors it to 0 — e.g. a
+# 4000x10 banner GIF yields `{200, 0}` — and a 0-sized source resample
+# (`animation_cellmaps(w, 0, ...)`) builds empty frames, drawing nothing.
 
 private WHITE = PNGGIF::Pixel.new(255, 255, 255, 255)
 

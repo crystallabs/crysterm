@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# List auto-format on typing (TEXTEDIT.md Phase-4 follow-up; Qt
+# List auto-format on typing (Qt
 # `QTextEdit::autoFormatting`): a list marker + space typed at the start of
 # a plain block converts it into a list item, and the standard list-editing
 # keys (Enter on an empty item, Backspace at an item's start) take the

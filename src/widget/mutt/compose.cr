@@ -163,7 +163,7 @@ module Crysterm
 
         # Formats one attachment row, Mutt-style.
         private def format_attachment(a : Attachment, index : Int32) : String
-          "  #{(index + 1).to_s.rjust(2)} #{a.filename.ljust(24)} [#{a.mime_type}, #{Mutt.human_size(a.size)}]"
+          "  #{(index + 1).to_s.rjust(2)} #{a.filename.ljust(24)} [#{a.mime_type}, #{Crysterm::Formatting.human_size(a.size)}]"
         end
       end
     end

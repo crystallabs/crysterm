@@ -4,8 +4,8 @@ include Crysterm
 
 # `Widget#insert_line` (and its `prepend_line`/`insert_top` callers) must not
 # raise on a freshly built widget. Empty content leaves `@_clines.ftor` empty,
-# and the old `ftor[@_clines.ftor.size - 1]` became `ftor[-1]`, raising
-# `IndexError`. Mirrors the empty-content guard already proven for `#line`.
+# where an unguarded `ftor[@_clines.ftor.size - 1]` is `ftor[-1]` — `IndexError`.
+# Mirrors the empty-content guard already proven for `#line`.
 describe "Widget#insert_line on empty content" do
   it "prepend_line into a freshly built widget does not raise" do
     box = Widget::Box.new parent: headless_screen(default_quit_keys: true)

@@ -27,7 +27,7 @@ describe Crysterm::TextMarkdown do
       md = doc.to_markdown
       round = block_shapes(TextDocument.from_markdown(md))
       # Re-import must preserve the three blocks — not collapse to one merged
-      # {"deep shallow", 2} block (the pre-fix corruption).
+      # {"deep shallow", 2} block (the corrupted merge).
       round.should eq orig
     end
 

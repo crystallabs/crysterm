@@ -4,11 +4,10 @@ include Crysterm
 
 # Regression specs for BUGS15 finding #95 (src/window_mouse.cr):
 #
-# The armed (press-and-hold) drag path used to commit a Click on ANY button's
-# release and destroy the arm, ignoring the recorded arming button. It now
-# gates the release on the arming button (mirroring handle_active_drag /
-# handle_mouse_captor), and refuses to let a different button's press clobber
-# a pending arm.
+# The armed (press-and-hold) drag path gates the release on the recorded
+# arming button (mirroring handle_active_drag / handle_mouse_captor) — a
+# foreign button's release must not commit a Click and destroy the arm — and
+# refuses to let a different button's press clobber a pending arm.
 
 private def ab_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
   ::Tput::Mouse::Event.new(action, button, x, y, source: :test)

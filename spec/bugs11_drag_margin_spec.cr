@@ -2,14 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for BUGS11 #8 (src/widget_interaction.cr).
-#
-# The default reposition drag captured its grab offset against the
+# BUGS11 #8 — the default reposition drag captured its grab offset against the
 # margin-INCLUSIVE origin (`aleft`/`atop` default to `with_margin: true`), but
 # `coords` shifts the drawn box outward by the margin a second time. The
 # net effect: dragging a widget that has a CSS/`style.margin` made it jump
 # right/down by its own margin on the first motion instead of tracking the
-# pointer. The fix grabs against the margin-LESS origin
+# pointer. The grab must be against the margin-LESS origin
 # (`aleft(with_margin: false)` / `atop(with_margin: false)`) so the round-trip
 # through `left=`/`top=` + `coords` is exact.
 
@@ -43,9 +41,9 @@ describe "BUGS11 #8 dragging a margined widget tracks the pointer" do
     session.y = y0 + 1
     box.emit Crysterm::Event::Drag, session
 
-    # The widget must follow the pointer by exactly one cell. With the pre-fix
-    # (margin-inclusive) grab offset the offset double-counted the margin, so it
-    # jumped to left 9 / top 7 (margin.left+1 / margin.top+1) instead of 6 / 5.
+    # The widget must follow the pointer by exactly one cell. A margin-inclusive
+    # grab offset double-counts the margin, jumping to left 9 / top 7
+    # (margin.left+1 / margin.top+1) instead of 6 / 5.
     box.left.should eq 6
     box.top.should eq 5
   end

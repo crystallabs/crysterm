@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# GLYPHS.md phase 4: sequence (multi-char) roles — the `Glyphs.chars` registry
+# Sequence (multi-char) roles — the `Glyphs.chars` registry
 # layer, the CSS `glyphs:` property, its widget consumption (Loading spinner
 # frames, Dial pointer ring, the chart fill ramps), and the opt-in
 # `Glyphs.detected_tier` Extended heuristic.

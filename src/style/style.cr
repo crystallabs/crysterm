@@ -194,14 +194,48 @@ module Crysterm
       box.left != 0 || box.top != 0 || box.right != 0 || box.bottom != 0
     end
 
+    # Monotonic revision of the attr-relevant fields — exactly the set
+    # `Widget.style_to_attr` reads: `fg`/`bg`, the six SGR booleans and
+    # `visible`. Every setter of one of those fields bumps it, whether or not
+    # the value changed (over-invalidation is safe; a missed bump is not), so a
+    # consumer can memoize the style→attr derivation on
+    # `{style identity, attr_revision}` and still track *in-place* mutation —
+    # `Effect::CopperBar` re-assigns `style.bg` every frame without swapping the
+    # object, which is why identity gating alone is unsafe (see
+    # `process_content`'s cache-hit tail, the one such memo today). Deliberately
+    # NOT bumped by anything `style_to_attr` doesn't read: the box sub-objects
+    # (`border`/`padding`/`margin`/`shadow`), nested sub-`Style`s, `opacity`/
+    # `tint`/glyphs/`tab_*`/`fill`* — their mutations can't change the memoized
+    # attr. Only monotonicity is guaranteed (a logical operation may bump
+    # several times), so compare for equality — don't count increments.
+    getter attr_revision : Int64 = 0_i64
+
     # Re-wrap the `property?`-generated boolean setters so each explicit
     # assignment is recorded, making `bold = false` distinguishable from the
-    # default `false`.
+    # default `false` — and `attr_revision` advanced (every field here is in
+    # `style_to_attr`'s read set).
     {% for attr in %w[bold italic underline blink reverse strike visible] %}
       def {{ attr.id }}=(value : Bool) : Bool
         @specified_mask |= SPEC_{{ attr.upcase.id }}
+        @attr_revision &+= 1
         @{{ attr.id }} = value
       end
+    {% end %}
+
+    # Re-wrap the `Colorizable`-generated `fg=`/`bg=` overloads so every color
+    # assignment advances `attr_revision` too; `super` runs the module's
+    # matching overload (native `Int` store / `String` parse / `Nil` clear)
+    # unchanged. Kept here rather than inside `Colorizable.color_setter`:
+    # `Border` shares that mixin and carries no revision (no consumer memoizes
+    # a border-derived attr on one), and `tint`/`gridline_color` are outside
+    # `style_to_attr`'s read set.
+    {% for color in %w[fg bg] %}
+      {% for type in %w[Int String Nil] %}
+        def {{ color.id }}=(color : {{ type.id }})
+          @attr_revision &+= 1
+          super
+        end
+      {% end %}
     {% end %}
 
     # A deep-enough copy: the mutable box sub-objects (`border`/`padding`/
@@ -243,7 +277,7 @@ module Crysterm
     # dup-then-mutate convenience (paralleling `#with_reverse_fallback`) for a
     # fixed-height-1 chrome row (a `ToolBox` header, a `Pine::StatusBar` inner
     # box) that must never carry the container's border/padding: a bordered
-    # 1-row box has a negative content interior and blanks its own row (B18-54).
+    # 1-row box has a negative content interior and blanks its own row.
     # *visible* forces the copy's visibility when given; left `nil` (the default)
     # the dup's `visible` flag is untouched — a caller that needs the row shown
     # regardless of the container's hidden state passes `visible: true`.
@@ -322,6 +356,43 @@ module Crysterm
       end
       copy = yield src
       {copy, src, copy, fp}
+    end
+
+    # Per-site memo of the `Widget.style_to_attr(style)` derivation for one
+    # style slot, gated on {style identity via `same?`, `#attr_revision`}. Both
+    # halves are load-bearing (same reasoning as `process_content`'s memo):
+    # identity alone misses in-place mutation (an animation re-assigns
+    # `style.bg` every frame without swapping the object — the revision bump
+    # catches it), and revision alone misses a cascade swap (a different
+    # `Style`'s counter is unrelated). No third "stamped default" part is
+    # needed here, unlike `process_content`'s triple: this caches only the
+    # derived value itself, with no external slot another style could have
+    # rewritten in between. Holding the `Style` reference (not an `object_id`)
+    # also keeps the style alive, so `same?` can't false-hit on a recycled
+    # address.
+    #
+    # A mutable struct: hold it in an ivar or local and call `#fetch` on that
+    # lvalue directly. Reading it through a copying accessor (a plain `getter`,
+    # an `Array#[]`, a method return value) would mutate a temporary and
+    # memoize nothing.
+    struct AttrMemo
+      @src : Style?
+      @revision : Int64 = 0_i64
+      @attr : Int64 = 0_i64
+
+      # The packed attr for *style*: the cached value while *style* is the same
+      # object at an unchanged `attr_revision`, else a fresh
+      # `Widget.style_to_attr(style)` (restamping the key). Also serves call
+      # sites spelled `style_to_attr(style, style.fg, style.bg)` — explicitly
+      # passing the style's own colors packs the identical attr.
+      def fetch(style : Style) : Int64
+        if (src = @src) && src.same?(style) && @revision == style.attr_revision
+          return @attr
+        end
+        @src = style
+        @revision = style.attr_revision
+        @attr = Widget.style_to_attr(style)
+      end
     end
 
     # Is any transparency defined? Testing `opacity == nil` alone isn't enough:
@@ -578,8 +649,7 @@ module Crysterm
       # The `border=`/`padding=`/`margin=`/`shadow=` setters already coerce
       # their argument through `X.from` (and record `specified_mask`), so route
       # the raw ctor argument straight to the setter instead of pre-coercing it
-      # here — coercing twice is redundant (each `X.from` is idempotent on an
-      # already-typed `X`, so behavior is unchanged either way).
+      # here.
       border.try { |v| self.border = v }
       padding.try { |v| self.padding = v }
       margin.try { |v| self.margin = v }

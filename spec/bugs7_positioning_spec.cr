@@ -2,12 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for the BUGS7 completer-positioning fix: a top-level widget's
+# Regression spec: a top-level widget's
 # `left`/`top` are relative to the window's *content* origin
 # (`aleft == window.ileft + left`), but `Completer#position` set the popup's
 # `left`/`top` to the widget's absolute `aleft`/`atop`. On a padded/bordered
-# window that double-counted the inset and shoved the popup right/down. The fix
-# subtracts the window insets.
+# window that double-counted the inset and shoved the popup right/down. The
+# window insets must be subtracted.
 
 private def padded_window(w = 30, h = 12)
   Crysterm::Window.new(
@@ -34,7 +34,7 @@ describe "BUGS7 completer popup position accounts for window insets" do
 
     pop = s.children.find! { |c| c.is_a?(Widget::List) }
     # Content-relative coordinates: subtracting the window inset undoes the
-    # double-count. Pre-fix these equalled the absolute `aleft`/`atop`.
+    # double-count — these must not equal the absolute `aleft`/`atop`.
     pop.left.should eq input.aleft - s.ileft
     pop.top.should eq input.atop + input.aheight - s.itop
   ensure

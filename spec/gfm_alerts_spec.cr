@@ -5,7 +5,7 @@ include Crysterm
 # GFM alerts (https://github.github.com/gfm/, the github.com blockquote
 # extension): a blockquote whose first line is `[!NOTE]`/`[!TIP]`/
 # `[!IMPORTANT]`/`[!WARNING]`/`[!CAUTION]` renders as a styled admonition
-# instead of a plain quote. The residual item from plans/GFM.md.
+# instead of a plain quote.
 #
 # Import strips the marker line (`TextBlockFormat#alert_kind` records the
 # kind instead — the title chip is a render-time decoration, not document

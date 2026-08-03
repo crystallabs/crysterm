@@ -3,10 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget#delete_line` deletes via `n.times { fake.delete_at i }` with a fixed
-# `i`. It clamped `i` but not `n`, so deleting more lines than remain from `i`
-# (`remove_last_line 2`, `remove_first_line n` past the count, `delete_line(i, n)` with
-# `i + n > fake.size`) ran `delete_at` off the end and raised `IndexError`.
-# `n` is now clamped, like JS `splice(i, n)`.
+# `i`. Both `i` and `n` must be clamped (like JS `splice(i, n)`): deleting more
+# lines than remain from `i` (`remove_last_line 2`, `remove_first_line n` past
+# the count, `delete_line(i, n)` with `i + n > fake.size`) would otherwise run
+# `delete_at` off the end and raise `IndexError`.
 describe "Widget#delete_line over-count" do
   it "remove_last_line n past the end does not raise" do
     # `remove_last_line(n)` is `delete_line(fake.size - 1, n)`, a *forward* delete from

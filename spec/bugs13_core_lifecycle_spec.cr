@@ -2,8 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS13 core findings C11, C20
-# (src/window_capture.cr, src/crysterm.cr):
+# Regression specs (src/window_capture.cr, src/crysterm.cr):
 #
 # C11 — animated capture samples the CURRENT buffer on a wall-clock `1/fps`
 #       grid (a `FrameClock` ticker) instead of writing one frame per
@@ -34,9 +33,9 @@ describe "BUGS13 C11: animated capture samples on a wall-clock 1/fps grid" do
       fsize.should be > 0
 
       # No ffmpeg needed: `feed_animation_frames` is the sampling half, fed an
-      # in-memory sink. NOTHING renders during the window — the pre-fix
-      # per-`Rendered` scheme would have produced only the initial frame
-      # (a 0.1 s clip out of a 0.35 s capture).
+      # in-memory sink. NOTHING renders during the window — a per-`Rendered`
+      # scheme would produce only the initial frame (a 0.1 s clip out of a
+      # 0.35 s capture).
       w.feed_animation_frames(io, 0, w.awidth, 0, w.aheight, 0.35.seconds, 10)
 
       (io.size % fsize).should eq 0

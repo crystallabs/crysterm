@@ -42,7 +42,7 @@ describe "BUGS18 B18-22: Dim#resolve / #resolve_viewport / Length.to_cell_count 
       style: Style.new(border: true)
     huge = "9" * 320 # saturates to Float64::INFINITY while parsing (B17-05)
     Widget::Box.new parent: parent, width: "#{huge}%", height: 1
-    s.repaint # pre-fix: 0 * INFINITY = NaN -> OverflowError in the render fiber
+    s.repaint # guards against 0 * INFINITY = NaN -> OverflowError in the render fiber
   end
 
   it "Dim#resolve returns 0 for a 0 extent with an infinite percent (direct)" do
@@ -85,7 +85,7 @@ describe "BUGS18 B18-26: Dim typed offset overflow guard" do
     s = headless_screen(80, 24)
     Widget::Box.new parent: s, left: Dim.percent(50, Int32::MAX), top: 0,
       width: 5, height: 1
-    s.repaint # pre-fix: v.to_i + Int32::MAX overflows checked Int32
+    s.repaint # guards against v.to_i + Int32::MAX overflowing checked Int32
   end
 
   it "does not raise when left is Dim.center(Int32::MAX)" do
@@ -119,9 +119,9 @@ describe "BUGS18 B18-23: Layout::Box releases a stretch-assigned cross size" do
     box.height = 10
     s.repaint
 
-    # Post-fix: the child's raw height is restored to nil before re-measure,
-    # so it re-resolves like a fresh auto-height child instead of staying
-    # frozen at the stale assigned 20.
+    # The child's raw height is restored to nil before re-measure, so it
+    # re-resolves like a fresh auto-height child instead of staying frozen
+    # at the stale assigned 20.
     child.height.should be_nil
     child.aheight.should eq 10
   end
@@ -154,7 +154,7 @@ describe "BUGS18 B18-25: Box/Form clamp a child's fixed main size; coords satura
       layout: Layout::HBox.new
     Widget::Box.new parent: box, width: 10, height: 1
     Widget::Box.new parent: box, width: Int32::MAX, height: 1
-    s.repaint # pre-fix: OverflowError at the `fixed += ms` sum in measure
+    s.repaint # guards against OverflowError at the `fixed += ms` sum in measure
   end
 
   it "does not raise with an Int32::MAX-tall child under VBox" do
@@ -170,7 +170,7 @@ describe "BUGS18 B18-25: Box/Form clamp a child's fixed main size; coords satura
     s = headless_screen(80, 24)
     parent = Widget::Box.new parent: s, left: 5, top: 0, width: 40, height: 5
     Widget::Box.new parent: parent, left: 0, top: 0, width: Int32::MAX, height: 1
-    s.repaint # pre-fix: OverflowError at widget_position.cr's `xl = xi + w`
+    s.repaint # guards against OverflowError at widget_position.cr's `xl = xi + w`
   end
 
   it "does not raise for a plain Manual child at left: 1 with a MAX-width size" do

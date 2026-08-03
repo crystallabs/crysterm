@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs for the BUGS4 cursor / focus fixes:
 #
-#  1. `Window#reset_cursor` (formerly `#cursor_reset`) cleared `style.bg` but
+#  1. `Window#reset_cursor` cleared `style.bg` but
 #     not `style.fg`. Since `style.fg` is the single source of truth
 #     `#apply_cursor` reads, a "reset" cursor kept its old color: the next
 #     `#apply_cursor` (a focus change, a `#cursor_shape` call, …) re-issued the
@@ -37,7 +37,7 @@ describe "BUGS4 Window#reset_cursor clears the cursor color (fix #1)" do
     screen.cursor.style.fg.should eq Crysterm::Colors.convert("red")
 
     screen.reset_cursor
-    screen.cursor.style.fg.should be_nil # the fix: fg is cleared, not just bg
+    screen.cursor.style.fg.should be_nil # fg is cleared, not just bg
 
     # A subsequent re-apply must restore the terminal default (OSC 112), not
     # re-emit the red set-color (OSC 12).

@@ -162,6 +162,12 @@ module Crysterm
       # caret-following scroll last ran for.
       @doc_revision = 0
       @layout_revision = -1
+
+      # `style_to_attr` memo for the steady-frame path of `process_content`:
+      # every frame with an unchanged layout still refreshes the base attr, so
+      # the derivation is skipped until a style setter (or cascade swap)
+      # invalidates it.
+      @attr_memo = Style::AttrMemo.new
       @rendered_revision = -1
 
       def initialize(
@@ -192,6 +198,28 @@ module Crysterm
       def markdown=(text : String) : String
         set_markdown text
         text
+      end
+
+      # Streams markdown into the document's end (see
+      # `TextDocument#append_markdown`) — the incremental path a chat-style
+      # producer feeds chunk by chunk. Complete constructs are parsed and
+      # appended as their terminating blank line arrives; a trailing
+      # incomplete one (an open code fence, a table mid-row, the last
+      # paragraph) stays buffered until a later chunk completes it or
+      # `#flush_markdown` forces it, so any chunking renders exactly like
+      # `#set_markdown` of the whole text. The caret and scroll stay put, and
+      # — unlike `#set_markdown` — inline TOCs are NOT refreshed (an append
+      # is exactly the mid-stream shift `#refresh_tocs`'s manual policy
+      # avoids); call `#refresh_tocs` when the stream ends. A `TocView`
+      # sidebar tracks the document on its own either way.
+      def append_markdown(chunk : String, theme : TextTheme = @theme) : Nil
+        document.append_markdown chunk, theme
+      end
+
+      # Parses and appends whatever `#append_markdown` still holds buffered —
+      # the end-of-stream signal.
+      def flush_markdown(theme : TextTheme = @theme) : Nil
+        document.flush_markdown theme
       end
 
       # Regenerates every inline table of contents from the current headings,
@@ -268,8 +296,13 @@ module Crysterm
         key = layout_cache_key(colwidth)
         if key == @layout_key && @layout_revision == @doc_revision && !@_clines.empty?
           # Steady frame. Keep the cached base attr fresh (a style change
-          # recolors the background) — mirrors the base `process_content`.
-          da = style_to_attr(style)
+          # recolors the background) — mirrors the base `process_content`. The
+          # derivation is memoized on {identity, attr_revision}; no stamped-
+          # default third gate is needed (unlike the base memo) because the
+          # cached value is still compared against `@_parse_attr_default`, so
+          # a `rebuild_layout` under a substituted style followed by a swap
+          # back lands in the refresh below.
+          da = @attr_memo.fetch(style)
           @_parse_attr_default = da if da != @_parse_attr_default
           return false
         end
@@ -425,7 +458,9 @@ module Crysterm
         # `#paint_document` draws the actual text over it.
         @_pcontent = ""
         # The base attr cache normally refreshes in base `process_content`.
-        @_parse_attr_default = style_to_attr(style)
+        # Routed through the memo so the first steady frame after a rebuild
+        # hits instead of recomputing once more.
+        @_parse_attr_default = @attr_memo.fetch(style)
       end
 
       # One block's display rows under the current layout inputs, via the same

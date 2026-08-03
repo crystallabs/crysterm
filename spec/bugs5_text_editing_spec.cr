@@ -9,17 +9,16 @@ include Crysterm
 #    / `kill_forward_to` / `insert_at_cursor`) without funnelling through
 #    `delete_selection`, and they sit in the editing-keys dispatch chain where
 #    `moved == false`, so the movement path's `clear_selection if moved &&
-#    !extend_sel` never runs either. A stale `@selection_anchor` therefore
-#    survived the kill/yank; the *next* keystroke's `delete_selection` then
-#    sliced `@value[0...begin] + @value[end..]` with an `end` past the (now
-#    shorter) value and raised `IndexError`. Fixed by clearing the selection in
-#    all five branches.
+#    !extend_sel` never runs either. All five branches must clear the selection:
+#    a stale `@selection_anchor` surviving the kill/yank makes the *next*
+#    keystroke's `delete_selection` slice `@value[0...begin] + @value[end..]`
+#    with an `end` past the (now shorter) value and raise `IndexError`.
 #
 #  BUG 2 — `LineEdit#_listener` handles Enter / Up / Down with an early `return`
 #    that skips `super`, so the mixin's trailing `kill_ring.interrupt if rl &&
-#    !killed` never ran for those keys. Two kills straddling a history recall
-#    (Ctrl-K, Up, Ctrl-K) wrongly merged into one ring entry. Fixed by calling
-#    `kill_ring.interrupt` (gated on `input.readline_keys`) before each return.
+#    !killed` never runs for those keys. `kill_ring.interrupt` (gated on
+#    `input.readline_keys`) must fire before each return, or two kills straddling
+#    a history recall (Ctrl-K, Up, Ctrl-K) merge into one ring entry.
 
 private def editor(value : String, pos : Int32)
   s = Crysterm::Window.new(
@@ -56,8 +55,8 @@ describe "BUGS5 stale selection anchor after kill/yank (BUG 1)" do
     le.selection_anchor.should be_nil
     le.selection?.should be_false
 
-    # Before the fix this ran delete_selection with a stale anchor (8) past the
-    # end of the now-2-char value and raised IndexError.
+    # A stale anchor (8) past the end of the now-2-char value would make
+    # delete_selection raise IndexError here.
     press_char le, 'X'
     le.value.should eq "abX"
   end
@@ -112,7 +111,7 @@ describe "BUGS5 history keys interrupt the kill run (BUG 2)" do
     le.value.should eq "first"
     le.cursor_pos = 0
 
-    press le, Tput::Key::CtrlK # kill "first" -> ring entry #2 (was merged before fix)
+    press le, Tput::Key::CtrlK # kill "first" -> ring entry #2, not merged into #1
     le.kill_ring.entries.size.should eq 2
     le.kill_ring.entries.should eq ["hello", "first"]
   end
@@ -127,7 +126,7 @@ describe "BUGS5 history keys interrupt the kill run (BUG 2)" do
 
     le.value = "xyz"
     le.cursor_pos = 0
-    press le, Tput::Key::CtrlK # new entry (was merged before fix)
+    press le, Tput::Key::CtrlK # new entry, not merged
 
     le.kill_ring.entries.size.should eq 2
     le.kill_ring.entries.should eq ["abc", "xyz"]

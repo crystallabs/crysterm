@@ -6,14 +6,14 @@ include Crysterm
 # widget inputs that otherwise crash a background/render fiber.
 #
 # W1: Media#speed = 0 makes the animation/stream pacers divide by zero and
-#     overflow the integer/Time::Span conversion (OverflowError). The setter now
+#     overflow the integer/Time::Span conversion (OverflowError). The setter
 #     clamps a non-positive/non-finite speed to native (1.0).
 # W2: Box#pulse(period: 0.seconds) made `half == 0`, so the first tick's
 #     `elapsed % (2.0 * half)` (x % 0.0) raised DivisionByZeroError in the ticker
-#     fiber. The period is now floored at 0.001.
+#     fiber. The period is floored at 0.001.
 # W3: a >=10-digit offset in a string position/size expression overflowed Int32
 #     on `off * 10` (OverflowError) in the per-frame render path. The accumulator
-#     is now clamped.
+#     is clamped.
 
 describe "BUGS14 widget guards (W1/W2/W3)" do
   it "W1: Media#speed= clamps 0 to native (1.0), no divide-by-zero" do

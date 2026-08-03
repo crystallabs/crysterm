@@ -4,9 +4,8 @@ include Crysterm
 
 # Specs for the CSS `tab-size` property parser (`Crysterm::CSS::Properties.apply`).
 # Key case: an invalid value. CSS drops an unparseable declaration, leaving the
-# cascaded (or default) tab width intact rather than collapsing to zero. The old
-# `cells(value)` form mapped any non-length (blank `var()`, typo) to `0`,
-# clobbering a previously-set tab-size.
+# cascaded (or default) tab width intact rather than mapping a non-length
+# (blank `var()`, typo) to `0` and clobbering a previously-set tab-size.
 describe "CSS tab-size" do
   it "parses an integer tab-size" do
     s = Style.new

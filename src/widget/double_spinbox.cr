@@ -6,8 +6,9 @@ module Crysterm
   class Widget
     # Floating-point spin box, modeled after Qt's `QDoubleSpinBox`.
     #
-    # Like `Widget::SpinBox` but the `#value`, `#minimum`, `#maximum` and `#step`
-    # are `Float64`, and the displayed number is rounded to `#decimals` places.
+    # Like `Widget::SpinBox` but the `#value`, `#minimum`, `#maximum` and
+    # `#single_step` are `Float64`, and the displayed number is rounded to
+    # `#decimals` places.
     # The value steps with Up/Down (or the wheel) and can be typed directly
     # (digits, one `.`, and a leading `-` when negatives are in range); Enter
     # commits, Escape/blur discards. Emits `Event::DoubleValueChanged` on change.
@@ -16,7 +17,7 @@ module Crysterm
     # ![DoubleSpinBox screenshot](../../tests/widget/double_spinbox/double_spinbox.5s.apng)
     # <!-- /widget-examples:capture -->
     class DoubleSpinBox < AbstractSpinBox
-      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#step`/`#wrapping?`,
+      # Range/value behavior (`#minimum`/`#maximum`/`#value`/`#single_step`/`#wrapping?`,
       # `#step_up`/`#step_down`, `#set_range`), in `Float64`.
       include Mixin::RangedValue(Float64)
 
@@ -43,7 +44,8 @@ module Crysterm
         value : Float64? = nil,
         @minimum = 0.0,
         @maximum = 100.0,
-        @step = 1.0,
+        single_step : Float64? = nil,
+        step : Float64? = nil,
         decimals = 2,
         @prefix = "",
         @suffix = "",
@@ -51,6 +53,11 @@ module Crysterm
         wrapping = false,
         **input,
       )
+        # `single_step:` is the blessed Qt-parity spelling; `step:` stays
+        # accepted as a compatibility alias, `single_step:` winning when both
+        # are given.
+        @single_step = single_step || step || 1.0
+
         super **{keys: true}.merge(input)
 
         @decimals = Math.max(decimals, 0)

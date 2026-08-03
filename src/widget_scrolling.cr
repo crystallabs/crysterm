@@ -674,9 +674,9 @@ module Crysterm
     # shortcut returns true WITHOUT the vertical bounds check its fast-csr
     # branch does, so a full-width widget extending past the screen edge
     # (top: 3, height: "100%" → `bottom > aheight - 1`; top: -3 → `top < 0`)
-    # previously reached the mutation unclamped: a too-large `bottom` raised
+    # would reach the mutation unclamped: a too-large `bottom` raises
     # IndexError mid-mutation leaving `@lines` short, and a negative `top`
-    # wrapped `delete_at` around to evict BOTTOM rows, desyncing
+    # wraps `delete_at` around to evict BOTTOM rows, desyncing
     # `@lines`/`@flushed_lines` from the terminal. Off-screen rows can't be
     # CSR-scrolled anyway. Shared by `#scroll` and `#render_line_shift`
     # (widget_content_lines.cr), which face the identical hazard.

@@ -73,7 +73,7 @@ describe "Crysterm::Widget::Media glyph capability" do
     M.available?(M::Type::GlyphQuadrant, tput).should be_true
     M.available?(M::Type::GlyphHalf, tput).should be_true
     M.available?(M::Type::GlyphBraille, tput).should be_true
-    # And the cell-grid variants (previously mis-reported as unavailable).
+    # And the cell-grid variants (must not be mis-reported as unavailable).
     M.available?(M::Type::AnsiC256, tput).should be_true
 
     # On a legacy-computing terminal, octant is available.

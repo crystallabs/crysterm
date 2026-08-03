@@ -53,7 +53,7 @@ module Crysterm
           # too — like every other engine via `each_arrangeable`. They are pinned
           # at their own coordinates and painted by `#render_chrome`; arranging one
           # as flow child 0 would overwrite its pins, consume a slot, and wrap the
-          # real children (BUGS15 #20, missed for the whole Flow family).
+          # real children.
           next unless arrangeable?(el)
           # A hidden child gives its space back (`#vacant?`), packing as though
           # it weren't there — matching `Layout::Box`/`Border`. Mirror the
@@ -106,7 +106,7 @@ module Crysterm
             # `@overflow || window.overflow || Ignore`), so the child would NOT
             # self-move in its own render; without this the branch behaves like
             # Ignore. Anchor the child's whole margin box within the interior.
-            # B18-25: compute the anchor in Int64 and clamp so a huge
+            # Compute the anchor in Int64 and clamp so a huge
             # margin+height can't underflow/overflow the checked Int32 math.
             el.top = Math.max(0_i64, interior.height.to_i64 - el.mvertical - el.aheight).clamp(0_i64, interior.height.to_i64).to_i32
           end
@@ -117,8 +117,8 @@ module Crysterm
           render_or_defer el
           @prev_el = el
           # A deferred child's `lpos` still holds the previous frame's rect, so
-          # it *is* recorded here (as the backwards rescan used to find it) and
-          # is rejected by `#flow_place`'s `deferred_this_frame?` term instead.
+          # it *is* recorded here and is rejected by `#flow_place`'s
+          # `deferred_this_frame?` term instead.
           @last_rendered = el if rendered? el
         end
       end
@@ -156,7 +156,7 @@ module Crysterm
       # `#before_flow` pre-scan. `UniformGrid` overrides this to return the
       # value its widest-child scan already resolved for `el`, so the same
       # child's `awidth` (a recursive resolution, not a cheap getter) isn't
-      # computed twice per frame (O4-16).
+      # computed twice per frame.
       protected def cached_awidth(el : Widget) : Int32
         el.awidth
       end
@@ -189,7 +189,7 @@ module Crysterm
         # geometry branch instead (in steady state both compute the same left:
         # `occupied_width` reads a shrink-to-fit child's drawn width, so even
         # an auto-sized deferred predecessor chains at its real extent).
-        # O7-14: the x position is threaded as a LOCAL through the chain and the
+        # The x position is threaded as a LOCAL through the chain and the
         # grid snap, so the intermediate values never reach the change-guarded
         # `left=` setter — each such write costs a full `mark_dirty` ancestor
         # walk plus a `Move` emit. Every branch commits through the coalescing
@@ -200,7 +200,7 @@ module Crysterm
           last_drawn = llp.width
         elsif (last = @prev_el)
           last_drawn = occupied_width last
-          # B18-25: widen the chain sum to Int64 and clamp to the interior so a
+          # Widen the chain sum to Int64 and clamp to the interior so a
           # pathological predecessor extent can't overflow the checked Int32
           # accumulation (`occupied_width` returns raw `awidth`).
           left = (last.left.as(Int).to_i64 + last.mleft + last_drawn + last.mright).clamp(0_i64, width.to_i64).to_i32
@@ -231,14 +231,14 @@ module Crysterm
         # by `mleft` without shrinking a fixed width, so the child occupies
         # `[left + mleft, left + mleft + awidth)`. Omitting it lets a margined
         # child paint past the interior instead of wrapping.
-        # B18-25: run the fit comparison in Int64 so a margin+width beyond the
+        # Run the fit comparison in Int64 so a margin+width beyond the
         # Int32 range can't overflow the sum.
         unless left.to_i64 + el.mleft + cached_awidth(el) <= width
           # Doesn't fit on this row: advance the row offset by the tallest child
           # on the row we're leaving, and start a new row. `row_tallest` scans
           # `[@row_index, i)` — strictly `el`'s predecessors — so the commit
           # above can't feed back into the row height it measures.
-          # B18-25: clamp the row height to the interior so a pathological child
+          # Clamp the row height to the interior so a pathological child
           # can't overflow the checked Int32 `@row_offset` accumulation.
           @row_offset += clamped_size(row_tallest(container, @row_index, i), interior.height)
           @last_row_index = @row_index
@@ -256,7 +256,7 @@ module Crysterm
       # suppressed == skipped-this-frame (SkipWidget/StopRendering), and its
       # `aheight` fallback would otherwise inflate the row by a widget that never
       # renders. Scroll-clipped children stay counted — their `#_render` ran and
-      # cleared the flag even though it produced no `lpos` (BUGS15 #4).
+      # cleared the flag even though it produced no `lpos`.
       protected def row_tallest(container : Widget, from : Int32, to : Int32) : Int32
         tallest = 0
         j = from
@@ -332,7 +332,7 @@ module Crysterm
       # child height, the vertical analogue of the explicit width flow already
       # requires.
       protected def overflow_action(container : Widget, el : Widget, interior : RenderedGeometry) : Overflow?
-        # O7-15: by the NOTE above, an unconstrained auto-height child can never
+        # By the NOTE above, an unconstrained auto-height child can never
         # be reported as overflowing — so skip resolving `aheight` for it at all
         # (its auto branch climbs the whole ancestor chain). The `min_height`
         # term is load-bearing: `aheight`'s auto branch ends in `clamp_aheight`,
@@ -346,7 +346,7 @@ module Crysterm
         # without shrinking it, so its real bottom edge is `top + mtop + aheight`.
         # Safe for auto-height children too — their `aheight` already folds both
         # vertical margins in, so adding `mtop` still can't exceed the interior.
-        # B18-25: run the overflow comparison in Int64 so the bottom-edge sum
+        # Run the overflow comparison in Int64 so the bottom-edge sum
         # can't overflow the checked Int32 arithmetic.
         if el.top.as(Int).to_i64 + el.mtop + el.aheight > height
           return container.overflow

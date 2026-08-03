@@ -48,9 +48,8 @@ describe "Window#draw artificial cursor + BCE" do
 
     s.draw
 
-    # The cursor must have been painted: its cell carries REVERSE in @flushed_lines.
-    # Before the fix, BCE clear-to-EOL erased over column `cx` and broke out of
-    # the row scan, so this flag was 0.
+    # The cursor must have been painted: its cell carries REVERSE in @flushed_lines
+    # (not erased by BCE clear-to-EOL breaking out of the row scan).
     (Attr.flags(s.flushed_lines[y][cx].attr) & Attr::REVERSE).should_not eq 0
   end
 end

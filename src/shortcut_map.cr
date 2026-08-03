@@ -88,7 +88,7 @@ module Crysterm
     # shared `ShortcutMap` (with its window-level `KeyPress` subscription) from
     # the class-level registry. The `Window#destroy` teardown seam: without it a
     # destroyed window with installed actions stays pinned by `@@shortcut_maps`
-    # forever (R-83). Idempotent — with no entry for *window* it is a no-op, so
+    # forever. Idempotent — with no entry for *window* it is a no-op, so
     # a repeated destroy (or a destroy after a manual `#uninstall_shortcut` of
     # the last action) is safe.
     def self.uninstall_shortcuts(window : ::Crysterm::Window) : Nil

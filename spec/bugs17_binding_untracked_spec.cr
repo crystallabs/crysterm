@@ -15,7 +15,7 @@ include Crysterm
 # every signal the binding reads is silently subscribed as a dependency of the
 # WRITING effect. A later unrelated write then spuriously re-runs that effect.
 #
-# The fix wraps the drained item's `run` in `Reactive.untracked` in `flush`.
+# The drained item's `run` is wrapped in `Reactive.untracked` in `flush`.
 
 private def rx_screen
   Crysterm::Window.new(

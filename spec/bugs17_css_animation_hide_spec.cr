@@ -7,11 +7,10 @@ include Crysterm
 # An infinite CSS `@keyframes` animation on a widget drives a ~30fps
 # `FrameClock` that calls `request_render` every tick. When the widget is
 # hidden it is skipped from rendering (its `coords` is nil), so
-# `ensure_css_animation` stops being called and nothing stopped the clock —
-# it kept ticking a full-window render loop forever. The fix installs a
-# one-time `Event::Hide`/`Event::Detached` hook that stops the clock, WITHOUT
-# marking the animation finished, so it resumes on the next render after
-# `show`/re-attach.
+# `ensure_css_animation` stops being called and nothing stops the clock — it
+# would keep ticking a full-window render loop forever. A one-time
+# `Event::Hide`/`Event::Detached` hook stops the clock, WITHOUT marking the
+# animation finished, so it resumes on the next render after `show`/re-attach.
 
 # Exposes the CSS-animation internals for assertions.
 private class AnimProbe < Crysterm::Widget::Box

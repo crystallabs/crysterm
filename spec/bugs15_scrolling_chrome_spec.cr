@@ -2,15 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS15 #20, #54, #55. Headless harness mirrors
-# spec/bugs12_layout_spec.cr.
+# Regression specs. Headless harness mirrors spec/bugs12_layout_spec.cr.
 
 # BUGS15 #20 — a border label (and a bound scroll bar) is internal chrome, but
 # any installed *arranging* layout engine treated it as a content slot: VBox
 # counted the title Box in its flex distribution and overwrote its
 # border-glued position, tearing the title off the border into a stray inner
-# bar and starving the real children. The fix flags such chrome
-# `layout_chrome?`, has `Layout#each_arrangeable` skip it, and paints it via
+# bar and starving the real children. Such chrome is flagged
+# `layout_chrome?`, skipped by `Layout#each_arrangeable`, and painted via
 # `Layout#render_chrome` at its own pinned coordinates.
 describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome" do
   it "keeps a VBox-container's title on the border row, not in a content slot" do
@@ -38,7 +37,7 @@ describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome
     interior_top = bl.yi + box.itop
 
     # First real child starts at the interior top — the label consumed no slot.
-    # Pre-fix VBox placed the label in slot 0 and pushed c1 down a third.
+    # (A VBox that arranged the label into slot 0 would push c1 down a third.)
     c1.lpos.not_nil!.yi.should eq interior_top
     # Two children split the interior; neither is starved to nothing.
     c1.lpos.not_nil!.yl.should be > c1.lpos.not_nil!.yi
@@ -62,8 +61,8 @@ describe "BUGS15 20: layout engines do not arrange border-label/scrollbar chrome
     sb.layout_chrome?.should be_true
     sb.right.should eq 0 # pinning preserved, not overwritten to a slot
 
-    # Pre-fix the vertical bar (height "100%") consumed the whole interior in
-    # Box#measure, starving the flex children to height 0. Post-fix both keep
+    # A vertical bar (height "100%") counted in Box#measure would consume the
+    # whole interior, starving the flex children to height 0; both must keep
     # real height.
     c1.lpos.not_nil!.yl.should be > c1.lpos.not_nil!.yi
     c2.lpos.not_nil!.yl.should be > c2.lpos.not_nil!.yi
@@ -74,7 +73,7 @@ end
 # (`Event::ContentParsed → _recalculate_index`) is wired only in the constructor
 # and only for a widget built `scrollable: true`. A widget flipped scrollable at
 # runtime never got it, so a later content shrink left `@child_base` past the
-# content and the viewport rendered blank. The custom setter now wires it once.
+# content and the viewport rendered blank. The custom setter wires it once.
 describe "BUGS15 54: runtime scrollable= wires the content-clamp handler" do
   it "clamps child_base when content shrinks after a runtime scrollable flip" do
     s = headless_screen(80, 24)
@@ -86,7 +85,7 @@ describe "BUGS15 54: runtime scrollable= wires the content-clamp handler" do
     box.child_base.should be > 0 # scrolled down into the content
 
     # Content shrinks to a single line: the clamp handler must pull child_base
-    # back to 0 so the line stays visible. Pre-fix child_base stayed stuck.
+    # back to 0 so the line stays visible.
     box.set_content("only one line")
     box.child_base.should eq 0
   end
@@ -113,8 +112,8 @@ end
 
 # BUGS15 #55 — vertical bar (`height: "100%"`) and horizontal bar
 # (`width: "100%"`) both claimed the bottom-right corner cell; the second-drawn
-# bar overpainted the other's last cell and stole corner clicks. The fix shortens
-# each bar by the other's extent in `update_scrollbar_widget`, reserving the
+# bar overpainted the other's last cell and stole corner clicks. Each bar is
+# shortened by the other's extent in `update_scrollbar_widget`, reserving the
 # corner (Qt's `QAbstractScrollArea` corner).
 describe "BUGS15 55: scroll bars reserve the bottom-right corner" do
   it "shortens each bar by the other when both are shown" do

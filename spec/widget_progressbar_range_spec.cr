@@ -3,13 +3,11 @@ require "./spec_helper"
 include Crysterm
 
 # `ProgressBar` keeps its own range (Qt's `QProgressBar` is a plain `QWidget`,
-# not a `QAbstractSlider`); `minimum`/`maximum` used to be bare `Int32`
-# `property`s, so the generated setters skipped what `#value=` does on
-# change: re-clamp into the new range and schedule a repaint. Since `#percent`
-# (and `%p`/`%m`/`%M` text) derive from the range, lowering `maximum` below
-# the current value left it out of range and the bar stale. Fixed by routing
-# `minimum=`/`maximum=` through `#set_range`, which re-clamps and
-# `#request_render`s.
+# not a `QAbstractSlider`); `minimum=`/`maximum=` route through `#set_range`,
+# which — like `#value=` — re-clamps the value into the new range and
+# `#request_render`s. Since `#percent` (and `%p`/`%m`/`%M` text) derive from
+# the range, bare `property` setters would leave the value out of range and
+# the bar stale when `maximum` drops below it.
 #
 # As in the checkbox repaint specs, a headless render fiber never paints, so
 # the observable effect is the scheduled repaint (the damage mark).

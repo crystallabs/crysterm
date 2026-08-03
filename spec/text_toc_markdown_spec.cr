@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Markdown interchange for the inline TOC (TOC.md Phase 6): the comment fence
+# Markdown interchange for the inline TOC: the comment fence
 # on export, fence *and* bare markers on import.
 
 private def toc_of(doc : Crysterm::TextDocument) : Crysterm::TextToc
@@ -46,6 +46,17 @@ describe "TextMarkdown TOC interchange" do
       end
     end
 
+    it "accepts fence spellings case-insensitively" do
+      doc = TextDocument.from_markdown "<!-- TOC -->\n\n<!-- TocStop -->\n\n# One"
+      doc.tocs.size.should eq 1
+      toc_of(doc).blocks.map(&.text).should eq ["One"]
+    end
+
+    it "does not treat near-miss text as a fence or marker" do
+      doc = TextDocument.from_markdown "[tocx]\n\n<!-- tocs -->\n\n[Stale](#stale)\n\n[]\n\n# One"
+      doc.tocs.should be_empty
+    end
+
     it "leaves an unterminated fence as a literal HTML comment" do
       doc = TextDocument.from_markdown "<!-- toc -->\n\n# One"
       doc.tocs.should be_empty
@@ -55,6 +66,23 @@ describe "TextMarkdown TOC interchange" do
     it "does not treat a marker inside a code fence as a TOC" do
       doc = TextDocument.from_markdown "```\n[TOC]\n```"
       doc.tocs.should be_empty
+    end
+  end
+
+  describe ".toc_marker?" do
+    it "accepts every spelling case-insensitively, ignoring surrounding whitespace" do
+      TextMarkdown.toc_marker?("[TOC]").should be_true
+      TextMarkdown.toc_marker?("  [toc]  ").should be_true
+      TextMarkdown.toc_marker?("\t[[TOC]]\r").should be_true
+      TextMarkdown.toc_marker?("[[_ToC_]]").should be_true
+    end
+
+    it "rejects near misses" do
+      TextMarkdown.toc_marker?("").should be_false
+      TextMarkdown.toc_marker?("toc").should be_false
+      TextMarkdown.toc_marker?("[toc]x").should be_false
+      TextMarkdown.toc_marker?("[toc] extra").should be_false
+      TextMarkdown.toc_marker?("[[toc]").should be_false
     end
   end
 

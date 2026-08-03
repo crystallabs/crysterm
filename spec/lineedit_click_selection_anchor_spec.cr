@@ -53,7 +53,7 @@ describe "LineEdit selection anchor after a plain click" do
     langbox.focused?.should be_true
     langbox.selection_anchor.should be_nil
 
-    # Two Backspaces: previously crashed with IndexError on the second.
+    # Two Backspaces: the second must not crash with IndexError.
     backspace langbox
     s.repaint
     backspace langbox

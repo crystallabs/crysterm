@@ -716,7 +716,7 @@ module Crysterm
         # The eight border glyphs with any per-position char overrides (CSS
         # `border-chars`/`border-top-left-char` …) merged over them, resolved
         # once for the whole box rather than per cell — and for the border's own
-        # family only, so a `Fill` border no longer builds (and discards) the
+        # family only, so a `Fill` border doesn't build (and discard) the
         # line-family octet.
         glyphs = border.glyph_octet(glyph_tier)
 
@@ -920,7 +920,7 @@ module Crysterm
     # separator's divider color.
     protected def dock_rows(rows : Enumerable(Int32), contrast : DockContrast = DockContrast::Ignore) : Nil
       scr = window? || return
-      # Reuse a per-widget Hash instead of allocating one per frame (D1). Single
+      # Reuse a per-widget Hash instead of allocating one per frame. Single
       # fiber renders, so the scratch set is never live across calls.
       stops = (@_dock_rows_stops ||= {} of Int32 => Bool)
       stops.clear
@@ -1169,13 +1169,12 @@ module Crysterm
     # * `Widget#insert` re-establishes the state on a subtree attached under
     #   a suppressed parent at mutation time (see there).
     #
-    # (Residual, pre-existing edge: directly `#render`/`#repaint`-ing a
-    # *visible* widget strictly inside a suppressed subtree raises out of
-    # `coords` — its parent has no rendered position — but only after
-    # `base_render` already cleared that widget's own flag. Code that swallows
-    # the exception leaves the widget focus-eligible (nil `lpos`, flag false)
-    # until its branch next renders; the pre-prune full walk instead
-    # re-suppressed it on the next frame.)
+    # (Residual edge: directly `#render`/`#repaint`-ing a *visible* widget
+    # strictly inside a suppressed subtree raises out of `coords` — its parent
+    # has no rendered position — but only after `base_render` already cleared
+    # that widget's own flag. Code that swallows the exception leaves the
+    # widget focus-eligible (nil `lpos`, flag false) until its branch next
+    # renders.)
     def suppress_subtree : Nil
       return if @lpos.nil? && layout_suppressed?
       @lpos = nil

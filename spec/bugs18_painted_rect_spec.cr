@@ -51,8 +51,8 @@ describe "BUGS18 B18-02: WidgetCursorAnchor in a scrolled container" do
     em.cursor_x.should eq 3
 
     anchor = Crysterm::WidgetCursorAnchor.new(term)
-    # Pre-fix the row came out `atop + itop + cursor_y` — k rows below the
-    # visibly painted cursor.
+    # Guards against `atop + itop + cursor_y`, which would land k rows below
+    # the visibly painted cursor.
     anchor.cursor_row.should eq lp.yi + term.itop + em.cursor_y
     anchor.cursor_col.should eq term.aleft + term.ileft + em.cursor_x
   ensure
@@ -110,7 +110,8 @@ describe "BUGS18 B18-40: MenuBar#open in a scrolled container" do
     bar.open 0
     menu = bar.menus[0]
     menu.visible?.should be_true
-    # Pre-fix the menu dropped at `atop + aheight`, k rows below the visible bar.
+    # Guards against `atop + aheight`, which would drop the menu k rows below
+    # the visible bar.
     menu.atop.should eq lp.yl
     # The title column comes from the item box's painted rect (identical to its
     # layout aleft here — no horizontal scroll). The item box has no own `lpos`
@@ -140,8 +141,8 @@ describe "BUGS18 B18-40: ToolButton#show_menu in a scrolled container" do
 
     tb.show_menu
     m.visible?.should be_true
-    # Pre-fix the menu popped at layout `atop + aheight`, k rows below the
-    # visibly painted button.
+    # Guards against layout `atop + aheight`, which would pop the menu k rows
+    # below the visibly painted button.
     m.atop.should eq lp.yl
     m.aleft.should eq lp.xi
   end
@@ -171,8 +172,8 @@ describe "BUGS18 B18-101: Completer drop-down in a scrolled container" do
 
     pop = completer.@popup.not_nil!
     pop.visible?.should be_true
-    # Pre-fix the list opened at layout `atop + aheight`, k rows below the
-    # visible field, detached from it.
+    # Guards against layout `atop + aheight`, which would open the list k rows
+    # below the visible field, detached from it.
     pop.atop.should eq lp.yl
     pop.aleft.should eq lp.xi
   end
@@ -197,8 +198,8 @@ describe "BUGS18 B18-104: SectionedField click mapping under a moved painted rec
     # Opens on the hour section (highlighted reverse).
     te.content.should eq "{reverse}10{/reverse}:20:30"
 
-    # Click the painted minute column (content col 3). Pre-fix the column was
-    # resolved against layout aleft, giving col 3 - 15 < 0 → silent no-op.
+    # Click the painted minute column (content col 3); must resolve against
+    # the painted column, not layout aleft (col 3 - 15 < 0 → silent no-op).
     s.dispatch_mouse ::Tput::Mouse::Event.new(
       ::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left,
       lp.xi + 3, lp.yi)

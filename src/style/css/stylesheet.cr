@@ -127,7 +127,7 @@ module Crysterm
         @compiled_selectors.fetch(selector) { ::CSS.compile(selector) rescue nil }
       end
 
-      # Per-rule cascade-entry caches (O4-21), keyed by `{rule index, base_tier}`.
+      # Per-rule cascade-entry caches, keyed by `{rule index, base_tier}`.
       # A `Rule` is immutable and the `Cascade::Entry` list it contributes is
       # fully determined by the rule plus the tier its sheet occupies, so it's
       # computed once and shared across every cascade for this sheet's lifetime

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 # BUGS18 B18-95 + B18-98 — shared window-level shortcut dispatch.
 #
-# B18-95: dispatch used to be per-`Action` (each action its own window handler
+# B18-95: with per-`Action` dispatch (each action its own window handler
 # plus private chord state), so an earlier-installed action's single-stroke
 # shortcut (Ctrl+S) fired on — and `accept`ed — the very keystroke that would
 # have completed another action's chord (Ctrl+K, Ctrl+S): the chord could never
@@ -13,7 +13,7 @@ require "./spec_helper"
 # prefix-clearing half entirely, leaving a half-entered chord prefix armed
 # indefinitely (there is no inter-stroke timeout).
 #
-# Both are fixed by one per-window `Action::ShortcutMap` (Qt's `QShortcutMap`
+# Both are handled by one per-window `Action::ShortcutMap` (Qt's `QShortcutMap`
 # model): all installed sequences are matched together, a chord in progress
 # owns its next stroke, and an already-consumed key still clears the pending
 # prefix without ever firing.
@@ -23,7 +23,8 @@ private def press(win, key : Tput::Key)
 end
 
 # The classic VS Code-style pair: single-stroke Ctrl+S installed FIRST (the
-# order that used to make the chord unreachable), chord Ctrl+K, Ctrl+S second.
+# order that makes the chord unreachable under per-action dispatch), chord
+# Ctrl+K, Ctrl+S second.
 private def save_and_chord(win)
   save = Crysterm::Action.new "Save", shortcut: Tput::Key::CtrlS
   kb = Crysterm::Action.new "Keybindings", shortcuts: [[Tput::Key::CtrlK, Tput::Key::CtrlS]]

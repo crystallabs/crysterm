@@ -8,8 +8,8 @@ include Crysterm
 # The transforms multiplied two Int32 quantities (pos * value_span,
 # (slider_position - minimum) * room, (value - minimum) * avail) before the
 # float divide, so a range span above ~Int32::MAX / track-length overflowed and
-# raised OverflowError during a render or a track click. The fix promotes the
-# first multiplicand to Float64 so the whole computation runs in Float64.
+# raised OverflowError during a render or a track click. The first multiplicand
+# is promoted to Float64 so the whole computation runs in Float64.
 
 private def press(s, x, y)
   s.repaint

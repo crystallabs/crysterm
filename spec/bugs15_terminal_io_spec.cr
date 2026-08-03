@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS15 findings #82 and #89 (Widget::Terminal I/O).
+# Regression specs (Widget::Terminal I/O).
 #
 # #82: keystrokes arriving via an enhanced keyboard protocol (kitty CSI-u /
 #      modifyOtherKeys) must be re-encoded to legacy bytes before being

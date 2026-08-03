@@ -15,8 +15,8 @@ include Crysterm
 #         a raw, never-removed auto-dispose `Event::Destroy` hook on the owner.
 #         Manual dispose (a rebind-per-reconnect cycle) left a dead handler —
 #         pinning the disposed Binding/Effect and everything its block captured
-#         — on the long-lived owner, once per cycle. The hooks are now routed
-#         through cancellable subscriptions torn down by dispose/off.
+#         — on the long-lived owner, once per cycle. The hooks route through
+#         cancellable subscriptions torn down by dispose/off.
 
 private def rx_screen
   Crysterm::Window.new(

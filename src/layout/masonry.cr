@@ -79,8 +79,8 @@ module Crysterm
         each_rendered_in_range(container, @last_row_index, @row_index) do |l, lp|
           # A deferred (z-indexed) child's `lpos` still holds the PREVIOUS
           # frame's rect until plane compositing, so its `lp.xi`/`lp.yl` are
-          # stale this frame. Take its edges from assigned geometry instead —
-          # the same fall-through `flow_place`/the old inline path used; in
+          # stale this frame. Take its edges from assigned geometry instead
+          # (the same fall-through `flow_place` uses); in
           # steady state both give the same edges.
           if deferred_this_frame?(l)
             left = l.left.as(Int) + l.mleft
@@ -88,7 +88,7 @@ module Crysterm
             # occupied_height + mbottom` — `occupied_height`, not `aheight`, so a
             # shrink-to-fit deferred child anchors at its drawn height rather
             # than the stretched interior), which equals the painted edge in
-            # steady state. B18-25: widen to Int64 and clamp to the interior so
+            # steady state. Widen to Int64 and clamp to the interior so
             # a pathological extent can't overflow the checked Int32 sum.
             bottom = (l.top.as(Int).to_i64 + l.mtop + occupied_height(l) + l.mbottom).clamp(0_i64, interior.height.to_i64).to_i32
           else

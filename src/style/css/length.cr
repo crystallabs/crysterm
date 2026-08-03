@@ -125,8 +125,7 @@ module Crysterm
       end
 
       # Whether a config option carries a non-default value, so a default-equal
-      # value never overrides a programmatic tweak. The generic test lives in
-      # the superconf shard now (`Superconf.configured?`).
+      # value never overrides a programmatic tweak.
       private def self.config_set?(key : String) : Bool
         Superconf.configured? key
       end
@@ -169,7 +168,7 @@ module Crysterm
       # `calc()` whose finite terms overflow to `Infinity` and are then
       # multiplied by 0) slips through the comparison-based clamp below — both
       # comparisons are false for NaN — straight to `.to_i`, which raises;
-      # neutralize it to 0 first (B18-22, same hole as `Dim#resolve`/
+      # neutralize it to 0 first (same hole as `Dim#resolve`/
       # `#resolve_viewport`). Also covers `#to_cells` and `#viewport_cells`,
       # which both round through here.
       def self.to_cell_count(cells : Float64) : Int32

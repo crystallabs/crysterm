@@ -25,9 +25,9 @@ require "./spec_helper"
 
       s.find_by_id("b").not_nil!.emit Crysterm::Event::Pressed
 
-      # Before the fix, a left `partition(':')` split at the FIRST colon: sel
-      # became ".item" and text became "nth-child(2):Done", so *every* .item
-      # widget's content was clobbered with that literal string.
+      # Guards against a left `partition(':')` splitting at the FIRST colon:
+      # sel would become ".item" and text "nth-child(2):Done", clobbering
+      # *every* .item widget's content with that literal string.
       second.content.should eq "Done"
       first.content.should eq "one"
     end
@@ -85,9 +85,9 @@ require "./spec_helper"
       btn = s.find_by_id("b").not_nil!
       panel = s.find_by_id("panel").not_nil!
 
-      # Before the fix, each_binding was called with no `wired` map, so the
-      # second call installed a second handler for the same binding: one press
-      # would toggle "open" on then immediately back off (net no-op).
+      # Guards against each_binding running with no `wired` map, which would
+      # install a second handler for the same binding: one press would toggle
+      # "open" on then immediately back off (net no-op).
       btn.emit Crysterm::Event::Pressed
       panel.css_classes.includes?("open").should be_true
 

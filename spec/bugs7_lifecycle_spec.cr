@@ -67,7 +67,7 @@ describe "BUGS7 SplashScreen key-dismiss wiring/teardown" do
 
     s.append splash # Attach installs the window-level key handler
     s.emit Crysterm::Event::KeyPress, enter_key
-    completed.should eq 1 # a key dismissed it (was silently dead pre-fix)
+    completed.should eq 1 # a key dismissed it — the handler must be live
   end
 
   it "does not dismiss via a leaked handler after destroy" do

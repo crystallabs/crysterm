@@ -5,10 +5,10 @@ include Crysterm
 # Regression specs for the BUGS12 layout fixes. Headless harness mirrors
 # spec/bugs11_layout_margin_spec.cr / spec/bugs8_layout_spec.cr.
 
-# BUGS12 #36 — Stack layout suppressed non-current pages with `skip el`, which
-# clears only the page's own `lpos`. A hidden page's descendants kept their stale
-# rects, so `Window#widget_at` still hit-tested them. The fix uses `skip_subtree`
-# (as the base collapsed-interior path and `Flow#arrange` already do).
+# BUGS12 #36 — Stack layout must suppress non-current pages with `skip_subtree`
+# (as the base collapsed-interior path and `Flow#arrange` already do), not
+# `skip el`, which clears only the page's own `lpos` and leaves its descendants'
+# stale rects hit-testable by `Window#widget_at`.
 describe "BUGS12 stack layout clears hidden pages' descendants (fix #36)" do
   it "nils a hidden page's child lpos instead of leaving it stale/hittable" do
     s = headless_screen(80, 24)
@@ -39,8 +39,8 @@ end
 # BUGS12 #37 — Border/dock layout reserved each edge child's margin box when
 # advancing the working rect, but placed bottom/right children with `top = y1 - ch`
 # / `left = x1 - cw`. `coords`' near-anchor `shift_margin` then drew the box
-# past the region's far edge by the child's near margin. The fix subtracts the
-# child's margin total in the placement, mirroring the advance.
+# past the region's far edge by the child's near margin. The placement must
+# subtract the child's margin total, mirroring the advance.
 describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)" do
   it "keeps a top-margined bottom child within the container's interior" do
     s = headless_screen(80, 24)
@@ -57,8 +57,8 @@ describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)"
     fl = footer.lpos.not_nil!
     bl = box.lpos.not_nil!
 
-    # Pre-fix the footer was placed at y1-ch then shifted down by its top margin,
-    # painting one row past the interior bottom; post-fix it stays inside.
+    # Placing at y1-ch and then shifting down by the top margin would paint one
+    # row past the interior bottom; the footer must stay inside.
     fl.yl.should be <= (bl.yl - box.ibottom)
   end
 
@@ -77,8 +77,8 @@ describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)"
     rl = sidebar.lpos.not_nil!
     bl = box.lpos.not_nil!
 
-    # Pre-fix the sidebar was placed at x1-cw then shifted right by its left
-    # margin, painting one column past the interior right edge; post-fix it stays.
+    # Placing at x1-cw and then shifting right by the left margin would paint one
+    # column past the interior right edge; the sidebar must stay inside.
     rl.xl.should be <= (bl.xl - box.iright)
   end
 end

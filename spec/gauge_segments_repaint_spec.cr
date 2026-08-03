@@ -2,12 +2,11 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::Gauge#segments=` used to bump `@segments_version` (so the *next*
-# render would rebuild the cached content) but never schedule that render — so
-# under `DamageTracking` a bare `gauge.segments = [...]` left the previous
-# stacked bars on window until an unrelated frame happened to repaint. Its
-# sibling `#value=` already calls `request_render`; `#segments=` now matches it
-# (like `Bar#values=` / `GaugeList`'s data setters).
+# `Widget::Gauge#segments=` must both bump `@segments_version` (so the *next*
+# render rebuilds the cached content) and schedule that render via
+# `request_render`, matching its sibling `#value=` (and `Bar#values=` /
+# `GaugeList`'s data setters) — bumping alone leaves the previous stacked bars
+# on window under `DamageTracking` until an unrelated frame happens to repaint.
 #
 # `request_render` records the widget (mapped to its top-level ancestor) in
 # `@damage_dirty_roots` and rings the render doorbell (async, no synchronous

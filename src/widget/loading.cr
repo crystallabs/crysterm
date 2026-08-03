@@ -83,14 +83,25 @@ module Crysterm
       @_frames : Array(String)?
       @_frames_key : {String?, Glyphs::Tier, UInt64}?
 
+      # Number of frames the spinner advances per tick (see `#step`). Named
+      # `single_step` for consistency with the ranged widgets' Qt-parity
+      # spelling — `#step` here is the advance *verb*, so it cannot
+      # double as the getter.
+      property single_step : Int32 = 1
+
       def initialize(
         @compact = false,
         @interval = Crysterm::Config.loading_interval,
         frames : Array(String)? = nil,
         spinner : Spinner? = nil,
-        @step = 1,
+        single_step : Int32? = nil,
+        step : Int32? = nil,
         **box,
       )
+        # `single_step:` is the blessed spelling; `step:` stays accepted as a
+        # compatibility alias, `single_step:` winning when both are given.
+        @single_step = single_step || step || 1
+
         box["content"]?.try do |c|
           @orig_text = c
         end
@@ -154,7 +165,7 @@ module Crysterm
       # from `initialize`/`spinner=`, so painting first would freeze the spinner
       # on frame 0 for two intervals.
       def step
-        @pos = (@pos + @step) % frames.size
+        @pos = (@pos + @single_step) % frames.size
         @icon.set_content frames[@pos]
         rebuild_compact_content
       end
