@@ -18,13 +18,12 @@ require "../../src/crysterm"
 include Crysterm
 include Crysterm::Widgets
 
-# Full-screen animation: every cell changes every frame, and the scene mutates
-# `style.fg`/`bg` in place. Damage tracking (the default) can't win here —
-# selective repaint degenerates to the whole screen — so it only pays per-frame
-# bookkeeping (~8-10% of render time measured on this scene).
-# `OptimizationFlag::None` repaints the whole buffer every frame: faster here
-# and more correct, since a full composite picks up in-place style mutations
-# that dirty-mark-based damage tracking would miss.
+# Full-screen animation that mutates `style.fg`/`bg` in place — mutations
+# dirty-mark-based damage tracking (the default) does not observe, so its
+# periodic selective re-probe could briefly show stale cells.
+# `OptimizationFlag::None` repaints the whole buffer every frame, picking those
+# mutations up. (Perf is no longer a reason: while latched full, damage
+# tracking sheds its per-frame bookkeeping and matches `None`.)
 s = Window.new title: "CRYSTERM cracktro", optimization: OptimizationFlag::None
 
 w = s.awidth

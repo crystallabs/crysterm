@@ -216,9 +216,11 @@ class Scene < Widget::Box
   end
 end
 
-# Full-screen animation: every cell changes every frame, so damage tracking
-# only adds bookkeeping — `OptimizationFlag::None` (full re-composite) is faster
-# and correct here, exactly as in `cracktro.cr`.
+# Full-screen animation driven by a plain ivar bump (`scene.frame`), which
+# raises no dirty-marks — damage tracking (the default) would see idle frames
+# and freeze the scene on a selective repaint. `OptimizationFlag::None`
+# repaints the whole buffer every frame, exactly as in `cracktro.cr`. (Perf is
+# a wash: while latched full, damage tracking sheds its bookkeeping.)
 s = Window.new title: "CRYSTERM quicktro", optimization: OptimizationFlag::None
 
 scene = Scene.new parent: s, top: 0, left: 0, width: "100%", height: "100%"

@@ -218,7 +218,9 @@ module Crysterm
       # uninformative about whether selective pays — run it, and re-arm so the
       # next frame re-evaluates from scratch.
       if @damage_force_full
-        damage_full_composite_timed
+        # Re-arms below, so the next frame attempts selective — it needs fresh
+        # bounds.
+        damage_full_composite_timed true
         @damage_prefer_full = false
         @damage_reprobe = 0
         return
@@ -233,7 +235,7 @@ module Crysterm
       end
 
       unless attempt
-        damage_full_composite_timed
+        damage_full_composite_timed damage_next_frame_attempts?
         return
       end
 
@@ -247,11 +249,21 @@ module Crysterm
       else
         # Selective couldn't win this frame (cost parity / cluster grew to the
         # whole screen) and fell back. Measure the full path and latch selective
-        # off, re-probing later.
-        damage_full_composite_timed
+        # off, re-probing later. Latch state is finalized BEFORE the composite so
+        # `damage_next_frame_attempts?` sees it.
         @damage_prefer_full = true
         @damage_reprobe = DAMAGE_REPROBE_FRAMES
+        damage_full_composite_timed damage_next_frame_attempts?
       end
+    end
+
+    # Whether the NEXT frame may attempt the selective path — i.e. whether this
+    # frame's full composite must leave fresh damage bounds behind. True when the
+    # latch is off, or when the re-probe countdown reaches zero on its next
+    # decrement (so the frame right before a re-probe refreshes the bounds the
+    # attempt will consume).
+    private def damage_next_frame_attempts? : Bool
+      !@damage_prefer_full || @damage_reprobe <= 1
     end
 
     # Exponential moving average (first sample seeds it). 0.2 weight = a handful
@@ -262,9 +274,9 @@ module Crysterm
 
     # Runs the full re-composite and folds its measured wall-clock cost into the
     # full-path EMA.
-    private def damage_full_composite_timed : Nil
+    private def damage_full_composite_timed(need_bounds : Bool = true) : Nil
       t = Time.instant
-      damage_full_composite
+      damage_full_composite need_bounds
       @damage_full_ema = damage_ema @damage_full_ema, (Time.instant - t).total_microseconds
     end
 
@@ -272,7 +284,16 @@ module Crysterm
     # child (deferring z-indexed ones to planes), then composites planes and docks.
     # Also refreshes the damage caches when damage tracking is enabled, so a
     # subsequent frame can take the fast path.
-    private def damage_full_composite : Nil
+    #
+    # The cache refresh is an O(all widgets) bounds pass whose outputs are read
+    # only by a selective attempt, so `need_bounds: false` skips it on a frame
+    # whose successor provably won't attempt (deep in the latched-full steady
+    # state, per `damage_next_frame_attempts?`). That makes a persistently
+    # degenerate scene (every cell changing every frame) pay the bounds pass on
+    # ~1 frame in `DAMAGE_REPROBE_FRAMES` instead of every frame — measured ~8%
+    # of render time on a full-screen per-cell animation — closing the gap to
+    # `OptimizationFlag::None`.
+    private def damage_full_composite(need_bounds : Bool = true) : Nil
       # Consume the dirty set BEFORE rendering: this frame satisfies every pending
       # mark, while marks raised DURING the render (a widget calling `set_content`
       # from its own `#render`, a CSS keyframe step) must survive to drive the next.
@@ -299,7 +320,7 @@ module Crysterm
 
       _dock if @dock_borders
 
-      if @optimization.damage_tracking?
+      if @optimization.damage_tracking? && need_bounds
         # Refresh per-subtree bounds and the cost-model caches, and decide whether
         # the next frame may fast-path.
         @damage_all_area = 0_i64
@@ -328,6 +349,11 @@ module Crysterm
         @damage_force_full = false
         @damage_last_awidth = awidth
         @damage_last_aheight = aheight
+      end
+
+      if @optimization.damage_tracking?
+        # Counted whether or not the bounds pass ran — specs assert exact
+        # full-frame increments.
         @damage_full_frames += 1
       else
         # Tracking is off: the caches above (damage_bounds, `@damage_safe`, dims)

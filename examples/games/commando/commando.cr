@@ -212,9 +212,10 @@ class Commando
   @state : State = :title
 
   def initialize
-    # Full-motion scene: every field cell can change each frame, so damage
-    # tracking is pure overhead — `OptimizationFlag::None` (full re-composite) is
-    # faster and correct, exactly as in `quicktro.cr`.
+    # Full-motion scene mutated without raising dirty-marks — damage tracking
+    # (the default) would see idle frames and freeze on a selective repaint;
+    # `OptimizationFlag::None` repaints the whole buffer every frame, exactly
+    # as in `quicktro.cr`.
     @window = Window.new title: "commando.cr", optimization: OptimizationFlag::None
 
     # The cabinet: one frame holding the two stacked regions this game has — the
