@@ -35,14 +35,25 @@ describe "CSS border-width shorthand" do
     s.border.bottom.should eq 3
   end
 
-  it "keeps a single bottom underline visible (Qt tab/header pattern)" do
-    # `0 0 1px 0`: only the bottom edge is drawn; 1px clamps up to 1 cell.
+  it "applies a single-edge underline to the bottom only (Qt tab/header pattern)" do
+    # `0 0 1 0`: only the bottom edge is drawn — the fill-in must not smear the
+    # width across the other three sides.
     s = Style.new
-    Crysterm::CSS::Properties.apply(s, "border-width", "0 0 1px 0")
+    Crysterm::CSS::Properties.apply(s, "border-width", "0 0 1 0")
     s.border.top.should eq 0
     s.border.right.should eq 0
     s.border.bottom.should eq 1
     s.border.left.should eq 0
+  end
+
+  it "resolves a sub-cell edge of the shorthand to no border, as the longhands do" do
+    # A cell grid can't draw thinner than a cell, so a hairline resolves to
+    # nothing — identically in every border-width spelling (see
+    # `Properties.border_cells?`). The Qt `0 0 1px 0` tab underline therefore
+    # renders as no underline rather than a full-cell rule.
+    s = Style.new
+    Crysterm::CSS::Properties.apply(s, "border-width", "0 0 1px 0")
+    {s.border.top, s.border.right, s.border.bottom, s.border.left}.should eq({0, 0, 0, 0})
   end
 
   it "still honors a single value on all sides" do

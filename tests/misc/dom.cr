@@ -26,7 +26,7 @@ s.load_layout <<-HTML
       .warn    { color: #e5c07b; }
       #status  { background: #182030; color: #61afef; }
       ProgressBar { border: solid; color: #c0caf5; background: #10141c; }
-      ProgressBar::indicator { color: #2a6bd8; background: #10141c; }
+      ProgressBar::indicator { background: #2a6bd8; color: #c0caf5; }
     </style>
 
     <w-box class="strip" top="0" left="0" width="100%" height="1" parse-tags="true"

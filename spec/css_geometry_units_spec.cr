@@ -73,15 +73,33 @@ describe "CSS geometry units" do
     a.awidth.should eq 10
   end
 
-  it "scales unit'd size constraints through the divisor table (and ignores %)" do
+  it "scales unit'd size constraints through the divisor table" do
+    s = headless_screen(80, 24, default_quit_keys: true)
+    s.stylesheet = "Box#a { height: 100%; max-height: 200px; }"
+    a = Widget::Box.new parent: s, content: "x"
+    a.css_id = "a"
+    s.repaint
+    a.max_height.should eq 10 # 200 / (10 * 2:1 aspect) -- vertical
+    a.aheight.should eq 10    # full 24-row height clamped to 10
+  end
+
+  it "resolves a percentage size constraint against the parent, like a percentage size" do
     s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { height: 100%; max-height: 200px; min-height: 50%; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.max_height.should eq 10  # 200 / (10 * 2:1 aspect) -- vertical
-    a.min_height.should be_nil # `50%` has no cell mapping -> ignored
-    a.aheight.should eq 10     # full 24-row height clamped to 10
+    # The spec is stored unresolved and resolved at clamp time, so it tracks the
+    # parent rather than being baked to cells once.
+    a.min_height.should eq Dim.percent(50)
+    a.resolved_min_height.should eq 12 # 50% of the screen's 24 rows
+    # `max` applies before `min`, so `min` wins the conflict, per CSS.
+    a.aheight.should eq 12
+
+    s.height = 40
+    s.repaint
+    a.resolved_min_height.should eq 20
+    a.aheight.should eq 20
   end
 
   it "resolves a viewport unit against the screen size, reactively on resize" do
@@ -118,7 +136,16 @@ describe "CSS geometry units" do
     a.width.should eq "50VW" # kept as a (reactive) viewport string, not dropped
     a.awidth.should eq 24    # 50% of 80, clamped to max-width (30% of 80 = 24)
     a.aheight.should eq 24   # 100% of 24
-    a.max_width.should eq 24 # 30% of 80, resolved (not nil)
+    # A viewport constraint is kept unresolved too, so — like a viewport size —
+    # it re-resolves against the window on every frame instead of being baked to
+    # cells once at cascade time.
+    a.max_width.should eq Dim.vw(30)
+    a.resolved_max_width.should eq 24 # 30% of 80
+
+    s.width = 120
+    s.repaint
+    a.resolved_max_width.should eq 36 # 30% of 120
+    a.awidth.should eq 36             # 50% of 120 = 60, clamped to 36
   end
 
   it "evaluates calc() to cells when every term resolves" do
@@ -150,13 +177,17 @@ describe "CSS geometry units" do
     a.height.should be_nil # calc with `%` -> dropped, never set
   end
 
-  it "clamps a sub-cell border width up to 1 so it stays visible" do
+  it "resolves a sub-cell border width to no border" do
+    # A cell grid can't draw thinner than one cell, and one cell is enormous
+    # next to the ~20px-tall widget a desktop QSS theme was written for — so a
+    # hairline renders as nothing rather than being clamped up to a full-cell
+    # box. Same rule in every spelling (see `Properties.border_cells?`).
     s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { border-width: 2px; border-left-width: 0; }"
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.style.border.top.should eq 1  # 2px rounds to 0 -> clamped to 1
+    a.style.border.top.should eq 0  # 2px rounds to 0 cells
     a.style.border.left.should eq 0 # explicit 0 stays 0
   end
 
@@ -196,10 +227,10 @@ describe "CSS geometry units" do
     b.style.border.top.should eq 0 # bare -3 -> clamped to 0
   end
 
-  it "honors (does not clamp) a sub-cell width in the border shorthand" do
+  it "honors a sub-cell width as no border in the border shorthand" do
     # Qt stylesheets put hairline widths in the `border`/`border-<side>`
-    # shorthand. In a cell grid these round to 0; only the explicit
-    # `border-width` longhand clamps up to 1 — the shorthand honors 0.
+    # shorthand. In a cell grid these round to 0, and every spelling —
+    # shorthand and `border-width` longhand alike — agrees on that.
     s = headless_screen(80, 24, default_quit_keys: true)
     s.stylesheet = "Box#a { border: 0.04em solid #cccccc; } " \
                    "Box#b { border: 1px solid #cccccc; } " \

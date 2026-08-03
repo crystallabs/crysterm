@@ -168,32 +168,31 @@ describe "Widget::Table recolor attr memos" do
   end
 end
 
-describe "Widget::ProgressBar fill attr memo (swapped fg/bg)" do
-  it "steady frames keep the swapped fill attr current under in-place indicator mutation" do
+describe "Widget::ProgressBar fill attr memo" do
+  it "steady frames keep the fill attr current under in-place indicator mutation" do
     with_saved_theme do
       s = floor_screen
-      st = Style.new(indicator: Style.new(fg: 0x336699, bg: 0x101010))
+      st = Style.new(indicator: Style.new(fg: 0x101010, bg: 0x336699))
       pb = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 10, height: 1,
         value: 100, style: st
       s.repaint
 
-      # The fill renders fg/bg-inverted; the memoized plain attr with its
-      # color fields swapped must pack the identical value as the explicit
-      # `style_to_attr(ind, ind.bg, ind.fg)` spelling.
+      # The fill is the indicator's own background (Qt's `::chunk`), so the
+      # memoized attr must equal the plain `style_to_attr` of the slot.
       ind = pb.style.indicator
-      swapped = Widget.style_to_attr(ind, ind.bg, ind.fg)
-      s.lines[0][0].attr.should eq swapped
-      Attr.bg(swapped).should eq Attr.pack_color(0x336699)
+      fill = Widget.style_to_attr(ind)
+      s.lines[0][0].attr.should eq fill
+      Attr.bg(fill).should eq Attr.pack_color(0x336699)
 
       # Steady frame: unchanged style keeps the same attr.
       s.repaint
-      s.lines[0][0].attr.should eq swapped
+      s.lines[0][0].attr.should eq fill
 
       # In-place mutation of the indicator sub-style — no object swap — must
       # defeat the memo on the next repaint.
-      pb.restyle &.indicator.fg=(0x445566)
+      pb.restyle &.indicator.bg=(0x445566)
       s.repaint
-      s.lines[0][0].attr.should eq Widget.style_to_attr(ind, ind.bg, ind.fg)
+      s.lines[0][0].attr.should eq Widget.style_to_attr(ind)
       Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x445566)
     end
   end

@@ -2,12 +2,17 @@
 #
 # test.cr — (re)produce the captures for Crysterm example programs.
 #
-# Point it at one or more directories. It walks each recursively and, in every
-# directory at or below a root, picks the programs to run:
+# Point it at one or more directories and/or individual `.cr` programs.
+#
+# A directory is walked recursively, and in every directory at or below it the
+# programs to run are picked as:
 #
 #   * if the dir has a file of the same name (`foo/foo.cr`), that is THE program
 #     and the dir's other `.cr` files are its support code (untouched);
 #   * otherwise every `.cr` directly in the dir is its own program.
+#
+# A `.cr` file names that one program directly, skipping discovery — the quickest
+# way to re-make a single program's captures (`tools/test.cr tests/misc/themes.cr`).
 #
 # Each program is compiled and run headlessly to (re)produce its captures beside
 # it:
@@ -25,11 +30,11 @@
 # a fenced block in the source class doc comment, and `--docs` runs
 # `crystal docs` then copies `examples/` into the docs tree.
 #
-# Invoked bare (no flags, no directory), it runs the FULL pipeline: (re)capture
+# Invoked bare (no flags, no target), it runs the FULL pipeline: (re)capture
 # stale outputs, then `--doc-comments`, then `--docs`. Any explicit action flag
-# — or a named directory (which scopes capture) — narrows the run to just that.
+# — or a named target (which scopes capture) — narrows the run to just that.
 #
-# Usage: crystal run tools/test.cr -- [options] [dir ...]   (default: examples tests)
+# Usage: crystal run tools/test.cr -- [options] [dir|prog.cr ...]  (default: examples tests)
 
 require "file_utils"
 
@@ -44,15 +49,31 @@ module WidgetExamples
 
   # ---- program discovery ----------------------------------------------------
 
-  # Every program found by walking *roots* recursively. In each directory: a
-  # same-named file (`foo/foo.cr`) is the program and its other `.cr` files are
-  # support code, left alone; otherwise every `.cr` directly in the dir is its
-  # own program (the shared `example.cr` harness excepted). Sorted and de-duped.
+  # Every program named by *roots*, each of which is either a directory to walk
+  # or a single `.cr` program to capture on its own.
+  #
+  # A **directory** is walked recursively, and in each directory at or below it:
+  # a same-named file (`foo/foo.cr`) is the program and its other `.cr` files
+  # are support code, left alone; otherwise every `.cr` directly in the dir is
+  # its own program (the shared `example.cr` harness excepted).
+  #
+  # A **`.cr` file** is taken as that one program, verbatim. Naming a file is an
+  # unambiguous statement of intent, so the directory heuristics above don't
+  # apply to it: a support file or the `example.cr` harness still runs if that
+  # is what was asked for. Whether its captures are actually re-made is the same
+  # question as for a discovered program — `skip_output?` leaves outputs newer
+  # than their `.cr` alone unless `--force`.
+  #
+  # Sorted and de-duped, so naming a file and the directory containing it
+  # captures it once.
   def self.discover_programs(roots : Array(String)) : Array(String)
     progs = [] of String
     roots.each do |root|
       abs = File.expand_path(root)
-      next unless Dir.exists?(abs)
+      unless Dir.exists?(abs)
+        progs << abs if abs.ends_with?(".cr") && File.exists?(abs)
+        next
+      end
       dirs = [abs] + Dir.glob(File.join(abs, "**", "*")).select { |p| Dir.exists?(p) }
       dirs.each do |dir|
         main = File.join(dir, "#{File.basename(dir)}.cr")
@@ -64,6 +85,16 @@ module WidgetExamples
       end
     end
     progs.uniq.sort
+  end
+
+  # A named target that is neither an existing directory nor an existing `.cr`
+  # file — reported up front so a typo'd path fails by name instead of silently
+  # contributing no programs (and, alone, looking like "nothing to do").
+  def self.unusable_targets(roots : Array(String)) : Array(String)
+    roots.reject do |root|
+      abs = File.expand_path(root)
+      Dir.exists?(abs) || (abs.ends_with?(".cr") && File.exists?(abs))
+    end
   end
 
   # ---- output paths ---------------------------------------------------------
@@ -427,7 +458,9 @@ module WidgetExamples
     property test = false
     property duration = 5
     property jobs = WidgetExamples.default_jobs
-    property dirs = [] of String
+    # Named capture targets: directories to walk, and/or individual `.cr`
+    # programs. Empty means the `DEFAULT_DIRS` roots.
+    property targets = [] of String
   end
 
   def self.parse_options(argv : Array(String)) : Options
@@ -464,7 +497,7 @@ module WidgetExamples
           STDERR.puts "unknown option: #{arg}"
           exit 2
         end
-        o.dirs << arg
+        o.targets << arg
       end
       i += 1
     end
@@ -474,18 +507,25 @@ module WidgetExamples
   HELP = <<-TXT
     test.cr v#{VERSION} — (re)produce captures for example programs.
 
-    Usage: crystal run tools/test.cr -- [options] [dir ...]
+    Usage: crystal run tools/test.cr -- [options] [dir|prog.cr ...]
 
-    Invoked bare (no flags, no DIR), it runs the FULL pipeline: (re)capture stale
-    outputs, then --doc-comments, then --docs. Any explicit action flag — or a
-    named DIR (which scopes capture) — narrows the run to just that step.
+    Invoked bare (no flags, no TARGET), it runs the FULL pipeline: (re)capture
+    stale outputs, then --doc-comments, then --docs. Any explicit action flag — or
+    a named TARGET (which scopes capture) — narrows the run to just that step.
 
-    For every directory at or below each DIR (default: examples tests): if it has
-    a program of the same name (foo/foo.cr) that one runs (the dir's other .cr are
-    its support code); otherwise each .cr in the dir runs on its own. Each program
-    is compiled and run headlessly to (re)produce its captures beside it: foo.png,
-    foo.<secs>s.apng and foo.dump. An output newer than its .cr is left alone
-    unless --force.
+    A TARGET is a directory or a single .cr program (default: examples tests).
+
+    For every directory at or below a named dir: if it has a program of the same
+    name (foo/foo.cr) that one runs (the dir's other .cr are its support code);
+    otherwise each .cr in the dir runs on its own. A named .cr file is that one
+    program, no discovery — the quickest way to redo one program's captures:
+
+        crystal run tools/test.cr -- --force tests/misc/themes.cr
+
+    Each program is compiled and run headlessly to (re)produce its captures beside
+    it: foo.png, foo.<secs>s.apng and foo.dump. An output newer than its .cr is
+    left alone unless --force — note the check only sees the program's own source,
+    not the library, so after a change under src/ you want --force.
 
       -f, --force       re-make outputs even when up to date
           --shot        only the still PNG
@@ -643,6 +683,10 @@ module WidgetExamples
   # Print `git status` for *roots* and return whether they are clean (no new or
   # changed files). Used by --test to verify a regen reproduced the captures
   # in git, byte for byte.
+  # Whether the captured paths are unchanged in git. *roots* are the named
+  # targets, so an entry may be a directory or a single `.cr` program; `git
+  # status -- <path>` takes either. A named program narrows the check to its own
+  # directory's worth of pathspec, which is the point of naming it.
   def self.git_check(roots : Array(String)) : Bool
     rels = roots.map { |r| relative_to_root(File.expand_path(r)) }
     echo_cmd "git", ["status", "--"] + rels
@@ -658,20 +702,27 @@ module WidgetExamples
   def self.run(argv : Array(String))
     opts = parse_options(argv)
 
-    # With no action flag and no explicit directory, the default is the FULL
+    # With no action flag and no named target, the default is the FULL
     # pipeline — (re)capture stale outputs, refresh the doc-comment screenshots,
     # then build the docs — so a bare `crystal run tools/test.cr` does all the
     # main features at once. Any explicit action flag (--shot/--anim/--dump/
     # --all/--build/--release/--doc-comments/--docs/--copy/--list/--test), or a
-    # named directory (which scopes capture), narrows the run to just that step.
-    # --force/--duration/--jobs are modifiers, not selectors, so they keep the
-    # full pipeline.
-    full = opts.dirs.empty? &&
+    # named target — a directory or a single `.cr` program, either of which
+    # scopes capture — narrows the run to just that step. --force/--duration/
+    # --jobs are modifiers, not selectors, so they keep the full pipeline.
+    full = opts.targets.empty? &&
            !(opts.shot || opts.anim || opts.dump || opts.all ||
              opts.build || opts.release || opts.doc_comments ||
              opts.docs || opts.copy || opts.list || opts.test)
 
-    roots = opts.dirs.empty? ? DEFAULT_DIRS : opts.dirs
+    roots = opts.targets.empty? ? DEFAULT_DIRS : opts.targets
+
+    # Validated before any step reads them, so a typo'd path fails by name
+    # rather than as an empty program list (which `--list` would happily print).
+    if (bad = unusable_targets(roots)).any?
+      STDERR.puts "not a directory or .cr program: #{bad.join(", ")}"
+      exit 1
+    end
 
     if opts.list
       progs = discover_programs(roots)
@@ -683,18 +734,18 @@ module WidgetExamples
     ok = true
 
     # ---- capture / build: default, the capture-scope flags, --build/--release,
-    # a named directory, or --test all (re)produce the captures.
+    # a named target, or --test all (re)produce the captures.
     if full || opts.shot || opts.anim || opts.dump || opts.all ||
-       opts.build || opts.release || opts.test || !opts.dirs.empty?
+       opts.build || opts.release || opts.test || !opts.targets.empty?
       progs = discover_programs(roots)
       if progs.empty?
-        STDERR.puts "no programs found (looked for <dir>/<dir>.cr under: " \
+        STDERR.puts "no programs found (looked for <dir>/<dir>.cr, or any .cr, under: " \
                     "#{roots.map { |r| relative_to_root(File.expand_path(r)) }.join(", ")})"
         exit 1
       end
       ok = (opts.build ? build(progs, opts) : capture(progs, opts)) && ok
 
-      # --test: after (re)producing missing outputs, the dirs must be
+      # --test: after (re)producing missing outputs, the named paths must be
       # byte-identical to what's committed. A failed run or any git change fails.
       if opts.test
         ok = git_check(roots) && ok

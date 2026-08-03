@@ -188,7 +188,9 @@ module Crysterm
           h = document.block_count + ivertical
           min = 1 + ivertical
           h = min if h < min
-          max_height.try { |mh| h = mh if h > mh }
+          # `resolved_max_height`, not the raw `#max_height` spec: the cap may
+          # be a percentage of the parent, and this needs a cell count.
+          resolved_max_height.try { |mh| h = mh if h > mh }
           h
         end
 

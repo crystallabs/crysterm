@@ -240,13 +240,41 @@ module Crysterm
       # `round` — no standard CSS spelling exists) the arc-corner family.
       private def self.border_type_keyword(token : String) : BorderType?
         case Case.fold_keyword(token)
-        when "solid", "line"    then BorderType::Solid
-        when "dashed"           then BorderType::Dashed
-        when "dotted"           then BorderType::Dotted
-        when "double"           then BorderType::Double
-        when "rounded", "round" then BorderType::Rounded
-        when "bg", "background" then BorderType::Fill
+        when "solid", "line"                      then BorderType::Solid
+        when "dashed"                             then BorderType::Dashed
+        when "dotted"                             then BorderType::Dotted
+        when "double"                             then BorderType::Double
+        when "rounded", "round"                   then BorderType::Rounded
+        when "bg", "background"                   then BorderType::Fill
+        when "inset", "outset", "groove", "ridge" then BorderType::Solid
         end
+      end
+
+      # Maps the four CSS 3D `border-style` keywords to a `Border::Relief`; the
+      # flat styles (and any non-style token) yield `nil`. Paired with
+      # `border_type_keyword` above, which resolves all four to a `Solid` line —
+      # the relief is carried by the per-side shading, not by a different glyph
+      # set. A flat style keyword clears any relief a previous rule set, so
+      # `border-style: solid` really is flat.
+      private def self.border_relief_keyword(token : String) : Border::Relief?
+        case Case.fold_keyword(token)
+        when "inset"  then Border::Relief::Inset
+        when "outset" then Border::Relief::Outset
+        when "groove" then Border::Relief::Groove
+        when "ridge"  then Border::Relief::Ridge
+        when "solid", "line", "dashed", "dotted",
+             "double", "rounded", "round",
+             "bg", "background" then Border::Relief::None
+        end
+      end
+
+      # Whether *token* is a CSS `border-style` keyword that means "draw no
+      # border". CSS distinguishes `none` from `hidden` only for border-collapse
+      # conflict resolution in tables, which has no analog here, so both simply
+      # zero the side.
+      private def self.border_none_keyword?(token : String) : Bool
+        k = Case.fold_keyword(token)
+        k == "none" || k == "hidden"
       end
 
       # A single-side `border-<side>` shorthand: a width sets that side, a style
@@ -272,20 +300,25 @@ module Crysterm
         # multi-token color into fragments that each resolve to the `-1` "unknown"
         # sentinel, mis-setting the per-side color.
         Selectors.split_top_level(value).each do |token|
-          if Case.fold_keyword(token) == "none"
+          if border_none_keyword?(token)
             explicit_width = 0
           elsif type = border_type_keyword(token)
             border.type = type
+            # A style keyword also settles the relief: the 3D ones switch it on,
+            # the flat ones clear whatever a previous rule left.
+            border_relief_keyword(token).try { |r| border.relief = r }
             type_seen = true
           elsif nw = named_width(token)
             # Named width (`thin`/`medium`/`thick`) before the color fallback, so
             # `border-left: thin solid red` sets a 1-cell edge, not a bogus color.
             explicit_width = nw
-          elsif w = Length.to_cells(token, vertical)
-            # Clamp negatives to 0 (a `-1` or a calc() below zero): a negative
-            # border width is invalid CSS and, stored, outsets the content rect
-            # outside the widget box. Mirrors border_cells?'s `0 / negative → none`.
-            explicit_width = Math.max(0, w)
+          elsif w = border_cells?(token, vertical)
+            # Same resolver as the `border-<side>-width` longhand, so the two
+            # spellings can't disagree: a sub-cell hairline resolves to no
+            # border, as does an explicit `0` or a negative (a `-1`, a calc()
+            # below zero — invalid CSS, and stored it would outset the content
+            # rect past the widget box).
+            explicit_width = w
           else
             # Only store a valid color; an unknown name (`-1` sentinel) or a
             # malformed-function/unset `nil` leaves the existing per-side color
@@ -378,10 +411,11 @@ module Crysterm
         # than folding the whole multi-value string and matching nothing.
         first = value.strip.split.first?
         return unless first
-        if Case.fold_keyword(first) == "none"
+        if border_none_keyword?(first)
           sides.each { |side| set_side border, side, 0 }
         elsif type = border_type_keyword(first)
           border.type = type
+          border_relief_keyword(first).try { |r| border.relief = r }
           sides.each { |side| ensure_side border, side }
         end
       end
@@ -409,14 +443,24 @@ module Crysterm
         end
       end
 
-      # Like `cells`, but a positive sub-cell width (e.g. `2px` with the default
-      # `px` divisor, which rounds to 0) clamps up to 1 so a declared border
-      # doesn't vanish. An explicit `0`, negative width, or non-length value
-      # still yields 0.
+      # The single border-width resolver: every spelling — the `border` and
+      # `border-<side>` shorthands, the `border-width` shorthand and the four
+      # `border-<side>-width` longhands — goes through it, so they cannot
+      # disagree about what a given length means.
+      #
+      # A width rounds honestly to whole cells, and a positive *sub*-cell
+      # hairline therefore resolves to **no border**. That is deliberate: a cell
+      # grid has no way to draw thinner than one cell, and one cell is
+      # proportionally enormous next to the ~20px-tall widget a desktop QSS theme
+      # was written for. Clamping `1px` up boxes every label and button in a Qt
+      # theme and breaks the layout; dropping it renders the hairline as the
+      # nothing a terminal can honestly show. Widths that survive are the ones
+      # stated in cell-scale terms: a bare count, `thin`/`medium`/`thick`, or a
+      # length that genuinely reaches a cell.
       #
       # A border width is almost always a bare number or one unit'd length, so
-      # resolve the fractional cells in one pass (`to_cells_f`) and clamp from it.
-      # Only a rare `calc()` border falls back to `to_cells`.
+      # resolve the fractional cells in one pass (`to_cells_f`). Only a rare
+      # `calc()` border falls back to `to_cells`.
       private def self.border_cells(value : String, vertical : Bool = false) : Int32
         border_cells?(value, vertical) || 0
       end
@@ -426,15 +470,14 @@ module Crysterm
       # like `thinn`), so a caller can drop the invalid declaration rather than
       # hard-resetting the side to 0 — matching every sibling longhand
       # (`padding-left`, `tab-size`, `border-top-style`). A genuine `0`, negative,
-      # or sub-cell length still resolves to a real cell count (0 / clamp-up).
+      # or sub-cell length still resolves to a real cell count (all three: 0).
       private def self.border_cells?(value : String, vertical : Bool = false) : Int32?
         if nw = named_width(value)
           return nw
         end
         if frac = Length.to_cells_f(value, vertical)
           cells = Length.to_cell_count(frac)
-          return cells if cells > 0
-          return frac > 0 ? 1 : 0 # positive sub-cell width → keep it visible; 0 / negative → none
+          return cells > 0 ? cells : 0 # sub-cell hairline / 0 / negative → no border
         end
         c = Length.to_cells(value, vertical) # a `calc()` border still resolves here
         return unless c                      # nothing parsed → invalid declaration, dropped by caller
@@ -449,26 +492,32 @@ module Crysterm
       # split with `Selectors.split_top_level` so a function's internal spaces/commas
       # (`rgb(255, 0, 0)`) stay one token.
       private def self.parse_border(value : String, el_color : Int32? = nil) : Border
-        return Border.new(0) if Case.fold_keyword(value.strip) == "none"
+        return Border.new(0) if border_none_keyword?(value.strip)
         border = Border.new # default: line border, 1 cell on each side
+        # A `none`/`hidden` style keyword wins over any width in the same
+        # shorthand whatever the order (`border: hidden 2px red` draws nothing,
+        # exactly like `border: 2px hidden red`), so it is applied after the
+        # token loop rather than inside it.
+        hidden = false
         Selectors.split_top_level(value).each do |token|
-          if type = border_type_keyword(token)
+          if border_none_keyword?(token)
+            hidden = true
+          elsif type = border_type_keyword(token)
             border.type = type
+            border_relief_keyword(token).try { |r| border.relief = r }
           elsif nw = named_width(token)
             # A named width (`thin`/`medium`/`thick`) sizes all four sides; must
             # be checked before the color fallback so it isn't treated as an
             # unknown color name.
             border.left = border.right = border.top = border.bottom = nw
-          elsif w = Length.to_cells(token)
-            # One width for all four sides, honored at its rounded cell count
-            # rather than clamping a sub-cell hairline up to a full-cell box.
-            # (top/bottom scale absolute units differently.) Clamp negatives to 0
-            # (a `-1` or a calc() below zero): stored, a negative width outsets the
-            # content rect outside the widget box, overpainting neighbors — every
-            # sibling width path clamps it (`border_cells?`, `parse_padding`).
-            w = Math.max(0, w)
+          elsif w = border_cells?(token)
+            # One width for all four sides, through the same resolver as the
+            # `border-width` longhands (top/bottom scale absolute units
+            # differently), so a QSS theme's ubiquitous `border: 1px solid`
+            # means the same thing here as spelled any other way: a sub-cell
+            # hairline, and therefore no border.
             border.left = border.right = w
-            border.top = border.bottom = Math.max(0, Length.to_cells(token, vertical: true) || w)
+            border.top = border.bottom = border_cells?(token, vertical: true) || w
           else
             # Whole-border color: keep the resolved form (`Int32`/`String`) via
             # `Colorizable`. A `nil` (`inherit`/`initial`/`currentColor` with no
@@ -485,6 +534,7 @@ module Crysterm
             border.fg_current_color = true if cur
           end
         end
+        border.left = border.right = border.top = border.bottom = 0 if hidden
         border
       end
     end

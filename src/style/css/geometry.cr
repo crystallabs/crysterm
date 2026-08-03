@@ -13,12 +13,14 @@ module Crysterm
       left : Dim | Int32 | String?,
       right : Dim | Int32 | String?,
       bottom : Dim | Int32 | String?,
-      min_width : Int32?,
-      max_width : Int32?,
-      min_height : Int32?,
-      max_height : Int32?,
+      min_width : Dim | Int32 | String?,
+      max_width : Dim | Int32 | String?,
+      min_height : Dim | Int32 | String?,
+      max_height : Dim | Int32 | String?,
       align : Tput::AlignFlag,
       gap : Int32?,
+      layout_chrome : Bool,
+      fixed : Bool,
       password_character : Char?
 
     # :ditto: — `nil` until CSS ever touches this widget's geometry, so both
@@ -36,6 +38,7 @@ module Crysterm
         min_height: @min_height, max_height: @max_height,
         align: @align,
         gap: layout.try(&.spacing),
+        layout_chrome: @layout_chrome, fixed: @fixed,
         password_character: as?(Widget::LineEdit).try(&.password_character))
     end
 
@@ -56,6 +59,8 @@ module Crysterm
       self.min_height = snap.min_height
       self.max_height = snap.max_height
       self.align = snap.align
+      self.layout_chrome = snap.layout_chrome
+      self.fixed = snap.fixed
       snap.gap.try { |g| layout.try(&.spacing=(g)) }
       snap.password_character.try { |c| as?(Widget::LineEdit).try(&.password_character=(c)) }
     end
@@ -74,9 +79,11 @@ module Crysterm
     # a `Style`. Geometry is a single per-widget concern, so the cascade
     # applies these only from the `normal` state's winning declarations.
     module Geometry
-      PROPERTIES = Set{"width", "height", "top", "left", "right", "bottom",
+      PROPERTIES = Set{"position",
+                       "width", "height", "top", "left", "right", "bottom",
                        "min-width", "max-width", "min-height", "max-height",
-                       "text-align", "spacing", "lineedit-password-character"}
+                       "text-align", "vertical-align", "gap", "spacing",
+                       "lineedit-password-character"}
 
       # Whether *property* is a geometry property handled here.
       def self.handles?(property : String) : Bool
@@ -86,30 +93,78 @@ module Crysterm
       # Applies a geometry declaration onto *widget*.
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
-        # All four edges resolve identically: `#right`/`#bottom` accept the
-        # same forms as `#left`/`#top`. `dim_guard` drops a String the widget
-        # setters can't parse (CSS semantics: an invalid value is ignored —
-        # the setters raise, which must never escape a cascade pass).
-        when "width"  then resolve_dim(value).try { |d| dim_guard(d, size: true).try { |v| widget.width = v } }
-        when "height" then resolve_dim(value, vertical: true).try { |d| dim_guard(d, size: true).try { |v| widget.height = v } }
+        when "position"
+          # CSS's flow-vs-out-of-flow distinction, which Crysterm already has
+          # both halves of:
+          #
+          # * `static` — arranged by the parent's `Layout` engine (the default).
+          # * `absolute` — taken out of the layout flow (`layout_chrome`) and
+          #   placed by its own `top`/`left`/`right`/`bottom`/percentages against
+          #   the parent, which is always this widget's containing block. Still
+          #   painted, just not measured into a slot. In a container with no
+          #   layout engine (`Layout::Manual`) every child is already placed this
+          #   way, so there `static` and `absolute` coincide — as in CSS.
+          # * `fixed` — additionally pinned against a scrolling ancestor
+          #   (`Widget#fixed?`), i.e. it does not scroll away with the content.
+          #   CSS anchors `fixed` to the viewport; "does not scroll" is the part
+          #   of that which a cell grid can honor.
+          #
+          # `relative` is accepted as in-flow (its defining CSS trait) but the
+          # post-placement offset is not applied — the layout engines position
+          # their slots and have no shift-after-arrange step. `sticky` has no
+          # mapping and is ignored.
+          case Case.fold_keyword(value.strip)
+          when "static", "relative"
+            widget.layout_chrome = false
+            widget.fixed = false
+          when "absolute"
+            widget.layout_chrome = true
+            widget.fixed = false
+          when "fixed"
+            widget.layout_chrome = true
+            widget.fixed = true
+          end
+          # All four edges resolve identically: `#right`/`#bottom` accept the
+          # same forms as `#left`/`#top`. `dim_guard` drops a String the widget
+          # setters can't parse (CSS semantics: an invalid value is ignored —
+          # the setters raise, which must never escape a cascade pass).
+        when "width"  then resolve_dim(value, size: true).try { |d| dim_guard(d, size: true).try { |v| widget.width = v } }
+        when "height" then resolve_dim(value, vertical: true, size: true).try { |d| dim_guard(d, size: true).try { |v| widget.height = v } }
         when "top"    then resolve_dim(value, vertical: true).try { |d| dim_guard(d).try { |v| widget.top = v } }
         when "left"   then resolve_dim(value).try { |d| dim_guard(d).try { |v| widget.left = v } }
         when "right"  then resolve_dim(value).try { |d| dim_guard(d).try { |v| widget.right = v } }
         when "bottom" then resolve_dim(value, vertical: true).try { |d| dim_guard(d).try { |v| widget.bottom = v } }
-          # Size constraints are cells only; `%`/unmapped units yield `nil`
-          # and are ignored (no per-frame hook to re-resolve a percentage).
-        when "min-width"  then size_cells(widget, value).try { |c| widget.min_width = c }
-        when "max-width"  then size_cells(widget, value).try { |c| widget.max_width = c }
-        when "min-height" then size_cells(widget, value, vertical: true).try { |c| widget.min_height = c }
-        when "max-height" then size_cells(widget, value, vertical: true).try { |c| widget.max_height = c }
+          # Size constraints take the same forms as `width`/`height`, `%`
+          # included — the widget stores the spec and resolves it against the
+          # parent inside its clamp, so no per-frame hook is needed here.
+        when "min-width"  then size_constraint(value) { |v| widget.min_width = v }
+        when "max-width"  then size_constraint(value) { |v| widget.max_width = v }
+        when "min-height" then size_constraint(value, vertical: true) { |v| widget.min_height = v }
+        when "max-height" then size_constraint(value, vertical: true) { |v| widget.max_height = v }
         when "text-align"
           # CSS keyword values are case-insensitive, so fold before matching;
-          # an unrecognized value leaves the alignment unchanged.
-          TextAlign.align_flag(Case.fold_keyword(value.strip)).try { |f| widget.align = f }
-        when "spacing"
-          # Inter-child spacing of the widget's layout (Qt's layout `spacing`).
-          # Engines that don't honor `gap` ignore the value; no-op with no layout.
-          value.to_i?.try { |cells| widget.layout.try(&.spacing=(cells)) }
+          # an unrecognized value leaves the alignment unchanged. `text-align` is
+          # a *horizontal*-axis property, so only the horizontal bits are
+          # replaced — assigning the bare flag would clear a widget's
+          # `VCenter`/`Bottom` (`Tput::AlignFlag::Top` is `0x20`, not zero, so
+          # even the default vertical alignment is a real bit that would be lost).
+          TextAlign.align_flag(Case.fold_keyword(value.strip)).try do |f|
+            widget.align = (widget.align & ~Tput::AlignFlag::Horizontal_Mask) | f
+          end
+        when "vertical-align"
+          # The vertical mirror of `text-align`. CSS's own `vertical-align`
+          # aligns inline boxes against a baseline, which a cell grid has no
+          # analog for; the terminal reading — where in the box the content
+          # sits — is the useful one, and `top`/`middle`/`bottom` are spelled
+          # exactly as in CSS.
+          TextAlign.valign_flag(Case.fold_keyword(value.strip)).try do |f|
+            widget.align = (widget.align & ~Tput::AlignFlag::Vertical_Mask) | f
+          end
+        when "spacing", "gap"
+          # Inter-child spacing of the widget's layout: CSS's `gap`, spelled
+          # `spacing` in Qt — both accepted. Engines that don't honor it ignore
+          # the value; no-op with no layout.
+          Length.to_cells(value).try { |cells| widget.layout.try(&.spacing=(cells)) if cells >= 0 }
         when "lineedit-password-character"
           # Mask character for a censored `LineEdit` (Qt's
           # `lineedit-password-character`). No-op on any other widget type.
@@ -143,10 +198,10 @@ module Crysterm
       # passes through as its *string*, so the positioner re-resolves it against
       # the window every frame and tracks terminal resize; everything else
       # resolves statically.
-      private def self.resolve_dim(value : String, vertical : Bool = false) : Int32 | String?
+      private def self.resolve_dim(value : String, vertical : Bool = false, size : Bool = false) : Int32 | String?
         # Only a viewport unit contains a 'v'; this allocation-free scan keeps
         # the VIEWPORT regex off every plain width/height/top/left value.
-        (maybe_viewport?(value) && Length.viewport?(value)) ? value : dimension(value, vertical)
+        (maybe_viewport?(value) && Length.viewport?(value)) ? value : dimension(value, vertical, size)
       end
 
       # Whether *value* might be a viewport unit — a cheap gate before the
@@ -155,19 +210,21 @@ module Crysterm
         value.includes?('v') || value.includes?('V')
       end
 
-      # Resolves a `min-*`/`max-*` size constraint, which must be a cell count.
-      # Like `resolve_dim`, but a constraint has no per-frame hook to re-resolve,
-      # so a viewport unit is sized against the window once, here and now
-      # (`nil` if not on a window yet); `%` has no cell mapping at all.
-      private def self.size_cells(widget : Widget, value : String, vertical : Bool = false) : Int32?
-        # If the widget isn't mounted, or it's some other 'v' string, fall
-        # through to `to_cells` (drops a viewport unit to `nil`).
-        if maybe_viewport?(value)
-          if (scr = widget.window?) && (cells = Length.viewport_cells(value, scr.awidth, scr.aheight))
-            return cells
-          end
+      # Resolves a `min-*`/`max-*` size constraint. Identical to `resolve_dim`
+      # in size context — the widget stores the unresolved spec and its
+      # `clamp_awidth`/`clamp_aheight` resolves a `%`/`Dim` against the parent's
+      # content area, the same base a percentage `width` uses, so `min-width:
+      # 50%` and `width: 50%` measure against the same thing. `none` clears the
+      # constraint, per CSS's `max-width: none`.
+      private def self.size_constraint(value : String, vertical : Bool = false, &block : (Dim | Int32 | String?) -> _) : Nil
+        # `none` clears the constraint (CSS's `max-width: none`). Yielded
+        # explicitly rather than returned, since `nil` is also how the parse
+        # failures below say "drop this declaration".
+        if Case.fold_keyword(value.strip) == "none"
+          block.call nil
+          return
         end
-        Length.to_cells(value, vertical)
+        resolve_dim(value, vertical, size: true).try { |d| dim_guard(d, size: true).try { |v| block.call v } }
       end
 
       # Parses a geometry value: a bare integer becomes an `Int32` (cells); a
@@ -175,8 +232,17 @@ module Crysterm
       # converted to cells through `unit_divisors`; everything else (`50%`,
       # `center`, `50%-10`, ...) passes through as a `String`, which crysterm's
       # positioning already understands.
-      private def self.dimension(value : String, vertical : Bool = false) : Int32 | String?
+      private def self.dimension(value : String, vertical : Bool = false, size : Bool = false) : Int32 | String?
         if cells = Length.to_cells(value, vertical)
+          # A *size* is the widget's whole extent: a positive sub-cell length
+          # (`0.2em`, `2px`) rounding down to 0 would collapse the widget to
+          # nothing, so clamp it up to the smallest representable size. This is
+          # the deliberate opposite of a sub-cell *border* width, which resolves
+          # to no border (see `Properties.border_cells?`): a dropped hairline
+          # frame still leaves the widget itself, a dropped size does not.
+          # Positions (`top`/`left`/...) keep the plain rounding — a 0-cell
+          # offset is a legitimate result there.
+          cells = 1 if size && cells <= 0 && (f = Length.to_cells_f(value, vertical)) && f > 0
           cells
         elsif value.matches?(Length::PATTERN) || value.matches?(Length::CALC)
           nil # recognized length form but no cell mapping ⇒ ignore

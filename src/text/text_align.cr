@@ -16,6 +16,18 @@ module Crysterm
       end
     end
 
+    # The vertical mirror of `align_flag` (`"top"`/`"middle"`/`"bottom"`,
+    # already case-folded), spelled as CSS's `vertical-align` keywords —
+    # `"center"` is accepted as a synonym of `"middle"`, since the flag itself
+    # is `VCenter`. `nil` for an unrecognized name.
+    def self.valign_flag(name : String) : Tput::AlignFlag?
+      case name
+      when "top"              then Tput::AlignFlag::Top
+      when "middle", "center" then Tput::AlignFlag::VCenter
+      when "bottom"           then Tput::AlignFlag::Bottom
+      end
+    end
+
     # The reverse of `align_flag`: a `Tput::AlignFlag` to its alignment
     # keyword (`"left"`/`"center"`/`"right"`, horizontal center as `"center"`),
     # or `nil` when it carries no horizontal alignment.

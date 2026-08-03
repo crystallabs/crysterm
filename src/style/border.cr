@@ -191,15 +191,59 @@ module Crysterm
         in .left?                          then {@left_fg_current_color, @left_fg}
         in .horizontal?, .vertical?, .all? then raise_multi_side side
         end
-      if side_current
-        el_fg
-      elsif own
-        own
-      elsif @fg_current_color
-        el_fg
-      else
-        @fg
+      color =
+        if side_current
+          el_fg
+        elsif own
+          own
+        elsif @fg_current_color
+          el_fg
+        else
+          @fg
+        end
+      # Any per-side setting — a concrete `border-top-color` or a per-side
+      # `currentColor` — is the author's explicit choice for that edge and is
+      # left alone; the relief shading only derives the two lit/shaded edges
+      # from a *whole-border* color.
+      return color if own || side_current
+      shade_for_relief color, side
+    end
+
+    # The CSS 3D border styles. A terminal draws a single-cell line, so the
+    # carved/embossed look comes from *shading* — the light source sits top-left,
+    # so `Inset`/`Groove` darken the top/left edges and lighten the bottom/right,
+    # `Outset`/`Ridge` the reverse. At one cell there is no second line to draw,
+    # so `Groove`/`Ridge` coincide with `Inset`/`Outset`; they are kept distinct
+    # so a wider border (or a future double-line rendition) can tell them apart,
+    # and so the CSS value round-trips.
+    enum Relief
+      None
+      Inset
+      Outset
+      Groove
+      Ridge
+
+      # Whether this relief darkens the top/left edges (vs. the bottom/right).
+      def dark_near? : Bool
+        inset? || groove?
       end
+    end
+
+    # 3D relief applied to the border's derived per-side colors (CSS
+    # `border-style: inset|outset|groove|ridge`); `None` for the flat styles.
+    property relief : Relief = Relief::None
+
+    # How far a relief shade moves a color toward black/white.
+    RELIEF_SHADE = 0.45
+
+    # *color* shaded for *side* under the current `#relief` — unchanged when the
+    # border is flat or the color is unknown (`nil`)/`transparent` (`-1`), which
+    # have nothing to shade.
+    private def shade_for_relief(color : Int32?, side : Side) : Int32?
+      return color if @relief.none? || color.nil? || color == -1
+      near = side.top? || side.left?
+      toward = (near == @relief.dark_near?) ? 0x000000 : 0xFFFFFF
+      Colors.mix_resolved toward, color, RELIEF_SHADE, fg: true
     end
 
     # Character used to draw a `BorderType::Fill` border. Acts as the fallback for

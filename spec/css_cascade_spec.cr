@@ -472,7 +472,9 @@ describe "CSS cascade" do
     box.height.should eq 10
     box.left.should eq "center" # keyword -> passthrough string
     box.top.should eq 5
-    box.align.should eq Tput::AlignFlag::HCenter
+    # `text-align` replaces only the horizontal bits; the widget's default
+    # vertical alignment survives.
+    box.align.should eq Tput::AlignFlag::HCenter | Tput::AlignFlag::Top
   end
 
   it "matches text-align case-insensitively (CSS keyword values fold)" do
@@ -480,14 +482,14 @@ describe "CSS cascade" do
     box = Widget::Box.new
     screen.append box
 
-    # A capitalized keyword must still apply.
+    # A capitalized keyword must still apply (and leave the vertical axis alone).
     screen.stylesheet = "Box { text-align: CENTER; }"
     screen.apply_stylesheet
-    box.align.should eq Tput::AlignFlag::HCenter
+    box.align.should eq Tput::AlignFlag::HCenter | Tput::AlignFlag::Top
 
     screen.stylesheet = "Box { text-align: Right; }"
     screen.apply_stylesheet
-    box.align.should eq Tput::AlignFlag::Right
+    box.align.should eq Tput::AlignFlag::Right | Tput::AlignFlag::Top
   end
 
   it "hides a widget with display: none" do

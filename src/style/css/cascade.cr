@@ -846,9 +846,10 @@ module Crysterm
       end
 
       # Inherits the classically-inherited properties — `color` (fg),
-      # `font-weight` (bold) and `font-style` (italic) — down the tree wherever a
-      # widget's normal style leaves them unset. Runs pre-order so a parent's
-      # resolved value is available to children, and re-propagates to grandchildren.
+      # `font-weight` (bold), `font-style` (italic) and `tab-size` — down the
+      # tree wherever a widget's normal style leaves them unset. Runs pre-order
+      # so a parent's resolved value is available to children, and re-propagates
+      # to grandchildren.
       #
       # Visibility is deliberately *not* inherited: a hidden parent already keeps
       # children off-window via its own `base_render`, so propagating `visible:
@@ -884,6 +885,11 @@ module Crysterm
         style.fg = parent.fg if !style.specified?(:fg) && parent.specified?(:fg)
         style.bold = parent.bold? if !style.specified?(:bold) && parent.specified?(:bold)
         style.italic = parent.italic? if !style.specified?(:italic) && parent.specified?(:italic)
+        # `tab-size` and `tab-char` are inherited properties in CSS, so a
+        # `Window { tab-size: 4 }` must reach the widgets that actually expand
+        # tabs rather than stopping at the root.
+        style.tab_size = parent.tab_size if !style.specified?(:tab_size) && parent.specified?(:tab_size)
+        style.tab_char = parent.tab_char if !style.specified?(:tab_char) && parent.specified?(:tab_char)
       end
 
       # --- per-state style accessors -----------------------------------------

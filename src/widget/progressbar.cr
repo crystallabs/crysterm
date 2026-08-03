@@ -210,8 +210,7 @@ module Crysterm
 
       # `style_to_attr` memo for the per-frame fill attr (`style.indicator`):
       # the bar redraws every frame with an unchanged style, so the derivation
-      # is skipped until the slot's style is mutated or swapped. Caches the
-      # plain (unswapped) form; `#render` swaps the packed fg/bg fields itself.
+      # is skipped until the slot's style is mutated or swapped.
       @indicator_attr_memo = Style::AttrMemo.new
 
       # Builds the textual indicator from `#format` (memoized).
@@ -237,22 +236,20 @@ module Crysterm
             fill_yi = yi + ((yl - yi) - (((yl - yi) * (pct / 100)).to_i))
           end
 
-          # NOTE Invert fg/bg so the filled value renders using the foreground
-          # color: visible even when style.indicator isn't specifically defined.
-          # Swapping the packed color fields of the memoized plain attr packs
-          # the identical value as `style_to_attr(ind, ind.bg, ind.fg)`: both
-          # slots carry `pack_color(<color> || -1)`, and the both-`nil`
-          # fallback is symmetric.
+          # The fill is the indicator's *background*, painted as-is — Qt's
+          # `QProgressBar::chunk { background-color }`, which is what every QSS
+          # theme sets. Its `color` stays the text color drawn over the fill,
+          # again as in Qt. (Sibling `Slider`/`Dial` indicators are the reverse:
+          # they draw a real glyph, so there the `color` is what shows.)
           ind = style.indicator
-          plain = @indicator_attr_memo.fetch(ind)
-          default_attr = Attr.pack(Attr.flags(plain), Attr.bg(plain), Attr.fg(plain))
+          default_attr = @indicator_attr_memo.fetch(ind)
 
           # Filling via `window.fill_region` is the standard bar/meter draw path,
           # shared with `Slider` / `ScrollBar` / `Dial` / `Gradient`: it writes
           # straight into the window cell buffer the frame diff already tracks, so
           # there is no separate in-memory step to add.
-          # Fill glyph: registry `ProgressFill` (a space, showing as a solid bar
-          # via the fg/bg inversion above), overridable per-widget with
+          # Fill glyph: registry `ProgressFill` (a space, so the indicator's
+          # background alone paints the solid bar), overridable per-widget with
           # `ProgressBar::indicator { glyph: "▓" }`.
           window.fill_region default_attr, glyph(Glyphs::Role::ProgressFill, ind), xi, fill_xl, fill_yi, yl
 

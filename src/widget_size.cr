@@ -46,35 +46,75 @@ module Crysterm
       end
     {% end %}
 
-    # CSS `min-width`/`max-width`/`min-height`/`max-height` constraints, in cells
+    # CSS `min-width`/`max-width`/`min-height`/`max-height` constraints
     # (`nil` = unconstrained). `awidth`/`aheight` clamp the *used* size to
     # `[min, max]`, with `min` winning when it exceeds `max`, like CSS. Set from a
     # stylesheet by `CSS::Geometry`; settable directly too.
     #
-    # NOTE These are **cells only** — unlike `#width`/`#height` (and
-    # `#left`/`#top`/`#right`/`#bottom`), a percentage `String` is not accepted;
-    # `min_width: "50%"` is a compile error. Supporting it would mean resolving
-    # the percentage against the parent inside `awidth`/`aheight`, where the
-    # clamp runs.
-    getter min_width : Int32? = nil
-    getter max_width : Int32? = nil
-    getter min_height : Int32? = nil
-    getter max_height : Int32? = nil
+    # Takes the same forms as `#width`/`#height`: a cell count, or a `Dim`/
+    # percentage `String` (`min_width: "50%"`) resolved against the parent's
+    # content area at clamp time, exactly like a percentage `width`. The raw
+    # form is what's stored and read back; `#resolved_min_width` & co. report
+    # the cell value.
+    getter min_width : Dim | Int32 | String? = nil
+    getter max_width : Dim | Int32 | String? = nil
+    getter min_height : Dim | Int32 | String? = nil
+    getter max_height : Dim | Int32 | String? = nil
 
     # `min_*=`/`max_*=` alter effective `awidth`/`aheight` like `width=`/`height=`,
     # so they emit `Resize` too, or its listeners go stale. Assign-before-emit, so
-    # those listeners see the new constraint.
+    # those listeners see the new constraint. A `String`/`Symbol` is normalized
+    # through `Dim.from` up front (as `#width=` does), so the clamp path never
+    # re-parses and an unparseable value fails at assignment, not mid-render.
     {% for dim in %w[min_width max_width min_height max_height] %}
-      change_guarded_setter {{ dim.id }}, Resize, Int32?
+      def {{ dim.id }}=(val : Dim | Int32 | String | Symbol | Nil)
+        val = Dim.from val, size: true unless val.nil? || val.is_a?(Int32)
+        return if @{{ dim.id }} == val
+        @{{ dim.id }} = val
+        mark_dirty
+        emit ::Crysterm::Event::Resize
+      end
     {% end %}
 
-    # Bundled `(#min_width, #min_height)` — Qt's `QWidget::minimumSize`. `nil`
-    # when either constraint is unset (a *partial* pair has no single `Size` to
-    # report), not just when both are — a reader that returned a zero-filled
-    # `Size` for the unset half would be indistinguishable from an explicit
-    # `min_width: 0`.
+    # `#min_width`/`#max_width`/`#min_height`/`#max_height` resolved to cells
+    # against the parent's content area — the value the clamp actually applies.
+    # `nil` when the constraint is unset.
+    {% for dim in %w[width height] %}
+      {% for bound in %w[min max] %}
+        def resolved_{{ bound.id }}_{{ dim.id }}(rendered = false) : Int32?
+          c = @{{ bound.id }}_{{ dim.id }}
+          # Plain cell count (or unset) resolves without the ancestor walk.
+          return c.as(Int32?) unless relative_constraint?(c)
+          resolve_constraint c, constraint_base_{{ dim.id }}(rendered)
+        end
+      {% end %}
+    {% end %}
+
+    # Resolves one stored constraint against *base* (the parent content extent).
+    # A plain cell count short-circuits, so the common case never touches the
+    # base — which is why callers pass it lazily.
+    private def resolve_constraint(c : Dim | Int32 | String?, base : Int32?) : Int32?
+      case c
+      in Nil    then nil
+      in Int32  then c
+      in Dim    then resolve_dim c, base || 0
+      in String then resolve_dim c, base || 0, size: true
+      end
+    end
+
+    # Whether *c* needs the parent's extent to resolve (i.e. is not a plain
+    # cell count). Gates the ancestor walk in `#clamp_awidth`/`#clamp_aheight`.
+    private def relative_constraint?(c) : Bool
+      !(c.nil? || c.is_a?(Int32))
+    end
+
+    # Bundled `(#min_width, #min_height)` — Qt's `QWidget::minimumSize`, in
+    # resolved cells. `nil` when either constraint is unset (a *partial* pair
+    # has no single `Size` to report), not just when both are — a reader that
+    # returned a zero-filled `Size` for the unset half would be
+    # indistinguishable from an explicit `min_width: 0`.
     def minimum_size : Size?
-      return unless (w = @min_width) && (h = @min_height)
+      return unless (w = resolved_min_width) && (h = resolved_min_height)
       Size.new w, h
     end
 
@@ -86,10 +126,10 @@ module Crysterm
       self.min_height = size.try &.height
     end
 
-    # Bundled `(#max_width, #max_height)` — Qt's `QWidget::maximumSize`. See
-    # `#minimum_size` for the nil-when-partial rule.
+    # Bundled `(#max_width, #max_height)` — Qt's `QWidget::maximumSize`, in
+    # resolved cells. See `#minimum_size` for the nil-when-partial rule.
     def maximum_size : Size?
-      return unless (w = @max_width) && (h = @max_height)
+      return unless (w = resolved_max_width) && (h = resolved_max_height)
       Size.new w, h
     end
 
@@ -107,15 +147,35 @@ module Crysterm
       v
     end
 
-    # Clamps a computed width to the `[min_width, max_width]` constraints.
-    private def clamp_awidth(w : Int32) : Int32
-      clamp_dim w, @min_width, @max_width
-    end
+    # The extent a percentage `min-*`/`max-*` resolves against: the parent's
+    # content area on that axis, the same base a percentage `#width`/`#height`
+    # uses, so `min_width: "50%"` and `width: "50%"` agree. Only called when a
+    # constraint actually is relative — the plain-cell path must not pay for the
+    # ancestor walk.
+    {% for axis in [
+                     {dim: "width", near: "left", far: "right"},
+                     {dim: "height", near: "top", far: "bottom"},
+                   ] %}
+      private def constraint_base_{{ axis[:dim].id }}(rendered = false) : Int32
+        parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
+        (parent.a{{ axis[:dim].id }} || 0) - parent.i{{ axis[:near].id }} - parent.i{{ axis[:far].id }}
+      end
 
-    # :ditto: for height.
-    private def clamp_aheight(h : Int32) : Int32
-      clamp_dim h, @min_height, @max_height
-    end
+      # Clamps a computed {{ axis[:dim].id }} to the
+      # `[min_{{ axis[:dim].id }}, max_{{ axis[:dim].id }}]` constraints.
+      private def clamp_a{{ axis[:dim].id }}(v : Int32, rendered = false) : Int32
+        mn = @min_{{ axis[:dim].id }}
+        mx = @max_{{ axis[:dim].id }}
+        return v if mn.nil? && mx.nil?
+        # Fast path: both constraints are plain cell counts (or unset), so the
+        # parent's extent is never needed.
+        if !relative_constraint?(mn) && !relative_constraint?(mx)
+          return clamp_dim v, mn.as(Int32?), mx.as(Int32?)
+        end
+        base = constraint_base_{{ axis[:dim].id }}(rendered)
+        clamp_dim v, resolve_constraint(mn, base), resolve_constraint(mx, base)
+      end
+    {% end %}
 
     # Size-context variant of `#resolve_dim`: a stored `Dim` resolves as
     # parsed; the cold raw-`String` arm parses with the `"half"` alias.
@@ -157,7 +217,7 @@ module Crysterm
           # border and `"100%"` reaches the far inset. A specified size keeps its
           # full extent — an outward margin *shifts* it (see `coords`), it does not
           # shrink it.
-          return clamp_a{{ axis[:dim].id }}(resolve_size_dim({{ axis[:dim].id }}, (parent.a{{ axis[:dim].id }} || 0) - parent.i{{ axis[:near].id }} - parent.i{{ axis[:far].id }}))
+          return clamp_a{{ axis[:dim].id }}(resolve_size_dim({{ axis[:dim].id }}, (parent.a{{ axis[:dim].id }} || 0) - parent.i{{ axis[:near].id }} - parent.i{{ axis[:far].id }}), rendered)
         end
 
         # Stretched or shrunken element: shrunken sizes are computed in the render
@@ -189,13 +249,13 @@ module Crysterm
           # `[min_{{ axis[:dim].id }}, max_{{ axis[:dim].id }}]` applies to the
           # post-margin (used) size, per CSS min/max semantics.
           msum = (mg = style.margin).any? ? mg.{{ axis[:near].id }} + mg.{{ axis[:far].id }} : 0
-          return clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }} - msum)
+          return clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }} - msum, rendered)
         end
 
         # Every `Dim`/`String` returned above and every `nil` in the branch above
         # it, so only an `Int32` reaches here; the `as` states that for the return
         # type.
-        clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }}.as(Int32))
+        clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }}.as(Int32), rendered)
       end
     {% end %}
 

@@ -136,11 +136,16 @@ module Crysterm
           style.transitions = parse_transition(value)
         when "animation"
           style.animation = parse_animation(value)
-        when "glyph"
+        when "glyph", "content"
           # Chrome-glyph override for the site this style lands on. `none` stores
           # the `Glyphs::NONE_STR` sentinel (omit on run roles, registry default
           # on cell roles); an unparseable/blank value is dropped. The value may
           # be a multi-codepoint grapheme (`⚠️`), which is kept whole.
+          #
+          # `content` is the CSS-native spelling and the preferred one: a chrome
+          # glyph is generated content on a sub-element, exactly what CSS
+          # `content` expresses (`CheckBox::indicator { content: "x" }`).
+          # `glyph` stays as the original alias.
           parse_glyph(value).try { |s| style.glyph = s }
         when "glyph-ascii" # per-tier longhands
           parse_glyph(value).try { |s| style.glyph_ascii = s }
@@ -152,6 +157,24 @@ module Crysterm
           parse_glyph(value).try { |s| style.glyph_open = s }
         when "glyph-close"
           parse_glyph(value).try { |s| style.glyph_close = s }
+        when "quotes"
+          # The CSS-native spelling of the `glyph-open`/`glyph-close` pair: CSS
+          # `quotes` is exactly "the two delimiter strings this element wraps its
+          # generated content in" (`quotes: "[" "]"` → `[x]` around a
+          # `CheckBox::indicator`). `none` clears both, per CSS. A malformed
+          # value — anything but a two-token pair — is dropped whole rather than
+          # setting half a pair.
+          unless value.blank?
+            if Case.fold_keyword(value.strip) == "none"
+              style.glyph_open = style.glyph_close = nil
+            else
+              tokens = Selectors.split_top_level(value)
+              if tokens.size == 2 && (open = parse_glyph(tokens[0])) && (close = parse_glyph(tokens[1]))
+                style.glyph_open = open
+                style.glyph_close = close
+              end
+            end
+          end
         when "glyphs"
           # Sequence steps: the (optionally quoted) string's characters are the
           # frames of the site's sequence role — `Loading { glyphs: "◐◓◑◒" }`.
@@ -234,6 +257,7 @@ module Crysterm
         "margin", "margin-left", "margin-top", "margin-right", "margin-bottom",
         "alternate-background-color", "gridline-color",
         "selection-color", "selection-background-color",
+        "content", "quotes",
         "glyph", "glyph-ascii", "glyph-unicode", "glyph-extended",
         "glyph-open", "glyph-close", "glyphs",
         "fill-char",

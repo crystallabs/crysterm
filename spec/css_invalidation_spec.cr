@@ -19,7 +19,9 @@ describe "CSS invalidation" do
     s.apply_stylesheet
     b.width.should eq 40
     b.min_width.should eq 12
-    b.align.should eq Tput::AlignFlag::HCenter
+    # `text-align` replaces only the horizontal bits, so the default vertical
+    # alignment stays put while the rule matches.
+    b.align.should eq(Tput::AlignFlag::HCenter | Tput::AlignFlag::Top)
 
     b.remove_css_class "wide"
     s.apply_stylesheet

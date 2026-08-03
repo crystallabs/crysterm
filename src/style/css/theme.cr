@@ -198,7 +198,12 @@ module Crysterm
            so content shows faintly through. */
         .scrollbar { color: var(--muted); z-index: 5; opacity: 0.82; }
         Track { color: var(--surface-dark); }
-        ProgressBar::indicator, Slider::indicator, Dial::indicator { color: var(--accent); }
+        /* A `Slider`/`Dial` indicator is a drawn glyph, so its `color` is what
+           shows; a `ProgressBar`'s is a solid run of blanks, so — exactly as in
+           Qt, where every QSS theme paints the bar with
+           `QProgressBar::chunk { background-color }` — it's the background. */
+        Slider::indicator, Dial::indicator { color: var(--accent); }
+        ProgressBar::indicator { background-color: var(--accent); color: var(--accent-fg); }
 
         /* Tables */
         Header { background-color: var(--muted-dark); color: var(--text); font-weight: bold; }

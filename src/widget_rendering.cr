@@ -158,6 +158,26 @@ module Crysterm
       {eb, ep}
     end
 
+    # All four edges' `#effective_edge_insets` for *rect*, with the border
+    # additionally *fitted* to the box: a cell-grid border can't be drawn
+    # thinner than a whole cell, so an axis whose box is too small to hold even
+    # both of its edges would render half a frame and swallow the widget whole
+    # — a QSS-themed one-row `ProgressBar` (`QProgressBar { border: 1px solid }`)
+    # comes out as a lone hollow line with no room left for its fill. Drop that
+    # axis' border rather than the content; a box exactly as deep as its two
+    # edges still keeps them (the classic empty framed box). Returns the
+    # `{border, padding}` pairs in the sided order `Border`/`Padding` themselves
+    # use: `{left, top, right, bottom}`.
+    protected def effective_insets(border, padding, rect : RenderedGeometry)
+      l = effective_edge_insets(border.left, padding.left, rect.hidden_left)
+      t = effective_edge_insets(border.top, padding.top, rect.hidden_top)
+      r = effective_edge_insets(border.right, padding.right, rect.hidden_right)
+      b = effective_edge_insets(border.bottom, padding.bottom, rect.hidden_bottom)
+      l, r = {0, l[1]}, {0, r[1]} if rect.xl - rect.xi < l[0] + r[0]
+      t, b = {0, t[1]}, {0, b[1]} if rect.yl - rect.yi < t[0] + b[0]
+      {l, t, r, b}
+    end
+
     # The base painting implementation: renders this widget (and, when
     # *with_children*, its subtree) into the window's cell buffer. Subclass
     # `#render` overrides call this the way a `paintEvent` override calls the
@@ -285,10 +305,11 @@ module Crysterm
       # `border.adjust`/`p.adjust` calls, which would double-count the hidden
       # rows/columns and start content too far in (or paint phantom padding).
       sb = style.border
-      ebt, ept = effective_edge_insets(sb.top, padding.top, coords.hidden_top)
-      ebb, epb = effective_edge_insets(sb.bottom, padding.bottom, coords.hidden_bottom)
-      ebl, epl = effective_edge_insets(sb.left, padding.left, coords.hidden_left)
-      ebr, epr = effective_edge_insets(sb.right, padding.right, coords.hidden_right)
+      il, it, ir, ib = effective_insets(sb, padding, coords)
+      ebl, epl = il
+      ebt, ept = it
+      ebr, epr = ir
+      ebb, epb = ib
 
       xi += ebl
       xl -= ebr
@@ -1003,10 +1024,11 @@ module Crysterm
       # the visible remainder of the border/padding band insets the interior.
       border = style.border
       padding = style.padding
-      ebt, ept = effective_edge_insets(border.top, padding.top, ret.hidden_top)
-      ebb, epb = effective_edge_insets(border.bottom, padding.bottom, ret.hidden_bottom)
-      ebl, epl = effective_edge_insets(border.left, padding.left, ret.hidden_left)
-      ebr, epr = effective_edge_insets(border.right, padding.right, ret.hidden_right)
+      il, it, ir, ib = effective_insets(border, padding, ret)
+      ebl, epl = il
+      ebt, ept = it
+      ebr, epr = ir
+      ebb, epb = ib
       xi += pad ? ebl + epl : ebl
       xl -= pad ? ebr + epr : ebr
       yi += pad ? ebt + ept : ebt
