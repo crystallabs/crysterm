@@ -17,12 +17,34 @@ module Crysterm
       end
       p = st.padding
       fi = if b = st.border
-             {b.left + p.left, b.top + p.top, b.right + p.right, b.bottom + p.bottom}
+             l, t, r, bt = b.left, b.top, b.right, b.bottom
+             # Same fit the render path applies (`#effective_insets`): a border
+             # too big for its box isn't drawn, so it must not inset the content
+             # either. Without this a one-row bordered widget reports a 2-cell
+             # vertical inset it never paints, and its content box — what a
+             # percentage child resolves against — comes out *negative*.
+             l, r = 0, 0 if l + r > 0 && border_fits_axis?(l + r, vertical: false)
+             t, bt = 0, 0 if t + bt > 0 && border_fits_axis?(t + bt, vertical: true)
+             {l + p.left, t + p.top, r + p.right, bt + p.bottom}
            else
              {p.left, p.top, p.right, p.bottom}
            end
       @_frame_insets = fi
       fi
+    end
+
+    # Whether *edges* (an axis' two border widths) exceed the box they'd be
+    # drawn in, i.e. whether that axis' border collapses this frame.
+    #
+    # Gated on `BoxSizing::BorderBox`, which is what makes consulting the size
+    # here safe: under `ContentBox` the frame is *added* to the declared extent,
+    # so it fits by construction — and `#awidth`/`#aheight` would ask us back
+    # for the insets to add (`box_sizing_pad_width`), which is the one path that
+    # would recurse. Under `BorderBox` that padding short-circuits to 0 without
+    # reading any inset, so the size resolves without re-entering.
+    private def border_fits_axis?(edges : Int32, vertical : Bool) : Bool
+      return false unless @box_sizing.border_box?
+      (vertical ? aheight : awidth) < edges
     end
 
     # Returns computed content offset from left

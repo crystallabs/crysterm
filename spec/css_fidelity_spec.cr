@@ -443,8 +443,8 @@ describe "CSS fidelity" do
       screen.apply_stylesheet
       screen.repaint
 
-      screen.lines[0][0].char.should eq '▏'
-      screen.lines[0][11].char.should eq '▕'
+      screen.lines[0][0].char.should eq '█'
+      screen.lines[0][11].char.should eq '█'
     end
 
     it "caps the top/bottom edges of a one-column box" do
@@ -455,8 +455,8 @@ describe "CSS fidelity" do
       screen.apply_stylesheet
       screen.repaint
 
-      screen.lines[0][0].char.should eq '▔'
-      screen.lines[3][0].char.should eq '▁'
+      screen.lines[0][0].char.should eq '█'
+      screen.lines[3][0].char.should eq '█'
     end
 
     it "draws the ordinary full frame when the border fits" do
@@ -476,19 +476,20 @@ describe "CSS fidelity" do
       screen = headless_screen
       box = Widget::Box.new width: 12, height: 1
       screen.append box
-      screen.stylesheet = "Box { border: solid; border-left-char: \"#\"; }"
+      screen.stylesheet = "Box { border: solid; border-left-char: \"@\"; }"
       screen.apply_stylesheet
       screen.repaint
 
-      screen.lines[0][0].char.should eq '#'  # author's choice
-      screen.lines[0][11].char.should eq '▕' # uncustomized side still caps
+      screen.lines[0][0].char.should eq '@'  # author's choice
+      screen.lines[0][11].char.should eq '█' # uncustomized side still caps
     end
 
-    it "uses the plain run chars at the ascii tier, which has no rim glyphs" do
-      Glyphs[Glyphs::Role::BorderCapLeft, Glyphs::Tier::Ascii].should eq '|'
-      Glyphs[Glyphs::Role::BorderCapRight, Glyphs::Tier::Ascii].should eq '|'
-      Glyphs[Glyphs::Role::BorderCapTop, Glyphs::Tier::Ascii].should eq '-'
-      Glyphs[Glyphs::Role::BorderCapBottom, Glyphs::Tier::Ascii].should eq '-'
+    it "uses the ascii solid at the ascii tier, which has no block glyph" do
+      {Glyphs::Role::BorderCapLeft, Glyphs::Role::BorderCapRight,
+       Glyphs::Role::BorderCapTop, Glyphs::Role::BorderCapBottom}.each do |role|
+        Glyphs[role, Glyphs::Tier::Ascii].should eq '#'
+        Glyphs[role, Glyphs::Tier::Unicode].should eq '█'
+      end
     end
   end
 

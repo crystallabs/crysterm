@@ -835,12 +835,16 @@ module Crysterm
       set_in t, Role::BorderRoundedH, Entry.new('-', '─')
       set_in t, Role::BorderRoundedV, Entry.new('|', '│')
 
-      # Caps: eighth-blocks flush to the cell edge they cap. No ASCII rendition
-      # implies a corner either, so the plain run chars serve there.
-      set_in t, Role::BorderCapLeft, Entry.new('|', '▏')
-      set_in t, Role::BorderCapRight, Entry.new('|', '▕')
-      set_in t, Role::BorderCapTop, Entry.new('-', '▔')
-      set_in t, Role::BorderCapBottom, Entry.new('-', '▁')
+      # Caps: a full block, so the glyph fills exactly the cell it costs. A
+      # thinner rim (`▏`) or a line run (`│`) leaves the rest of its cell showing
+      # the border background — which is the widget's own background — putting a
+      # visible notch of backdrop between the edge and the content beside it.
+      # A block also implies no corner to look for, which is why the run glyphs
+      # can't serve here.
+      set_in t, Role::BorderCapLeft, Entry.new('#', '█')
+      set_in t, Role::BorderCapRight, Entry.new('#', '█')
+      set_in t, Role::BorderCapTop, Entry.new('#', '█')
+      set_in t, Role::BorderCapBottom, Entry.new('#', '█')
       t
     end
 

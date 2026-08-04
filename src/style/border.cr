@@ -369,8 +369,9 @@ module Crysterm
       g = @type.line_glyphs(tier)
       # Run glyph per axis: the family's own, unless that axis' pair is standing
       # alone because the perpendicular edges didn't fit, in which case the caps
-      # take over (see `Glyphs::Role::BorderCapLeft`). Caps are per-side, so the
-      # two axes carry a left/right and a top/bottom variant.
+      # take over (see `Glyphs::Role::BorderCapLeft`). The four cap roles stay
+      # separate so a theme can give each edge its own rendition, even though the
+      # registry defaults them all to the same block.
       vl = cap_v ? Glyphs[Glyphs::Role::BorderCapLeft, tier] : g[:v]
       vr = cap_v ? Glyphs[Glyphs::Role::BorderCapRight, tier] : g[:v]
       ht = cap_h ? Glyphs[Glyphs::Role::BorderCapTop, tier] : g[:h]
