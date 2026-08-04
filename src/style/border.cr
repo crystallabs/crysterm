@@ -365,20 +365,30 @@ module Crysterm
     # `horizontal_char`/`vertical_char` for the runs), else the `BorderType`
     # family glyph at *tier*. The no-override fast path just fans the family's
     # two run glyphs out over the four sides.
-    def line_glyphs_with_overrides(tier : Glyphs::Tier)
+    def line_glyphs_with_overrides(tier : Glyphs::Tier, cap_v = false, cap_h = false)
       g = @type.line_glyphs(tier)
+      # Run glyph per axis: the family's own, unless that axis' pair is standing
+      # alone because the perpendicular edges didn't fit, in which case the caps
+      # take over (see `Glyphs::Role::BorderCapLeft`). Caps are per-side, so the
+      # two axes carry a left/right and a top/bottom variant.
+      vl = cap_v ? Glyphs[Glyphs::Role::BorderCapLeft, tier] : g[:v]
+      vr = cap_v ? Glyphs[Glyphs::Role::BorderCapRight, tier] : g[:v]
+      ht = cap_h ? Glyphs[Glyphs::Role::BorderCapTop, tier] : g[:h]
+      hb = cap_h ? Glyphs[Glyphs::Role::BorderCapBottom, tier] : g[:h]
       unless chars?
         return {tl: g[:tl], tr: g[:tr], bl: g[:bl], br: g[:br],
-                t: g[:h], b: g[:h], l: g[:v], r: g[:v]}
+                t: ht, b: hb, l: vl, r: vr}
       end
+      # An explicit char override is the author's choice and outranks the cap,
+      # which is only the last link of each fall-back chain.
       {tl: @top_left_char || @corner_char || g[:tl],
        tr: @top_right_char || @corner_char || g[:tr],
        bl: @bottom_left_char || @corner_char || g[:bl],
        br: @bottom_right_char || @corner_char || g[:br],
-       t:  @top_char || @horizontal_char || g[:h],
-       b:  @bottom_char || @horizontal_char || g[:h],
-       l:  @left_char || @vertical_char || g[:v],
-       r:  @right_char || @vertical_char || g[:v]}
+       t:  @top_char || @horizontal_char || ht,
+       b:  @bottom_char || @horizontal_char || hb,
+       l:  @left_char || @vertical_char || vl,
+       r:  @right_char || @vertical_char || vr}
     end
 
     # The eight glyphs of one border's cells — four corners plus one run per
@@ -393,8 +403,13 @@ module Crysterm
     # `#fill_char` (see `#top_char`/`#horizontal_char`/`#top_left_char` …). Both
     # produce the same `NamedTuple` shape, so the render call site stays
     # monomorphic.
-    def glyph_octet(tier : Glyphs::Tier)
-      return line_glyphs_with_overrides(tier) if @type.line_family?
+    # *cap_v*/*cap_h* say that this render dropped a pair of edges that did not
+    # fit the box (`Widget#effective_insets`), leaving the perpendicular pair
+    # standing alone: *cap_v* when the left/right edges survive without a
+    # top/bottom to close them, *cap_h* for the transpose. A `Fill` border paints
+    # colored cells and implies no shape, so it ignores both.
+    def glyph_octet(tier : Glyphs::Tier, cap_v = false, cap_h = false)
+      return line_glyphs_with_overrides(tier, cap_v, cap_h) if @type.line_family?
       {tl: top_left_char, tr: top_right_char, bl: bottom_left_char, br: bottom_right_char,
        t: top_char, b: bottom_char, l: left_char, r: right_char}
     end

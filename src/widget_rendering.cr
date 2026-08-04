@@ -165,18 +165,37 @@ module Crysterm
     # — a QSS-themed one-row `ProgressBar` (`QProgressBar { border: 1px solid }`)
     # comes out as a lone hollow line with no room left for its fill. Drop that
     # axis' border rather than the content; a box exactly as deep as its two
-    # edges still keeps them (the classic empty framed box). Returns the
-    # `{border, padding}` pairs in the sided order `Border`/`Padding` themselves
-    # use: `{left, top, right, bottom}`.
-    protected def effective_insets(border, padding, rect : RenderedGeometry)
+    # edges still keeps them (the classic empty framed box).
+    #
+    # `capped_v`/`capped_h` record that a *collapse actually happened* while the
+    # perpendicular pair survived, so the surviving edges stand alone with no
+    # corners to close them. The border painter draws those with the cap glyphs
+    # rather than the line-family runs (see `Border#glyph_octet`) — `│` belongs
+    # to a family that implies corners, so a lone pair reads as a broken frame.
+    protected def effective_insets(border, padding, rect : RenderedGeometry) : Insets
       l = effective_edge_insets(border.left, padding.left, rect.hidden_left)
       t = effective_edge_insets(border.top, padding.top, rect.hidden_top)
       r = effective_edge_insets(border.right, padding.right, rect.hidden_right)
       b = effective_edge_insets(border.bottom, padding.bottom, rect.hidden_bottom)
-      l, r = {0, l[1]}, {0, r[1]} if rect.xl - rect.xi < l[0] + r[0]
-      t, b = {0, t[1]}, {0, b[1]} if rect.yl - rect.yi < t[0] + b[0]
-      {l, t, r, b}
+      drop_x = rect.xl - rect.xi < l[0] + r[0]
+      drop_y = rect.yl - rect.yi < t[0] + b[0]
+      l, r = {0, l[1]}, {0, r[1]} if drop_x
+      t, b = {0, t[1]}, {0, b[1]} if drop_y
+      Insets.new(l, t, r, b,
+        capped_v: drop_y && (l[0] > 0 || r[0] > 0),
+        capped_h: drop_x && (t[0] > 0 || b[0] > 0))
     end
+
+    # One render's effective (visible, border-fitted) insets: a `{border,
+    # padding}` cell pair per edge, in the sided order `Border`/`Padding`
+    # themselves use, plus the two cap flags `#effective_insets` sets.
+    record Insets,
+      left : {Int32, Int32},
+      top : {Int32, Int32},
+      right : {Int32, Int32},
+      bottom : {Int32, Int32},
+      capped_v : Bool,
+      capped_h : Bool
 
     # The base painting implementation: renders this widget (and, when
     # *with_children*, its subtree) into the window's cell buffer. Subclass
@@ -305,11 +324,11 @@ module Crysterm
       # `border.adjust`/`p.adjust` calls, which would double-count the hidden
       # rows/columns and start content too far in (or paint phantom padding).
       sb = style.border
-      il, it, ir, ib = effective_insets(sb, padding, coords)
-      ebl, epl = il
-      ebt, ept = it
-      ebr, epr = ir
-      ebb, epb = ib
+      insets = effective_insets(sb, padding, coords)
+      ebl, epl = insets.left
+      ebt, ept = insets.top
+      ebr, epr = insets.right
+      ebb, epb = insets.bottom
 
       xi += ebl
       xl -= ebr
@@ -739,7 +758,7 @@ module Crysterm
         # once for the whole box rather than per cell — and for the border's own
         # family only, so a `Fill` border doesn't build (and discard) the
         # line-family octet.
-        glyphs = border.glyph_octet(glyph_tier)
+        glyphs = border.glyph_octet(glyph_tier, insets.capped_v, insets.capped_h)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
         # each side's *visible* thickness (a clipped edge's hidden band rows are
@@ -1024,11 +1043,11 @@ module Crysterm
       # the visible remainder of the border/padding band insets the interior.
       border = style.border
       padding = style.padding
-      il, it, ir, ib = effective_insets(border, padding, ret)
-      ebl, epl = il
-      ebt, ept = it
-      ebr, epr = ir
-      ebb, epb = ib
+      insets = effective_insets(border, padding, ret)
+      ebl, epl = insets.left
+      ebt, ept = insets.top
+      ebr, epr = insets.right
+      ebb, epb = insets.bottom
       xi += pad ? ebl + epl : ebl
       xl -= pad ? ebr + epr : ebr
       yi += pad ? ebt + ept : ebt

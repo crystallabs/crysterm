@@ -46,6 +46,54 @@ module Crysterm
       end
     {% end %}
 
+    # Which box a declared `#width`/`#height` measures — CSS `box-sizing`.
+    enum BoxSizing
+      # The declared size is the widget's whole on-screen extent; border and
+      # padding are drawn *inside* it, shrinking the content area.
+      BorderBox
+      # The declared size is the content area; border and padding are added
+      # *outside* it, growing the widget's on-screen extent.
+      ContentBox
+    end
+
+    # Which box `#width`/`#height` measure (CSS `box-sizing`).
+    #
+    # Crysterm defaults to `BorderBox`, unlike CSS and Qt stylesheets, which
+    # default to `content-box`. In a terminal a size is a count of cells you can
+    # see, so `height: 3` meaning three rows on screen — border included — is
+    # what TUI code is written against; content-box would silently make every
+    # bordered widget in an existing layout two rows taller and two columns wider.
+    #
+    # `ContentBox` opts one widget (or, via a stylesheet, a whole class of them)
+    # into the CSS/Qt reading. Its main use is the case where a border cannot
+    # fit the box it was declared on — a one-row widget with `border: solid` has
+    # no room for a top and a bottom edge, so `#effective_insets` drops that
+    # axis' border. Under `ContentBox` the row is the *content*, the frame is
+    # added around it, and the widget simply becomes three rows tall with a
+    # complete border.
+    #
+    # Only an explicitly sized axis is affected: an `auto` (`nil`) size fills its
+    # slot and a `#shrink_to_fit?` size is derived from content that is already
+    # measured inside the insets, so on both the distinction has nothing to act on.
+    property box_sizing : BoxSizing = BoxSizing::BorderBox
+
+    # :ditto: — accepts the CSS spellings (`"content-box"`, `:border_box`, ...).
+    def box_sizing=(value : String | Symbol) : BoxSizing
+      self.box_sizing = BoxSizing.parse(value.to_s.gsub('-', '_'))
+    end
+
+    # Cells to add to an explicitly declared extent on this axis: the frame
+    # insets under `ContentBox` (which measures the content area), nothing under
+    # `BorderBox` (which already measures the whole widget).
+    private def box_sizing_pad_width : Int32
+      @box_sizing.content_box? ? ihorizontal : 0
+    end
+
+    # :ditto: for the vertical axis.
+    private def box_sizing_pad_height : Int32
+      @box_sizing.content_box? ? ivertical : 0
+    end
+
     # CSS `min-width`/`max-width`/`min-height`/`max-height` constraints
     # (`nil` = unconstrained). `awidth`/`aheight` clamp the *used* size to
     # `[min, max]`, with `min` winning when it exceeds `max`, like CSS. Set from a
@@ -217,7 +265,12 @@ module Crysterm
           # border and `"100%"` reaches the far inset. A specified size keeps its
           # full extent — an outward margin *shifts* it (see `coords`), it does not
           # shrink it.
-          return clamp_a{{ axis[:dim].id }}(resolve_size_dim({{ axis[:dim].id }}, (parent.a{{ axis[:dim].id }} || 0) - parent.i{{ axis[:near].id }} - parent.i{{ axis[:far].id }}), rendered)
+          # `box_sizing_pad_*` is 0 under the default `BorderBox`; under
+          # `ContentBox` the resolved value is the content extent and the frame
+          # is added around it. Added after the clamp, so `min-*`/`max-*` apply
+          # to the same box the size does, per CSS.
+          return clamp_a{{ axis[:dim].id }}(resolve_size_dim({{ axis[:dim].id }}, (parent.a{{ axis[:dim].id }} || 0) - parent.i{{ axis[:near].id }} - parent.i{{ axis[:far].id }}), rendered) +
+            box_sizing_pad_{{ axis[:dim].id }}
         end
 
         # Stretched or shrunken element: shrunken sizes are computed in the render
@@ -255,7 +308,7 @@ module Crysterm
         # Every `Dim`/`String` returned above and every `nil` in the branch above
         # it, so only an `Int32` reaches here; the `as` states that for the return
         # type.
-        clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }}.as(Int32), rendered)
+        clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }}.as(Int32), rendered) + box_sizing_pad_{{ axis[:dim].id }}
       end
     {% end %}
 

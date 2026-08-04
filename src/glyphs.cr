@@ -473,6 +473,18 @@ module Crysterm
       BorderRoundedH
       BorderRoundedV
 
+      # End caps for a border whose opposite pair of edges did not fit the box:
+      # a one-row widget keeps its left/right edges but has no top/bottom to
+      # close them, and vice versa. The line-run glyphs (`│`/`─`) belong to a
+      # family that implies corners, so two of them alone read as a broken
+      # frame; these sit flush against the outer cell edge instead and read as
+      # the wall of a trough, which is exactly what survives. See
+      # `Border#glyph_octet`.
+      BorderCapLeft
+      BorderCapRight
+      BorderCapTop
+      BorderCapBottom
+
       # Whether this is a *cell* role — one that fills exactly one grid cell
       # by construction (scrollbar/slider parts, rules, junctions, the cursor
       # bar/block, border positions), so grid math never has to measure it. A
@@ -822,6 +834,13 @@ module Crysterm
       set_in t, Role::BorderRoundedBR, Entry.new('+', '╯')
       set_in t, Role::BorderRoundedH, Entry.new('-', '─')
       set_in t, Role::BorderRoundedV, Entry.new('|', '│')
+
+      # Caps: eighth-blocks flush to the cell edge they cap. No ASCII rendition
+      # implies a corner either, so the plain run chars serve there.
+      set_in t, Role::BorderCapLeft, Entry.new('|', '▏')
+      set_in t, Role::BorderCapRight, Entry.new('|', '▕')
+      set_in t, Role::BorderCapTop, Entry.new('-', '▔')
+      set_in t, Role::BorderCapBottom, Entry.new('-', '▁')
       t
     end
 

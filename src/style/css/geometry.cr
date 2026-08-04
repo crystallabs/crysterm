@@ -21,6 +21,7 @@ module Crysterm
       gap : Int32?,
       layout_chrome : Bool,
       fixed : Bool,
+      box_sizing : Widget::BoxSizing,
       password_character : Char?
 
     # :ditto: — `nil` until CSS ever touches this widget's geometry, so both
@@ -38,7 +39,7 @@ module Crysterm
         min_height: @min_height, max_height: @max_height,
         align: @align,
         gap: layout.try(&.spacing),
-        layout_chrome: @layout_chrome, fixed: @fixed,
+        layout_chrome: @layout_chrome, fixed: @fixed, box_sizing: @box_sizing,
         password_character: as?(Widget::LineEdit).try(&.password_character))
     end
 
@@ -61,6 +62,7 @@ module Crysterm
       self.align = snap.align
       self.layout_chrome = snap.layout_chrome
       self.fixed = snap.fixed
+      self.box_sizing = snap.box_sizing
       snap.gap.try { |g| layout.try(&.spacing=(g)) }
       snap.password_character.try { |c| as?(Widget::LineEdit).try(&.password_character=(c)) }
     end
@@ -79,7 +81,7 @@ module Crysterm
     # a `Style`. Geometry is a single per-widget concern, so the cascade
     # applies these only from the `normal` state's winning declarations.
     module Geometry
-      PROPERTIES = Set{"position",
+      PROPERTIES = Set{"position", "box-sizing",
                        "width", "height", "top", "left", "right", "bottom",
                        "min-width", "max-width", "min-height", "max-height",
                        "text-align", "vertical-align", "gap", "spacing",
@@ -93,6 +95,19 @@ module Crysterm
       # Applies a geometry declaration onto *widget*.
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property
+        when "box-sizing"
+          # Which box `width`/`height` measure. Crysterm defaults to
+          # `border-box` where CSS and Qt default to `content-box` — a terminal
+          # size is a count of visible cells, so a declared height means rows on
+          # screen — but both spellings are honored, so a theme can ask for the
+          # CSS reading. See `Widget#box_sizing`. Its practical use here: a
+          # bordered one-row widget has no room for a top *and* a bottom edge, so
+          # the border is dropped; under `content-box` the row is the content and
+          # the frame is added around it instead.
+          case Case.fold_keyword(value.strip)
+          when "border-box"  then widget.box_sizing = Widget::BoxSizing::BorderBox
+          when "content-box" then widget.box_sizing = Widget::BoxSizing::ContentBox
+          end
         when "position"
           # CSS's flow-vs-out-of-flow distinction, which Crysterm already has
           # both halves of:

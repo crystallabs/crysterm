@@ -345,6 +345,153 @@ describe "CSS fidelity" do
     end
   end
 
+  describe "box-sizing" do
+    it "defaults to border-box: the declared size is the whole widget" do
+      screen = headless_screen
+      box = Widget::Box.new width: 10, height: 5
+      screen.append box
+      screen.stylesheet = "Box { border: solid; padding: 1; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      box.box_sizing.border_box?.should be_true
+      box.awidth.should eq 10
+      box.aheight.should eq 5
+      # Border + padding eat inward, leaving 10-4 x 5-4 of content.
+      (box.awidth - box.ihorizontal).should eq 6
+      (box.aheight - box.ivertical).should eq 1
+    end
+
+    it "adds the frame outside the declared size under content-box, as CSS does" do
+      screen = headless_screen
+      box = Widget::Box.new width: 10, height: 5
+      screen.append box
+      screen.stylesheet = "Box { border: solid; padding: 1; box-sizing: content-box; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      box.box_sizing.content_box?.should be_true
+      box.awidth.should eq 14 # 10 content + 2 border + 2 padding
+      box.aheight.should eq 9
+      (box.awidth - box.ihorizontal).should eq 10 # content is what was declared
+      (box.aheight - box.ivertical).should eq 5
+    end
+
+    it "gives a bordered one-row widget a complete frame instead of dropping it" do
+      screen = headless_screen
+      box = Widget::Box.new width: 20, height: 1
+      box.add_css_class "cb"
+      screen.append box
+      screen.stylesheet = "Box { border: solid; } .cb { box-sizing: content-box; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      box.aheight.should eq 3 # 1 content row + top and bottom edges
+      screen.lines[0][0].char.should eq '┌'
+      screen.lines[2][0].char.should eq '└'
+    end
+
+    it "applies min-/max- to the same box the size measures, per CSS" do
+      screen = headless_screen
+      box = Widget::Box.new width: 10, height: 3
+      screen.append box
+      screen.stylesheet = "Box { border: solid; box-sizing: content-box; max-width: 6; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      # The cap applies to the content box (10 -> 6), then the frame is added.
+      box.awidth.should eq 8
+    end
+
+    it "leaves an auto size alone (it fills its slot as a whole box)" do
+      screen = headless_screen(40, 10)
+      box = Widget::Box.new
+      screen.append box
+      screen.stylesheet = "Box { border: solid; box-sizing: content-box; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      box.awidth.should eq 40
+      box.aheight.should eq 10
+    end
+
+    it "reverts to the pristine value when the rule stops matching" do
+      screen = headless_screen
+      box = Widget::Box.new width: 10, height: 5
+      box.add_css_class "cb"
+      screen.append box
+      screen.stylesheet = ".cb { box-sizing: content-box; border: solid; }"
+      screen.apply_stylesheet
+      box.awidth.should eq 12
+
+      screen.stylesheet = ".nothing { box-sizing: content-box; }"
+      screen.apply_stylesheet
+      box.box_sizing.border_box?.should be_true
+    end
+  end
+
+  describe "border end caps" do
+    # A border needs both of an axis' edges plus nothing else to be drawable; a
+    # box too small for that drops that axis (see `Widget#effective_insets`).
+    # The surviving perpendicular pair then has no corners to close it, so it
+    # draws with cap glyphs rather than the line-family runs, which imply corners.
+    it "caps the left/right edges of a one-row box" do
+      screen = headless_screen
+      box = Widget::Box.new width: 12, height: 1
+      screen.append box
+      screen.stylesheet = "Box { border: solid; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      screen.lines[0][0].char.should eq '▏'
+      screen.lines[0][11].char.should eq '▕'
+    end
+
+    it "caps the top/bottom edges of a one-column box" do
+      screen = headless_screen
+      box = Widget::Box.new width: 1, height: 4
+      screen.append box
+      screen.stylesheet = "Box { border: solid; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      screen.lines[0][0].char.should eq '▔'
+      screen.lines[3][0].char.should eq '▁'
+    end
+
+    it "draws the ordinary full frame when the border fits" do
+      screen = headless_screen
+      box = Widget::Box.new width: 12, height: 3
+      screen.append box
+      screen.stylesheet = "Box { border: solid; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      screen.lines[0][0].char.should eq '┌'
+      screen.lines[1][0].char.should eq '│'
+      screen.lines[2][0].char.should eq '└'
+    end
+
+    it "lets an explicit border char override outrank the cap" do
+      screen = headless_screen
+      box = Widget::Box.new width: 12, height: 1
+      screen.append box
+      screen.stylesheet = "Box { border: solid; border-left-char: \"#\"; }"
+      screen.apply_stylesheet
+      screen.repaint
+
+      screen.lines[0][0].char.should eq '#'  # author's choice
+      screen.lines[0][11].char.should eq '▕' # uncustomized side still caps
+    end
+
+    it "uses the plain run chars at the ascii tier, which has no rim glyphs" do
+      Glyphs[Glyphs::Role::BorderCapLeft, Glyphs::Tier::Ascii].should eq '|'
+      Glyphs[Glyphs::Role::BorderCapRight, Glyphs::Tier::Ascii].should eq '|'
+      Glyphs[Glyphs::Role::BorderCapTop, Glyphs::Tier::Ascii].should eq '-'
+      Glyphs[Glyphs::Role::BorderCapBottom, Glyphs::Tier::Ascii].should eq '-'
+    end
+  end
+
   describe "quotes" do
     it "sets the delimiter pair, like the glyph-open/glyph-close longhands" do
       screen = headless_screen
