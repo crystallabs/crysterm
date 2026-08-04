@@ -28,7 +28,7 @@ w=80 h=24
 attrs:
 y0: 11-30:def/def+b 53-68:#57c7ff/def
 y4: 4-11:def/def+b 15-20:#57c7ff/def 44-51:def/def+b 55-62:#98c379/def
-y9: 4-15:#cdd6f4/#0a0a0f 16-16:#89b4fa/#0a0a0f 17-35:#cdd6f4/#0a0a0f 44-55:#0a0a0f/#89b4fa 56-75:#cdd6f4/#0a0a0f
+y9: 4-15:#cdd6f4/#0a0a0f 16-16:#89b4fa/#0a0a0f 17-35:#cdd6f4/#0a0a0f 44-55:#101010/#89b4fa 56-75:#cdd6f4/#0a0a0f
 y10: 4-15:#cdd6f4/#0a0a0f 16-16:#89b4fa/#0a0a0f 17-35:#cdd6f4/#0a0a0f
 y18: 4-35:#8a94a6/def 44-75:#8a94a6/def
 y19: 4-33:#8a94a6/def 44-70:#8a94a6/def

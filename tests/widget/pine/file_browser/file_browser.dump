@@ -14,7 +14,7 @@ w=80 h=24
 |                 │.github/                                   █│                 |
 |                 │benchmarks/                                █│                 |
 |                 │bin/                                       █│                 |
-|                 │data/                                      █│                 |
+|                 │data/                                      ░│                 |
 |                 │docs/                                      ░│                 |
 |                 │examples/                                  ░│                 |
 |                 │lib/                                       ░│                 |
@@ -59,7 +59,7 @@ w=80 h=24
 |                 │.github/                                   █│                 |
 |                 │benchmarks/                                █│                 |
 |                 │bin/                                       █│                 |
-|                 │data/                                      █│                 |
+|                 │data/                                      ░│                 |
 |                 │docs/                                      ░│                 |
 |                 │examples/                                  ░│                 |
 |                 │lib/                                       ░│                 |
