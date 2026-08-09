@@ -21,14 +21,16 @@ Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Terminal feature auto-detection — one widget, best backend wins{/center}",
   parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
 
-# The same radial gauge twice; only the pinned Media backend differs.
+# The same radial gauge twice; only the pinned Media backend differs. Both
+# are driven in lockstep below (one shared value), so the two renderings can
+# be compared against each other at any instant.
 kitty = GraphDonut.new parent: s, top: 2, left: 4, width: 30, height: 13,
-  value: 42, label: "KITTY", fill_color: 0xE0A040, show_track: true, track_color: 0x2A3440,
+  value: 60, label: "KITTY", fill_color: 0xE0A040, show_track: true, track_color: 0x2A3440,
   type: Widget::Media::Type::Kitty,
   style: Style.new(fg: "white", bg: "#101820", border: true)
 
 braille = GraphDonut.new parent: s, top: 2, left: 46, width: 30, height: 13,
-  value: 68, label: "BRAILLE", fill_color: 0x40E0D0, show_track: true, track_color: 0x2A3440,
+  value: 60, label: "BRAILLE", fill_color: 0x40E0D0, show_track: true, track_color: 0x2A3440,
   type: Widget::Media::Type::GlyphBraille,
   style: Style.new(fg: "white", bg: "#101820", border: true)
 
@@ -53,11 +55,19 @@ Widget::Box.new parent: s, top: 17, left: 2, width: 76, height: 7,
            " Best graphics: {bold}#{emu.best_graphics}{/bold}      Auto-picked painter backend: {bold}#{best}{/bold}\n\n" \
            "{center}Overridable via #{n_opts} config settings — --media-backend=…, --dump-config{/center}"
 
-phase = 0.5
+# One shared value ping-pongs 0 → 100 → 0 with both donuts in lockstep — the
+# point of the demo is comparing the two backends rendering the SAME gauge.
+# The triangle's period is 100 ticks × 0.05 s = 5 s, exactly the capture
+# length, so the looping animation wraps seamlessly whatever the recording's
+# start phase. Starting mid-rise (tick 30 → value 60, matching the widgets'
+# initial `value`) keeps the still shot showing a meaningful fill.
+tick = 30
 s.every(0.05.seconds) do
-  braille.value = (Math.sin(phase) * 0.5 + 0.5) * 100
-  kitty.value = (Math.cos(phase * 0.8) * 0.5 + 0.5) * 100
-  phase += 0.03
+  t = tick % 100
+  v = (t < 50 ? t : 100 - t) * 2
+  kitty.value = v
+  braille.value = v
+  tick += 1
 end
 
 s.exec

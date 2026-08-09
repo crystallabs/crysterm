@@ -14,7 +14,10 @@ Crysterm::WidgetExample.run("ListBar",
     d.key :left, times: 4, dwell: 0.35
   }) do |window|
   window.stylesheet = "ListBar { color: #c0caf5; }"
-  lb = ListBar.new parent: window, top: "center", left: 0, width: "100%", height: 1, mouse: true
+  # `keys: true` opts into keyboard navigation (see the class docs) — without
+  # it the bar never registers as keyable and the scripted arrows do nothing.
+  lb = ListBar.new parent: window, top: "center", left: 0, width: "100%", height: 1,
+    mouse: true, keys: true
   lb.items = ["File", "Edit", "View", "Tools", "Help"]
   lb.focus
 end

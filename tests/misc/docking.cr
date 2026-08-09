@@ -65,37 +65,50 @@ slider = Widget::Box.new parent: s, top: 16, left: 37, width: 20, height: 7,
   content: "{center}sliding …{/center}", parse_tags: true,
   style: Style.new(fg: "#c0caf5", bg: "#292e42", border: Border.new(fg: "#bb9af7"))
 
-x = 37 # right border column 56 = docked onto the target's left border
-dx = -1
-hold = 18
-s.every(0.08.seconds) do
-  if hold > 0
-    hold -= 1
-  else
-    slider.clear_last_rendered_position
-    x += dx
-    if x <= 2
-      dx = 1
-    elsif x >= 37
-      dx = -1
-      hold = 18
-    end
-    slider.left = x
-  end
-end
-
-# Cycle the contrast policy so the same junctions show all three behaviors.
+# The three contrast policies, cycled so the same junctions show them all.
 modes = [
   {DockContrast::Blend, "junction cells blend the two border colors"},
   {DockContrast::Ignore, "junctions form; each cell keeps its own color"},
   {DockContrast::Skip, "borders with differing colors stay undocked"},
 ]
-mi = 0
-s.every(1.6.seconds) do
-  mode, desc = modes[mi]
+set_mode = ->(i : Int32) do
+  mode, desc = modes[i]
   s.dock_contrast = mode
   mode_box.content = "{center}window.dock_contrast = {bold}#{mode}{/bold} — #{desc}{/center}"
-  mi = (mi + 1) % modes.size
+end
+
+# One master clock drives both the slider and the contrast mode, everything
+# keyed off a tick counter mod 50: the whole scene is a 5.0 s cycle — exactly
+# the length of the looping capture — that ends in the state it started in
+# (slider docked, Blend mode), so the recording wraps seamlessly whatever its
+# start phase. The wrap itself lands inside the docked hold (calm identical
+# frames on both sides of the seam).
+x = 37 # right border column 56 = docked onto the target's left border
+tick = 0
+s.every(0.1.seconds) do
+  t = tick % 50
+  tick += 1
+
+  # Contrast mode: three eras per cycle, wrapping back to Blend at t=0.
+  case t
+  when  0 then set_mode.call 0
+  when 17 then set_mode.call 1
+  when 34 then set_mode.call 2
+  end
+
+  # Slider: hold docked (0-4), glide out to column 17 (5-24), glide back and
+  # re-dock (25-44), hold docked again (45-49) — the two holds join across
+  # the wrap into one continuous pause.
+  nx = case t
+       when 5..24  then 37 - (t - 4)  # 36 down to 17
+       when 25..44 then 17 + (t - 24) # 18 back up to 37
+       else             x
+       end
+  if nx != x
+    slider.clear_last_rendered_position
+    x = nx
+    slider.left = x
+  end
 end
 
 s.exec

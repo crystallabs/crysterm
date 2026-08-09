@@ -15,10 +15,14 @@ s = Window.new title: "Media: animation"
 
 img = "#{__DIR__}/../../data/image/netscape.gif"
 
-# One shared clock, ticking at the GIF's own frame delay: every widget given
-# `animate: clock` advances one frame per tick, in lockstep.
-delay = PNGGIF::PNG.new(img).frames.try(&.first?.try(&.delay)) || 100
-clock = Timer.new delay.milliseconds
+# One shared clock: every widget given `animate: clock` advances one frame
+# per tick, in lockstep. The tick period is sized so the throbber's full
+# cycle is exactly the 5 s capture (one cycle per loop): the wrap lands on
+# the same frame it started from, whatever the recording's start phase.
+# The GIF's native 130 ms cadence would make a 4.42 s cycle — a visible
+# 0.58 s frame-jump at every loop seam.
+frame_count = PNGGIF::PNG.new(img).frames.try(&.size) || 1
+clock = Timer.new (5.0 / frame_count).seconds
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,

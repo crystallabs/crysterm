@@ -535,7 +535,8 @@ module WidgetExamples
           --duration N  animation length in seconds (default 5)
           --build       compile each program next to its source (foo/foo.cr -> foo/foo)
           --release     like --build, but an optimized (--release) build
-      -j, --jobs N      capture/build concurrency (default #{default_jobs}; each is a compile)
+      -j, --jobs N      compile concurrency for capture/build (default #{default_jobs};
+                        capture runs are always serial — realtime fidelity)
           --doc-comments insert/refresh each widget's capture in its source class
                         doc comment (so `crystal docs` shows it)
           --docs        run `crystal docs`, then copy examples/ into docs/
@@ -599,27 +600,34 @@ module WidgetExamples
     Process.run("crystal", args, output: STDOUT, error: STDERR, chdir: ROOT).success? && File.exists?(bin)
   end
 
-  # Run *program* headlessly with *env* set, producing every file in *dests* in
-  # ONE process. *env* holds whichever of `CRYSTERM_SHOT`/`CRYSTERM_DUMP`/
-  # `CRYSTERM_ANIM` were requested; the harness emits all of them in a single
-  # run, so the default costs one compile + one exec instead of one per kind.
+  # Compile *program* to a unique temp binary for a capture run; returns the
+  # binary path, or nil when the build failed.
   #
   # `crystal build` to a *unique* temp binary and exec it, rather than
   # `crystal run`, because two programs sharing a basename would race on
   # `crystal run`'s basename-derived temp executable under `--jobs`. The
   # compile cache stays shared/warm; only the output binary is per-job.
+  def self.capture_build(program : String) : String?
+    bin = File.tempname("crysterm-ex", "")
+    build_args = ["build", "--no-color", program, "-o", bin]
+    echo_cmd "crystal", build_args
+    build = Process.run("crystal", build_args, output: STDOUT, error: STDERR, chdir: ROOT)
+    return unless build.success? && File.exists?(bin)
+    bin
+  end
+
+  # Run one prebuilt capture binary headlessly with *env* set, producing every
+  # file in *dests* in ONE process. *env* holds whichever of `CRYSTERM_SHOT`/
+  # `CRYSTERM_DUMP`/`CRYSTERM_ANIM` were requested; the harness emits all of
+  # them in a single run, so the default costs one compile + one exec instead
+  # of one per kind. Deletes the binary afterwards.
   #
   # The captured program self-renders only when headless, auto-detected from
   # `STDOUT.tty?` (`Crysterm.interactive?`), so its stdout must NOT be our
   # terminal — otherwise it flips to interactive and takes over the tty instead
   # of writing the capture. Give it a sink (and close stdin); the rendered
   # escape codes would garble the terminal anyway.
-  def self.capture_run(program : String, dests : Array(String), env : Process::Env) : Bool
-    bin = File.tempname("crysterm-ex", "")
-    build_args = ["build", "--no-color", program, "-o", bin]
-    echo_cmd "crystal", build_args
-    build = Process.run("crystal", build_args, output: STDOUT, error: STDERR, chdir: ROOT)
-    return false unless build.success? && File.exists?(bin)
+  def self.capture_exec(bin : String, dests : Array(String), env : Process::Env) : Bool
     echo_cmd bin, [] of String, env
     status = Process.run(bin, env: env,
       input: Process::Redirect::Close, output: IO::Memory.new, error: IO::Memory.new)
@@ -628,8 +636,9 @@ module WidgetExamples
     status.success? && dests.all? { |d| File.exists?(d) }
   end
 
-  # Determine the requested output set, then (re)capture every stale program in
-  # parallel. The default (no scope flag) is all three outputs, one run each.
+  # Determine the requested output set, then (re)capture every stale program:
+  # all compiles first, in parallel, then every run strictly one at a time.
+  # The default (no scope flag) is all three outputs, one run each.
   # Returns whether every program captured without error.
   def self.capture(progs : Array(String), opts : Options) : Bool
     explicit = opts.shot || opts.anim || opts.dump || opts.all
@@ -657,9 +666,28 @@ module WidgetExamples
       jobs << {prog, dests, env} unless dests.empty?
     end
 
+    # Phase 1: compile everything in parallel — compiles have no realtime
+    # component, so they can use every core.
     all_ok = true
+    built = [] of {Array(String), Process::Env, String}
     parallel_each(jobs, opts.jobs) do |(prog, dests, env)|
-      all_ok = false unless capture_run(prog, dests, env)
+      if bin = capture_build(prog)
+        built << {dests, env, bin}
+      else
+        all_ok = false
+      end
+    end
+
+    # Phase 2: run the binaries ONE AT A TIME, after all compiling is done. A
+    # capture run is a real-time recording: the program's own timers and the
+    # 10 fps sampling clock are both wall-clock-driven, and the capture is a
+    # fixed-length filmstrip. Anything competing for CPU (another run, a
+    # compile, ffmpeg encoders) delays the app's ticks; dropped ticks freeze
+    # the scene, so the clip keeps its 5 s length but the content stutters and
+    # leaps — scripted beats (typing, menus) visibly go missing. Serial runs
+    # trade wall time (~6 s per program) for guaranteed fidelity.
+    built.each do |(dests, env, bin)|
+      all_ok = false unless capture_exec(bin, dests, env)
     end
     all_ok
   end

@@ -5,6 +5,9 @@ and [Blessed-contrib](https://github.com/yaronn/blessed-contrib).
 It is implemented in [Crystal](https://crystal-lang.org/). Apps using
 Crysterm can be written using AI.
 
+Apple silicon hardware is recommended for development, for quickest
+iterations.
+
 Main features:
 
 ## 90+ Qt-like widgets

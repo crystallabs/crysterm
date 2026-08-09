@@ -15,7 +15,6 @@ include Crysterm
 s = Window.new title: "TrueColor"
 
 w = s.awidth
-h = s.aheight
 
 # Static `Gradient` (no `animate:`, renders once), one color per column. The
 # explicit `stops:` give a soft cyan→green→amber→red sweep interpolated
@@ -45,13 +44,19 @@ box2 = Widget::Box.new \
   parse_tags: true,
   style: Style.new(bg: 0x208020, opacity: 0.5, border: true, shadow: true)
 
-t = 0.0
-s.every(0.06.seconds) do
+# One full swing every 2.5 s (50 ticks at 0.05 s), phased off a tick counter
+# rather than an accumulating float: the state is a pure function of
+# `tick % 50`, so the cycle closes exactly, and 2.5 dividing the 5 s capture
+# means the looping animation wraps seamlessly whatever the recording's start
+# phase (same trick as themes.cr).
+tick = 0
+s.every(0.05.seconds) do
   box1.clear_last_rendered_position
   box2.clear_last_rendered_position
+  t = (tick % 50) / 50.0 * 2 * Math::PI
   box1.left = (2 + (Math.sin(t) * 0.5 + 0.5) * (w - 32)).to_i
   box2.left = (2 + (Math.sin(t + Math::PI) * 0.5 + 0.5) * (w - 32)).to_i
-  t += 0.12
+  tick += 1
 end
 
 s.exec
