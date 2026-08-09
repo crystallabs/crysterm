@@ -107,7 +107,9 @@ describe "BUGS5 capture_animation first-frame ordering (fix #2)" do
     body_end = src.index!("def capture_cursor_overlay", body_start)
     body = src[body_start...body_end]
 
-    first_write = body.index!("input.write Capture.rgba(first)")
+    # Frame 0 is rendered into `last` (the repeat-fill source) and written from
+    # there, so the marker is that write, not a `Capture.rgba(first)` call.
+    first_write = body.index!("input.write last rescue nil")
     clock_start = body.index!("clock.start")
 
     first_write.should be < clock_start

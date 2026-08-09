@@ -192,17 +192,37 @@ module Crysterm
         @record ? @window : nil
       end
 
+      # Time compression for demos longer than the recording (see `animate`):
+      # every dwell is multiplied by this before frames are scheduled.
+      protected property time_scale : Float64 = 1.0
+
+      # Scaled demo-time scheduled so far, frames rendered against it, and the
+      # wall-clock zero of that schedule (set at the first recorded advance).
+      @target = 0.0
+      @frames = 0
+      @start_at : Time::Instant?
+
       # Record mode: render `seconds` worth of frames (so the demo dwells here);
       # measure mode: just add to `elapsed`. Dump mode ignores dwell entirely —
       # frames are taken per-action by `dump_frame`, not per unit of time.
       private def advance(seconds : Float64)
         return if @dump_io
         if scr = recording
-          frames = Math.max(1, (seconds / @frame_secs).round.to_i)
-          frames.times do
+          @target += seconds * @time_scale
+          start_at = (@start_at ||= Time.instant)
+          # One frame per 1/fps of *scheduled* time, phase-locked to the wall
+          # clock: sleep to each frame's deadline rather than a fixed 1/fps
+          # after the render, so render cost can't stretch the demo beyond the
+          # fixed-length recording window. Fractional dwells accumulate in
+          # `@target` instead of rounding per action, and a heavily compressed
+          # dwell may schedule no frame at all — its event still happened, and
+          # the next rendered frame shows the accumulated result.
+          while (@frames + 1) * @frame_secs <= @target + 1e-9
             WidgetExample.tick_animation(@frame_secs) # advance any self-animating widget
             scr.repaint                               # single frame source
-            sleep @frame_secs.seconds
+            @frames += 1
+            delay = start_at + (@frames * @frame_secs).seconds - Time.instant
+            sleep delay if delay > Time::Span.zero
           end
         else
           @elapsed += seconds
@@ -228,8 +248,8 @@ module Crysterm
         ran = true
       end
       if dest = ENV["CRYSTERM_ANIM"]?
-        minimum = ENV["CRYSTERM_ANIM_SECS"]?.try(&.to_f?) || 5.0
-        animate dest, minimum, script, &build
+        secs = ENV["CRYSTERM_ANIM_SECS"]?.try(&.to_f?) || 5.0
+        animate dest, secs, script, &build
         ran = true
       end
       interactive title, &build unless ran
@@ -306,29 +326,40 @@ module Crysterm
       s.destroy rescue nil
     end
 
-    # Headless animation. Recording length follows the demo: `intro + demo +
-    # outro`, never shorter than *minimum* (short demos are padded, long ones
-    # run to completion instead of being cut off).
+    # Headless animation. The recording is always exactly *duration* seconds —
+    # the capture's filename promises its length (`foo.5s.apng`) — so a demo
+    # that measures longer than the space between the intro/outro holds is
+    # time-compressed to fit (each dwell scaled down, events kept) rather than
+    # run long or be cut off mid-action.
     #
     # The APNG loops forever (`loops: 0`). To make the loop read as endless
     # rather than a hard cut, it opens with a brief intro hold on the initial
     # state and closes with a longer outro hold on the final state (outro also
-    # absorbs min-duration padding), so the wrap-around lands on two calm frames.
-    def self.animate(dest : String, minimum : Float64, script : (Driver ->)?, &build : Window ->)
+    # absorbs short-demo padding), so the wrap-around lands on two calm frames.
+    def self.animate(dest : String, duration : Float64, script : (Driver ->)?, &build : Window ->)
       # 1. Measure the demo (no screen, no side effects).
       measure = Driver.new(record: false)
       script.try &.call(measure)
       demo = measure.elapsed
 
-      # 2. Intro/outro holds + total length (>= minimum).
+      # 2. Intro/outro holds, sized from the demo but capped so a short
+      #    *duration* (e.g. `--duration 1`) still leaves most of the clip to the
+      #    demo itself; then the compression factor that fits the demo into the
+      #    room between them.
       intro = demo.zero? ? 0.6 : (demo * 0.10).clamp(0.4, 1.0)
       outro = demo.zero? ? 0.8 : (demo * 0.18).clamp(0.7, 1.6)
-      total = Math.max(minimum, intro + demo + outro)
-      tail = total - intro - demo # outro plus any min-duration padding
+      if (holds = intro + outro) > duration * 0.4
+        intro *= duration * 0.4 / holds
+        outro *= duration * 0.4 / holds
+      end
+      room = duration - intro - outro
+      scale = demo > room ? room / demo : 1.0
+      tail = duration - intro - demo * scale # outro plus any short-demo padding
 
-      # 3. Record: build fresh, then intro -> demo -> tail. Give the capture a
-      #    small wall-clock margin beyond `total` so it can't stop before the last
-      #    driven frame is in (extra idle time adds no frames).
+      # 3. Record: build fresh, then intro -> demo -> tail. The capture is a
+      #    fixed-length filmstrip of exactly `duration * FPS` frames; the
+      #    Driver's frame schedule is phase-locked to the wall clock, so the
+      #    demo lands inside the recording without any margin.
       s = headless
       build.call s
       s.repaint
@@ -336,18 +367,18 @@ module Crysterm
 
       done = Channel(Nil).new
       spawn do
-        begin
-          s.capture path: dest, format: "apng", duration: (total + 0.5).seconds, fps: FPS, loops: 0
-        rescue ex
-          STDERR.puts "animation capture failed: #{ex.message}"
-        ensure
-          done.send nil
-        end
+        s.capture path: dest, format: "apng", duration: duration.seconds, fps: FPS, loops: 0
+      rescue ex
+        STDERR.puts "animation capture failed: #{ex.message}"
+      ensure
+        done.send nil
       end
       Fiber.yield # let the capture subscribe + emit its first frame
 
       d.hold intro
+      d.time_scale = scale
       script.try &.call(d)
+      d.time_scale = 1.0
       d.hold tail if tail > 0
       done.receive
       s.destroy rescue nil

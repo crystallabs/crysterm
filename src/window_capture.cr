@@ -101,11 +101,23 @@ module Crysterm
     # :nodoc:
     # Feeds an animation's raw RGBA frames to *input*: one frame immediately,
     # then one per `1/fps` tick of a `FrameClock` until *duration* elapses, so
-    # the clip's timeline tracks the wall clock. An unchanged screen duplicates
-    # frames; a slow tick drops them (the clock resyncs rather than bursting).
-    # All writes are serialized: the initial frame completes on this fiber
-    # before the clock fiber starts. Public (`:nodoc:`) so the sampling cadence
-    # is testable without ffmpeg.
+    # the clip's timeline tracks the wall clock. All writes are serialized: the
+    # initial frame completes on this fiber before the clock fiber starts, and
+    # every later write happens on the clock fiber. Public (`:nodoc:`) so the
+    # sampling cadence is testable without ffmpeg.
+    #
+    # The strip has a **fixed length** — exactly `duration * fps` frames — and
+    # each rendered frame is placed in the slot its own wall-clock instant falls
+    # in, not simply appended. The encoder holds every frame for `1/fps`, so
+    # frame *count* is what sets playback speed: sampling that ran slow (a heavy
+    # scene rendering below `fps`, or a `FrameClock` that dropped catch-up
+    # ticks) would otherwise emit fewer frames than the recording lasted and
+    # play the whole clip back sped up — a 5 s recording replaying in 2.5 s —
+    # while a late wake-up from the `sleep` below would stretch it. Slots the
+    # sampler was too slow to reach are filled by repeating the last frame it
+    # did produce (what the screen actually showed then), and the strip is
+    # padded/stopped at `total` so real time and clip time stay 1:1. Repeats
+    # cost almost nothing: the encoder diffs consecutive frames.
     #
     # *first* is the already-rendered frame 0. `#capture_animation` has to render
     # the region anyway to learn the video's pixel dimensions, so it passes that
@@ -120,32 +132,80 @@ module Crysterm
       # Floor the rate here too: a directly-reached public entry point must not
       # build an `Infinity`/negative clock interval from a non-positive `fps`.
       fps = 1 if fps < 1
+      # Frame 0 always exists, so a sub-frame-period duration yields a 1-frame
+      # strip rather than an empty (unencodable) one.
+      total = (duration.total_seconds * fps).round.to_i
+      total = 1 if total < 1
+
       first ||= Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg)
-      input.write Capture.rgba(first) rescue nil
-      # `FrameClock` invokes the tick block immediately on start, before its
-      # first sleep — but the t=0 frame was already written above (on this
-      # fiber, for write serialization), so `immediate: false` moves the
-      # clock's own first tick to t≈1/fps, keeping the documented
-      # one-frame-per-1/fps cadence: an immediate tick here would duplicate
-      # frame 0 and stretch the clip by one frame period. This doesn't disturb
-      # the clock's phase-lock (`next_at` is computed from the start time
-      # regardless).
-      # Frames fed so far (frame 0 was written above). Drives the blink phase:
-      # `Attr::BLINK` cells hide on alternate half-second phases, so blinking
-      # text actually blinks in the clip (a still keeps it visible).
-      frame = 1
-      clock = FrameClock.new((1.0 / fps).seconds, immediate: false) do
-        hidden = (frame * 2 // fps).odd?
-        frame += 1
-        bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg,
-          blink_hidden: hidden)
-        input.write Capture.rgba(bmp)
+      last = Capture.rgba(first)
+      input.write last rescue nil
+      # Slots filled so far; frame 0 was written above, on this fiber, for write
+      # serialization. `FrameClock` would otherwise invoke the tick block once
+      # immediately on start (before its first sleep) and duplicate it, so
+      # `immediate: false` moves the clock's own first tick to t≈1/fps. This
+      # doesn't disturb the clock's phase-lock (`next_at` derives from the start
+      # time regardless).
+      written = 1
+      start_at = Time.instant
+
+      clock = FrameClock.new((1.0 / fps).seconds, immediate: false) do |clk|
+        if written >= total
+          clk.stop # strip complete; nothing left to sample
+        else
+          # The slot this instant belongs to, clamped to the strip's last one.
+          slot = (FrameClock.elapsed_since(start_at) * fps).round.to_i
+          slot = total - 1 if slot > total - 1
+          # An early tick lands in an already-filled slot: skip it rather than
+          # overwrite (or append past) the frame that owns that instant.
+          if slot >= written
+            (slot - written).times { input.write last }
+            # Blink phase comes from the slot, not a tick counter: `Attr::BLINK`
+            # cells hide on alternate half-second phases of the *clip's* clock,
+            # so blinking text keeps blinking at the right rate even when
+            # sampling stumbled (a still keeps it visible).
+            hidden = (slot * 2 // fps).odd?
+            bmp = Capture.render(self, xi, xl, yi, yl, font, bold_font, default_fg, default_bg,
+              blink_hidden: hidden)
+            last = Capture.rgba(bmp)
+            input.write last
+            written = slot + 1
+          end
+        end
       rescue
         # Pipe closed / encoder gone: stop feeding it.
       end
+
+      # Top the strip up to its nominal length: the sampler may have been
+      # stopped mid-slot, or its final ticks dropped outright. This runs as the
+      # clock's stop callback — i.e. on the sampler fiber, once its loop has
+      # fully unwound — so it cannot interleave with a tick still in flight.
+      # Padding from this fiber after `#stop` would race one: `#stop` only
+      # clears a flag, and a tick suspended inside a blocking `input.write`
+      # (a full ffmpeg pipe) resumes to finish its own writes afterwards,
+      # overshooting `total`.
+      #
+      # Buffered: the sampler must never block handing off its "done", whether
+      # or not this fiber is already waiting for it.
+      done = Channel(Nil).new 1
+      clock.on_stop do
+        while written < total
+          input.write last
+          written += 1
+        end
+      rescue
+        # Pipe closed / encoder gone.
+      ensure
+        done.send nil
+      end
+
       clock.start
       sleep duration
       clock.stop
+      # The sampler observes `#stop` only when it next wakes (up to one frame
+      # period), and pads on its way out; wait for that rather than returning
+      # to a caller that would close the encoder's stdin under it.
+      done.receive
     end
 
     # The artificial cursor's contribution to the cell at (*x*, *y*), for the
