@@ -164,10 +164,20 @@ module Crysterm
     # Use this when the window may legitimately be absent; use `#window` when it
     # must be present. Memoized: read several times per widget per frame, and
     # each miss walks parent→…→root.
+    #
+    # `AlwaysInline` so the cache-hit case — the common case once a subtree is
+    # attached — folds to a single ivar load with no call overhead; the walk
+    # stays outlined in `#resolve_window_cache`.
+    @[AlwaysInline]
     def window? : ::Crysterm::Window?
-      if cached = @window_cache
-        return cached
-      end
+      @window_cache || resolve_window_cache
+    end
+
+    # The miss arm of `#window?`: walks parent→…→root and memoizes a non-nil
+    # result. A detached widget's `nil` result is never cached, so it resolves
+    # live again next call — cheap, and correct for a subtree that may attach
+    # later.
+    private def resolve_window_cache : ::Crysterm::Window?
       @window_cache = if parent = @parent
                         parent.window?
                       else
@@ -633,6 +643,10 @@ module Crysterm
 
     # Returns parent `Widget` (if any) or `Window` to which the widget may be attached.
     # If the widget already is `Window`, returns `nil`.
+    #
+    # `AlwaysInline`: on the per-frame `#aleft`/`#awidth` path, so it must not
+    # add call overhead of its own.
+    @[AlwaysInline]
     protected def parent_or_window
       return self if Window === self
       # `window` raises rather than returning nil when unattached, so this is

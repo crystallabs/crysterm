@@ -34,6 +34,12 @@ module Crysterm
     @pre = IO::Memory.new 1024
     @post = IO::Memory.new 1024
 
+    # Frame assembly buffer: the sync-update markers and the three part buffers
+    # are coalesced here so the terminal receives the frame as ONE write() —
+    # unbuffered output would otherwise pay a syscall per part, and a frame split
+    # across writes can tear on terminals without sync-update support.
+    @framebuf = IO::Memory.new
+
     # Set by `#draw` when it produced output (`@pre`+`@main`+`@post`) not yet
     # written to the terminal; consumed and cleared by `#flush_frame`.
     @_frame_pending = false
@@ -770,14 +776,19 @@ module Crysterm
       @_frame_pending = false
 
       # Bracket the frame in a DEC 2026 synchronized update (when enabled) so the
-      # terminal presents it atomically. Inlined into one `_print` so the markers
-      # and the frame land in a single write, and none are emitted on empty frames.
+      # terminal presents it atomically. Assembled into `@framebuf` first and
+      # handed to `_print` as a single slice, so the terminal (and any buffered
+      # mode / `@ret` capture diversion inside `_print`) sees one write instead
+      # of up to five.
+      @framebuf.clear
+      @framebuf << "\e[?2026h" if synchronized_output?
+      @framebuf.write @pre.to_slice
+      @framebuf.write @main.to_slice
+      @framebuf.write @post.to_slice
+      @framebuf << "\e[?2026l" if synchronized_output?
+
       tput._print do |io|
-        io << "\e[?2026h" if synchronized_output?
-        io.write @pre.to_slice
-        io.write @main.to_slice
-        io.write @post.to_slice
-        io << "\e[?2026l" if synchronized_output?
+        io.write @framebuf.to_slice
       end
     end
 

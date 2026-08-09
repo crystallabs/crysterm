@@ -221,11 +221,23 @@ module Crysterm
         @_reverse_fallback_fp = nil
       end
 
-      # If specific style is not set, it will depend on current state
+      # If specific style is not set, it will depend on current state.
+      #
+      # `AlwaysInline` so the frame-memo hit check — the overwhelmingly common
+      # case, taken ~10-25× per widget per frame — folds to a few loads and a
+      # compare with no call overhead; the resolve-and-restamp miss path stays
+      # outlined in `#resolve_and_memo_style`.
+      @[AlwaysInline]
       def style : ::Crysterm::Style
         if (fs = @_frame_style) && (scr = window?) && @_frame_style_stamp == scr.renders
           return fs
         end
+        resolve_and_memo_style
+      end
+
+      # The miss arm of `#style`: resolves, drops the derived insets cache, and
+      # restamps against the current frame.
+      private def resolve_and_memo_style : ::Crysterm::Style
         st = resolve_style
         # The insets cache is derived from the resolved style, so its validity
         # is exactly "the frame cache was not refreshed since" — reset together.

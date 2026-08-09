@@ -173,6 +173,15 @@ module Crysterm
     # rather than the line-family runs (see `Border#glyph_octet`) — `│` belongs
     # to a family that implies corners, so a lone pair reads as a broken frame.
     protected def effective_insets(border, padding, rect : RenderedGeometry) : Insets
+      # Fast path: nothing to inset — no border, no padding, no scroll-hidden
+      # band. The overwhelmingly common widget, and this runs twice per widget
+      # per frame (`base_render` + `with_inset_coords`), so it skips the
+      # four-edge fitting math outright.
+      if !border.any? && !padding.any? &&
+         rect.hidden_left == 0 && rect.hidden_top == 0 &&
+         rect.hidden_right == 0 && rect.hidden_bottom == 0
+        return Insets.new({0, 0}, {0, 0}, {0, 0}, {0, 0}, capped_v: false, capped_h: false)
+      end
       l = effective_edge_insets(border.left, padding.left, rect.hidden_left)
       t = effective_edge_insets(border.top, padding.top, rect.hidden_top)
       r = effective_edge_insets(border.right, padding.right, rect.hidden_right)
@@ -1125,11 +1134,21 @@ module Crysterm
     #
     # Returns the widget's **live `@lpos`**, which the next render mutates in
     # place: read the values, do not retain the object across frames.
+    #
+    # `AlwaysInline` so the already-resolved case — the common case once a
+    # widget has rendered once this frame — folds to a couple of loads and a
+    # compare; the resolve arm stays outlined in `#resolve_last_rendered_position`.
+    @[AlwaysInline]
     def last_rendered_position? : RenderedGeometry?
-      pos = @lpos || return
+      pos = @lpos
+      return pos if pos && pos.aleft
+      resolve_last_rendered_position
+    end
 
-      # Already resolved for this rectangle.
-      return pos if pos.aleft
+    # The miss arm of `#last_rendered_position?`: resolves `@lpos`'s absolute
+    # and inset fields in place from the window's extent.
+    private def resolve_last_rendered_position : RenderedGeometry?
+      pos = @lpos || return
 
       # Resolving needs the window's extent; a detached widget with a stale
       # `@lpos` has none — report "no usable rendered position" instead of
@@ -1157,6 +1176,7 @@ module Crysterm
     # rendered position is a precondition (the geometry resolution path, which
     # only reaches here for an already-rendered ancestor); use
     # `#last_rendered_position?` when it is merely likely.
+    @[AlwaysInline]
     def last_rendered_position : RenderedGeometry
       last_rendered_position? ||
         raise "Widget has no rendered position (never rendered, or fully clipped last frame); use #last_rendered_position? instead"

@@ -84,12 +84,16 @@ module Crysterm
 
     # Cells to add to an explicitly declared extent on this axis: the frame
     # insets under `ContentBox` (which measures the content area), nothing under
-    # `BorderBox` (which already measures the whole widget).
+    # `BorderBox` (which already measures the whole widget). `AlwaysInline` so
+    # the default-`BorderBox` case folds to a compare against the enum, keeping
+    # the per-frame `awidth`/`aheight` fixed-size path call-free.
+    @[AlwaysInline]
     private def box_sizing_pad_width : Int32
       @box_sizing.content_box? ? ihorizontal : 0
     end
 
     # :ditto: for the vertical axis.
+    @[AlwaysInline]
     private def box_sizing_pad_height : Int32
       @box_sizing.content_box? ? ivertical : 0
     end
@@ -109,6 +113,14 @@ module Crysterm
     getter min_height : Dim | Int32 | String? = nil
     getter max_height : Dim | Int32 | String? = nil
 
+    # Whether any of the four `min-*`/`max-*` constraints is set. One boolean so
+    # the `clamp_awidth`/`clamp_aheight` fast path — taken by every
+    # `awidth`/`aheight` call on the (overwhelmingly common) unconstrained
+    # widget, several times per widget per frame — is a single flag test instead
+    # of two union-typed ivar reads per axis. Maintained by the four setters
+    # below, the only writers of those ivars.
+    @size_constrained = false
+
     # `min_*=`/`max_*=` alter effective `awidth`/`aheight` like `width=`/`height=`,
     # so they emit `Resize` too, or its listeners go stale. Assign-before-emit, so
     # those listeners see the new constraint. A `String`/`Symbol` is normalized
@@ -119,6 +131,8 @@ module Crysterm
         val = Dim.from val, size: true unless val.nil? || val.is_a?(Int32)
         return if @{{ dim.id }} == val
         @{{ dim.id }} = val
+        @size_constrained = !(@min_width.nil? && @max_width.nil? &&
+                              @min_height.nil? && @max_height.nil?)
         mark_dirty
         emit ::Crysterm::Event::Resize
       end
@@ -211,10 +225,19 @@ module Crysterm
 
       # Clamps a computed {{ axis[:dim].id }} to the
       # `[min_{{ axis[:dim].id }}, max_{{ axis[:dim].id }}]` constraints.
+      # `AlwaysInline` so the unconstrained case — the `@size_constrained` flag
+      # test — folds into every `a{{ axis[:dim].id }}` call with no call
+      # overhead; the constrained remainder stays outlined below.
+      @[AlwaysInline]
       private def clamp_a{{ axis[:dim].id }}(v : Int32, rendered = false) : Int32
+        return v unless @size_constrained
+        clamp_a{{ axis[:dim].id }}_constrained v, rendered
+      end
+
+      # The constrained arm of `#clamp_a{{ axis[:dim].id }}`.
+      private def clamp_a{{ axis[:dim].id }}_constrained(v : Int32, rendered) : Int32
         mn = @min_{{ axis[:dim].id }}
         mx = @max_{{ axis[:dim].id }}
-        return v if mn.nil? && mx.nil?
         # Fast path: both constraints are plain cell counts (or unset), so the
         # parent's extent is never needed.
         if !relative_constraint?(mn) && !relative_constraint?(mx)
