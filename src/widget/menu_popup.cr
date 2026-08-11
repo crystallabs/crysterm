@@ -308,13 +308,19 @@ module Crysterm
         false
       end
 
-      # Closes every open submenu from the top-level menu down (used after a leaf
-      # action fires inside a submenu).
-      protected def close_chain : Nil
+      # The top-level menu of this submenu chain (`self` when not a submenu).
+      protected def root_menu : Menu
         root = self
         while pm = root.parent_menu
           root = pm
         end
+        root
+      end
+
+      # Closes every open submenu from the top-level menu down (used after a leaf
+      # action fires inside a submenu).
+      protected def close_chain : Nil
+        root = root_menu
         root.close_submenu
         root.hide_popup # no-op unless the root is a popup
       end

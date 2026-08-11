@@ -79,10 +79,12 @@ module Crysterm
       end
 
       # Optional hook for a top-level menu (no `#parent_menu`) to hand horizontal
-      # navigation to its owner: called with `-1` on Left and `+1` on Right when
-      # there's no submenu to move into. A `Widget::MenuBar` sets this to switch
-      # between its menus with the arrow keys. The public spelling is the block
-      # form `#on_navigate(&block)`; the raw setter is protected.
+      # navigation to its owner: called with `-1` on Left (at the top-level menu)
+      # and `+1` on Right when there's no submenu to move into — Right consults
+      # the chain's *root* menu, so a leaf deep in a submenu still moves the
+      # owner forward. A `Widget::MenuBar` sets this to switch between its menus
+      # with the arrow keys. The public spelling is the block form
+      # `#on_navigate(&block)`; the raw setter is protected.
       getter on_navigate : Proc(Int32, Nil)?
       protected setter on_navigate
 
@@ -288,6 +290,49 @@ module Crysterm
         activate_index current_index
       end
 
+      # Reveals the highlight on the first selectable row. Keyboard-opened menus
+      # (`MenuBar`'s Down/Space or menu-to-menu switching, a submenu entered
+      # with Right) start with their first entry selected — Qt behavior — unlike
+      # mouse-opened ones, which drop with no row highlighted until hovered.
+      def select_first_action : Nil
+        reveal_edge 1
+      end
+
+      # :ditto: — the *last* selectable row (`MenuBar`'s Up opens the menu
+      # cycling backward, so it starts from the bottom end).
+      def select_last_action : Nil
+        reveal_edge -1
+      end
+
+      private def reveal_edge(dir : Int32) : Nil
+        return unless i = edge_selectable(dir)
+        @show_highlight = true
+        self.current_index = i
+        request_render
+      end
+
+      # Index of the first (`dir > 0`) or last (`dir < 0`) selectable
+      # (non-separator) row, or `nil` when the menu is empty or all separators.
+      private def edge_selectable(dir : Int32) : Int32?
+        acts = visible_actions
+        n = acts.size
+        return if n == 0
+        from = dir > 0 ? 0 : n - 1
+        Mixin::NavKeys.nearest_selectable(n, from, dir) { |i| acts[i].separator? }
+      end
+
+      # Whether a selectable row exists strictly beyond the current one in *dir*
+      # — false at the list's edge, where vertical navigation wraps around.
+      private def selectable_beyond?(dir : Int32) : Bool
+        acts = visible_actions
+        i = current_index + dir
+        while 0 <= i && i < acts.size
+          return true unless acts[i].separator?
+          i += dir
+        end
+        false
+      end
+
       # While the menu is "inactive" (dismissed by an outside click) no row is
       # highlighted; otherwise rendering defers to `Mixin::ItemView`.
       def render_style_for(item : Widget) : Style
@@ -437,13 +482,23 @@ module Crysterm
       end
 
       def on_keypress(e)
+        intent = nav_intent(e)
+
         # A menu opens with no row highlighted; the first selection-moving key —
-        # or Enter — *reveals* the highlight on the current item rather than
-        # moving/activating it. Enter must be gated here too, or it falls through
-        # to `super` (`activate_current` -> `activate_index 0`) and fires the first
-        # action though no row was ever shown highlighted.
+        # or Enter — *reveals* the highlight rather than moving/activating it.
+        # Up (or End) as that first key reveals it on the *last* entry, any
+        # other mover on the first — so cycling starts from the end the user is
+        # heading toward, and never on a leading separator. Enter must be gated
+        # here too, or it falls through to `super` (`activate_current` ->
+        # `activate_index 0`) and fires the first action though no row was ever
+        # shown highlighted.
         if !@show_highlight && (selection_key?(e) || e.key == ::Tput::Key::Enter)
           @show_highlight = true
+          if intent.backward? || intent.last?
+            edge_selectable(-1).try { |i| self.current_index = i }
+          elsif !intent.none?
+            edge_selectable(1).try { |i| self.current_index = i }
+          end
           request_render
           e.accept
           return
@@ -456,11 +511,15 @@ module Crysterm
           act = selected_action
           if act && act.enabled? && act.menu?
             open_submenu act
+            # Keyboard-entered: the submenu starts with its first child
+            # selected (Qt), unlike hover-opened ones.
+            @submenu_open.try &.select_first_action
             e.accept
             return
-          elsif (nav = @on_navigate) && parent_menu.nil?
-            # A top-level menu with no submenu to enter hands Right to its owner
-            # (e.g. `MenuBar` moves to the next top-level menu).
+          elsif nav = root_menu.on_navigate
+            # No submenu to enter: hand Right to the chain owner's hook — via
+            # the *root* menu, so a leaf at any submenu depth still moves e.g.
+            # a `MenuBar` to the next top-level menu.
             nav.call 1
             e.accept
             return
@@ -486,9 +545,19 @@ module Crysterm
             e.accept
             return
           end
-        elsif e.key == ::Tput::Key::Up || e.key == ::Tput::Key::Down
+        elsif intent.backward? || intent.forward?
           # Moving the highlight away closes any submenu anchored to the old row.
           close_submenu if @submenu_open
+          # Stepping past either end wraps to the opposite end (skipping
+          # separators) instead of clamping there; in-range moves fall through
+          # to the item view's normal one-step handling.
+          dir = intent.forward? ? 1 : -1
+          unless selectable_beyond? dir
+            edge_selectable(dir).try { |i| self.current_index = i }
+            request_render
+            e.accept
+            return
+          end
         end
 
         super

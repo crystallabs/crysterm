@@ -7,9 +7,13 @@ module Crysterm
     # Horizontal bar of pop-up menus, modeled after Qt's `QMenuBar`.
     #
     # Each title added with `#add_menu` drops a `Widget::Menu` when clicked (or
-    # via Enter/Down/Space while the bar is focused). Once a menu is open, hovering
-    # or arrowing with Left/Right onto another title switches to it (closing the
-    # previous); the active title is highlighted, none when no menu is open.
+    # via Enter/Down/Up/Space while the bar is focused; keyboard-opened menus
+    # start with an entry selected). Once a menu is open, hovering or arrowing
+    # with Left/Right onto another title switches to it (closing the previous);
+    # the active title is highlighted, none when no menu is open. Within the
+    # menu, Up/Down wrap at the ends, Right enters the highlighted submenu (or
+    # moves to the next title when there is none to enter), and Left backs out
+    # one submenu level (or moves to the previous title from the top level).
     # Escape, an outside click, or activating a leaf closes the menu.
     #
     # ```
@@ -40,6 +44,12 @@ module Crysterm
 
         # Always keyboard/mouse-driven, plain titles ("File", not ActionBar's default "1:File").
         super(**listbar.merge(keys: true))
+        # Window chrome: the window's Tab/Shift+Tab cycle steps over the bar by
+        # default (as in Qt, a menu bar is reached by click or its accelerators,
+        # not the Tab chain). A click still focuses it, and Left/Right/Enter
+        # work as before once focused. An explicit `focus_policy:` argument
+        # (applied by `super` above) wins over this default.
+        self.focus_policy = FocusPolicy::Click unless @focus_policy
         setup_action_bar mouse: true, auto_prefix: false
         # Titles pack flush (only trailing the last title); each keeps its own side padding.
         @item_gap = 0
@@ -174,9 +184,15 @@ module Crysterm
       end
 
       def on_keypress(e)
-        # Down/Space open the highlighted menu (Enter and Left/Right come from `Mixin::ActionBar`).
-        if (e.key == ::Tput::Key::Down || e.char == ' ') && !@menus.empty?
-          open current_index
+        # Down/Up/Space open the highlighted menu (Enter and Left/Right come from
+        # `Mixin::ActionBar`). Keyboard-opened, the menu drops with an entry
+        # already selected — the first for Down/Space, the last for Up (cycling
+        # backward, Qt-like) — unlike a clicked-open menu, which drops
+        # unhighlighted until hovered.
+        if (e.key == ::Tput::Key::Down || e.key == ::Tput::Key::Up || e.char == ' ') && !@menus.empty?
+          i = current_index
+          open i
+          @menus[i]?.try { |m| e.key == ::Tput::Key::Up ? m.select_last_action : m.select_first_action }
           e.accept
           return
         end
@@ -184,12 +200,15 @@ module Crysterm
       end
 
       # Switches to the menu *dir* away (wrapping), as Left/Right does with a
-      # menu open.
+      # menu open. A keyboard switch, so the newly opened menu starts with its
+      # first entry selected, like any keyboard-opened menu.
       private def switch_relative(dir : Int32) : Nil
         return unless oi = @open_index
         n = @menus.size
         return if n == 0
-        open (((oi + dir) % n) + n) % n
+        i = (((oi + dir) % n) + n) % n
+        open i
+        @menus[i]?.try &.select_first_action
       end
 
       private def on_menu_hidden(menu : Menu) : Nil

@@ -36,6 +36,13 @@ module Crysterm
 
       def initialize(**listbar)
         super(**listbar.merge(keys: true))
+        # Window chrome: the window's Tab/Shift+Tab cycle steps over the bar by
+        # default (as in Qt, a tool bar is reached by click or its actions'
+        # accelerators, not the Tab chain). A click still focuses it, and
+        # Left/Right/Enter work as before once focused. An explicit
+        # `focus_policy:` argument (applied by `super` above) wins over this
+        # default.
+        self.focus_policy = FocusPolicy::Click unless @focus_policy
         setup_action_bar mouse: true, auto_prefix: false
         # Buttons pack flush — no gap cells between them (only trailing the last
         # one); each button box keeps its own side padding.
