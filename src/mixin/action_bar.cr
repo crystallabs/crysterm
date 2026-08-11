@@ -744,13 +744,15 @@ module Crysterm
           return
         end
 
+        # Tab/Shift+Tab are deliberately NOT item-navigation keys (Qt's
+        # `QTabBar` likewise leaves them alone): left unhandled here, they fall
+        # through to the window's `tab_navigation`, so keyboard focus can leave
+        # the bar instead of being trapped cycling its items.
         case
-        when e.key == ::Tput::Key::Left, (@vi_keys && e.char == 'h'),
-             (e.key == ::Tput::Key::ShiftTab)
+        when e.key == ::Tput::Key::Left, (@vi_keys && e.char == 'h')
           move_left
           request_render
-        when e.key == ::Tput::Key::Right, (@vi_keys && e.char == 'l'),
-             (e.key == ::Tput::Key::Tab)
+        when e.key == ::Tput::Key::Right, (@vi_keys && e.char == 'l')
           move_right
           request_render
         when e.key == ::Tput::Key::Enter, (@vi_keys && e.char == 'k')

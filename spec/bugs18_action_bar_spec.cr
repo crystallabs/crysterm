@@ -30,7 +30,7 @@ private def emit_kp(w, char : Char = '\0', key : Tput::Key? = nil)
 end
 
 describe "BUGS18 B18-39/B18-100 ActionBar#on_keypress accepts handled keys" do
-  it "accepts arrows, Tab/ShiftTab, vi h/l, Enter/vi k and Escape/vi q" do
+  it "accepts arrows, vi h/l, Enter/vi k and Escape/vi q" do
     s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, keys: true, vi_keys: true
     bar.add_item("open", -> { nil })
@@ -39,8 +39,6 @@ describe "BUGS18 B18-39/B18-100 ActionBar#on_keypress accepts handled keys" do
 
     press(bar, key: Tput::Key::Left).accepted?.should be_true
     press(bar, key: Tput::Key::Right).accepted?.should be_true
-    press(bar, key: Tput::Key::ShiftTab).accepted?.should be_true
-    press(bar, key: Tput::Key::Tab).accepted?.should be_true
     press(bar, 'h').accepted?.should be_true
     press(bar, 'l').accepted?.should be_true
     press(bar, key: Tput::Key::Enter).accepted?.should be_true
@@ -82,10 +80,39 @@ describe "BUGS18 B18-39/B18-100 ActionBar#on_keypress accepts handled keys" do
     s.repaint
 
     press(bar, 'x').accepted?.should be_false
+    # Tab/Shift+Tab are not item navigation (Qt's QTabBar leaves them alone):
+    # they must bubble un-accepted so window-level `tab_navigation` can move
+    # keyboard focus off the bar instead of it trapping focus forever.
+    press(bar, key: Tput::Key::Tab).accepted?.should be_false
+    press(bar, key: Tput::Key::ShiftTab).accepted?.should be_false
     # vi chars must not be consumed when vi_keys is off.
     bar2 = Crysterm::Widget::ListBar.new parent: s, keys: true
     bar2.add_item("open", -> { nil })
     press(bar2, 'q').accepted?.should be_false
+  end
+end
+
+describe "ActionBar leaves Tab/Shift+Tab to window focus navigation" do
+  it "moves focus off a focused bar instead of cycling its items" do
+    s = headless_screen(80, 24)
+    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, top: 0, left: 0, height: 1
+    bar.add_item("one", -> { nil })
+    bar.add_item("two", -> { nil })
+    other = Crysterm::Widget::Box.new parent: s, keys: true, top: 5, left: 0, width: 10, height: 1
+    s.repaint
+    bar.focus
+    s.focused.same?(bar).should be_true
+
+    # Through the window-level listener, where the un-accepted Tab reaches the
+    # default `tab_navigation` and moves focus onward — the bar's selection
+    # must not move.
+    s.emit Crysterm::Event::KeyPress, kp(key: Tput::Key::Tab)
+    s.focused.same?(other).should be_true
+    bar.current_index.should eq 0
+
+    s.emit Crysterm::Event::KeyPress, kp(key: Tput::Key::ShiftTab)
+    s.focused.same?(bar).should be_true
+    bar.current_index.should eq 0
   end
 end
 

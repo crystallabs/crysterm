@@ -9,8 +9,9 @@ module Crysterm
     #
     # Shows a tab bar (a `Widget::ListBar`) along the top — or the bottom, with
     # `#tab_position` — and a stack of pages filling the rest; selecting a tab
-    # (arrow keys, Tab/Shift-Tab, a click, or programmatically) raises the
-    # matching page and hides the others.
+    # (arrow keys, a click, or programmatically) raises the matching page and
+    # hides the others. Tab/Shift+Tab are left to the window's focus
+    # navigation, as in Qt's `QTabBar`.
     #
     # With `#tabs_closable?` each tab shows a `✕` marker and can be closed with
     # the Delete key (on the focused bar) or by clicking its marker; `#movable?`

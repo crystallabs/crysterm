@@ -7,9 +7,14 @@ module Crysterm
     # A `Form` groups a number of input widgets (text boxes, checkboxes, radio
     # buttons, lists, buttons, ...) placed anywhere in its subtree and provides:
     #
-    # * **Keyboard navigation** between the focusable children. When created
-    #   with `keys: true`, `Tab`/`Shift+Tab` move focus to the next/previous
-    #   focusable child (and, with `vi_keys: true`, `j`/`k` do the same).
+    # * **Keyboard navigation** between the focusable children. `Tab`/
+    #   `Shift+Tab` are handled by the window's `tab_navigation` (one focus
+    #   ring for the whole window, as in Qt): they enter the form at its first
+    #   entry, step through the entries, and continue past the last one to the
+    #   next widget outside the form — symmetrically in both directions. The
+    #   form itself is never a Tab stop (like a `NoFocus` Qt container). With
+    #   `keys: true, vi_keys: true`, `j`/`k` additionally cycle within the
+    #   form, wrapping at its edges.
     # * **Submission** — `#submit` walks the subtree, collects each input's
     #   natively-typed value into a `FormData` and emits `Event::FormSubmitted`.
     # * **Reset** — `#reset` returns every input child to its initial state and
@@ -71,7 +76,9 @@ module Crysterm
         @auto_next = auto_next
 
         if @keys
-          # Become keyable so bubbled key events are delivered here.
+          # Become keyable so bubbled key events are delivered here (the
+          # `accepts_tab_focus?` override below keeps the container itself out
+          # of the Tab ring regardless).
           self.keyable = true
           on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
         end
@@ -82,6 +89,16 @@ module Crysterm
         if @auto_next
           on(Crysterm::Event::ChildAdded) { focusable }
         end
+      end
+
+      # A form is a container, not a field: like a `NoFocus` Qt container,
+      # Tab/Shift+Tab never land on the form itself — they go straight to its
+      # entries (each registered in the window's focus ring on its own). The
+      # form stays `keyable?` so entry keys still bubble to `#on_keypress`.
+      # An explicit `#focus_policy=` assignment still wins, unlike the base
+      # default where an unset policy accepts Tab.
+      def accepts_tab_focus? : Bool
+        @focus_policy.try(&.accepts_tab?) || false
       end
 
       # Returns the focusable (keyable) descendants of this form, in tree order.
@@ -138,7 +155,7 @@ module Crysterm
         offset_focusable -1
       end
 
-      private def offset_focusable(direction : Int32) : Widget?
+      private def offset_focusable(direction : Int32, anchored : Bool = true) : Widget?
         list = focusable
         return if list.empty?
         # `!disabled?`: focusing a disabled widget would set `state = :focused`,
@@ -146,23 +163,27 @@ module Crysterm
         # and re-enabling it.
         return unless list.any? { |w| w.style.visible? && !w.disabled? }
 
-        # Start from the selected child if still part of the form, otherwise
-        # from a direction-aware sentinel: just before the first child for a
-        # forward step (so `+1` lands on the first), and on the first child for
-        # a backward step (so `-1` wraps to the last). The sentinel must depend
-        # on direction: a fixed `-1` would make `-1` compute
-        # `(-1 - 1) % size == size - 2`, landing on the second-to-last field.
+        # Start from the anchor child if any, otherwise from a direction-aware
+        # sentinel: just before the first child for a forward step (so `+1`
+        # lands on the first), and on the first child for a backward step (so
+        # `-1` wraps to the last). The sentinel must depend on direction: a
+        # fixed `-1` would make `-1` compute `(-1 - 1) % size == size - 2`,
+        # landing on the second-to-last field.
         size = list.size
         sentinel = direction > 0 ? -1 : 0
-        # Anchor on the child that *actually* holds focus when it differs from
-        # the last-navigated `@current_field` — e.g. a field focused by a click.
-        # Only when `@current_field` is already set, so `#focus_first`/`#focus_last`
-        # still enter from the sentinel.
-        anchor = @current_field
-        if anchor && (foc = window?.try(&.focused)) && list.includes?(foc)
-          anchor = foc
+        i = sentinel
+        if anchored
+          # Anchor on the child that *actually* holds focus: with Tab traversal
+          # window-driven, a field is routinely focused (window Tab, a click)
+          # without the form's own navigation ever running, so `@current_field`
+          # alone would restart from the form's edge instead of advancing. It
+          # remains the fallback for when focus sits outside the form.
+          anchor = @current_field
+          if (foc = window?.try(&.focused)) && list.includes?(foc)
+            anchor = foc
+          end
+          i = (list.index(anchor) || sentinel) if anchor
         end
-        i = anchor ? (list.index(anchor) || sentinel) : sentinel
         size.times do
           i = (i + direction) % size
           candidate = list[i]
@@ -191,16 +212,18 @@ module Crysterm
         @current_field = nil
       end
 
-      # Focuses the first focusable child.
+      # Focuses the first focusable child. `anchored: false`, not just
+      # `reset_selected`: a form field may *hold focus* right now, and the
+      # focus anchor would turn "first" into "next after the focused one".
       def focus_first
         reset_selected
-        focus_next
+        offset_focusable(1, anchored: false).try &.focus
       end
 
       # Focuses the last focusable child.
       def focus_last
         reset_selected
-        focus_previous
+        offset_focusable(-1, anchored: false).try &.focus
       end
 
       # Collects the value of every input child into a `FormData`, stores it
@@ -294,24 +317,25 @@ module Crysterm
         el.children.each { |child| reset_children child }
       end
 
+      # Tab/Shift+Tab are deliberately NOT handled here: the window's
+      # `tab_navigation` owns them (Qt's model — one focus chain per window,
+      # walked the same way in both directions), so they traverse into, through
+      # and out of the form without trapping focus inside it. Only the vi keys
+      # remain form-level, since no window fallback exists for them; they keep
+      # the historical wrap-around within the form.
       def on_keypress(e : Crysterm::Event::KeyPress)
         return if @children.empty?
+        return unless @vi_keys
 
-        key = e.key
-        ch = e.char
-
-        if key == Tput::Key::Tab || (@vi_keys && ch == 'j')
+        case e.char
+        when 'j'
           e.accept
           focus_next
           request_render
-          return
-        end
-
-        if key == Tput::Key::ShiftTab || (@vi_keys && ch == 'k')
+        when 'k'
           e.accept
           focus_previous
           request_render
-          return
         end
       end
     end
