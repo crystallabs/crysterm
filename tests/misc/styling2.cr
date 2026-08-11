@@ -46,7 +46,7 @@ Widget::Box.new \
 # the fill leaks past the stroke on both sides.
 Widget::Box.new \
   parent: s, top: 3, left: 2, width: 22, height: 5,
-  content: "{center}Outer block\nratio :half{/center}", parse_tags: true,
+  content: "{center}Outer block\nbg contained\n:outer, ratio: :half{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#2050a0",
     border: Border.new(type: :outer, fg: "#9fc7ff"))
 
@@ -57,7 +57,7 @@ Widget::Box.new \
 # band glyphs that used to be hand-picked (`horizontal_char: '▄'` & co.).
 Widget::Box.new \
   parent: s, top: 3, left: 28, width: 22, height: 5,
-  content: "{center}Outer :thin\n+ shadow :half{/center}", parse_tags: true,
+  content: "{center}Outer + thin shadow\nshadow ratio: :half\n:outer, ratio: :thin{/center}", parse_tags: true,
   style: Style.new(fg: "black", bg: "#d0a020",
     border: Border.new(type: :outer, fg: "#6b4400", ratio: :thin),
     shadow: Shadow.new(right: 1, bottom: 1, ratio: :half))
@@ -67,7 +67,7 @@ Widget::Box.new \
 # that renders identically at every glyph tier.
 Widget::Box.new \
   parent: s, top: 3, left: 54, width: 24, height: 5,
-  content: "{center}Outer block\nratio :full{/center}", parse_tags: true,
+  content: "{center}Outer block\nfull column\n:outer, ratio: :full{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#146054",
     border: Border.new(type: :outer, fg: "#5fe0c0", ratio: :full))
 
@@ -76,7 +76,7 @@ Widget::Box.new \
 # so the backdrop flows up to the ink and the widget bg exists only inside it.
 Widget::Box.new \
   parent: s, top: 10, left: 2, width: 22, height: 5,
-  content: "{center}Inner block\nratio :half{/center}", parse_tags: true,
+  content: "{center}Inner block\nbackdrop shows\n:inner, ratio: :half{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#4a2060",
     border: Border.new(type: :inner, fg: "#d090ff"))
 
@@ -84,7 +84,7 @@ Widget::Box.new \
 # thin frame, with the backdrop everywhere else.
 Widget::Box.new \
   parent: s, top: 10, left: 28, width: 22, height: 5,
-  content: "{center}Inner block\nratio :thin{/center}", parse_tags: true,
+  content: "{center}Inner block\nhairline ring\n:inner, ratio: :thin{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#204020",
     border: Border.new(type: :inner, fg: "#90e070", ratio: :thin))
 
@@ -95,7 +95,7 @@ Widget::Box.new \
 # share (1/8, 4/8, 8/8), keeping opposite edges of the frame symmetric.
 Widget::Box.new \
   parent: s, top: 10, left: 54, width: 24, height: 5,
-  content: "{center}Outer block\nratio 0.375{/center}", parse_tags: true,
+  content: "{center}Outer block\nvariable ratio\n:outer, ratio: 0.375{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#601818",
     border: Border.new(type: :outer, fg: "#ff9090", ratio: 0.375))
 

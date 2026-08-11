@@ -28,7 +28,7 @@ Widget::Box.new \
 # 1 cell wide — a 1-cell run reads about as thin as half a cell tall.
 Widget::Box.new \
   parent: s, top: 3, left: 2, width: 22, height: 5,
-  content: "{center}Line border\n+ thin shadow{/center}", parse_tags: true,
+  content: "{center}Line border\n+ thin shadow\ntype: :solid{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#2050a0", border: Border.new(type: :solid),
     shadow: Shadow.new(right: 1, bottom: 1, horizontal_char: '▄'))
 
@@ -49,7 +49,7 @@ bevel.bottom_left_char = '┖'
 
 Widget::Box.new \
   parent: s, top: 3, left: 28, width: 22, height: 5,
-  content: "{center}Per-side chars\nheavy top & left{/center}", parse_tags: true,
+  content: "{center}Per-side chars\nheavy top & left\ntype: :dotted, ━┃┏┑┖{/center}", parse_tags: true,
   style: Style.new(fg: "black", bg: "#d0a020", border: bevel)
 
 # Text attributes via inline tags. The line border keeps its glyphs (drawn in
@@ -58,8 +58,8 @@ Widget::Box.new \
 Widget::Box.new \
   parent: s, top: 3, left: 54, width: 24, height: 5,
   content: "{bold}bold{/bold} {underline}underline{/underline} {italic}italic{/italic}\n" \
-           "{reverse}reverse{/reverse} {strike}strike{/strike}\n" \
-           "{red-fg}red{/} {green-fg}green{/} {blue-fg}blue{/}",
+           "{reverse}reverse{/reverse} {strike}strike{/strike} {red-fg}red{/} {green-fg}grn{/}\n" \
+           "{center}:solid, bg:transparent{/center}",
   parse_tags: true,
   style: Style.new(fg: "white", bg: "#101010",
     border: Border.new(type: :solid, bg: "transparent"))
@@ -71,19 +71,19 @@ Widget::Box.new \
 # Rounded: light runs (─│) with arc corners ╭╮╰╯.
 Widget::Box.new \
   parent: s, top: 10, left: 2, width: 22, height: 5,
-  content: "{center}Rounded border\narc corners{/center}", parse_tags: true,
+  content: "{center}Rounded border\narc corners\ntype: :rounded{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#146054", border: Border.new(type: :rounded, fg: "#5fe0c0"))
 
 # Double: the ═║╔╗╚╝ family — heaviest of the line borders.
 Widget::Box.new \
   parent: s, top: 10, left: 28, width: 22, height: 5,
-  content: "{center}Double border\ntwo rules{/center}", parse_tags: true,
+  content: "{center}Double border\ntwo rules\ntype: :double{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#4a2060", border: Border.new(type: :double, fg: "#d090ff"))
 
 # Dashed: ┄ horizontally, ┆ vertically, with the plain light corners.
 Widget::Box.new \
   parent: s, top: 10, left: 54, width: 24, height: 5,
-  content: "{center}Dashed border\nbroken rules{/center}", parse_tags: true,
+  content: "{center}Dashed border\nbroken rules\ntype: :dashed{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#204020", border: Border.new(type: :dashed, fg: "#90e070"))
 
 # A strip of animated 24-bit color: `Widget::Gradient` in rainbow mode,

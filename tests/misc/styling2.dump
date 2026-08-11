@@ -4,17 +4,17 @@ w=80 h=24
 |                                                                                |
 |                                                                                |
 |  ▛▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▜    ▛▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▜    █▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█  |
-|  ▌    Outer block     ▐    ▏    Outer :thin     ▕▐   █     Outer block      █  |
-|  ▌    ratio :half     ▐    ▏   + shadow :half   ▕▐   █     ratio :full      █  |
-|  ▌                    ▐    ▏                    ▕▐   █                      █  |
+|  ▌    Outer block     ▐    ▏Outer + thin shadow ▕▐   █     Outer block      █  |
+|  ▌    bg contained    ▐    ▏shadow ratio: :half ▕▐   █     full column      █  |
+|  ▌:outer, ratio: :half▐    ▏:outer, ratio: :thin▕▐   █ :outer, ratio: :full █  |
 |  ▙▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▟    ▙▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▟▐   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█  |
-|                             ▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▟                             |
+|                             ▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆                             |
 |                                                                                |
-|  ▗▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▖    ▗▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▖    ▛▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▜  |
+|  ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁    ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁    ▛▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▜  |
 |  ▐    Inner block     ▌    ▕    Inner block     ▏    ▌     Outer block      ▐  |
-|  ▐    ratio :half     ▌    ▕    ratio :thin     ▏    ▌     ratio 0.375      ▐  |
-|  ▐                    ▌    ▕                    ▏    ▌                      ▐  |
-|  ▝▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▘    ▝▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▘    ▙▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▟  |
+|  ▐   backdrop shows   ▌    ▕   hairline ring    ▏    ▌    variable ratio    ▐  |
+|  ▐:inner, ratio: :half▌    ▕:inner, ratio: :thin▏    ▌ :outer, ratio: 0.375 ▐  |
+|  ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔    ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔    ▙▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▟  |
 |                                                                                |
 |                                                                                |
 |                                                                                |

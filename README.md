@@ -55,19 +55,9 @@ with a different theme from [data/css/](data/css/)
 
 ![](tests/misc/styling.5s.apng)
 
-*Source: [tests/misc/styling.cr](tests/misc/styling.cr)*
-
-Beyond the classic line borders, block border families draw the border as
-sub-cell, edge-anchored ink: `:outer` keeps the widget's background flush
-inside the ink, `:inner` hugs the content and lets the backdrop show up to
-it, and `ratio` varies the ink thickness in fractions of a column
-(aspect-compensated via the terminal's real cell geometry, finest steps on
-modern-font terminals). Shadows take the same `ratio` to hug the widget as a
-thin band instead of darkening whole cells.
-
 ![](tests/misc/styling2.png)
 
-*Source: [tests/misc/styling2.cr](tests/misc/styling2.cr)*
+*Source: [tests/misc/styling2.cr](tests/misc/styling2.cr), [tests/misc/styling.cr](tests/misc/styling.cr)*
 
 ## Rich text — Markdown with GFM
 

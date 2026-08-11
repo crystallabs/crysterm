@@ -955,22 +955,17 @@ module Crysterm
       BorderRampLeft  # ink anchored at the left edge, growing right
       BorderRampRight # ink anchored at the right edge, growing left
 
-      # Corner cells, named by the *cell corner the ink hugs*. An `Elbow` is
-      # the L-shape along the two named edges (an `Outer` border's corner, or
-      # — drawn as the ground glyph — a thin shadow's corner); a `Miter` is
-      # the small square in the named corner (an `Inner` border's corner,
-      # which must not spur past the ink lines it joins). Indexed by eighths
-      # like the ramps; exact glyphs exist only at 1/8 (Legacy Computing
-      # L-pieces, `extended`), 4/8 (quadrants) and 8/8 (full block), so the
-      # tables bucket every step to the nearest of those.
+      # Corner cells, named by the *cell corner the ink hugs*: the L-shape
+      # along the two named edges — an `Outer` border's corner joint.
+      # (`Inner` borders and thin shadows need no corner piece: both continue
+      # their horizontal run/strip through the corner cells instead.) Indexed
+      # by eighths like the ramps; exact glyphs exist only at 1/8 (Legacy
+      # Computing L-pieces, `extended`), 4/8 (three-quadrant blocks) and 8/8
+      # (full block), so the tables bucket every step to the nearest of those.
       BorderElbowTL
       BorderElbowTR
       BorderElbowBL
       BorderElbowBR
-      BorderMiterTL
-      BorderMiterTR
-      BorderMiterBL
-      BorderMiterBR
     end
 
     # One sequence role's steps per tier: `ascii` is mandatory, higher tiers
@@ -1044,17 +1039,6 @@ module Crysterm
         Array.new(8, '+'),
         ['▟', '▟', '▟', '▟', '▟', '█', '█', '█'],
         ['\u{1FB7F}', '\u{1FB7F}', '▟', '▟', '▟', '█', '█', '█'])
-      # Miters (small square in the named cell corner): a single quadrant up
-      # to middling steps — no eighth-square exists in any repertoire — then
-      # the full block.
-      t[SeqRole::BorderMiterTL.value] = SeqEntry.new(
-        Array.new(8, '+'), ['▘', '▘', '▘', '▘', '▘', '█', '█', '█'])
-      t[SeqRole::BorderMiterTR.value] = SeqEntry.new(
-        Array.new(8, '+'), ['▝', '▝', '▝', '▝', '▝', '█', '█', '█'])
-      t[SeqRole::BorderMiterBL.value] = SeqEntry.new(
-        Array.new(8, '+'), ['▖', '▖', '▖', '▖', '▖', '█', '█', '█'])
-      t[SeqRole::BorderMiterBR.value] = SeqEntry.new(
-        Array.new(8, '+'), ['▗', '▗', '▗', '▗', '▗', '█', '█', '█'])
       t
     end
 

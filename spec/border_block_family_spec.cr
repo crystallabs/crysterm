@@ -73,14 +73,15 @@ describe "block border families" do
     end
   end
 
-  it "flips every anchor for Inner and closes with miter corners" do
+  it "flips every anchor for Inner and continues the runs through the corners" do
     with_aspect do
       g = Border.new(type: :inner).glyph_octet(Glyphs::Tier::Unicode)
       # Content-facing anchors: top run inks the cell bottom, left run the
       # cell right — each ramp serves the opposite side.
       {g[:t], g[:b], g[:l], g[:r]}.should eq({'▁', '▔', '▐', '▌'})
-      # The miter square hugs the cell corner diagonal to the widget corner.
-      {g[:tl], g[:tr], g[:bl], g[:br]}.should eq({'▗', '▖', '▝', '▘'})
+      # Corners continue the horizontal strokes at run thickness — no corner
+      # bead: the vertical bars meet the full-width strokes flush.
+      {g[:tl], g[:tr], g[:bl], g[:br]}.should eq({'▁', '▁', '▔', '▔'})
     end
   end
 
@@ -187,8 +188,10 @@ describe "thin shadow ratio" do
       g[:l].should eq '▌'
       # Top ground would be 6/8 upper — Unicode caps at the 4/8 step.
       g[:t].should eq '▀'
-      # Corner: elbow anchored away from the widget, complement-stepped.
-      g[:br].should eq '▟'
+      # Corners continue the horizontal band's strip (shifted-silhouette
+      # shape), instead of squaring up to an elbow that would bulge past it.
+      g[:br].should eq '▆'
+      g[:bl].should eq '▆'
     end
   end
 
@@ -222,7 +225,7 @@ describe "thin shadow ratio" do
       r = rows s
       r[3][1].should eq '▆' # bottom band ground, shadow hugging the box above
       r[1][5].should eq '▐' # right band ground, shadow hugging the box left
-      r[3][5].should eq '▟' # corner elbow ground
+      r[3][5].should eq '▆' # corner: the bottom strip continues through it
     end
   end
 end

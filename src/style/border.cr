@@ -436,10 +436,9 @@ module Crysterm
     # tier-quantized via `Glyphs.block_eighths` and the
     # `Glyphs::SeqRole::BorderRamp*` step tables), each corner the matching
     # joint — an `Outer` corner is the L-shaped elbow hugging the two outer
-    # edges, an `Inner` corner the miter square hugging the two content-facing
-    # edges (an elbow there would spur past the ink lines into the backdrop).
-    # The corner steps by the thicker of the two arms, so a full-column side
-    # closes with a full corner.
+    # edges (stepped by the thicker arm, so a full-column side closes with a
+    # full corner), an `Inner` corner the horizontal run continued through
+    # the corner cell (see the `else` branch below).
     #
     # Same char-override chain as the line families. The one-axis cap
     # substitution (`Glyphs::Role::BorderCapLeft` …) doesn't apply: an
@@ -454,12 +453,12 @@ module Crysterm
       unless tier.extended?
         w8, v8 = coarse_step(w8), coarse_step(v8)
       end
-      ci = Math.max(w8, v8) - 1
       upper = Glyphs.chars(Glyphs::SeqRole::BorderRampUpper, tier)
       lower = Glyphs.chars(Glyphs::SeqRole::BorderRampLower, tier)
       lefts = Glyphs.chars(Glyphs::SeqRole::BorderRampLeft, tier)
       rights = Glyphs.chars(Glyphs::SeqRole::BorderRampRight, tier)
       if @type.outer?
+        ci = Math.max(w8, v8) - 1
         t, b, l, r = upper[v8 - 1], lower[v8 - 1], lefts[w8 - 1], rights[w8 - 1]
         tl = Glyphs.chars(Glyphs::SeqRole::BorderElbowTL, tier)[ci]
         tr = Glyphs.chars(Glyphs::SeqRole::BorderElbowTR, tier)[ci]
@@ -467,13 +466,15 @@ module Crysterm
         br = Glyphs.chars(Glyphs::SeqRole::BorderElbowBR, tier)[ci]
       else
         # Inner: every anchor flips to the content-facing edge, so each ramp
-        # serves the opposite side — and the corner square hugs the cell
-        # corner *diagonal* to the widget corner it closes.
+        # serves the opposite side. Corners continue the horizontal runs
+        # through the corner cells — the ring's horizontal strokes span the
+        # full box width at their own thickness and the vertical bars meet
+        # them flush. (No repertoire has a corner square smaller than a
+        # quadrant, and a quadrant bead beside a thin run reads as a stray
+        # tick; a continued stroke just reaches the box edge.)
         t, b, l, r = lower[v8 - 1], upper[v8 - 1], rights[w8 - 1], lefts[w8 - 1]
-        tl = Glyphs.chars(Glyphs::SeqRole::BorderMiterBR, tier)[ci]
-        tr = Glyphs.chars(Glyphs::SeqRole::BorderMiterBL, tier)[ci]
-        bl = Glyphs.chars(Glyphs::SeqRole::BorderMiterTR, tier)[ci]
-        br = Glyphs.chars(Glyphs::SeqRole::BorderMiterTL, tier)[ci]
+        tl = tr = t
+        bl = br = b
       end
       unless chars?
         return {tl: tl, tr: tr, bl: bl, br: br, t: t, b: b, l: l, r: r}

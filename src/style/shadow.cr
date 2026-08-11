@@ -127,8 +127,8 @@ module Crysterm
     # reaches the cell edges, so the band hugs the widget with no hairline
     # gap), while the glyph — anchored *away* from the widget — restores the
     # untouched backdrop over the remainder. So a band `n/8` thick draws the
-    # `(8-n)/8` ground glyph of the opposite anchor, and a corner draws the
-    # elbow hugging its away-facing cell corner.
+    # `(8-n)/8` ground glyph of the opposite anchor, and a corner continues
+    # its horizontal band's strip — the shifted-silhouette shape.
     def glyph_octet(tier : Glyphs::Tier)
       dt = db = dl = dr = dtl = dtr = dbl = dbr = nil.as(Char?)
       if r = @ratio
@@ -147,17 +147,13 @@ module Crysterm
         dt = gv.zero? ? nil : Glyphs.chars(Glyphs::SeqRole::BorderRampUpper, tier)[Math.min(gv, cap) - 1]
         dr = gw.zero? ? nil : Glyphs.chars(Glyphs::SeqRole::BorderRampRight, tier)[Math.min(gw, cap) - 1]
         dl = gw.zero? ? nil : Glyphs.chars(Glyphs::SeqRole::BorderRampLeft, tier)[gw - 1]
-        # Corner ground: the elbow anchored at the band corner's own (away)
-        # cell corner, stepped by the thicker arm's complement — clamped
-        # below the full-block bucket, which would erase the corner.
-        gc = 8 - Math.max(w8, v8)
-        unless gc.zero?
-          ci = gc.clamp(1, 5) - 1
-          dtl = Glyphs.chars(Glyphs::SeqRole::BorderElbowTL, tier)[ci]
-          dtr = Glyphs.chars(Glyphs::SeqRole::BorderElbowTR, tier)[ci]
-          dbl = Glyphs.chars(Glyphs::SeqRole::BorderElbowBL, tier)[ci]
-          dbr = Glyphs.chars(Glyphs::SeqRole::BorderElbowBR, tier)[ci]
-        end
+        # Corner cells take the adjacent horizontal band's run ground: the
+        # shadow is the box's silhouette shifted by the offset, so its bottom
+        # (top) strip runs straight through the corner cells at full width
+        # and the vertical column ends flush against it. A squared-up corner
+        # piece (a quadrant elbow) would bulge past the thin strip.
+        dtl = dtr = dt
+        dbl = dbr = db
       end
       {t: top_char || dt, b: bottom_char || db,
        l: left_char || dl, r: right_char || dr,
