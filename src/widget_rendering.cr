@@ -742,8 +742,12 @@ module Crysterm
         # An explicitly transparent border background (`bg: "transparent"` → -1,
         # distinct from an unset `nil`) shows whatever is already in the buffer
         # behind the border; each border cell keeps its existing bg and only the
-        # glyph + fg are drawn over it.
-        border_bg_transparent = border.bg == -1
+        # glyph + fg are drawn over it. An `Inner` block border defaults to
+        # this ground: its ink hugs the content, so by definition the cell
+        # remainder shows what's behind the widget — unless an explicit bg
+        # overrides.
+        border_bg_transparent = border.bg == -1 ||
+                                (border.bg.nil? && border.type.inner?)
 
         # Per-side attributes so `border-top-color` etc. can differ, each falling
         # back to the whole-border color. Border bg falls back to the widget's
@@ -847,11 +851,16 @@ module Crysterm
         # where two bands meet gets its own diagonal glyph. Corner ownership
         # follows the band partition, so no cell is painted twice. The plain
         # (no-glyphs) path does a single blend per band instead.
+        #
+        # The per-band glyphs — explicit chars merged over any `Shadow#ratio`
+        # derivation — resolve once for all four bands; a `nil` position falls
+        # back to the full-cell blend inside `blend_region`.
+        sg = s.glyphs? ? s.glyph_octet(glyph_tier) : nil
         if s.left? && !coords.no_left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
-          if s.glyphs?
-            blend_shadow_v scr, s, xi - s.left, xi, i, l, yi, yl, s.left_char, s.top_left_char, s.bottom_left_char
+          if sg
+            blend_shadow_v scr, s, xi - s.left, xi, i, l, yi, yl, sg[:l], sg[:tl], sg[:bl]
           else
             scr.blend_region s.opacity, xi - s.left, xi, Math.max(i, 0), l
           end
@@ -859,8 +868,8 @@ module Crysterm
 
         if s.top? && !coords.no_top?
           l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
-          if s.glyphs?
-            blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, s.top_char, s.top_left_char, s.top_right_char
+          if sg
+            blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, sg[:t], sg[:tl], sg[:tr]
           else
             scr.blend_region s.opacity, Math.max(xi, 0), l, yi - s.top, yi
           end
@@ -869,8 +878,8 @@ module Crysterm
         if s.right? && !coords.no_right?
           i = (s.top? || s.left?) ? yi : yi + s.bottom
           l = s.bottom? ? yl + s.bottom : yl
-          if s.glyphs?
-            blend_shadow_v scr, s, xl, xl + s.right, i, l, yi, yl, s.right_char, s.top_right_char, s.bottom_right_char
+          if sg
+            blend_shadow_v scr, s, xl, xl + s.right, i, l, yi, yl, sg[:r], sg[:tr], sg[:br]
           else
             scr.blend_region s.opacity, xl, xl + s.right, Math.max(i, 0), l
           end
@@ -879,8 +888,8 @@ module Crysterm
         if s.bottom? && !coords.no_bottom?
           i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
           l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
-          if s.glyphs?
-            blend_shadow_h scr, s, i, l, yl, yl + s.bottom, xi, xl, s.bottom_char, s.bottom_left_char, s.bottom_right_char
+          if sg
+            blend_shadow_h scr, s, i, l, yl, yl + s.bottom, xi, xl, sg[:b], sg[:bl], sg[:br]
           else
             scr.blend_region s.opacity, Math.max(i, 0), l, yl, yl + s.bottom
           end

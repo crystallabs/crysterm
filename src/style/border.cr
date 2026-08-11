@@ -8,18 +8,35 @@ module Crysterm
     Double  # Double line
     Rounded # Solid light line with arc (rounded) corners: ╭╮╰╯
 
+    # The block families: ink drawn as edge-anchored block glyphs (`▔▁▏▕`,
+    # `▀▄▌▐`, …) sized by `Border#ratio`, splitting each border cell into
+    # exactly two parts — ink and one ground — instead of the line families'
+    # centered rule with the background showing on both sides of it.
+    #
+    # `Outer` anchors the ink flush with the widget's outermost cell edges and
+    # grounds the cell remainder in the widget's own background, so the
+    # interior runs up to the ink and stops. `Inner` anchors the ink flush
+    # with the content and leaves the remainder transparent, so whatever is
+    # behind the widget shows right up to the ink (an explicit `Border#bg`
+    # overrides either ground).
+    Outer
+    Inner
+
     # DotDash
     # DotDotDash
-    # Groove
-    # Ridge
-    # Inset
-    # Outset
+
+    # Whether this is a block-family border — edge-anchored block ink sized by
+    # `Border#ratio` — as opposed to the line families' fixed box-drawing
+    # glyphs or the `Fill` fill-character border.
+    def block_family?
+      outer? || inner?
+    end
 
     # Whether this is a line-drawing border, as opposed to the `Fill`
-    # fill-character one. Every line family uses box-drawing glyphs; only their
-    # glyph set differs.
+    # fill-character one or the block (`Outer`/`Inner`) families. Every line
+    # family uses box-drawing glyphs; only their glyph set differs.
     def line_family?
-      self != Fill
+      self != Fill && !block_family?
     end
 
     # The six glyphs used to draw a line-family border at support *tier*: the
@@ -114,6 +131,28 @@ module Crysterm
     end
 
     property type = BorderType::Solid
+
+    # Ink thickness of a block-family border (`BorderType::Outer`/`Inner`), as
+    # a fraction of the cell *width*: `1.0` is a full column of ink, `0.125`
+    # the finest expressible eighth. Left/right runs use it directly;
+    # top/bottom runs divide by the measured cell aspect ratio
+    # (`CSS::Length.cell_aspect_ratio`, ~2.0), so all four edges come out
+    # equally thick *on screen* rather than in cell fractions. Each axis then
+    # quantizes to what the active glyph tier can express
+    # (`Glyphs::SeqRole::BorderRamp*`): the `Extended` tier renders every
+    # eighth exactly, while below it each axis snaps to the 1/8, 4/8 and 8/8
+    # steps its two ramps share — opposite edges of the frame always match —
+    # making `0.125` and `1.0` the ratios that render identically at every
+    # tier. Ignored by the line families and `Fill`. See `#ratio=(Symbol)`
+    # for the named presets.
+    property ratio : Float64 = 0.5
+
+    # Sets `#ratio` by named preset: `:thin` (an eighth), `:quarter`, `:half`,
+    # `:full` (see `Glyphs::BLOCK_RATIOS`).
+    def ratio=(name : Symbol)
+      @ratio = Glyphs::BLOCK_RATIOS[name.to_s]? ||
+               raise ArgumentError.new "Unknown border ratio #{name.inspect} (known: #{Glyphs::BLOCK_RATIOS.keys.join(", ")})"
+    end
 
     # Border colors, as a `0xRRGGBB` int (`-1` = terminal default, `nil` =
     # unset). Setters come from `Colorizable` and also accept
@@ -392,24 +431,91 @@ module Crysterm
        r:  @right_char || @vertical_char || vr}
     end
 
+    # The eight glyphs of a block-family border (`Outer`/`Inner`): each run an
+    # edge-anchored block glyph `#ratio` thick (aspect-compensated and
+    # tier-quantized via `Glyphs.block_eighths` and the
+    # `Glyphs::SeqRole::BorderRamp*` step tables), each corner the matching
+    # joint — an `Outer` corner is the L-shaped elbow hugging the two outer
+    # edges, an `Inner` corner the miter square hugging the two content-facing
+    # edges (an elbow there would spur past the ink lines into the backdrop).
+    # The corner steps by the thicker of the two arms, so a full-column side
+    # closes with a full corner.
+    #
+    # Same char-override chain as the line families. The one-axis cap
+    # substitution (`Glyphs::Role::BorderCapLeft` …) doesn't apply: an
+    # edge-anchored run sits flush against the cell edge already and reads as
+    # a trough wall on its own, which is all the caps exist to provide.
+    def block_glyphs_with_overrides(tier : Glyphs::Tier)
+      w8, v8 = Glyphs.block_eighths(@ratio)
+      # Below the Extended tier the upper/right ramps only offer the 1/8, 4/8
+      # and 8/8 steps. A frame's opposite edges must match, so quantize each
+      # axis to that shared sub-set rather than letting the rich (lower/left)
+      # ramp resolve finer than its partner across the box.
+      unless tier.extended?
+        w8, v8 = coarse_step(w8), coarse_step(v8)
+      end
+      ci = Math.max(w8, v8) - 1
+      upper = Glyphs.chars(Glyphs::SeqRole::BorderRampUpper, tier)
+      lower = Glyphs.chars(Glyphs::SeqRole::BorderRampLower, tier)
+      lefts = Glyphs.chars(Glyphs::SeqRole::BorderRampLeft, tier)
+      rights = Glyphs.chars(Glyphs::SeqRole::BorderRampRight, tier)
+      if @type.outer?
+        t, b, l, r = upper[v8 - 1], lower[v8 - 1], lefts[w8 - 1], rights[w8 - 1]
+        tl = Glyphs.chars(Glyphs::SeqRole::BorderElbowTL, tier)[ci]
+        tr = Glyphs.chars(Glyphs::SeqRole::BorderElbowTR, tier)[ci]
+        bl = Glyphs.chars(Glyphs::SeqRole::BorderElbowBL, tier)[ci]
+        br = Glyphs.chars(Glyphs::SeqRole::BorderElbowBR, tier)[ci]
+      else
+        # Inner: every anchor flips to the content-facing edge, so each ramp
+        # serves the opposite side — and the corner square hugs the cell
+        # corner *diagonal* to the widget corner it closes.
+        t, b, l, r = lower[v8 - 1], upper[v8 - 1], rights[w8 - 1], lefts[w8 - 1]
+        tl = Glyphs.chars(Glyphs::SeqRole::BorderMiterBR, tier)[ci]
+        tr = Glyphs.chars(Glyphs::SeqRole::BorderMiterBL, tier)[ci]
+        bl = Glyphs.chars(Glyphs::SeqRole::BorderMiterTR, tier)[ci]
+        br = Glyphs.chars(Glyphs::SeqRole::BorderMiterTL, tier)[ci]
+      end
+      unless chars?
+        return {tl: tl, tr: tr, bl: bl, br: br, t: t, b: b, l: l, r: r}
+      end
+      {tl: @top_left_char || @corner_char || tl,
+       tr: @top_right_char || @corner_char || tr,
+       bl: @bottom_left_char || @corner_char || bl,
+       br: @bottom_right_char || @corner_char || br,
+       t:  @top_char || @horizontal_char || t,
+       b:  @bottom_char || @horizontal_char || b,
+       l:  @left_char || @vertical_char || l,
+       r:  @right_char || @vertical_char || r}
+    end
+
+    # Nearest step in the coarse `{1, 4, 8}` eighth sub-set — the steps the
+    # upper/right ramps offer below the `Extended` tier (matching those ramp
+    # arrays' own bucketing, so the quantized step always reads back exactly).
+    private def coarse_step(n : Int32) : Int32
+      n <= 2 ? 1 : n <= 5 ? 4 : 8
+    end
+
     # The eight glyphs of one border's cells — four corners plus one run per
-    # side — for *either* family, so the renderer resolves them once per widget
+    # side — for *any* family, so the renderer resolves them once per widget
     # instead of re-dispatching the family (and re-walking the fall-back chains)
     # on every border cell. Also spares a `Fill` border the line-family glyph
     # build it would otherwise discard.
     #
-    # The two families keep their own, distinct fall-back chains: a line border
+    # The families keep their own, distinct fall-back chains: a line border
     # resolves position → group → `BorderType` family glyph at *tier* (see
-    # `#line_glyphs_with_overrides`), a `Fill` border position → group →
-    # `#fill_char` (see `#top_char`/`#horizontal_char`/`#top_left_char` …). Both
-    # produce the same `NamedTuple` shape, so the render call site stays
-    # monomorphic.
+    # `#line_glyphs_with_overrides`), a block border position → group → ramp
+    # step at `#ratio` (see `#block_glyphs_with_overrides`), a `Fill` border
+    # position → group → `#fill_char` (see `#top_char`/`#horizontal_char`/
+    # `#top_left_char` …). All produce the same `NamedTuple` shape, so the
+    # render call site stays monomorphic.
     # *cap_v*/*cap_h* say that this render dropped a pair of edges that did not
     # fit the box (`Widget#effective_insets`), leaving the perpendicular pair
     # standing alone: *cap_v* when the left/right edges survive without a
-    # top/bottom to close them, *cap_h* for the transpose. A `Fill` border paints
-    # colored cells and implies no shape, so it ignores both.
+    # top/bottom to close them, *cap_h* for the transpose. A `Fill` border
+    # paints colored cells and a block border edge-flush runs — neither implies
+    # a shape the caps must repair, so both ignore them.
     def glyph_octet(tier : Glyphs::Tier, cap_v = false, cap_h = false)
+      return block_glyphs_with_overrides(tier) if @type.block_family?
       return line_glyphs_with_overrides(tier, cap_v, cap_h) if @type.line_family?
       {tl: top_left_char, tr: top_right_char, bl: bottom_left_char, br: bottom_right_char,
        t: top_char, b: bottom_char, l: left_char, r: right_char}
@@ -452,8 +558,14 @@ module Crysterm
       in Border
         value
       in Side, Symbol
-        # A side (`Side::Right`, `Side::Horizontal`, ...) or its symbol alias
-        # (`:right`, `:horizontal`, ...) — one cell on the named side(s).
+        # A symbol naming a border type (`:rounded`, `:outer`, …) — that
+        # family at the default 1-cell box. No `BorderType` member collides
+        # with a side name, so the two symbol vocabularies coexist.
+        if value.is_a?(Symbol) && (bt = BorderType.parse?(value.to_s))
+          return Border.new(bt)
+        end
+        # Else a side (`Side::Right`, `Side::Horizontal`, ...) or its symbol
+        # alias (`:right`, `:horizontal`, ...) — one cell on the named side(s).
         SidedGeometry.new_from_side value
       in Int
         Border.new value, value, value, value
@@ -468,11 +580,18 @@ module Crysterm
       @top = @top,
       @right = @right,
       @bottom = @bottom,
+      ratio : (Float64 | Symbol)? = nil,
     )
       # Route through setters so a native int or a `"#rrggbb"`/named string
-      # both resolve to the native int form.
+      # both resolve to the native int form — and a `ratio` given as a named
+      # preset (`:thin`, `:half`, …) to its fraction.
       self.bg = bg unless bg.nil?
       self.fg = fg unless fg.nil?
+      case ratio
+      in Float64 then self.ratio = ratio
+      in Symbol  then self.ratio = ratio
+      in Nil
+      end
     end
 
     # XXX A `(left_and_right, top_and_bottom)` pair constructor and a

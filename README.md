@@ -24,11 +24,14 @@ More than 90 concrete widgets with Qt-modeled APIs and behavior.
 ## Layouts
 
 As in Qt, widgets are best positioned by layout engines rather than by
-absolute coordinates. There are 11 layouts supported.
+absolute coordinates. There are 12 layouts supported.
 
 ![](tests/misc/layouts.png)
 
-*Source: [tests/misc/layouts.cr](tests/misc/layouts.cr). See also
+![](tests/misc/layouts2.png)
+
+*Sources: [tests/misc/layouts.cr](tests/misc/layouts.cr) and
+[tests/misc/layouts2.cr](tests/misc/layouts2.cr). See also
 [src/layout/](src/layout/).*
 
 ## CSS and QSS styling
@@ -53,6 +56,18 @@ with a different theme from [data/css/](data/css/)
 ![](tests/misc/styling.5s.apng)
 
 *Source: [tests/misc/styling.cr](tests/misc/styling.cr)*
+
+Beyond the classic line borders, block border families draw the border as
+sub-cell, edge-anchored ink: `:outer` keeps the widget's background flush
+inside the ink, `:inner` hugs the content and lets the backdrop show up to
+it, and `ratio` varies the ink thickness in fractions of a column
+(aspect-compensated via the terminal's real cell geometry, finest steps on
+modern-font terminals). Shadows take the same `ratio` to hug the widget as a
+thin band instead of darkening whole cells.
+
+![](tests/misc/styling2.png)
+
+*Source: [tests/misc/styling2.cr](tests/misc/styling2.cr)*
 
 ## Rich text — Markdown with GFM
 

@@ -45,6 +45,7 @@ module Crysterm
         when "border-bottom-style" then apply_border_style border, value, {Side::Bottom}
         when "border-left-style"   then apply_border_style border, value, {Side::Left}
         when "border-radius"       then apply_border_radius border, value
+        when "border-ratio"        then apply_border_ratio border, value
         when "border-chars"        then apply_border_chars border, value
         when .ends_with?("-char")  then apply_border_char_longhand border, property, value
         else
@@ -245,6 +246,8 @@ module Crysterm
         when "dotted"                             then BorderType::Dotted
         when "double"                             then BorderType::Double
         when "rounded", "round"                   then BorderType::Rounded
+        when "outer", "block"                     then BorderType::Outer
+        when "inner"                              then BorderType::Inner
         when "bg", "background"                   then BorderType::Fill
         when "inset", "outset", "groove", "ridge" then BorderType::Solid
         end
@@ -264,8 +267,27 @@ module Crysterm
         when "ridge"  then Border::Relief::Ridge
         when "solid", "line", "dashed", "dotted",
              "double", "rounded", "round",
+             "outer", "block", "inner",
              "bg", "background" then Border::Relief::None
         end
+      end
+
+      # The `border-ratio` property (a crysterm extension, no CSS analog): a
+      # block-family border's ink thickness as a fraction of the cell width —
+      # a number in (0, 1] (`0.375`), a percentage (`50%`), or a named preset
+      # (`thin`/`quarter`/`half`/`full`, see `Glyphs::BLOCK_RATIOS`). An
+      # out-of-range or unparseable value is an invalid declaration and is
+      # dropped, per CSS.
+      private def self.apply_border_ratio(border : Border, value : String) : Nil
+        v = value.strip
+        return if v.empty?
+        if preset = Glyphs::BLOCK_RATIOS[Case.fold_keyword(v)]?
+          border.ratio = preset
+          return
+        end
+        f = v.ends_with?("%") ? v.rchop.to_f?.try { |p| p / 100 } : v.to_f?
+        return unless f
+        border.ratio = f if 0 < f <= 1
       end
 
       # Whether *token* is a CSS `border-style` keyword that means "draw no

@@ -2,9 +2,10 @@
 #
 # Crysterm ships a family of Qt-style layout engines — HBox, VBox, Grid (with
 # row/column spans), Form (label/field rows), Border (dock to N/S/E/W/center)
-# and Wrap (flow with wrapping) — plus Stack, Masonry and UniformGrid. Attach
-# one to any container via `layout:`; children are placed and sized for you,
-# with per-child placement expressed through `layout_hint:`.
+# and Wrap (flow with wrapping) — plus Box, Stack, Masonry, UniformGrid,
+# Radial and Manual (shown in layouts2.cr). Attach one to any container via
+# `layout:`; children are placed and sized for you, with per-child placement
+# expressed through `layout_hint:`.
 #
 # The SAME five children (A-E, one color each) are shown arranged by six
 # different engines, one per panel.

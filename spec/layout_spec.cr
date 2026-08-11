@@ -101,6 +101,42 @@ describe Crysterm::Layout::Masonry do
   end
 end
 
+describe Crysterm::Layout::Radial do
+  it "spaces children evenly around the ring, first at 12 o'clock" do
+    s = headless_screen(default_quit_keys: true)
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 25, height: 11,
+      layout: Layout::Radial.new
+    4.times { Widget::Box.new parent: box, width: 5, height: 3 }
+
+    coords = render_children s, box
+    # Ring semi-axes rx = (25-5)/2 = 10, ry = (11-3)/2 = 4; angles -90/0/90/180.
+    coords.should eq [
+      {10, 15, 0, 3},  # top
+      {20, 25, 4, 7},  # right
+      {10, 15, 8, 11}, # bottom
+      {0, 5, 4, 7},    # left
+    ]
+  end
+
+  it "gives a hidden child's slot back, tightening the ring" do
+    s = headless_screen(default_quit_keys: true)
+    box = Widget::Box.new parent: s, left: 0, top: 0, width: 25, height: 11,
+      layout: Layout::Radial.new
+    kids = Array.new(4) { Widget::Box.new parent: box, width: 5, height: 3 }
+    kids[1].hide
+
+    s.repaint
+    # Hidden child renders nowhere (its lpos is cleared)...
+    kids[1].lpos.nil?.should be_true
+    # ...and the remaining three sit at 120° steps (-90/30/150), not 90° ones.
+    visible = [kids[0], kids[2], kids[3]].map do |c|
+      l = c.lpos.not_nil!
+      {l.xi, l.yi}
+    end
+    visible.should eq [{10, 0}, {19, 6}, {1, 6}]
+  end
+end
+
 describe Crysterm::Layout::Border do
   it "docks edges (top/bottom span width, left/right span remaining height) and fills center" do
     s = headless_screen(default_quit_keys: true)

@@ -933,6 +933,44 @@ module Crysterm
       DialPointers    # `Dial`'s compass ring, clockwise from north
       ScaleHorizontal # sub-cell fill ramp, empty → full, filling rightward
       ScaleVertical   # sub-cell fill ramp, empty → full, filling upward
+
+      # -- Block-ink ramps and corners ---------------------------------------
+      # The sub-cell "edge-anchored ink" vocabulary shared by the block border
+      # families (`BorderType::Outer`/`Inner`) and the thin (`ratio`) shadows:
+      # step *n* (1-based; array index `n - 1`) is a block glyph inking `n/8`
+      # of the cell from the named edge. A consumer picks the anchor edge for
+      # its semantics — border ink is the glyph's *foreground* over a ground
+      # background, a thin shadow inverts that and draws the *ground* as the
+      # glyph so the cell background reads as the shadow (see
+      # `Window#blend_region`) — while the steps come from these tables.
+      #
+      # Tier honesty: the lower/left ramps exist at every eighth in the
+      # CP437/WGL4-era repertoire, but Unicode's Block Elements only provide
+      # the upper/right blocks at 1/8, 4/8 and 8/8 — those two ramps hold the
+      # nearest available step at the `unicode` tier and gain the exact
+      # missing steps (Symbols for Legacy Computing, U+1FB82…/U+1FB87…) at
+      # `extended`.
+      BorderRampUpper # ink anchored at the top edge, growing down
+      BorderRampLower # ink anchored at the bottom edge, growing up
+      BorderRampLeft  # ink anchored at the left edge, growing right
+      BorderRampRight # ink anchored at the right edge, growing left
+
+      # Corner cells, named by the *cell corner the ink hugs*. An `Elbow` is
+      # the L-shape along the two named edges (an `Outer` border's corner, or
+      # — drawn as the ground glyph — a thin shadow's corner); a `Miter` is
+      # the small square in the named corner (an `Inner` border's corner,
+      # which must not spur past the ink lines it joins). Indexed by eighths
+      # like the ramps; exact glyphs exist only at 1/8 (Legacy Computing
+      # L-pieces, `extended`), 4/8 (quadrants) and 8/8 (full block), so the
+      # tables bucket every step to the nearest of those.
+      BorderElbowTL
+      BorderElbowTR
+      BorderElbowBL
+      BorderElbowBR
+      BorderMiterTL
+      BorderMiterTR
+      BorderMiterBL
+      BorderMiterBR
     end
 
     # One sequence role's steps per tier: `ascii` is mandatory, higher tiers
@@ -969,6 +1007,54 @@ module Crysterm
         " .:-=+*#@".chars, " ▏▎▍▌▋▊▉█".chars)
       t[SeqRole::ScaleVertical.value] = SeqEntry.new(
         " .:-=+*#@".chars, " ▁▂▃▄▅▆▇█".chars)
+      # Block-ink ramps: step n = n/8 of the cell inked from the named edge.
+      # 7-bit has no sub-cell ink, so the ascii columns collapse to the line
+      # border's `- | +` look whatever the step. The upper/right ramps carry
+      # the nearest Block Elements step at `unicode` (only 1/8, 4/8, 8/8
+      # exist) and the exact Legacy Computing steps at `extended`; the
+      # lower/left ramps are exact at `unicode` already.
+      t[SeqRole::BorderRampUpper.value] = SeqEntry.new(
+        Array.new(8, '-'),
+        ['▔', '▔', '▀', '▀', '▀', '█', '█', '█'],
+        ['▔', '\u{1FB82}', '\u{1FB83}', '▀', '\u{1FB84}', '\u{1FB85}', '\u{1FB86}', '█'])
+      t[SeqRole::BorderRampLower.value] = SeqEntry.new(
+        Array.new(8, '-'), "▁▂▃▄▅▆▇█".chars)
+      t[SeqRole::BorderRampLeft.value] = SeqEntry.new(
+        Array.new(8, '|'), "▏▎▍▌▋▊▉█".chars)
+      t[SeqRole::BorderRampRight.value] = SeqEntry.new(
+        Array.new(8, '|'),
+        ['▕', '▕', '▐', '▐', '▐', '█', '█', '█'],
+        ['▕', '\u{1FB87}', '\u{1FB88}', '▐', '\u{1FB89}', '\u{1FB8A}', '\u{1FB8B}', '█'])
+      # Elbows (L-shape hugging the two named edges): the Legacy Computing
+      # one-eighth L-pieces when thin, the three-quadrant blocks at middling
+      # steps, the full block when either arm is nearly full.
+      t[SeqRole::BorderElbowTL.value] = SeqEntry.new(
+        Array.new(8, '+'),
+        ['▛', '▛', '▛', '▛', '▛', '█', '█', '█'],
+        ['\u{1FB7D}', '\u{1FB7D}', '▛', '▛', '▛', '█', '█', '█'])
+      t[SeqRole::BorderElbowTR.value] = SeqEntry.new(
+        Array.new(8, '+'),
+        ['▜', '▜', '▜', '▜', '▜', '█', '█', '█'],
+        ['\u{1FB7E}', '\u{1FB7E}', '▜', '▜', '▜', '█', '█', '█'])
+      t[SeqRole::BorderElbowBL.value] = SeqEntry.new(
+        Array.new(8, '+'),
+        ['▙', '▙', '▙', '▙', '▙', '█', '█', '█'],
+        ['\u{1FB7C}', '\u{1FB7C}', '▙', '▙', '▙', '█', '█', '█'])
+      t[SeqRole::BorderElbowBR.value] = SeqEntry.new(
+        Array.new(8, '+'),
+        ['▟', '▟', '▟', '▟', '▟', '█', '█', '█'],
+        ['\u{1FB7F}', '\u{1FB7F}', '▟', '▟', '▟', '█', '█', '█'])
+      # Miters (small square in the named cell corner): a single quadrant up
+      # to middling steps — no eighth-square exists in any repertoire — then
+      # the full block.
+      t[SeqRole::BorderMiterTL.value] = SeqEntry.new(
+        Array.new(8, '+'), ['▘', '▘', '▘', '▘', '▘', '█', '█', '█'])
+      t[SeqRole::BorderMiterTR.value] = SeqEntry.new(
+        Array.new(8, '+'), ['▝', '▝', '▝', '▝', '▝', '█', '█', '█'])
+      t[SeqRole::BorderMiterBL.value] = SeqEntry.new(
+        Array.new(8, '+'), ['▖', '▖', '▖', '▖', '▖', '█', '█', '█'])
+      t[SeqRole::BorderMiterBR.value] = SeqEntry.new(
+        Array.new(8, '+'), ['▗', '▗', '▗', '▗', '▗', '█', '█', '█'])
       t
     end
 
@@ -999,6 +1085,37 @@ module Crysterm
         extended || (unset ? nil : e.extended),
       )
       @@generation += 1
+    end
+
+    # -- Block-ink resolution --------------------------------------------------
+
+    # Named block-ink `ratio` presets, shared by `Border#ratio=` and
+    # `Shadow#ratio=`: the thickness spellings an author reaches for without
+    # thinking in eighths. `:thin` is the finest expressible ink; `:half` a
+    # half column; `:full` a whole column (for a shadow: the classic
+    # full-cell band).
+    # String-keyed so the CSS `border-ratio` keyword lookup shares it; the
+    # `ratio=(Symbol)` setters stringify their argument.
+    BLOCK_RATIOS = {
+      "thin"    => 0.125,
+      "quarter" => 0.25,
+      "half"    => 0.5,
+      "full"    => 1.0,
+    }
+
+    # Resolves a block-ink *ratio* — the desired ink thickness as a fraction
+    # of the cell *width*, `Border#ratio`'s unit — into per-axis eighth steps
+    # `{w8, v8}`: width-eighths for the vertical (left/right) runs, taken
+    # directly, and height-eighths for the horizontal (top/bottom) runs,
+    # divided by *aspect* (the terminal cell's measured height:width ratio,
+    # `CSS::Length.cell_aspect_ratio`) so both axes come out equally thick
+    # *on screen* rather than in cell fractions. Each clamps to a visible
+    # 1..8.
+    def self.block_eighths(ratio : Float64, aspect : Float64 = CSS::Length.cell_aspect_ratio) : {Int32, Int32}
+      r = ratio.clamp(0.0, 1.0)
+      w8 = (r * 8).round.to_i.clamp(1, 8)
+      v8 = (r * 8 / aspect).round.to_i.clamp(1, 8)
+      {w8, v8}
     end
 
     # Heuristic tier suggestion: `Extended` when the environment identifies a
