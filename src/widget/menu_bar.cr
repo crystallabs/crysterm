@@ -1,6 +1,7 @@
 require "./box"
 require "./menu"
 require "../mixin/action_bar"
+require "../mnemonic"
 
 module Crysterm
   class Widget
@@ -17,9 +18,9 @@ module Crysterm
     # Escape, an outside click, or activating a leaf closes the menu.
     #
     # The bar sits off the window's Tab chain (Qt-style chrome); the keyboard
-    # reaches it via `#activation_key` (F10 by default) or the window's
-    # F6/Shift+F6 region cycle, and Escape steps back out — see
-    # `window_region_focus.cr`.
+    # reaches it via `#activation_key` (F10 by default), an `Alt+<letter>`
+    # title mnemonic (`add_menu "&File"`), or the window's F6/Shift+F6 region
+    # cycle, and Escape steps back out — see `window_region_focus.cr`.
     #
     # ```
     # bar = Widget::MenuBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
@@ -37,6 +38,12 @@ module Crysterm
 
       # The pop-up menus, parallel to the bar's commands/items.
       getter menus = [] of Menu
+
+      # Each menu's mnemonic letter (downcased; `nil` for none), parallel to
+      # `#menus` — parsed from the Qt-style `&` marker in the title
+      # (`add_menu "&File"`). `Alt+<letter>` opens the menu from anywhere;
+      # with the bar active and no menu open, the bare letter does too.
+      getter mnemonics = [] of Char?
 
       # Style for the pop-up menus (defaults to a bordered box).
       property menu_style : Style?
@@ -114,28 +121,65 @@ module Crysterm
         @activation_subscription = nil
       end
 
-      # Handles a window-level press of `#activation_key`: toggles between
-      # activating the bar (remembering the focused widget) and deactivating it
-      # (closing any open menu and giving that widget focus back). The
+      # Handles a window-level keypress nothing else consumed: `#activation_key`
+      # toggles between activating the bar (remembering the focused widget) and
+      # deactivating it (closing any open menu and giving that widget focus
+      # back); `Alt+<letter>` opens the matching mnemonic's menu directly. The
       # remember/return legwork is the window's region-focus machinery
       # (`Window#focus_region`/`#focus_central`), shared with F6 cycling.
       private def on_activation_key(e : ::Crysterm::Event::KeyPress) : Nil
         return if e.accepted?
-        key = @activation_key
-        return unless key && e.key == key
         w = window? || return
-        e.accept
-        if @open_index || w.region_of(w.focused).same?(self)
-          close
-          w.focus_central
-        else
-          w.focus_region self
+        if (key = @activation_key) && e.key == key
+          e.accept
+          if @open_index || w.region_of(w.focused).same?(self)
+            close
+            w.focus_central
+          else
+            # Windows convention: activation always lights the FIRST title (via
+            # `#highlight_item?` once the focus lands), not wherever the cursor
+            # sat when the bar was last left.
+            self.current_index = 0
+            w.focus_region self
+          end
+          w.render
+        elsif (c = alt_char(e)) && (i = @mnemonics.index(c))
+          e.accept
+          # Entering from the central area records the return slot; with the
+          # bar already active (or one of its menus open — an open pop-up is a
+          # *window* child, so it must not be recorded as "central"), this is a
+          # plain menu open/switch.
+          w.focus_region self unless @open_index || w.region_of(w.focused).same?(self)
+          open_selected i
+          w.render
         end
-        w.render
+      end
+
+      # The letter of an Alt+letter chord, or `nil`: legacy input encodes it as
+      # its own key (`ESC f` → `AltA`..`AltZ`, contiguous), the enhanced
+      # keyboard protocol as the plain character with the alt modifier.
+      private def alt_char(e : ::Crysterm::Event::KeyPress) : Char?
+        if (k = e.key) && ::Tput::Key::AltA <= k <= ::Tput::Key::AltZ
+          'a' + (k.value - ::Tput::Key::AltA.value)
+        elsif e.alt? && (c = e.char) && c != '\0'
+          c.downcase
+        end
+      end
+
+      # Opens menu *i* the keyboard way — with its first entry selected, like
+      # any keyboard-opened menu (`Down`/`Space` on the bar, a mnemonic).
+      private def open_selected(i : Int32) : Nil
+        open i
+        @menus[i]?.try &.select_first_action
       end
 
       # Adds a top-level menu titled *title* (optionally pre-filled with
       # *actions*) and returns the `Menu` so more can be added to it.
+      #
+      # *title* accepts a Qt-style `&` mnemonic (`"&File"`): the marked letter
+      # renders underlined, `Alt+<letter>` opens the menu from anywhere, and —
+      # with the bar active and no menu open — so does the bare letter. `"&&"`
+      # renders a literal ampersand.
       def add_menu(title : String, actions : Array(Action) = [] of Action) : Menu
         # `parent: window` appends the pop-up to the render tree so it actually
         # draws (a bare `window:` would leave it visible-flagged but undrawn).
@@ -148,6 +192,10 @@ module Crysterm
         window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }
         menu.hide
         menu.on_navigate { |dir| switch_relative dir }
+        # A leaf activation dismisses the whole chain — deactivate the bar too
+        # (Windows semantics): focus returns to the central area, so the fired
+        # command doesn't leave the bar focused with a lit title.
+        menu.on_chain_activated { deactivate_after_activation }
         # The bar's own strip counts as "inside" the open menu's modal grab, so
         # hovering another title still switches menus while one is open.
         menu.treat_as_inside { |x, y| grab_contains? x, y }
@@ -167,7 +215,11 @@ module Crysterm
 
         index = @menus.size
         @menus << menu
-        add_item(title) { toggle index } # action-bar command: click / Enter toggles it
+        # `&` mnemonic: strip the marker, remember the letter, underline it in
+        # the rendered title (the item boxes are `parse_tags`-enabled).
+        display, mnemonic = Mnemonic.tagged title
+        @mnemonics << mnemonic
+        add_item(display) { toggle index } # action-bar command: click / Enter toggles it
 
         # Hover a different title (while a menu is open) to switch to it.
         if item = item_boxes[index]?
@@ -264,6 +316,15 @@ module Crysterm
           e.accept
           return
         end
+
+        # With the bar active and no menu open, a bare mnemonic letter opens
+        # its menu — how Windows/Qt menu bars behave after F10/Alt activation.
+        # (Space never reaches here — the branch above owns it.)
+        if @open_index.nil? && (c = e.char) && c != '\0' && (i = @mnemonics.index(c.downcase))
+          open_selected i
+          e.accept
+          return
+        end
         super
       end
 
@@ -277,6 +338,17 @@ module Crysterm
         i = (((oi + dir) % n) + n) % n
         open i
         @menus[i]?.try &.select_first_action
+      end
+
+      # Fully deactivates the bar after a menu action fired: focus goes back to
+      # the central area — the F10/F6 return slot when one is set, else the
+      # first central Tab target (`Window#focus_central` handles both). The
+      # menus are already closed (and focus already rewound onto the bar) by
+      # the time the `on_chain_activated` hook runs.
+      private def deactivate_after_activation : Nil
+        w = window? || return
+        w.focus_central
+        w.render
       end
 
       private def on_menu_hidden(menu : Menu) : Nil
@@ -324,8 +396,21 @@ module Crysterm
       # selection: `ActionBar#trigger` re-selects (`current_index=`) the clicked item after
       # the toggle callback runs, so a click that closed the menu would otherwise
       # leave its title lit.
+      #
+      # With no menu open, a *focused* bar highlights the current title instead —
+      # the visual cue that F10/F6 landed keyboard focus on the bar (and that
+      # Left/Right now walk the titles). A deliberate divergence from Qt, which
+      # gives no cue until a menu drops; Windows and Midnight Commander both
+      # light the title on activation. Unfocused with nothing open: no highlight.
+      # (*offset* — not `current_index` — is the selection being applied:
+      # `current_index=` re-highlights *before* updating its index fields, so
+      # reading `current_index` here would light the stale title.)
       protected def highlight_item?(item : Widget, index : Int32, offset : Int32) : Bool
-        index == @open_index
+        if oi = @open_index
+          index == oi
+        else
+          focused? && index == offset
+        end
       end
 
       # Re-light the open menu's title outside a selection (focus/blur, a menu
@@ -343,6 +428,7 @@ module Crysterm
         uninstall_action_shortcuts window?
         @menus.each { |m| Widget.destroy_satellite m }
         @menus.clear
+        @mnemonics.clear
         super
       end
     end

@@ -76,6 +76,38 @@ describe "MenuBar#activation_key" do
     s.focused.same?(central).should be_true
   end
 
+  it "lights the first title on activation as the focus cue, and clears it on deactivation" do
+    s, bar, _central = activation_screen
+    bar.@item_boxes[0].state.selected?.should be_false # no cue while unfocused
+
+    press s, Tput::Key::F10
+    bar.@item_boxes[0].state.selected?.should be_true # cue, though no menu is open
+    bar.open_index.nil?.should be_true
+
+    press s, Tput::Key::Right # the cue follows Left/Right along the titles
+    bar.@item_boxes[0].state.selected?.should be_false
+    bar.@item_boxes[1].state.selected?.should be_true
+
+    press s, Tput::Key::F10 # deactivate: cue goes out with the focus
+    bar.@item_boxes[1].state.selected?.should be_false
+
+    press s, Tput::Key::F10 # re-activation lights the FIRST title again
+    bar.@item_boxes[0].state.selected?.should be_true
+  end
+
+  it "fully deactivates the bar when a menu action is activated" do
+    s, bar, central = activation_screen
+
+    press s, Tput::Key::F10
+    press s, Tput::Key::Down # open "File" with its first entry selected
+    bar.open_index.should eq 0
+
+    press s, Tput::Key::Enter # fire "New": chain closes AND the bar deactivates
+    bar.open_index.nil?.should be_true
+    s.focused.same?(central).should be_true            # focus left the bar entirely
+    bar.@item_boxes[0].state.selected?.should be_false # no title stays lit
+  end
+
   it "does not steal the key from a focused widget that consumed it" do
     s, _bar, central = activation_screen
     central.on(Crysterm::Event::KeyPress) do |e|

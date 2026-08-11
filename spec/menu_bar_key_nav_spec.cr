@@ -82,6 +82,26 @@ describe "MenuBar keyboard navigation" do
     child.try(&.current_index).should eq 0 # "old-1"
   end
 
+  it "opens a submenu on Enter or Space exactly like Right — first child selected" do
+    s = headless_screen(80, 24)
+    bar, fm = nav_bar(s)
+    bar.open 0
+    fm.select_last_action # highlight "Recent"
+
+    press fm, Tput::Key::Enter
+    child = fm.@submenu_open
+    child.nil?.should be_false
+    child.try(&.@show_highlight).should be_true
+    child.try(&.current_index).should eq 0 # "old-1", like Right
+
+    fm.close_submenu
+    fm.on_keypress Crysterm::Event::KeyPress.new(' ') # Space: identical
+    child = fm.@submenu_open
+    child.nil?.should be_false
+    child.try(&.@show_highlight).should be_true
+    child.try(&.current_index).should eq 0
+  end
+
   it "moves to the next top-level menu on Right from a leaf, at any depth" do
     s = headless_screen(80, 24)
     bar, fm = nav_bar(s)

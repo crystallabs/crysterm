@@ -32,9 +32,11 @@ describe "F6/Shift+F6 chrome-region cycling" do
 
     press s, Tput::Key::F6
     s.focused.same?(mb).should be_true
+    mb.@item_boxes[0].state.selected?.should be_true # focus cue lights a title
 
     press s, Tput::Key::F6
     s.focused.same?(tb).should be_true
+    mb.@item_boxes[0].state.selected?.should be_false # cue leaves with the focus
 
     # The empty StatusBar has no focus target, so the next stop is already the
     # central area — restored to the exact widget focused before entering.

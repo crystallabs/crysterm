@@ -31,7 +31,12 @@
 #
 # Try it: click File/Edit/Help for pop-up menus
 # (clicking the open menu's title again closes it; with one open, hover another
-# to switch); use the tool-bar buttons; hover a control for a tooltip; drag the
+# to switch). The menu bar is keyboard-reachable too: F10 activates it (Escape
+# steps back out), Alt+F/E/H open a menu directly via its underlined `&`
+# mnemonic, and inside an open menu the bare underlined letter activates the
+# entry (Space toggles a checkable entry in place, e.g. Word Wrap). F6/Shift+F6
+# cycle focus between menu bar, tool bar and the central area.
+# Use the tool-bar buttons; hover a control for a tooltip; drag the
 # floating "Panes" dock by its title bar to move it and its ◢ corner to resize
 # (its ⇕ button re-docks it right); Tab cycles focus; arrows adjust the focused
 # control; type in the ComboBox to filter; drag a splitter divider; click a tab's
@@ -70,26 +75,29 @@ end
 # A `MenuBar` packages all the open/switch/hover/highlight/keyboard wiring:
 # click a title (or Enter/Down while focused) to open it; once open, hovering
 # or arrowing onto another title switches to it. Right/Left also move between menus.
+# The `&` markers are Qt-style mnemonics: the letter renders underlined,
+# Alt+<letter> opens the menu from anywhere, and inside an open menu the bare
+# letter activates the marked entry.
 menubar = Widget::MenuBar.new
 win.menu_bar = menubar
 
-filemenu = menubar.add_menu "File"
-filemenu.add_action("New") { status.show_message " new file" }
-filemenu.add_action("Open") { status.show_message " open file" }
+filemenu = menubar.add_menu "&File"
+filemenu.add_action("&New") { status.show_message " new file" }
+filemenu.add_action("&Open") { status.show_message " open file" }
 # Recent holds two files plus a nested "Bucket" submenu: File → Recent → Bucket → (entries).
-bucket = Action.new "Bucket"
+bucket = Action.new "&Bucket"
 bucket.menu = [mk.call("old-1.txt", "open old-1.txt"), mk.call("old-2.txt", "open old-2.txt")]
-filemenu.add_submenu "Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
+filemenu.add_submenu "&Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
 filemenu.add_separator
-filemenu.add_action("Quit") { s.quit }
+filemenu.add_action("&Quit") { s.quit }
 
-editmenu = menubar.add_menu "Edit", [mk.call("Cut", "cut"), mk.call("Copy", "copy"), mk.call("Paste", "paste")]
+editmenu = menubar.add_menu "&Edit", [mk.call("Cu&t", "cut"), mk.call("&Copy", "copy"), mk.call("&Paste", "paste")]
 editmenu.add_separator
-ed_wrap = Action.new "Word Wrap"
+ed_wrap = Action.new "&Word Wrap"
 ed_wrap.checkable = true
 editmenu << ed_wrap
 
-menubar.add_menu("Help").add_action("About") { status.show_message " Crysterm — Qt-inspired widgets" }
+menubar.add_menu("&Help").add_action("&About") { status.show_message " Crysterm — Qt-inspired widgets" }
 
 # --- Tool bar (action buttons) -----------------------------------------------
 
@@ -160,23 +168,24 @@ lcd = Widget::LCDNumber.new \
 lcd.display slider.value
 
 # Menu tab: an embedded menu with nested submenus + a checkable item.
+# `&` mnemonics work here too: the bare letter activates the marked entry.
 menu = Widget::Menu.new parent: menupage, top: 1, left: 1, width: 22, height: 10
 
-recent = Action.new "Recent"
+recent = Action.new "&Recent"
 recent.menu = [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md")]
-file = Action.new "File"
+file = Action.new "&File"
 file.menu = [mk.call("New", "new file"), mk.call("Open", "open file"), recent]
 
-wrap = Action.new "Word Wrap"
+wrap = Action.new "&Word Wrap"
 wrap.checkable = true
 
 menu << file
 menu.add_separator
 menu << wrap
-menu << mk.call("About", "about")
+menu << mk.call("&About", "about")
 
 Widget::Box.new parent: menupage, bottom: 1, left: 1, width: 34, height: 2,
-  content: "Right opens a submenu, Left closes it."
+  content: "Right opens a submenu, Left closes it.\nSpace toggles Word Wrap in place."
 
 # Tree tab: a collapsible node hierarchy.
 tree = Widget::Tree.new parent: treepage, top: 1, left: 1, right: 1, bottom: 3

@@ -1,6 +1,8 @@
 require "event_handler"
 require "tput"
 
+require "./mnemonic"
+
 module Crysterm
   # Represents a command invokable from multiple interfaces (menus, toolbar
   # buttons, keyboard shortcuts). Adding the same `Action` to several
@@ -344,10 +346,23 @@ module Crysterm
       self.checked = !checked? if checkable?
     end
 
-    # The label with `#icon` prepended when set (e.g. `"📁 Open"`), else `#text`.
+    # The label with `#icon` prepended when set (e.g. `"📁 Open"`), else
+    # `#text` — with any Qt-style `&` mnemonic marker resolved away
+    # (`"&New"` shows as `"New"`, `"&&"` as `"&"`): mnemonics are menu
+    # presentation, and Qt likewise strips them on tool-bar buttons and other
+    # plain label sites. Menus render the marked letter underlined instead
+    # (see `Crysterm::Mnemonic` and `Widget::Menu`).
     def display_label : String
       i = @icon
-      i ? "#{i} #{@text}" : @text
+      text = ::Crysterm::Mnemonic.parse(@text)[0]
+      i ? "#{i} #{text}" : text
+    end
+
+    # The label's Qt-style `&` mnemonic letter (downcased), or `nil` when none
+    # is marked. In an open menu, pressing the bare letter activates this
+    # action's row.
+    def mnemonic : Char?
+      ::Crysterm::Mnemonic.parse(@text)[1]
     end
 
     # Display string for the primary shortcut, e.g. `"CtrlB"` or `"CtrlK, CtrlB"`

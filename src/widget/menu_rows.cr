@@ -108,8 +108,10 @@ module Crysterm
         if w.nil? || @_fit_text_width_for != {rows, fu}
           # Display width, not codepoint count: an icon glyph (`a.icon`) or CJK/
           # emoji label is wider than its `.size`, and undersizing here would clip
-          # the label.
-          w = @ritems.max_of? { |r| str_width r } || (visible_actions.max_of? { |a| str_width a.text } || 8)
+          # the label. Rows with a mnemonic carry `{underline}` markup, so tags
+          # are stripped before measuring (guarded — most rows have none).
+          w = @ritems.max_of? { |r| str_width(r.includes?('{') ? clean_tags(r) : r) } ||
+              (visible_actions.max_of? { |a| str_width Mnemonic.parse(a.text)[0] } || 8)
           @_fit_text_width = w
           @_fit_text_width_for = {rows, fu}
         end
@@ -207,8 +209,25 @@ module Crysterm
           r = rights[i]
           # Display width, not codepoint count: an icon/CJK label would otherwise
           # over-pad and push the right-aligned shortcut/▶ past the border.
-          pad = inner - str_width(l) - str_width(r)
-          content = pad >= 1 ? "#{l}#{" " * pad}#{r}" : head_within("#{l}#{r}", inner)
+          # Mnemonic rows carry `{underline}` markup — measure them stripped.
+          pad = inner - str_width(l.includes?('{') ? clean_tags(l) : l) - str_width(r)
+          content =
+            if pad >= 1
+              "#{l}#{" " * pad}#{r}"
+            elsif pad == 0
+              # The widest row fits exactly. It must NOT go through the
+              # truncation below: `head_within` counts the raw string, so a
+              # mnemonic row's invisible markup would be chopped mid-tag and
+              # render a literal "{underline".
+              "#{l}#{r}"
+            else
+              # Genuine overflow (label wider than the drawable area):
+              # truncate the *clean* text — cutting through the markup would
+              # leave tag fragments; the mnemonic underline is lost on this
+              # row, but the visible text stays correct.
+              raw = "#{l}#{r}"
+              head_within(raw.includes?('{') ? clean_tags(raw) : raw, inner)
+            end
           it.set_content(content) unless it.content == content
         end
         @last_laid_inner = inner
@@ -375,7 +394,9 @@ module Crysterm
                      " " * column
                    end
           icon = (i = a.icon) ? "#{i} " : ""
-          "#{prefix}#{icon}#{a.text}"
+          # A `&` mnemonic in the label renders underlined (the row's box is
+          # tag-parsing then — see `#sync_items`); plain labels stay raw.
+          "#{prefix}#{icon}#{Mnemonic.tagged(a.text)[0]}"
         end
         # Submenu arrow: CSS `Menu::indicator { glyph: … }`, then the registry;
         # `glyph: none` drops the arrow column for those rows.
@@ -453,6 +474,10 @@ module Crysterm
           else
             itm.add_css_class "Item"
           end
+          # A row parses tags only while its text actually carries the mnemonic
+          # underline markup — set both ways, since boxes are reused across
+          # rebuilds and a label with literal braces must keep rendering raw.
+          itm.parse_tags = !!@row_lefts[i]?.try(&.includes?("{underline}"))
         end
 
         # Reconcile an open submenu against the freshly-rebuilt rows. The per-hop

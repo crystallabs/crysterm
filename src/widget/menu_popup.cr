@@ -180,6 +180,13 @@ module Crysterm
         else
           hide_popup
         end
+
+        # The chain is gone *because an action fired* (unlike an Escape or
+        # outside-click dismissal): let the chain owner react — a `MenuBar`
+        # fully deactivates, handing focus back to the central area. Called
+        # after the closes above, so the owner sees the final state (and any
+        # focus already rewound out of the hidden menus).
+        root_menu.on_chain_activated.try &.call
       end
 
       # When this menu is a submenu, closes it via its parent and accepts *e*,

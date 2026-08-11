@@ -95,6 +95,22 @@ module Crysterm
         @on_navigate = block
       end
 
+      # Optional hook for a top-level menu's owner, called after the menu chain
+      # was dismissed *by activating a leaf action* (Enter/Space/click on a
+      # plain entry) — not by Escape or an outside click. Consulted on the
+      # chain's *root* menu, so a leaf fired deep in a submenu still reaches
+      # the owner. A `Widget::MenuBar` uses it to fully deactivate: focus
+      # returns to the central area rather than resting on the bar with a lit
+      # title. The public spelling is the block form `#on_chain_activated(&block)`;
+      # the raw setter is protected.
+      getter on_chain_activated : Proc(Nil)?
+      protected setter on_chain_activated
+
+      # Sets the leaf-activation dismissal hook via a block (see the getter).
+      def on_chain_activated(&block : ->) : Nil
+        @on_chain_activated = block
+      end
+
       # Whether the highlighted row is drawn highlighted. A menu opens with *no*
       # row highlighted (Qt-like): it appears only once the user hovers a row
       # (`#hover_item`) or presses a selection key (`#on_keypress`), and clears
@@ -485,14 +501,15 @@ module Crysterm
         intent = nav_intent(e)
 
         # A menu opens with no row highlighted; the first selection-moving key —
-        # or Enter — *reveals* the highlight rather than moving/activating it.
-        # Up (or End) as that first key reveals it on the *last* entry, any
-        # other mover on the first — so cycling starts from the end the user is
-        # heading toward, and never on a leading separator. Enter must be gated
-        # here too, or it falls through to `super` (`activate_current` ->
-        # `activate_index 0`) and fires the first action though no row was ever
-        # shown highlighted.
-        if !@show_highlight && (selection_key?(e) || e.key == ::Tput::Key::Enter)
+        # or Enter or Space — *reveals* the highlight rather than moving/
+        # activating it. Up (or End) as that first key reveals it on the *last*
+        # entry, any other mover on the first — so cycling starts from the end
+        # the user is heading toward, and never on a leading separator. Enter
+        # must be gated here too, or it falls through to `super`
+        # (`activate_current` -> `activate_index 0`) and fires the first action
+        # though no row was ever shown highlighted — and Space likewise, for
+        # its activate/toggle handling below.
+        if !@show_highlight && (selection_key?(e) || e.key == ::Tput::Key::Enter || e.char == ' ')
           @show_highlight = true
           if intent.backward? || intent.last?
             edge_selectable(-1).try { |i| self.current_index = i }
@@ -504,16 +521,16 @@ module Crysterm
           return
         end
 
+        return if space_pressed e
+        return if enter_on_submenu e
+
         # Right opens the highlighted item's submenu; Left/Escape closes this one
         # and returns focus to its parent. Handled before `super` so a submenu's
         # Escape doesn't fall through to the item view's cancel path.
         if e.key == ::Tput::Key::Right
           act = selected_action
           if act && act.enabled? && act.menu?
-            open_submenu act
-            # Keyboard-entered: the submenu starts with its first child
-            # selected (Qt), unlike hover-opened ones.
-            @submenu_open.try &.select_first_action
+            open_submenu_selected act
             e.accept
             return
           elsif nav = root_menu.on_navigate
@@ -560,7 +577,95 @@ module Crysterm
           end
         end
 
+        # Last, so navigation (including `vi_keys`), search and the branches
+        # above all win over a same-letter mnemonic.
+        return if mnemonic_pressed e
+
         super
+      end
+
+      # A bare mnemonic letter (`"&New"` → `n`) pressed anywhere in the open
+      # menu activates its row, highlight revealed or not (Qt; returns whether
+      # it consumed *e*). Row semantics match the menu's other activation keys:
+      # a submenu row opens with its first child selected, a checkable row
+      # toggles in place (our Space divergence from Qt, kept consistent here),
+      # a leaf fires and dismisses the chain. The first matching row wins on
+      # duplicate mnemonics. Plain unmodified characters only — an Alt chord
+      # belongs to the `MenuBar`'s title mnemonics, and navigation/search keys
+      # were already offered every other branch first.
+      private def mnemonic_pressed(e) : Bool
+        c = e.char
+        return false if c == '\0' || e.key || e.alt? || e.ctrl?
+        return false unless nav_intent(e).none?
+        down = c.downcase
+        acts = visible_actions
+        i = acts.index { |a| !a.separator? && a.enabled? && a.mnemonic == down }
+        return false unless i
+        @show_highlight = true
+        self.current_index = i
+        act = acts[i]
+        if act.menu?
+          open_submenu_selected act
+        elsif act.checkable?
+          act.activate
+        else
+          activate_index i
+        end
+        e.accept
+        request_render
+        true
+      end
+
+      # Space on a highlighted row (returns whether it consumed *e*): a
+      # *checkable* action toggles in place, leaving the menu open — so several
+      # options can be flipped in one visit (the GTK check-menu-item behavior,
+      # and the Space-toggles-a-checkbox muscle memory of terminal forms; a
+      # deliberate divergence from Qt, which dismisses on any activation). The
+      # toggle is the same `Action#activate` as the normal path — full
+      # Toggled/Triggered semantics — only the close is skipped. On anything
+      # else Space acts exactly as Enter: a submenu row opens with its first
+      # child selected (`#open_submenu_selected`, shared with Right/Enter), a
+      # leaf fires and dismisses the chain. Enter and click keep
+      # activate-and-close even on checkable rows. With the highlight not yet
+      # revealed, Space is instead a reveal key — handled by the gate at the
+      # top of `#on_keypress`, never here.
+      private def space_pressed(e) : Bool
+        return false unless e.char == ' ' && @show_highlight
+        act = selected_action
+        if act && act.enabled? && act.menu?
+          open_submenu_selected act
+        elsif act && act.checkable? && act.enabled?
+          act.activate
+        else
+          activate_selected
+        end
+        e.accept
+        true
+      end
+
+      # Enter on a highlighted submenu row (returns whether it consumed *e*):
+      # routed through `#open_submenu_selected` so it behaves exactly like
+      # Right and Space there. Leaf rows are deliberately NOT handled here —
+      # they fall through to the item view's Enter (`activate_current` →
+      # `activate_index`), which fires the action and dismisses the chain.
+      private def enter_on_submenu(e) : Bool
+        return false unless e.key == ::Tput::Key::Enter && @show_highlight
+        act = selected_action
+        return false unless act && act.enabled? && act.menu?
+        open_submenu_selected act
+        e.accept
+        true
+      end
+
+      # Opens *act*'s submenu the keyboard way — with its first child selected
+      # (Qt), unlike hover-opened ones — shared by Right, Enter and Space on a
+      # submenu row, so the three behave identically. Invoked while *act*'s
+      # submenu is already open, it just re-selects the first child instead of
+      # reopening (or click-style toggling it closed: with focus already inside
+      # the child, a repeat press of these keys never lands back here anyway).
+      private def open_submenu_selected(act : Action) : Nil
+        open_submenu act unless @submenu_open && @submenu_action == act
+        @submenu_open.try &.select_first_action
       end
 
       # Escape (and any cancel gesture) must not fire the highlighted action.
