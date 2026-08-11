@@ -763,6 +763,13 @@ module Crysterm
             emit ::Crysterm::Event::ItemActivated, item, current_index
             emit ::Crysterm::Event::ItemCancelled, item, current_index
           end
+          # A chrome bar (`region_focusable?`) leaves the real Escape
+          # un-consumed so it bubbles to the window's region-navigation
+          # fallback, which returns focus to the central area (the "leave
+          # chrome" gesture — see `window_region_focus.cr`). Only Escape
+          # itself: the vi cancel 'q' must still be consumed below, or it
+          # reaches the default quit keys and exits the app.
+          return if e.key == ::Tput::Key::Escape && region_focusable? && window?.try(&.region_navigation?)
         else
           return
         end

@@ -16,6 +16,11 @@ module Crysterm
     # one submenu level (or moves to the previous title from the top level).
     # Escape, an outside click, or activating a leaf closes the menu.
     #
+    # The bar sits off the window's Tab chain (Qt-style chrome); the keyboard
+    # reaches it via `#activation_key` (F10 by default) or the window's
+    # F6/Shift+F6 region cycle, and Escape steps back out — see
+    # `window_region_focus.cr`.
+    #
     # ```
     # bar = Widget::MenuBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
     # file = bar.add_menu "File"
@@ -39,6 +44,18 @@ module Crysterm
       # Index of the currently open menu, or `nil` when none is open.
       getter open_index : Int32?
 
+      # Window-level key that activates the bar from anywhere (the F10 of
+      # Windows/GTK apps; Midnight Commander users may prefer `F9`): pressed
+      # once, it remembers the focused widget and focuses the bar; pressed
+      # again — or Escape with no menu open — it closes any open menu and
+      # returns focus to that widget. `nil` disables the feature. Read at
+      # press time, so it can be reassigned (or disabled) at any moment.
+      property activation_key : Tput::Key? = Tput::Key::F10
+
+      # The window-level `KeyPress` subscription watching `#activation_key`,
+      # while the bar is attached.
+      @activation_subscription : ::Crysterm::Subscription?
+
       def initialize(menu_style : Style? = nil, **listbar)
         @menu_style = menu_style
 
@@ -50,6 +67,10 @@ module Crysterm
         # work as before once focused. An explicit `focus_policy:` argument
         # (applied by `super` above) wins over this default.
         self.focus_policy = FocusPolicy::Click unless @focus_policy
+        # Keyboard-reachable chrome: the F6/Shift+F6 region cycle (see
+        # `window_region_focus.cr`) can land on the bar even though Tab steps
+        # over it. Turn off via `region_focusable = false`.
+        @region_focusable = true
         setup_action_bar mouse: true, auto_prefix: false
         # Titles pack flush (only trailing the last title); each keeps its own side padding.
         @item_gap = 0
@@ -64,6 +85,53 @@ module Crysterm
         # shortcuts). Menus must be rehomed first, so they open on the bar's window
         # — that is what `#before_install_action_shortcuts` below is for.
         wire_action_shortcuts
+
+        # `#activation_key` is a window-level accelerator, so it follows the
+        # attach lifecycle — plus one direct install: a bar built with
+        # `parent:` was attached during `super`, before these handlers existed,
+        # so `Attached` has already fired for it.
+        on(::Crysterm::Event::Attached) { install_activation_key }
+        on(::Crysterm::Event::Detached) { uninstall_activation_key }
+        install_activation_key
+      end
+
+      # Subscribes the `#activation_key` watcher on the bar's window. Installed
+      # as a plain window-level `KeyPress` handler (like `Action` accelerators),
+      # so it runs after the focused widget's key walk and only ever sees keys
+      # nothing else consumed.
+      private def install_activation_key : Nil
+        w = window? || return
+        return if @activation_subscription
+        s = ::Crysterm::Subscription.new
+        s.on(w, ::Crysterm::Event::KeyPress) { |e| on_activation_key e }
+        @activation_subscription = s
+      end
+
+      # Withdraws the `#activation_key` watcher (the subscription remembers the
+      # window it is on, so this needs no window argument).
+      private def uninstall_activation_key : Nil
+        @activation_subscription.try &.off
+        @activation_subscription = nil
+      end
+
+      # Handles a window-level press of `#activation_key`: toggles between
+      # activating the bar (remembering the focused widget) and deactivating it
+      # (closing any open menu and giving that widget focus back). The
+      # remember/return legwork is the window's region-focus machinery
+      # (`Window#focus_region`/`#focus_central`), shared with F6 cycling.
+      private def on_activation_key(e : ::Crysterm::Event::KeyPress) : Nil
+        return if e.accepted?
+        key = @activation_key
+        return unless key && e.key == key
+        w = window? || return
+        e.accept
+        if @open_index || w.region_of(w.focused).same?(self)
+          close
+          w.focus_central
+        else
+          w.focus_region self
+        end
+        w.render
       end
 
       # Adds a top-level menu titled *title* (optionally pre-filled with

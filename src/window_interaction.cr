@@ -288,6 +288,28 @@ module Crysterm
             render
           end
         end
+
+        # Chrome-region navigation (see `window_region_focus.cr`): F6/Shift+F6
+        # cycle focus between the chrome bars (menu/tool/status) and the
+        # central area; Escape returns from a bar to the central area. Legacy
+        # terminals report Shift+F6 as F18 (shifted F-keys are offset by 12);
+        # enhanced-protocol terminals report F6 with the shift modifier.
+        if @region_navigation && !e.accepted?
+          case
+          when e.key == Tput::Key::F6 && !e.shift?
+            e.accept
+            focus_region_next
+            render
+          when e.key == Tput::Key::F18 || (e.key == Tput::Key::F6 && e.shift?)
+            e.accept
+            focus_region_previous
+            render
+          when e.key == Tput::Key::Escape && region_of(focused)
+            e.accept
+            focus_central
+            render
+          end
+        end
       end
     end
 

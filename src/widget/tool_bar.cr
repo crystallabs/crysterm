@@ -16,6 +16,10 @@ module Crysterm
     # Built on `Mixin::ActionBar` (horizontal layout, keyboard navigation,
     # hotkeys) with plain labels (no `1:` prefixes).
     #
+    # The bar sits off the window's Tab chain (Qt-style chrome); the keyboard
+    # reaches it via the window's F6/Shift+F6 region cycle, and Escape steps
+    # back out — see `window_region_focus.cr`.
+    #
     # ```
     # tb = Widget::ToolBar.new parent: window, top: 0, left: 0, width: "100%", height: 1
     # tb.add_button("New") { new_doc }
@@ -43,6 +47,10 @@ module Crysterm
         # `focus_policy:` argument (applied by `super` above) wins over this
         # default.
         self.focus_policy = FocusPolicy::Click unless @focus_policy
+        # Keyboard-reachable chrome: the F6/Shift+F6 region cycle (see
+        # `window_region_focus.cr`) can land on the bar even though Tab steps
+        # over it. Turn off via `region_focusable = false`.
+        @region_focusable = true
         setup_action_bar mouse: true, auto_prefix: false
         # Buttons pack flush — no gap cells between them (only trailing the last
         # one); each button box keeps its own side padding.

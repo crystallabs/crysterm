@@ -62,6 +62,8 @@ module Superconf
     validate: ->(t : Time::Span) { t >= Time::Span.zero }
   option "window.tab_navigation", true,
     description: "Tab / Shift+Tab move keyboard focus between focusable widgets"
+  option "window.region_navigation", true,
+    description: "F6 / Shift+F6 cycle keyboard focus between chrome regions (menu bar, tool bars, an interactive status bar) and the central area; Escape returns focus from a region to the central area"
   option "window.propagate_keys", true,
     description: "Propagate unhandled keypresses up the widget tree"
   option "window.default_quit_keys", true,

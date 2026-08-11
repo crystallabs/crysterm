@@ -213,6 +213,15 @@ module Crysterm
       end
     end
 
+    # Whether this widget is a chrome "focus region" — a menu/tool/status bar
+    # the window's region cycle (`F6`/`Shift+F6`, `Window#focus_region_next`)
+    # can land on. Distinct from `#focus_policy`: region cycling deliberately
+    # reaches `Click`-policy chrome that the Tab chain steps over. Off for
+    # ordinary widgets; `MenuBar`/`ToolBar`/`StatusBar` turn it on in their
+    # constructors (a `StatusBar` additionally only participates once it hosts
+    # something focusable — see `Window#focus_region_next`).
+    property? region_focusable = false
+
     # Can element receive keyboard input? (Managed internally; use `input` for user-side setting)
     property? keyable = false
 

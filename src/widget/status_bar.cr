@@ -59,6 +59,11 @@ module Crysterm
 
       def initialize(**box)
         super **box
+        # Keyboard-reachable chrome, like `MenuBar`/`ToolBar` — but the bar
+        # itself takes no keys, so the F6/Shift+F6 region cycle (see
+        # `window_region_focus.cr`) only actually stops here once the bar hosts
+        # a focusable child widget. Turn off via `region_focusable = false`.
+        @region_focusable = true
       end
 
       # Shows *text* as the temporary message. With *timeout*, the message clears
