@@ -93,12 +93,15 @@ describe "block border families" do
       ge[:b].should eq '\u{1FB02}'
       {ge[:tl], ge[:tr], ge[:bl], ge[:br]}.should eq(
         {'\u{1FB1E}', '\u{1FB0F}', '\u{1FB01}', '\u{1FB00}'})
-      # A hairline ring's strokes already meet corner to corner: any piece
-      # would spill more than the sub-pixel gap, so the corner cells are
-      # left untouched.
-      gt = Border.new(type: :inner, ratio: :thin).glyph_octet(Glyphs::Tier::Extended)
-      {gt[:tl], gt[:tr], gt[:bl], gt[:br]}.should eq(
-        {Glyphs::NONE, Glyphs::NONE, Glyphs::NONE, Glyphs::NONE})
+      # A hairline ring's strokes meet corner to corner and the corner cells
+      # stay untouched — the open corner is deliberate: every closed
+      # alternative (miter beads, eighth-L arms) spills several times the
+      # stroke width at this scale.
+      {Glyphs::Tier::Extended, Glyphs::Tier::Unicode}.each do |tier|
+        gt = Border.new(type: :inner, ratio: :thin).glyph_octet(tier, octants: true)
+        {gt[:tl], gt[:tr], gt[:bl], gt[:br]}.should eq(
+          {Glyphs::NONE, Glyphs::NONE, Glyphs::NONE, Glyphs::NONE})
+      end
     end
   end
 
@@ -111,6 +114,51 @@ describe "block border families" do
       g[:t].should eq '━'
       g[:tl].should eq '+'
       g[:b].should eq '▁' # untouched positions keep the ramp glyph
+    end
+  end
+
+  it "keeps the ladder's midrange and thick end coherent at Extended" do
+    with_aspect do
+      # 5/8 and 6/8: sextant elbows with runs re-quantized to thirds — the
+      # top joins flush, the sides keep only a small chamfer.
+      g5 = Border.new(type: :outer, ratio: 0.625).glyph_octet(Glyphs::Tier::Extended)
+      {g5[:t], g5[:tl], g5[:l]}.should eq({'\u{1FB02}', '\u{1FB15}', '▋'})
+      g6 = Border.new(type: :outer, ratio: 0.75).glyph_octet(Glyphs::Tier::Extended)
+      {g6[:t], g6[:tl]}.should eq({'\u{1FB02}', '\u{1FB15}'})
+      # 7/8: nearly-solid sides close with deliberate solid corners.
+      g7 = Border.new(type: :outer, ratio: 0.875).glyph_octet(Glyphs::Tier::Extended)
+      {g7[:t], g7[:tl]}.should eq({'▀', '█'})
+      # Inner 3/8: the sextant miter serves v8 == 3 too, strokes demoted to
+      # thirds — flush joints.
+      i3 = Border.new(type: :inner, ratio: 0.375).glyph_octet(Glyphs::Tier::Extended)
+      {i3[:t], i3[:tl]}.should eq({'\u{1FB2D}', '\u{1FB1E}'})
+    end
+  end
+
+  it "uses the pixel-exact octant pieces when enabled, honest eighths kept" do
+    with_aspect do
+      # Outer :half with octants: corners get quarter-height top arms, so the
+      # runs stay at the honest 2/8 — no thirds re-quantization.
+      g = Border.new(type: :outer).glyph_octet(Glyphs::Tier::Extended, octants: true)
+      {g[:t], g[:b], g[:l]}.should eq({'\u{1FB82}', '▂', '▌'})
+      {g[:tl], g[:tr], g[:bl], g[:br]}.should eq(
+        {'\u{1CD4A}', '\u{1CD98}', '\u{1CDC0}', '\u{1CDD5}'})
+      # Inner :half: the single-octant miter is exactly the junction square.
+      gi = Border.new(type: :inner).glyph_octet(Glyphs::Tier::Extended, octants: true)
+      {gi[:t], gi[:b]}.should eq({'▂', '\u{1FB82}'})
+      {gi[:tl], gi[:tr], gi[:bl], gi[:br]}.should eq(
+        {'\u{1CEA0}', '\u{1CEA3}', '\u{1CEAB}', '\u{1CEA8}'})
+      # Shadow :half: octant-notch corners, strips at honest eighths.
+      sh = Shadow.new(right: 1, bottom: 1, ratio: :half)
+      gs = sh.glyph_octet(Glyphs::Tier::Extended, octants: true)
+      gs[:br].should eq '\u{1CDE5}'
+      gs[:b].should eq '▆'
+      # Hairline geometries keep their exact eighth-L / gap treatments.
+      gt = Border.new(type: :outer, ratio: :thin).glyph_octet(Glyphs::Tier::Extended, octants: true)
+      gt[:tl].should eq '\u{1FB7D}'
+      # And with octants off (the fallback), rendering is the sextant path.
+      go = Border.new(type: :outer).glyph_octet(Glyphs::Tier::Extended)
+      {go[:t], go[:tl]}.should eq({'\u{1FB02}', '\u{1FB15}'})
     end
   end
 

@@ -129,7 +129,7 @@ module Crysterm
     # untouched backdrop over the remainder. So a band `n/8` thick draws the
     # `(8-n)/8` ground glyph of the opposite anchor, and a corner continues
     # its horizontal band's strip — the shifted-silhouette shape.
-    def glyph_octet(tier : Glyphs::Tier)
+    def glyph_octet(tier : Glyphs::Tier, octants : Bool = false)
       dt = db = dl = dr = dtl = dtr = dbl = dbr = nil.as(Char?)
       if r = @ratio
         w8, v8 = Glyphs.block_eighths(r)
@@ -154,12 +154,14 @@ module Crysterm
         # elbows, the horizontal band's strip run straight through — or, for
         # hairline shadows, no paint at all (`Glyphs::NONE`, skipped by the
         # band painter: the backdrop cell stays untouched).
-        fit = Glyphs.corner_fit(w8, v8, tier)
-        # With sextant corners in play (third-tall notches), a 2/8 strip
-        # would leave a 1/24-cell step where band meets corner — promote the
+        fit = Glyphs.corner_fit(w8, v8, tier, octants)
+        # With sextant corners in play (third-tall notches), a 2/8 or 3/8
+        # strip would leave a step where band meets corner — re-quantize the
         # strips to the matching third grounds (same trade as the border
-        # runs: flush joints over nominal eighth exactness).
-        if fit == :sextant && v8 == 2
+        # runs: flush joints over nominal eighth exactness). The octant
+        # corners' notches are quarter-tall, matching the honest eighth
+        # strips as-is.
+        if fit == :sextant && v8 >= 2
           db = Glyphs[Glyphs::Role::ShadowThirdBottom, tier]
           dt = Glyphs[Glyphs::Role::ShadowThirdTop, tier]
         end
@@ -169,6 +171,11 @@ module Crysterm
           dbl = dbr = db
         when :gap
           dtl = dtr = dbl = dbr = Glyphs::NONE
+        when :octant
+          dtl = Glyphs[Glyphs::Role::ShadowOctantCornerTL, tier]
+          dtr = Glyphs[Glyphs::Role::ShadowOctantCornerTR, tier]
+          dbl = Glyphs[Glyphs::Role::ShadowOctantCornerBL, tier]
+          dbr = Glyphs[Glyphs::Role::ShadowOctantCornerBR, tier]
         when :sextant
           dtl = Glyphs[Glyphs::Role::ShadowCornerTL, tier]
           dtr = Glyphs[Glyphs::Role::ShadowCornerTR, tier]

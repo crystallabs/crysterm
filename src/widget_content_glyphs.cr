@@ -14,6 +14,13 @@ module Crysterm
       window?.try(&.glyph_tier) || Glyphs::Tier::Unicode
     end
 
+    # Whether the octant corner pieces are in effect for this widget (the
+    # owning window's screen setting; `false` when unattached). See
+    # `Screen#glyph_octants?`.
+    def glyph_octants? : Bool
+      window?.try(&.glyph_octants?) || false
+    end
+
     # The registry character for *role* at this widget's effective tier. The
     # single hook widget renders use instead of hardcoded chrome literals.
     @[AlwaysInline]

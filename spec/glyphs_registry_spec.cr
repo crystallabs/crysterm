@@ -64,7 +64,9 @@ describe Crysterm::Glyphs do
                    Glyphs::Role::BigTextPixel,
                    Glyphs::Role::ShadowCornerTL, Glyphs::Role::ShadowCornerTR,
                    Glyphs::Role::ShadowCornerBL, Glyphs::Role::ShadowCornerBR,
-                   Glyphs::Role::ShadowThirdTop, Glyphs::Role::ShadowThirdBottom}
+                   Glyphs::Role::ShadowThirdTop, Glyphs::Role::ShadowThirdBottom,
+                   Glyphs::Role::ShadowOctantCornerTL, Glyphs::Role::ShadowOctantCornerTR,
+                   Glyphs::Role::ShadowOctantCornerBL, Glyphs::Role::ShadowOctantCornerBR}
     Glyphs::Role.each do |role|
       next if blank_ok.includes? role
       Glyphs[role, Glyphs::Tier::Ascii].should_not(eq(' '), "role #{role} has no DEFAULTS row")

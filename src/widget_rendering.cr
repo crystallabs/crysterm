@@ -771,7 +771,7 @@ module Crysterm
         # once for the whole box rather than per cell — and for the border's own
         # family only, so a `Fill` border doesn't build (and discard) the
         # line-family octet.
-        glyphs = border.glyph_octet(glyph_tier, insets.capped_v, insets.capped_h)
+        glyphs = border.glyph_octet(glyph_tier, insets.capped_v, insets.capped_h, octants: glyph_octants?)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
         # each side's *visible* thickness (a clipped edge's hidden band rows are
@@ -862,7 +862,7 @@ module Crysterm
         # The per-band glyphs — explicit chars merged over any `Shadow#ratio`
         # derivation — resolve once for all four bands; a `nil` position falls
         # back to the full-cell blend inside `blend_region`.
-        sg = s.glyphs? ? s.glyph_octet(glyph_tier) : nil
+        sg = s.glyphs? ? s.glyph_octet(glyph_tier, octants: glyph_octants?) : nil
         if s.left? && !coords.no_left?
           i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
           l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)

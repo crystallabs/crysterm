@@ -514,6 +514,28 @@ module Crysterm
       ShadowCornerBL
       ShadowCornerBR
 
+      # Octant corner pieces (Unicode 16 Symbols for Legacy Computing
+      # Supplement, U+1CD00…): quarter-height corner arms, making the
+      # half-width × quarter-height corner geometries pixel-exact where the
+      # sextant pieces approximate with thirds. Used only when a screen's
+      # `glyph_octants?` is on (identity/version-gated — see
+      # `Glyphs.detected_octants`); everything else falls back to the sextant
+      # renditions below. Elbows named by the two hugged edges (`Outer`
+      # corners), miters by the cell corner the single octant hugs (`Inner`
+      # corners, diagonal-mapped), shadow grounds by the ring corner served.
+      BorderOctantElbowTL
+      BorderOctantElbowTR
+      BorderOctantElbowBL
+      BorderOctantElbowBR
+      BorderOctantMiterTL
+      BorderOctantMiterTR
+      BorderOctantMiterBL
+      BorderOctantMiterBR
+      ShadowOctantCornerTL
+      ShadowOctantCornerTR
+      ShadowOctantCornerBL
+      ShadowOctantCornerBR
+
       # Third-height horizontal runs/strips (`extended`-tier sextant rows).
       # The sextant corner pieces' horizontal arms are a third of the cell
       # tall, while the eighth ramps step in quarters around them — so a
@@ -899,6 +921,21 @@ module Crysterm
       set_in t, Role::BorderThirdLower, Entry.new('-', nil, '\u{1FB2D}')  # SEXTANT-56
       set_in t, Role::ShadowThirdTop, Entry.new(' ', nil, '\u{1FB0E}')    # SEXTANT-1234
       set_in t, Role::ShadowThirdBottom, Entry.new(' ', nil, '\u{1FB39}') # SEXTANT-3456
+      # Octant corner pieces (opt-in, see the Role docs). Codepoints verified
+      # against GNU Unifont's bitmaps; octant cells number 1-8, 2 columns ×
+      # 4 rows, row-major.
+      set_in t, Role::BorderOctantElbowTL, Entry.new('+', nil, '\u{1CD4A}')  # OCTANT-1235-7
+      set_in t, Role::BorderOctantElbowTR, Entry.new('+', nil, '\u{1CD98}')  # OCTANT-1246-8
+      set_in t, Role::BorderOctantElbowBL, Entry.new('+', nil, '\u{1CDC0}')  # OCTANT-1357-8
+      set_in t, Role::BorderOctantElbowBR, Entry.new('+', nil, '\u{1CDD5}')  # OCTANT-2467-8
+      set_in t, Role::BorderOctantMiterTL, Entry.new('+', nil, '\u{1CEA8}')  # OCTANT-1
+      set_in t, Role::BorderOctantMiterTR, Entry.new('+', nil, '\u{1CEAB}')  # OCTANT-2
+      set_in t, Role::BorderOctantMiterBL, Entry.new('+', nil, '\u{1CEA3}')  # OCTANT-7
+      set_in t, Role::BorderOctantMiterBR, Entry.new('+', nil, '\u{1CEA0}')  # OCTANT-8
+      set_in t, Role::ShadowOctantCornerTL, Entry.new(' ', nil, '\u{1CD70}') # all but octant 8
+      set_in t, Role::ShadowOctantCornerTR, Entry.new(' ', nil, '\u{1CDAB}') # all but octant 7
+      set_in t, Role::ShadowOctantCornerBL, Entry.new(' ', nil, '\u{1CDE4}') # all but octant 2
+      set_in t, Role::ShadowOctantCornerBR, Entry.new(' ', nil, '\u{1CDE5}') # all but octant 1
 
       # Caps: a full block, so the glyph fills exactly the cell it costs. A
       # thinner rim (`▏`) or a line run (`│`) leaves the rest of its cell showing
@@ -1184,20 +1221,43 @@ module Crysterm
     # keeping the sextant's 16/3 px height integral.
     #
     # Returns `:gap` (leave the corner cell untouched), `:strip` (continue
-    # the horizontal run), `:sextant` or `:quadrant` (the miter pieces).
-    def self.corner_fit(w8 : Int32, v8 : Int32, tier : Tier) : Symbol
+    # the horizontal run), `:octant`, `:sextant` or `:quadrant` (the miter
+    # pieces). *octants* says the terminal renders the Unicode 16 octant
+    # range (`Screen#glyph_octants?`).
+    def self.corner_fit(w8 : Int32, v8 : Int32, tier : Tier, octants : Bool = false) : Symbol
       want3 = 6 * w8 * v8
       best = :gap
       cost = 2 * want3
       strip3 = 6 * (8 - w8) * v8
       best, cost = :strip, strip3 if strip3 < cost
       if w8 <= 4
-        if tier.extended? && v8 <= 2 && (sext3 = 64 - want3) < cost
+        # The octant miter (half a cell × a quarter) is pixel-exact at the
+        # aspect-compensated `:half` geometry and needs no stroke
+        # re-quantization, so it outranks the sextant wherever available.
+        if octants && tier.extended? && v8 <= 2 && (oct3 = 48 - want3) < cost
+          best, cost = :octant, oct3
+        end
+        # The sextant miter serves v8 3 as well as 2: its consumer then
+        # *demotes* the strokes to the matching third-blocks (5.33 px for a
+        # nominal 6), so piece and stroke join flush — hence the clamp, a
+        # nominally-negative spill just means "exact after demotion".
+        if tier.extended? && v8 <= 3 && (sext3 = Math.max(64 - want3, 0)) < cost
           best, cost = :sextant, sext3
         end
         best = :quadrant if v8 <= 4 && 96 - want3 < cost
       end
       best
+    end
+
+    # Whether a live `Tput`'s emulator identity says the terminal renders the
+    # Unicode 16 octant range (U+1CD00…), gating the pixel-exact octant
+    # corner pieces. Like `detected_tier`, this is identity knowledge — the
+    # range has no escape-sequence probe — and it's version-aware
+    # (`Tput::Emulator::OCTANT_SUPPORT`; e.g. kitty ≥ 0.40). Consulted by
+    # `Screen` alongside `detected_tier` while `screen.glyphs_octants` /
+    # `Screen#glyph_octants=` haven't pinned a choice, on a real tty only.
+    def self.detected_octants(tput : ::Tput) : Bool
+      tput.features.unicode? && (tput.emulator?.try(&.legacy_computing_octant?) || false)
     end
 
     # Heuristic tier suggestion: `Extended` when the environment identifies a

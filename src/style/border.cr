@@ -444,7 +444,7 @@ module Crysterm
     # substitution (`Glyphs::Role::BorderCapLeft` …) doesn't apply: an
     # edge-anchored run sits flush against the cell edge already and reads as
     # a trough wall on its own, which is all the caps exist to provide.
-    def block_glyphs_with_overrides(tier : Glyphs::Tier)
+    def block_glyphs_with_overrides(tier : Glyphs::Tier, octants : Bool = false)
       w8, v8 = Glyphs.block_eighths(@ratio)
       # Below the Extended tier the upper/right ramps only offer the 1/8, 4/8
       # and 8/8 steps. A frame's opposite edges must match, so quantize each
@@ -457,24 +457,30 @@ module Crysterm
       lower = Glyphs.chars(Glyphs::SeqRole::BorderRampLower, tier)
       lefts = Glyphs.chars(Glyphs::SeqRole::BorderRampLeft, tier)
       rights = Glyphs.chars(Glyphs::SeqRole::BorderRampRight, tier)
-      # At the Extended tier a 2/8-thick horizontal run pairs with sextant
-      # corner pieces, whose horizontal arms are a *third* of the cell — the
-      # runs promote to the matching third-blocks so every joint is flush
-      # (a 1/24-cell step at each corner reads as a bulge; nominal eighth
-      # exactness doesn't).
-      thirds = tier.extended? && v8 == 2 && w8 <= 4
+      # When the corners resolve to sextant pieces, whose horizontal arms are
+      # a *third* of the cell, 2/8- and 3/8-thick horizontal runs re-quantize
+      # to the matching third-blocks: a 1/24-cell step at every corner reads
+      # as a bulge, while a run drawn at 1/3 instead of 1/4 or 3/8 just reads
+      # as the run — flush joints beat nominal eighth exactness. With the
+      # octant pieces in play (*octants*, quarter-height arms) no such trade
+      # is needed: the runs stay at their honest eighths.
+      thirdable = tier.extended? && (v8 == 2 || v8 == 3)
       if @type.outer?
+        octant_corners = outer_octant_corners?(tier, w8, v8, octants)
+        thirds = thirdable && w8 <= 6 && !octant_corners
         t = thirds ? Glyphs[Glyphs::Role::BorderThirdUpper, tier] : upper[v8 - 1]
         b = thirds ? Glyphs[Glyphs::Role::BorderThirdLower, tier] : lower[v8 - 1]
         l, r = lefts[w8 - 1], rights[w8 - 1]
-        tl, tr, bl, br = outer_block_corners(tier, w8, v8)
+        tl, tr, bl, br = outer_block_corners(tier, w8, v8, octant_corners)
       else
         # Inner: every anchor flips to the content-facing edge, so each ramp
         # serves the opposite side.
+        fit = Glyphs.corner_fit(w8, v8, tier, octants)
+        thirds = thirdable && fit == :sextant
         t = thirds ? Glyphs[Glyphs::Role::BorderThirdLower, tier] : lower[v8 - 1]
         b = thirds ? Glyphs[Glyphs::Role::BorderThirdUpper, tier] : upper[v8 - 1]
         l, r = rights[w8 - 1], lefts[w8 - 1]
-        tl, tr, bl, br = inner_block_corners(tier, w8, v8, t, b)
+        tl, tr, bl, br = inner_block_corners(fit, tier, t, b)
       end
       unless chars?
         return {tl: tl, tr: tr, bl: bl, br: br, t: t, b: b, l: l, r: r}
@@ -489,40 +495,68 @@ module Crysterm
        r:  @right_char || @vertical_char || r}
     end
 
-    # The four corner glyphs `{tl, tr, bl, br}` of an `Outer` block border.
-    # An Outer corner must *cover* both runs' strips through the corner cell
-    # (a thinner piece would notch the ring), so the choice is the smallest
-    # covering elbow: the eighth-L pieces, the Extended tier's thin-armed
-    # sextant elbows, the three-quadrant blocks, or the full block — in that
-    # (area) order.
-    private def outer_block_corners(tier : Glyphs::Tier, w8 : Int32, v8 : Int32)
-      if tier.extended? && w8 <= 4 && v8 <= 2 && (w8 > 1 || v8 > 1)
-        {Glyphs[Glyphs::Role::BorderThinElbowTL, tier],
-         Glyphs[Glyphs::Role::BorderThinElbowTR, tier],
-         Glyphs[Glyphs::Role::BorderThinElbowBL, tier],
-         Glyphs[Glyphs::Role::BorderThinElbowBR, tier]}
-      else
-        ci = w8 <= 1 && v8 <= 1 ? 0 : (w8 <= 4 && v8 <= 4 ? 3 : 7)
-        {Glyphs.chars(Glyphs::SeqRole::BorderElbowTL, tier)[ci],
-         Glyphs.chars(Glyphs::SeqRole::BorderElbowTR, tier)[ci],
-         Glyphs.chars(Glyphs::SeqRole::BorderElbowBL, tier)[ci],
-         Glyphs.chars(Glyphs::SeqRole::BorderElbowBR, tier)[ci]}
+    # The four corner glyphs `{tl, tr, bl, br}` of an `Outer` block border:
+    # the elbow whose arms sit closest to the two runs' thicknesses. The
+    # eighth-L pieces when both runs are near an eighth (at `w8 == 2` the
+    # 1-px side-arm pinch still beats every larger piece's bulge); the
+    # Extended tier's thin-armed sextant elbows through the whole 3/8-6/8
+    # midrange, where — with the runs re-quantized to thirds — the top joins
+    # flush and the sides keep only a small chamfer; the three-quadrant
+    # blocks for the non-Extended midrange; and the full block when the
+    # sides are nearly solid (a corner reading as a deliberate solid block
+    # beats the quadrant's bitten-side notch there).
+    # Whether an `Outer` border's corners take the octant elbows: the range
+    # they cover (arms half a cell wide, a quarter tall) — except the near-
+    # hairline geometries, where the eighth-L pieces sit closer still.
+    private def outer_octant_corners?(tier : Glyphs::Tier, w8 : Int32, v8 : Int32, octants : Bool) : Bool
+      octants && tier.extended? && w8 <= 4 && v8 <= 2 && !(v8 <= 1 && w8 <= 2)
+    end
+
+    private def outer_block_corners(tier : Glyphs::Tier, w8 : Int32, v8 : Int32, octant_corners : Bool = false)
+      if octant_corners
+        return {Glyphs[Glyphs::Role::BorderOctantElbowTL, tier],
+                Glyphs[Glyphs::Role::BorderOctantElbowTR, tier],
+                Glyphs[Glyphs::Role::BorderOctantElbowBL, tier],
+                Glyphs[Glyphs::Role::BorderOctantElbowBR, tier]}
       end
+      if v8 <= 1 && w8 <= 2
+        ci = 0
+      elsif tier.extended? && w8 <= 6 && v8 <= 3
+        return {Glyphs[Glyphs::Role::BorderThinElbowTL, tier],
+                Glyphs[Glyphs::Role::BorderThinElbowTR, tier],
+                Glyphs[Glyphs::Role::BorderThinElbowBL, tier],
+                Glyphs[Glyphs::Role::BorderThinElbowBR, tier]}
+      else
+        ci = w8 <= 4 && v8 <= 4 ? 3 : 7
+      end
+      {Glyphs.chars(Glyphs::SeqRole::BorderElbowTL, tier)[ci],
+       Glyphs.chars(Glyphs::SeqRole::BorderElbowTR, tier)[ci],
+       Glyphs.chars(Glyphs::SeqRole::BorderElbowBL, tier)[ci],
+       Glyphs.chars(Glyphs::SeqRole::BorderElbowBR, tier)[ci]}
     end
 
     # The four corner glyphs `{tl, tr, bl, br}` of an `Inner` block border,
-    # whose ideal corner ink is just the small `w8 × v8` junction rectangle
-    # where the two strokes meet. `Glyphs.corner_fit` picks the least-spill
-    # treatment: a miter piece (sextant/quadrant), the horizontal run (*t*/*b*)
-    # continued through the cell, or — for hairline rings, whose strokes
-    # already meet corner to corner — no glyph at all (`Glyphs::NONE`: the
-    # render loop leaves the cell untouched).
-    private def inner_block_corners(tier : Glyphs::Tier, w8 : Int32, v8 : Int32, t : Char, b : Char)
-      case fit = Glyphs.corner_fit(w8, v8, tier)
+    # whose ideal corner ink is just the small junction rectangle where the
+    # two strokes meet. *fit* is the caller's `Glyphs.corner_fit` pick of the
+    # least-spill treatment: a miter piece (sextant/quadrant), the horizontal
+    # run (*t*/*b*) continued through the cell, or — for hairline rings,
+    # whose strokes meet corner to corner — no glyph at all (`Glyphs::NONE`:
+    # the render loop leaves the cell untouched). The open corner is a
+    # deliberate pick over the closed alternatives, all of which spill worse
+    # at hairline scale: the smallest miter bead (an octant) is several times
+    # the stroke width, and an eighth-L's arms run the cell edges as spikes.
+    private def inner_block_corners(fit : Symbol, tier : Glyphs::Tier, t : Char, b : Char)
+      case fit
       when :strip
         {t, t, b, b}
       when :gap
         {Glyphs::NONE, Glyphs::NONE, Glyphs::NONE, Glyphs::NONE}
+      when :octant
+        # The octant miter, diagonal-mapped like the sextant one below.
+        {Glyphs[Glyphs::Role::BorderOctantMiterBR, tier],
+         Glyphs[Glyphs::Role::BorderOctantMiterBL, tier],
+         Glyphs[Glyphs::Role::BorderOctantMiterTR, tier],
+         Glyphs[Glyphs::Role::BorderOctantMiterTL, tier]}
       else
         # A miter piece, hugging the cell corner *diagonal* to the widget
         # corner it closes (an inner TL corner's ink sits at its cell's BR).
@@ -563,8 +597,8 @@ module Crysterm
     # top/bottom to close them, *cap_h* for the transpose. A `Fill` border
     # paints colored cells and a block border edge-flush runs — neither implies
     # a shape the caps must repair, so both ignore them.
-    def glyph_octet(tier : Glyphs::Tier, cap_v = false, cap_h = false)
-      return block_glyphs_with_overrides(tier) if @type.block_family?
+    def glyph_octet(tier : Glyphs::Tier, cap_v = false, cap_h = false, octants : Bool = false)
+      return block_glyphs_with_overrides(tier, octants) if @type.block_family?
       return line_glyphs_with_overrides(tier, cap_v, cap_h) if @type.line_family?
       {tl: top_left_char, tr: top_right_char, bl: bottom_left_char, br: bottom_right_char,
        t: top_char, b: bottom_char, l: left_char, r: right_char}

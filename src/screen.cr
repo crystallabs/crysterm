@@ -106,6 +106,27 @@ module Crysterm
       @glyph_tier = value
     end
 
+    # Whether block-border/thin-shadow corners may use the Unicode 16 octant
+    # glyphs (U+1CD00… — quarter-height corner arms, pixel-exact where the
+    # sextant pieces approximate). Left at its `screen.glyphs_octants` default
+    # (false), a device on a real tty auto-enables it when the terminal is
+    # identified as rendering the range (`Tput::Emulator#legacy_computing_octant?`
+    # — e.g. kitty ≥ 0.40); an explicit config value or `#glyph_octants=` pins
+    # the choice and disables detection. Kept separate from `#glyph_tier`:
+    # octants are years newer than the rest of the `extended` repertoire, so
+    # Extended-tier terminals don't uniformly have them.
+    getter? glyph_octants : Bool = Config.screen_glyphs_octants
+
+    # Whether octant use was chosen explicitly — from env/file/CLI/runtime
+    # rather than the registered default. Pins against `#auto_glyph_tier`.
+    getter? glyph_octants_explicit : Bool = !Config["screen.glyphs_octants"].source.default?
+
+    # Explicitly enables/disables octant corners, pinning against detection.
+    def glyph_octants=(value : Bool)
+      @glyph_octants_explicit = true
+      @glyph_octants = value
+    end
+
     # User option: enable grapheme/full-Unicode-aware rendering — text is
     # measured and laid out by terminal **column width** (`Crysterm::Unicode`)
     # rather than one column per codepoint, grapheme clusters stay intact, and
@@ -308,8 +329,12 @@ module Crysterm
     # describes, and its output must not depend on where the process was
     # launched from.
     private def auto_glyph_tier : Nil
-      return if @glyph_tier_explicit || !@output.tty?
-      @glyph_tier = Glyphs.detected_tier(@tput)
+      return if !@output.tty?
+      @glyph_tier = Glyphs.detected_tier(@tput) unless @glyph_tier_explicit
+      # Octants ride the same detection cadence but their own, stricter gate:
+      # the emulator must be identified as rendering the Unicode 16 range
+      # (version-aware — see `Tput::Emulator::OCTANT_SUPPORT`).
+      @glyph_octants = Glyphs.detected_octants(@tput) unless @glyph_octants_explicit
     end
 
     # Reads the terminal size into `width`/`height` from this device's own `tput`
@@ -367,6 +392,7 @@ module Crysterm
       # `@glyph_tier_explicit` from config alone, so without this a runtime pin
       # is lost and the reattach's `probe!` re-runs auto-detection over it.
       s.glyph_tier = @glyph_tier if glyph_tier_explicit?
+      s.glyph_octants = @glyph_octants if glyph_octants_explicit?
       s
     end
 

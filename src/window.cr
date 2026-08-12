@@ -127,7 +127,7 @@ module Crysterm
     delegate input, output, error,
       tput, draw_caps, colors, color_count, truecolor?,
       force_unicode?, full_unicode?, full_unicode_effective?,
-      glyph_tier,
+      glyph_tier, glyph_octants?,
       width, height,
       cell_pixel_width, cell_pixel_height, to: @screen
 
@@ -213,6 +213,10 @@ module Crysterm
 
     def glyph_tier=(value : Glyphs::Tier)
       @screen.glyph_tier = value
+    end
+
+    def glyph_octants=(value : Bool)
+      @screen.glyph_octants = value
     end
 
     def input=(value : IO)

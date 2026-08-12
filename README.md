@@ -57,7 +57,9 @@ with a different theme from [data/css/](data/css/)
 
 ![](tests/misc/styling2.png)
 
-*Source: [tests/misc/styling2.cr](tests/misc/styling2.cr), [tests/misc/styling.cr](tests/misc/styling.cr)*
+![](tests/misc/styling3.png)
+
+*Source: [tests/misc/styling.cr](tests/misc/styling.cr), [tests/misc/styling2.cr](tests/misc/styling2.cr), [tests/misc/styling3.cr](tests/misc/styling3.cr)*
 
 ## Rich text — Markdown with GFM
 

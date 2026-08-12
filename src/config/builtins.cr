@@ -82,6 +82,8 @@ module Superconf
     description: "Grapheme / column-width-aware rendering (when the terminal supports Unicode); set false for legacy one-column-per-codepoint layout"
   option "screen.glyphs", Crysterm::Glyphs::Tier::Unicode,
     description: "Which chrome glyphs widgets draw (ascii|unicode|extended): 'unicode' (default) is the classic box-drawing/block set, 'ascii' restricts chrome to 7-bit characters, 'extended' uses glyphs that need a modern font. While left at the default, a Screen on a real tty auto-upgrades to 'extended' when the terminal is identified as one shipping a well-covered font (kitty, WezTerm, Ghostty, iTerm2); set any value explicitly to pin a tier and disable that detection. A glyph choice, not an encoding — draw-time ACS fallback still protects incapable terminals"
+  option "screen.glyphs_octants", false,
+    description: "Use Unicode 16 octant glyphs (Symbols for Legacy Computing Supplement) for pixel-exact block-border and thin-shadow corners at the extended glyph tier. While left at the default (false), a Screen on a real tty auto-enables it when the terminal is identified as rendering the octant range (e.g. kitty >= 0.40); set explicitly to pin and disable that detection. Requires a font/terminal covering U+1CD00-U+1CDE5 — unsupported ones show tofu at ring corners"
   option "window.overflow", Crysterm::Overflow::Ignore,
     description: "Policy for widgets larger than their container (ignore|hidden|shrink_widget|skip_widget|stop_rendering|move_widget)"
 
