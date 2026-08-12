@@ -29,6 +29,14 @@ include Crysterm
 
 s = Window.new title: "Styling 2"
 
+# This demo showcases the sub-cell machinery, so it pins the Extended glyph
+# tier: exact eighth steps and the sextant corner pieces (Symbols for Legacy
+# Computing). Interactively the tier is auto-detected (kitty, WezTerm,
+# Ghostty, iTerm2 get this for free), but the headless capture would fall to
+# the plain Unicode tier's coarser 1/8-4/8-8/8 steps. Comment this out on a
+# terminal whose font lacks the block.
+s.glyph_tier = Glyphs::Tier::Extended
+
 # Neutral backdrop, as in styling.cr: inner borders and shadows both show
 # whatever is behind the widget, which must not be black-on-black.
 Widget::Box.new \

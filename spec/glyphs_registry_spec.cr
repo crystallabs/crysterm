@@ -56,10 +56,15 @@ describe Crysterm::Glyphs do
 
   it "defines an explicit entry for every role (none left at the blank placeholder)" do
     # Roles whose ascii rendition legitimately IS a space. `ProgressFill` and
-    # `BigTextPixel` paint via fg/bg inversion, so their default cell is blank.
+    # `BigTextPixel` paint via fg/bg inversion, so their default cell is blank;
+    # the `ShadowCorner*` grounds carry the shadow tone in the cell background,
+    # so their blank means "shadow across the whole cell".
     blank_ok = Set{Glyphs::Role::CheckboxUnchecked, Glyphs::Role::RadioUnchecked,
                    Glyphs::Role::TreeLeaf, Glyphs::Role::ProgressFill,
-                   Glyphs::Role::BigTextPixel}
+                   Glyphs::Role::BigTextPixel,
+                   Glyphs::Role::ShadowCornerTL, Glyphs::Role::ShadowCornerTR,
+                   Glyphs::Role::ShadowCornerBL, Glyphs::Role::ShadowCornerBR,
+                   Glyphs::Role::ShadowThirdTop, Glyphs::Role::ShadowThirdBottom}
     Glyphs::Role.each do |role|
       next if blank_ok.includes? role
       Glyphs[role, Glyphs::Tier::Ascii].should_not(eq(' '), "role #{role} has no DEFAULTS row")

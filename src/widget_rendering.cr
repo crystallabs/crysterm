@@ -822,6 +822,13 @@ module Crysterm
             end
 
             ch = border_char glyphs, in_top, in_bot, in_left, in_right
+            # `Glyphs::NONE` marks a cell the border deliberately leaves
+            # untouched — an Inner corner whose junction rectangle is too
+            # small for any repertoire piece (`Glyphs.corner_fit` → `:gap`).
+            if ch == Glyphs::NONE
+              x += 1
+              next
+            end
             # Horizontal (top/bottom) cells — including corners — take the
             # top/bottom color; a purely vertical cell takes left/right.
             battr = if in_top || in_bot
@@ -928,19 +935,23 @@ module Crysterm
     # meets a horizontal one — use *top_cap*/*bot_cap*. Sub-ranges that collapse
     # to nothing (no cap on that side) draw no cells, so each corner is painted by
     # exactly one band.
+    # A `Glyphs::NONE` cap means "no corner paint at all" (`Glyphs.corner_fit`
+    # → `:gap` for a hairline shadow): its sub-range is skipped outright,
+    # leaving the backdrop cells untouched — distinct from a `nil` cap, which
+    # paints the classic full-cell blend.
     private def blend_shadow_v(scr, s, cx0, cx1, i, l, yi, yl, run, top_cap, bot_cap)
-      scr.blend_region s.opacity, cx0, cx1, i, Math.min(l, yi), glyph: top_cap
+      scr.blend_region s.opacity, cx0, cx1, i, Math.min(l, yi), glyph: top_cap unless top_cap == Glyphs::NONE
       scr.blend_region s.opacity, cx0, cx1, Math.max(i, yi), Math.min(l, yl), glyph: run
-      scr.blend_region s.opacity, cx0, cx1, Math.max(i, yl), l, glyph: bot_cap
+      scr.blend_region s.opacity, cx0, cx1, Math.max(i, yl), l, glyph: bot_cap unless bot_cap == Glyphs::NONE
     end
 
     # :ditto: for a horizontal (top/bottom) band in rows *ry0*...*ry1*, columns
     # *i*...*l*, split at the box's own column span *xi*...*xl* (run + left/right
     # corner caps).
     private def blend_shadow_h(scr, s, i, l, ry0, ry1, xi, xl, run, left_cap, right_cap)
-      scr.blend_region s.opacity, i, Math.min(l, xi), ry0, ry1, glyph: left_cap
+      scr.blend_region s.opacity, i, Math.min(l, xi), ry0, ry1, glyph: left_cap unless left_cap == Glyphs::NONE
       scr.blend_region s.opacity, Math.max(i, xi), Math.min(l, xl), ry0, ry1, glyph: run
-      scr.blend_region s.opacity, Math.max(i, xl), l, ry0, ry1, glyph: right_cap
+      scr.blend_region s.opacity, Math.max(i, xl), l, ry0, ry1, glyph: right_cap unless right_cap == Glyphs::NONE
     end
 
     # Registers on the window the rows where this widget emits horizontal

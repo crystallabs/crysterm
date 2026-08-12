@@ -47,10 +47,13 @@ describe "block border families" do
   it "resolves the exact missing steps at the Extended tier" do
     with_aspect do
       g = Border.new(type: :outer).glyph_octet(Glyphs::Tier::Extended)
-      g[:t].should eq '\u{1FB82}' # upper 2/8 — Legacy Computing
-      g[:b].should eq '▂'
+      # The sextant corner pieces' horizontal arms are thirds, so the 2/8
+      # runs promote to the matching third-blocks — every joint flush.
+      g[:t].should eq '\u{1FB02}' # upper third — SEXTANT-12
+      g[:b].should eq '\u{1FB2D}' # lower third — SEXTANT-56
       g[:l].should eq '▌'
-      g[:tl].should eq '▛'
+      g[:tl].should eq '\u{1FB15}' # SEXTANT-1235: top arm a third, left arm a half
+      g[:br].should eq '\u{1FB37}' # SEXTANT-2456
     end
   end
 
@@ -79,9 +82,23 @@ describe "block border families" do
       # Content-facing anchors: top run inks the cell bottom, left run the
       # cell right — each ramp serves the opposite side.
       {g[:t], g[:b], g[:l], g[:r]}.should eq({'▁', '▔', '▐', '▌'})
-      # Corners continue the horizontal strokes at run thickness — no corner
-      # bead: the vertical bars meet the full-width strokes flush.
+      # Corners at the Unicode tier (1/8-thin snapped runs beside 4/8 sides):
+      # the least-spill treatment is the horizontal stroke continued through
+      # the corner cells, meeting the vertical bars flush.
       {g[:tl], g[:tr], g[:bl], g[:br]}.should eq({'▁', '▁', '▔', '▔'})
+      # At Extended the sextant miters close the ring and the runs promote
+      # to the matching third-blocks — miter and stroke exactly flush.
+      ge = Border.new(type: :inner).glyph_octet(Glyphs::Tier::Extended)
+      ge[:t].should eq '\u{1FB2D}' # lower third of the top border cell
+      ge[:b].should eq '\u{1FB02}'
+      {ge[:tl], ge[:tr], ge[:bl], ge[:br]}.should eq(
+        {'\u{1FB1E}', '\u{1FB0F}', '\u{1FB01}', '\u{1FB00}'})
+      # A hairline ring's strokes already meet corner to corner: any piece
+      # would spill more than the sub-pixel gap, so the corner cells are
+      # left untouched.
+      gt = Border.new(type: :inner, ratio: :thin).glyph_octet(Glyphs::Tier::Extended)
+      {gt[:tl], gt[:tr], gt[:bl], gt[:br]}.should eq(
+        {Glyphs::NONE, Glyphs::NONE, Glyphs::NONE, Glyphs::NONE})
     end
   end
 
@@ -188,10 +205,24 @@ describe "thin shadow ratio" do
       g[:l].should eq '▌'
       # Top ground would be 6/8 upper — Unicode caps at the 4/8 step.
       g[:t].should eq '▀'
-      # Corners continue the horizontal band's strip (shifted-silhouette
-      # shape), instead of squaring up to an elbow that would bulge past it.
+      # Corners at Unicode continue the horizontal band's strip (the
+      # shifted-silhouette shape); no Unicode piece covers the 4/8 × 2/8
+      # corner rectangle tighter.
       g[:br].should eq '▆'
       g[:bl].should eq '▆'
+      # At Extended the sextant-complement ground leaves exactly a half-wide,
+      # third-tall shadow notch at the corner — no horizontal spill — and the
+      # strips promote to the matching third grounds, so band and notch join
+      # flush.
+      ge = sh.glyph_octet(Glyphs::Tier::Extended)
+      ge[:br].should eq '\u{1FB3B}' # SEXTANT-23456
+      ge[:tl].should eq '\u{1FB1D}' # SEXTANT-12345
+      ge[:b].should eq '\u{1FB39}'  # ground SEXTANT-3456: shadow = top third
+      ge[:t].should eq '\u{1FB0E}'  # ground SEXTANT-1234: shadow = bottom third
+      # A hairline shadow's corner rectangle is sub-pixel: skip the cell
+      # outright rather than spill (the backdrop stays untouched).
+      gt = Shadow.new(right: 1, bottom: 1, ratio: :thin).glyph_octet(Glyphs::Tier::Extended)
+      gt[:br].should eq Glyphs::NONE
     end
   end
 

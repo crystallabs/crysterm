@@ -147,13 +147,39 @@ module Crysterm
         dt = gv.zero? ? nil : Glyphs.chars(Glyphs::SeqRole::BorderRampUpper, tier)[Math.min(gv, cap) - 1]
         dr = gw.zero? ? nil : Glyphs.chars(Glyphs::SeqRole::BorderRampRight, tier)[Math.min(gw, cap) - 1]
         dl = gw.zero? ? nil : Glyphs.chars(Glyphs::SeqRole::BorderRampLeft, tier)[gw - 1]
-        # Corner cells take the adjacent horizontal band's run ground: the
-        # shadow is the box's silhouette shifted by the offset, so its bottom
-        # (top) strip runs straight through the corner cells at full width
-        # and the vertical column ends flush against it. A squared-up corner
-        # piece (a quadrant elbow) would bulge past the thin strip.
-        dtl = dtr = dt
-        dbl = dbr = db
+        # Corner cells: the shadow is the box's silhouette shifted by the
+        # offset, so each corner's ideal tone is the small `w8 × v8`
+        # rectangle hugging the widget corner. `Glyphs.corner_fit` picks the
+        # least-spill cover — the sextant-complement grounds, the quadrant
+        # elbows, the horizontal band's strip run straight through — or, for
+        # hairline shadows, no paint at all (`Glyphs::NONE`, skipped by the
+        # band painter: the backdrop cell stays untouched).
+        fit = Glyphs.corner_fit(w8, v8, tier)
+        # With sextant corners in play (third-tall notches), a 2/8 strip
+        # would leave a 1/24-cell step where band meets corner — promote the
+        # strips to the matching third grounds (same trade as the border
+        # runs: flush joints over nominal eighth exactness).
+        if fit == :sextant && v8 == 2
+          db = Glyphs[Glyphs::Role::ShadowThirdBottom, tier]
+          dt = Glyphs[Glyphs::Role::ShadowThirdTop, tier]
+        end
+        case fit
+        when :strip
+          dtl = dtr = dt
+          dbl = dbr = db
+        when :gap
+          dtl = dtr = dbl = dbr = Glyphs::NONE
+        when :sextant
+          dtl = Glyphs[Glyphs::Role::ShadowCornerTL, tier]
+          dtr = Glyphs[Glyphs::Role::ShadowCornerTR, tier]
+          dbl = Glyphs[Glyphs::Role::ShadowCornerBL, tier]
+          dbr = Glyphs[Glyphs::Role::ShadowCornerBR, tier]
+        else # :quadrant — the elbow ground anchored at the corner's own (away) cell corner
+          dtl = Glyphs.chars(Glyphs::SeqRole::BorderElbowTL, tier)[3]
+          dtr = Glyphs.chars(Glyphs::SeqRole::BorderElbowTR, tier)[3]
+          dbl = Glyphs.chars(Glyphs::SeqRole::BorderElbowBL, tier)[3]
+          dbr = Glyphs.chars(Glyphs::SeqRole::BorderElbowBR, tier)[3]
+        end
       end
       {t: top_char || dt, b: bottom_char || db,
        l: left_char || dl, r: right_char || dr,

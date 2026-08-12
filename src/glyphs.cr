@@ -485,6 +485,47 @@ module Crysterm
       BorderCapTop
       BorderCapBottom
 
+      # Sub-cell corner pieces for the block borders and thin shadows, picked
+      # by the spill-minimizing `Glyphs.corner_fit` chooser (gaps beat any
+      # large spill, tight covers beat loose ones).
+      #
+      # Miters: the small ink square hugging the named *cell* corner — an
+      # `Inner` border's corner joint. `extended` holds the single sextant
+      # (half a cell wide, a third tall); `unicode` the quadrant.
+      BorderMiterTL
+      BorderMiterTR
+      BorderMiterBL
+      BorderMiterBR
+
+      # Thin-armed elbows: the `extended`-tier sextant elbows (top/bottom arm
+      # a third of the cell, side arm half) — an `Outer` border's corner when
+      # its runs are thinner than the quadrant elbow's arms; `unicode` falls
+      # back to the three-quadrant block.
+      BorderThinElbowTL
+      BorderThinElbowTR
+      BorderThinElbowBL
+      BorderThinElbowBR
+
+      # Thin-shadow corner grounds (`extended`-tier sextant complements whose
+      # one empty sextant is the cell corner hugging the widget). Named by
+      # the shadow ring corner they serve.
+      ShadowCornerTL
+      ShadowCornerTR
+      ShadowCornerBL
+      ShadowCornerBR
+
+      # Third-height horizontal runs/strips (`extended`-tier sextant rows).
+      # The sextant corner pieces' horizontal arms are a third of the cell
+      # tall, while the eighth ramps step in quarters around them — so a
+      # 2/8-thick run beside a sextant corner would leave a 1/24-cell step
+      # at every joint. When the corner chooser lands on sextant pieces at
+      # that step, the runs and shadow strips promote to these matching
+      # third-blocks instead: flush joints beat nominal exactness.
+      BorderThirdUpper  # ink in the top third (SEXTANT-12)
+      BorderThirdLower  # ink in the bottom third (SEXTANT-56)
+      ShadowThirdTop    # ground upper two-thirds: shadow strip in the bottom third
+      ShadowThirdBottom # ground lower two-thirds: shadow strip in the top third
+
       # Whether this is a *cell* role — one that fills exactly one grid cell
       # by construction (scrollbar/slider parts, rules, junctions, the cursor
       # bar/block, border positions), so grid math never has to measure it. A
@@ -835,6 +876,30 @@ module Crysterm
       set_in t, Role::BorderRoundedH, Entry.new('-', '─')
       set_in t, Role::BorderRoundedV, Entry.new('|', '│')
 
+      # Sub-cell corner pieces (see the `Role` docs and `Glyphs.corner_fit`).
+      # The sextants (Symbols for Legacy Computing) sit in the `extended`
+      # column; `unicode` falls back to the quadrant renditions.
+      set_in t, Role::BorderMiterTL, Entry.new('+', '▘', '\u{1FB00}')     # SEXTANT-1
+      set_in t, Role::BorderMiterTR, Entry.new('+', '▝', '\u{1FB01}')     # SEXTANT-2
+      set_in t, Role::BorderMiterBL, Entry.new('+', '▖', '\u{1FB0F}')     # SEXTANT-5
+      set_in t, Role::BorderMiterBR, Entry.new('+', '▗', '\u{1FB1E}')     # SEXTANT-6
+      set_in t, Role::BorderThinElbowTL, Entry.new('+', '▛', '\u{1FB15}') # SEXTANT-1235
+      set_in t, Role::BorderThinElbowTR, Entry.new('+', '▜', '\u{1FB28}') # SEXTANT-1246
+      set_in t, Role::BorderThinElbowBL, Entry.new('+', '▙', '\u{1FB32}') # SEXTANT-1356
+      set_in t, Role::BorderThinElbowBR, Entry.new('+', '▟', '\u{1FB37}') # SEXTANT-2456
+      # Shadow grounds: `ascii` space = shadow tone across the whole cell;
+      # the chooser never picks these roles below `extended` anyway.
+      set_in t, Role::ShadowCornerTL, Entry.new(' ', nil, '\u{1FB1D}') # shadow in the LR sextant
+      set_in t, Role::ShadowCornerTR, Entry.new(' ', nil, '\u{1FB2C}') # shadow in the LL sextant
+      set_in t, Role::ShadowCornerBL, Entry.new(' ', nil, '\u{1FB3A}') # shadow in the UR sextant
+      set_in t, Role::ShadowCornerBR, Entry.new(' ', nil, '\u{1FB3B}') # shadow in the UL sextant
+      # Third-height runs/strips, promoted to when sextant corners are in
+      # play (their horizontal arms are thirds).
+      set_in t, Role::BorderThirdUpper, Entry.new('-', nil, '\u{1FB02}')  # SEXTANT-12
+      set_in t, Role::BorderThirdLower, Entry.new('-', nil, '\u{1FB2D}')  # SEXTANT-56
+      set_in t, Role::ShadowThirdTop, Entry.new(' ', nil, '\u{1FB0E}')    # SEXTANT-1234
+      set_in t, Role::ShadowThirdBottom, Entry.new(' ', nil, '\u{1FB39}') # SEXTANT-3456
+
       # Caps: a full block, so the glyph fills exactly the cell it costs. A
       # thinner rim (`▏`) or a line run (`│`) leaves the rest of its cell showing
       # the border background — which is the widget's own background — putting a
@@ -955,13 +1020,15 @@ module Crysterm
       BorderRampLeft  # ink anchored at the left edge, growing right
       BorderRampRight # ink anchored at the right edge, growing left
 
-      # Corner cells, named by the *cell corner the ink hugs*: the L-shape
-      # along the two named edges — an `Outer` border's corner joint.
-      # (`Inner` borders and thin shadows need no corner piece: both continue
-      # their horizontal run/strip through the corner cells instead.) Indexed
-      # by eighths like the ramps; exact glyphs exist only at 1/8 (Legacy
-      # Computing L-pieces, `extended`), 4/8 (three-quadrant blocks) and 8/8
-      # (full block), so the tables bucket every step to the nearest of those.
+      # Elbow corner cells, named by the *cell corner the ink hugs*: the
+      # L-shape along the two named edges — an `Outer` border's corner joint
+      # (and, at the quadrant step, a thin shadow's `:quadrant` corner
+      # ground). Indexed by eighths like the ramps; exact glyphs exist only
+      # at 1/8 (Legacy Computing L-pieces, `extended`), 4/8 (three-quadrant
+      # blocks) and 8/8 (full block), so the tables bucket every step to the
+      # nearest of those. The sub-cell corner pieces the `Glyphs.corner_fit`
+      # chooser picks from (miters, thin-armed elbows, shadow grounds) are
+      # separate `Role`s below.
       BorderElbowTL
       BorderElbowTR
       BorderElbowBL
@@ -1100,6 +1167,37 @@ module Crysterm
       w8 = (r * 8).round.to_i.clamp(1, 8)
       v8 = (r * 8 / aspect).round.to_i.clamp(1, 8)
       {w8, v8}
+    end
+
+    # Picks the treatment of a sub-cell ring/silhouette corner whose ideal
+    # ink is a rectangle *w8* (width-eighths) wide × *v8* (height-eighths)
+    # tall tucked into a cell corner — an `Inner` border's corner joint, or a
+    # thin shadow's corner (where the "ink" is the shadow tone and the glyph
+    # paints its complement). No repertoire has that exact piece, so compare
+    # the spill of every candidate that *covers* the rectangle — the
+    # full-width horizontal strip (the run continued through the cell), the
+    # quadrant miter (half × half), and at `extended` the sextant miter
+    # (half × a third) — against simply leaving the cell empty, whose cost is
+    # the gap area weighted double (a break in the line is more jarring than
+    # the same area of spill, but a thin ring's sub-pixel-scale gap beats any
+    # fat corner bead). Areas are compared in px²·3 of a nominal 8×16 cell,
+    # keeping the sextant's 16/3 px height integral.
+    #
+    # Returns `:gap` (leave the corner cell untouched), `:strip` (continue
+    # the horizontal run), `:sextant` or `:quadrant` (the miter pieces).
+    def self.corner_fit(w8 : Int32, v8 : Int32, tier : Tier) : Symbol
+      want3 = 6 * w8 * v8
+      best = :gap
+      cost = 2 * want3
+      strip3 = 6 * (8 - w8) * v8
+      best, cost = :strip, strip3 if strip3 < cost
+      if w8 <= 4
+        if tier.extended? && v8 <= 2 && (sext3 = 64 - want3) < cost
+          best, cost = :sextant, sext3
+        end
+        best = :quadrant if v8 <= 4 && 96 - want3 < cost
+      end
+      best
     end
 
     # Heuristic tier suggestion: `Extended` when the environment identifies a
