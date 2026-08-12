@@ -238,7 +238,8 @@ module Crysterm
       # token isn't a style keyword (a width, color, or `none`). `solid`/`line`
       # both mean the light line border; `bg`/`background` the fill-char border;
       # `dashed`/`dotted`/`double` their respective glyph sets; `rounded` (or
-      # `round` — no standard CSS spelling exists) the arc-corner family.
+      # `round` — no standard CSS spelling exists) the arc-corner family;
+      # `braille` the braille-dot family.
       private def self.border_type_keyword(token : String) : BorderType?
         case Case.fold_keyword(token)
         when "solid", "line"                      then BorderType::Solid
@@ -248,6 +249,7 @@ module Crysterm
         when "rounded", "round"                   then BorderType::Rounded
         when "outer", "block"                     then BorderType::Outer
         when "inner"                              then BorderType::Inner
+        when "braille"                            then BorderType::Braille
         when "bg", "background"                   then BorderType::Fill
         when "inset", "outset", "groove", "ridge" then BorderType::Solid
         end

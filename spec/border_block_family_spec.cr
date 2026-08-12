@@ -6,7 +6,8 @@ include Crysterm
 # ink sized by `Border#ratio` (aspect-compensated, tier-quantized through the
 # `Glyphs::SeqRole::BorderRamp*`/`BorderElbow*`/`BorderMiter*` step tables),
 # plus the shared `Shadow#ratio` thin-shadow derivation in its complement
-# (ground-glyph) encoding.
+# (ground-glyph) encoding, and the dot-ink `BorderType::Braille` sibling
+# (`Glyphs.braille_steps` and the dot-mask union corners).
 
 private def rows(s)
   (0...s.lines.size).map do |y|
@@ -238,6 +239,82 @@ describe "block border families" do
       style.border.not_nil!.ratio.should eq 0.75
       Crysterm::CSS::Properties.apply style, "border-style", "inner"
       style.border.not_nil!.type.should eq BorderType::Inner
+    end
+  end
+end
+
+describe "braille border" do
+  it "resolves the default (:half) octet to single dot-lines at Extended" do
+    with_aspect do
+      g = Border.new(type: :braille).glyph_octet(Glyphs::Tier::Extended)
+      # ratio 0.5 → 1 dot-column of 2 / 1 dot-row of 4 (aspect-compensated):
+      # each run hugs its cell edge, one dot-line deep.
+      {g[:t], g[:b], g[:l], g[:r]}.should eq({'⠉', '⣀', '⡇', '⢸'})
+      # Corners are the union of the adjoining runs' dot masks — flush by
+      # construction.
+      {g[:tl], g[:tr], g[:bl], g[:br]}.should eq({'⡏', '⢹', '⣇', '⣸'})
+    end
+  end
+
+  it "resolves :full to the double dot-line band" do
+    with_aspect do
+      g = Border.new(type: :braille, ratio: :full).glyph_octet(Glyphs::Tier::Extended)
+      {g[:t], g[:b], g[:l], g[:r]}.should eq({'⠛', '⣤', '⣿', '⣿'})
+      # Full columns unioned with two dot-rows raise all eight dots.
+      {g[:tl], g[:tr], g[:bl], g[:br]}.should eq({'⣿', '⣿', '⣿', '⣿'})
+    end
+  end
+
+  it "degrades to the Dotted line family below the Extended tier" do
+    with_aspect do
+      g = Border.new(type: :braille).glyph_octet(Glyphs::Tier::Unicode)
+      {g[:t], g[:l], g[:tl]}.should eq({'┈', '┊', '┌'})
+      ga = Border.new(type: :braille).glyph_octet(Glyphs::Tier::Ascii)
+      {ga[:t], ga[:l], ga[:tl]}.should eq({'-', '|', '+'})
+    end
+  end
+
+  it "lets explicit char overrides outrank the derived dots" do
+    with_aspect do
+      b = Border.new(type: :braille)
+      b.top_char = '⠁'
+      b.corner_char = '+'
+      g = b.glyph_octet(Glyphs::Tier::Extended)
+      g[:t].should eq '⠁'
+      g[:tl].should eq '+'
+      g[:b].should eq '⣀' # untouched positions keep the derived pattern
+    end
+  end
+
+  it "coerces the :braille symbol and parses the CSS keyword" do
+    Border.from(:braille).type.should eq BorderType::Braille
+    style = Style.new
+    Crysterm::CSS::Properties.apply style, "border", "braille red"
+    style.border.not_nil!.type.should eq BorderType::Braille
+    Crysterm::CSS::Properties.apply style, "border-style", "braille"
+    style.border.not_nil!.type.should eq BorderType::Braille
+  end
+
+  it "renders a dot ring flush to the box edges, grounded in the widget bg" do
+    with_aspect do
+      s = headless_screen(8, 5)
+      s.glyph_tier = Glyphs::Tier::Extended
+      s.alloc
+      backdrop = Widget::Box.new(left: 0, top: 0, width: 8, height: 5, content: "")
+      backdrop.style.bg = 0x111111
+      s << backdrop
+      b = Widget::Box.new(left: 1, top: 1, width: 6, height: 3, content: "")
+      b.style.bg = 0x222222
+      b.style.border = Border.new(type: :braille, fg: 0xffffff)
+      s << b
+      s.repaint
+      r = rows s
+      r[1][1..6].should eq "⡏⠉⠉⠉⠉⢹"
+      r[2][1..6].should eq "⡇    ⢸"
+      r[3][1..6].should eq "⣇⣀⣀⣀⣀⣸"
+      # Outer-style grounding: the border cell's remainder carries the
+      # widget's own bg, not the backdrop's.
+      Attr.bg(s.lines[1][1].attr).should eq 0x222222
     end
   end
 end

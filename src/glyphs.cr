@@ -1206,6 +1206,43 @@ module Crysterm
       {w8, v8}
     end
 
+    # -- Braille border pieces -------------------------------------------------
+
+    # Base of the Braille Patterns block: `BRAILLE_BASE + mask` is the pattern
+    # with exactly the dots of *mask* raised (the U+2800 dot-numbering bits:
+    # dots 1..8 are bits 0..7).
+    BRAILLE_BASE = 0x2800
+
+    # Dot masks of a `BorderType::Braille` border's runs, 1-based by step like
+    # the `BorderRamp*` tables: `BRAILLE_COLS_LEFT[n - 1]` raises the leftmost
+    # *n* dot-columns (dots 1237, then all eight), `BRAILLE_ROWS_TOP[n - 1]`
+    # the topmost *n* dot-rows (dots 14, 1245, ...), and so on. A braille cell
+    # is 2 dot-columns x 4 dot-rows, so vertical runs step in halves and
+    # horizontal runs in quarters; a corner cell is simply the union of its
+    # two adjoining runs' masks.
+    BRAILLE_COLS_LEFT   = [0x47, 0xFF]
+    BRAILLE_COLS_RIGHT  = [0xB8, 0xFF]
+    BRAILLE_ROWS_TOP    = [0x09, 0x1B, 0x3F, 0xFF]
+    BRAILLE_ROWS_BOTTOM = [0xC0, 0xE4, 0xF6, 0xFF]
+
+    # The braille pattern with the dots of *mask* raised.
+    @[AlwaysInline]
+    def self.braille(mask : Int32) : Char
+      (BRAILLE_BASE + mask).chr
+    end
+
+    # Resolves a block-ink *ratio* into braille steps `{w2, v4}` — dot-columns
+    # for the vertical (left/right) runs, dot-rows for the horizontal
+    # (top/bottom) ones — the braille analog of `.block_eighths`: same
+    # cell-width unit and aspect compensation, on the coarser 2 x 4 dot grid.
+    # Each clamps to a visible 1-step minimum.
+    def self.braille_steps(ratio : Float64, aspect : Float64 = CSS::Length.cell_aspect_ratio) : {Int32, Int32}
+      r = ratio.clamp(0.0, 1.0)
+      w2 = (r * 2).round.to_i.clamp(1, 2)
+      v4 = (r * 4 / aspect).round.to_i.clamp(1, 4)
+      {w2, v4}
+    end
+
     # Picks the treatment of a sub-cell ring/silhouette corner whose ideal
     # ink is a rectangle *w8* (width-eighths) wide × *v8* (height-eighths)
     # tall tucked into a cell corner — an `Inner` border's corner joint, or a

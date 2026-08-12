@@ -22,6 +22,19 @@ module Crysterm
     Outer
     Inner
 
+    # Braille-dot border: runs and corners drawn as Braille Patterns
+    # (U+2800..), the ink hugging the widget's outermost cell edges like
+    # `Outer` — and grounded the same way, in the widget's own background —
+    # but dotted rather than solid, at the braille grid's 2 dot-columns x
+    # 4 dot-rows resolution. `Border#ratio` sizes the ink in dot-lines
+    # (`Glyphs.braille_steps`, aspect-compensated like the block families):
+    # up to `:half` a single dot-line on every edge, `:full` the whole
+    # two-column band. Corner cells take the union of the two adjoining
+    # runs' dots, so the ring closes flush. Braille is Extended-tier
+    # repertoire (same taxonomy as the braille spinner frames); below that
+    # tier the border degrades to the `Dotted` line family's glyphs.
+    Braille
+
     # DotDash
     # DotDotDash
 
@@ -33,10 +46,11 @@ module Crysterm
     end
 
     # Whether this is a line-drawing border, as opposed to the `Fill`
-    # fill-character one or the block (`Outer`/`Inner`) families. Every line
-    # family uses box-drawing glyphs; only their glyph set differs.
+    # fill-character one, the block (`Outer`/`Inner`) families or the
+    # dot-ink `Braille` one. Every line family uses box-drawing glyphs; only
+    # their glyph set differs.
     def line_family?
-      self != Fill && !block_family?
+      self != Fill && !block_family? && !braille?
     end
 
     # The six glyphs used to draw a line-family border at support *tier*: the
@@ -143,8 +157,9 @@ module Crysterm
     # eighth exactly, while below it each axis snaps to the 1/8, 4/8 and 8/8
     # steps its two ramps share — opposite edges of the frame always match —
     # making `0.125` and `1.0` the ratios that render identically at every
-    # tier. Ignored by the line families and `Fill`. See `#ratio=(Symbol)`
-    # for the named presets.
+    # tier. A `Braille` border reads it too, quantized to the braille grid's
+    # coarser dot-lines instead (`Glyphs.braille_steps`). Ignored by the line
+    # families and `Fill`. See `#ratio=(Symbol)` for the named presets.
     property ratio : Float64 = 0.5
 
     # Sets `#ratio` by named preset: `:thin` (an eighth), `:quarter`, `:half`,
@@ -495,6 +510,49 @@ module Crysterm
        r:  @right_char || @vertical_char || r}
     end
 
+    # The eight glyphs of a `Braille` border: each run the braille pattern
+    # whose dot-columns (left/right) or dot-rows (top/bottom) hug the cell
+    # edge, `#ratio` dot-lines deep (aspect-compensated and quantized to the
+    # 2 x 4 braille grid via `Glyphs.braille_steps`), each corner the union
+    # of its two adjoining runs' dot masks — the braille grid composes by
+    # OR, so every joint is flush by construction and needs no corner-piece
+    # chooser. Same char-override chain as the other families; the one-axis
+    # cap substitution doesn't apply for the same reason as the block
+    # families (an edge-anchored run reads as a trough wall on its own).
+    def braille_glyphs_with_overrides(tier : Glyphs::Tier)
+      if tier.extended?
+        w2, v4 = Glyphs.braille_steps(@ratio)
+        lm = Glyphs::BRAILLE_COLS_LEFT[w2 - 1]
+        rm = Glyphs::BRAILLE_COLS_RIGHT[w2 - 1]
+        tm = Glyphs::BRAILLE_ROWS_TOP[v4 - 1]
+        bm = Glyphs::BRAILLE_ROWS_BOTTOM[v4 - 1]
+        t, b = Glyphs.braille(tm), Glyphs.braille(bm)
+        l, r = Glyphs.braille(lm), Glyphs.braille(rm)
+        tl, tr = Glyphs.braille(tm | lm), Glyphs.braille(tm | rm)
+        bl, br = Glyphs.braille(bm | lm), Glyphs.braille(bm | rm)
+      else
+        # Braille Patterns are Extended-tier repertoire (the taxonomy the
+        # braille spinner frames set); below it the nearest look is the
+        # `Dotted` line family, whose registry entries fall down to their own
+        # ascii forms at the bottom tier.
+        g = BorderType::Dotted.line_glyphs(tier)
+        tl, tr, bl, br = g[:tl], g[:tr], g[:bl], g[:br]
+        t = b = g[:h]
+        l = r = g[:v]
+      end
+      unless chars?
+        return {tl: tl, tr: tr, bl: bl, br: br, t: t, b: b, l: l, r: r}
+      end
+      {tl: @top_left_char || @corner_char || tl,
+       tr: @top_right_char || @corner_char || tr,
+       bl: @bottom_left_char || @corner_char || bl,
+       br: @bottom_right_char || @corner_char || br,
+       t:  @top_char || @horizontal_char || t,
+       b:  @bottom_char || @horizontal_char || b,
+       l:  @left_char || @vertical_char || l,
+       r:  @right_char || @vertical_char || r}
+    end
+
     # The four corner glyphs `{tl, tr, bl, br}` of an `Outer` block border:
     # the elbow whose arms sit closest to the two runs' thicknesses. The
     # eighth-L pieces when both runs are near an eighth (at `w8 == 2` the
@@ -587,7 +645,9 @@ module Crysterm
     # The families keep their own, distinct fall-back chains: a line border
     # resolves position → group → `BorderType` family glyph at *tier* (see
     # `#line_glyphs_with_overrides`), a block border position → group → ramp
-    # step at `#ratio` (see `#block_glyphs_with_overrides`), a `Fill` border
+    # step at `#ratio` (see `#block_glyphs_with_overrides`), a `Braille`
+    # border position → group → dot mask at `#ratio` (see
+    # `#braille_glyphs_with_overrides`), a `Fill` border
     # position → group → `#fill_char` (see `#top_char`/`#horizontal_char`/
     # `#top_left_char` …). All produce the same `NamedTuple` shape, so the
     # render call site stays monomorphic.
@@ -598,6 +658,7 @@ module Crysterm
     # paints colored cells and a block border edge-flush runs — neither implies
     # a shape the caps must repair, so both ignore them.
     def glyph_octet(tier : Glyphs::Tier, cap_v = false, cap_h = false, octants : Bool = false)
+      return braille_glyphs_with_overrides(tier) if @type.braille?
       return block_glyphs_with_overrides(tier, octants) if @type.block_family?
       return line_glyphs_with_overrides(tier, cap_v, cap_h) if @type.line_family?
       {tl: top_left_char, tr: top_right_char, bl: bottom_left_char, br: bottom_right_char,
