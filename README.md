@@ -58,7 +58,7 @@ with a different theme from [data/css/](data/css/)
 *Source: [tests/misc/styling.cr](tests/misc/styling.cr)*
 
 The full presentation of borders, shadows, and light directions
-can be found in **[README-borders.md](README-borders.md)**.
+can be found in [README-borders.md](README-borders.md).
 
 ## Rich text — Markdown with GFM
 
