@@ -83,21 +83,21 @@ class Minesweeper
       tick += 1
 
       case t
-      when 3 # the opening click, dead center — floods open the safe pocket
+      when 1 # the opening click, dead center — floods open the safe pocket
         demo_click 8, 8
-      when 4..37 # steady play: reveal along the frontier, flag a known mine every 5th beat
+      when 2, 3 # steady play: reveal along the frontier, flag a known mine every 5th beat
         cells = demo_frontier(mine: t % 5 == 2)
         unless cells.empty?
           row, col = demo_nearest(cells)
           demo_click row, col, t % 5 == 2 ? ::Tput::Mouse::Button::Right : ::Tput::Mouse::Button::Left
         end
-      when 38..40 # closing sweep: open the rest outward from the last move, winning on the last beat
+      when 4,5 # closing sweep: open the rest outward from the last move, winning on the last beat
         ar, ac = @demo_at
         rest = all_cells.select { |(r, c)| !@mine[r][c] && !@revealed[r][c] && !@flagged[r][c] }
         rest.sort_by! { |(r, c)| {Math.max((r - ar).abs, (c - ac).abs), r, c} }
         rest.first(t == 40 ? rest.size : rest.size // (41 - t)).each { |(r, c)| reveal r, c }
         refresh
-      when 47 # savor the win, then start the next round the way a player would
+      when 100 # savor the win, then start the next round the way a player would
         @window.emit Event::KeyPress, Event::KeyPress.new('n', nil)
       end
     end
