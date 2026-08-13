@@ -6,11 +6,12 @@
 # mouse clicks (`Window#dispatch_mouse`) reveal cells and plant flags, and a
 # synthetic `n` keypress starts the next round.
 #
-# The script is a 5.0 s cycle — fresh board, opening click, steady play with
-# flags, a closing sweep to the win, then a new game — that divides the
-# capture length exactly and ends back on the fresh covered board it started
-# on, so the recording loops seamlessly at any phase. Mines are laid with a
-# fixed-seed RNG, making every cycle frame-identical.
+# The script is a 5.0 s cycle — a fresh board, then the game's first five
+# moves at one move per second (the opening flood click, frontier reveals,
+# one flag), then a new game — that divides the capture length exactly and
+# ends back on the fresh covered board it started on, so the recording loops
+# seamlessly at any phase. Mines are laid with a fixed-seed RNG, making every
+# cycle frame-identical.
 
 require "../../examples/games/minesweeper/game"
 
@@ -78,26 +79,21 @@ class Minesweeper
     @board.focus # focus up front, so cycle 1's fresh frames match later cycles'
 
     tick = 0
-    @window.every(1.seconds) do
-      t = tick % 5 # 5 beats x 1 s = the 5 s capture, wrapping on the fresh board
+    @window.every(0.1.seconds) do
+      t = tick % 50 # 50 beats x 0.1 s = the 5 s capture, wrapping on the fresh board
       tick += 1
 
       case t
-      when 1 # the opening click, dead center — floods open the safe pocket
+      when 3 # move 1: the opening click, dead center — floods open the safe pocket
         demo_click 8, 8
-      when 2, 3 # steady play: reveal along the frontier, flag a known mine every 5th beat
-        cells = demo_frontier(mine: t % 5 == 2)
+      when 13, 23, 33, 43 # moves 2-5, one per second: frontier reveals; move 3 flags a known mine
+        flag = t == 23
+        cells = demo_frontier(mine: flag)
         unless cells.empty?
           row, col = demo_nearest(cells)
-          demo_click row, col, t % 5 == 2 ? ::Tput::Mouse::Button::Right : ::Tput::Mouse::Button::Left
+          demo_click row, col, flag ? ::Tput::Mouse::Button::Right : ::Tput::Mouse::Button::Left
         end
-      when 4,5 # closing sweep: open the rest outward from the last move, winning on the last beat
-        ar, ac = @demo_at
-        rest = all_cells.select { |(r, c)| !@mine[r][c] && !@revealed[r][c] && !@flagged[r][c] }
-        rest.sort_by! { |(r, c)| {Math.max((r - ar).abs, (c - ac).abs), r, c} }
-        rest.first(t == 40 ? rest.size : rest.size // (41 - t)).each { |(r, c)| reveal r, c }
-        refresh
-      when 100 # savor the win, then start the next round the way a player would
+      when 47 # after the five moves, restart the way a player would — the cycle wraps on the fresh board
         @window.emit Event::KeyPress, Event::KeyPress.new('n', nil)
       end
     end
