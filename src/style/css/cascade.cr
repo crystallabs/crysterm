@@ -803,6 +803,10 @@ module Crysterm
         style.glyph_open = inline.glyph_open if inline.specified?(:glyph_open)
         style.glyph_close = inline.glyph_close if inline.specified?(:glyph_close)
         style.glyphs = inline.glyphs if inline.specified?(:glyphs)
+        style.light = inline.light if inline.specified?(:light)
+        # The look folds *before* the mask-tracked border/shadow below, so an
+        # inline border/shadow tweak still lands on top of the look's bundle.
+        style.look = inline.look if inline.specified?(:look)
         # Mask-tracked properties (text attributes, border/padding/margin/shadow,
         # fill chars, tabs, fill/draw_over_border). Uses `specified?` (not
         # `any?`), so inline can switch border/padding/margin/shadow off over a

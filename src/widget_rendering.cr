@@ -742,12 +742,16 @@ module Crysterm
         # An explicitly transparent border background (`bg: "transparent"` → -1,
         # distinct from an unset `nil`) shows whatever is already in the buffer
         # behind the border; each border cell keeps its existing bg and only the
-        # glyph + fg are drawn over it. An `Inner` block border defaults to
-        # this ground: its ink hugs the content, so by definition the cell
-        # remainder shows what's behind the widget — unless an explicit bg
-        # overrides.
+        # glyph + fg are drawn over it. An inner-aligned block/braille border
+        # defaults to this ground: its ink hugs the content, so by definition
+        # the cell remainder shows what's behind the widget — unless an
+        # explicit bg overrides.
         border_bg_transparent = border.bg == -1 ||
-                                (border.bg.nil? && border.type.inner?)
+                                (border.bg.nil? && border.transparent_ground_default?)
+
+        # The light this widget's relief shading and weight bevel follow
+        # (style override, else the window's scene light).
+        light = effective_light(style)
 
         # Per-side attributes so `border-top-color` etc. can differ, each falling
         # back to the whole-border color. Border bg falls back to the widget's
@@ -761,17 +765,18 @@ module Crysterm
         # effective text color at render time (CSS computed-value semantics —
         # the final `color` wins regardless of declaration order).
         el_fg = style.fg
-        top_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Top, el_fg), border_bg
-        bottom_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Bottom, el_fg), border_bg
-        left_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Left, el_fg), border_bg
-        right_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Right, el_fg), border_bg
+        top_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Top, el_fg, light), border_bg
+        bottom_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Bottom, el_fg, light), border_bg
+        left_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Left, el_fg, light), border_bg
+        right_attr = self.class.pack_attr border_flags, border, border.side_fg(Side::Right, el_fg, light), border_bg
 
         # The eight border glyphs with any per-position char overrides (CSS
         # `border-chars`/`border-top-left-char` …) merged over them, resolved
         # once for the whole box rather than per cell — and for the border's own
-        # family only, so a `Fill` border doesn't build (and discard) the
+        # medium only, so a `Fill` border doesn't build (and discard) the
         # line-family octet.
-        glyphs = border.glyph_octet(glyph_tier, insets.capped_v, insets.capped_h, octants: glyph_octants?)
+        glyphs = border.glyph_octet(glyph_tier, insets.capped_v, insets.capped_h,
+          octants: glyph_octants?, light: light)
 
         # Interior (content) rectangle: the outer box `(xi..xl, yi..yl)` inset by
         # each side's *visible* thickness (a clipped edge's hidden band rows are
@@ -821,13 +826,32 @@ module Crysterm
               next
             end
 
-            ch = border_char glyphs, in_top, in_bot, in_left, in_right
+            # Which memberships carry the *rule* at this cell's band depth
+            # (`Border#band_rule?`): at the classic 1-cell widths every band
+            # cell does; a thicker band rules only the ring its alignment
+            # picks, leaving the other band cells as ground.
+            rule_t = in_top && border.band_rule?(y - yi, ebt)
+            rule_b = in_bot && border.band_rule?(yl - 1 - y, ebb)
+            rule_l = in_left && border.band_rule?(x - xi, ebl)
+            rule_r = in_right && border.band_rule?(xl - 1 - x, ebr)
+            ch = border_rule_char border, glyphs, rule_t, rule_b, rule_l, rule_r,
+              in_top, in_bot, in_left, in_right, x - xi, y - yi
             # `Glyphs::NONE` marks a cell the border deliberately leaves
             # untouched — an Inner corner whose junction rectangle is too
             # small for any repertoire piece (`Glyphs.corner_fit` → `:gap`).
             if ch == Glyphs::NONE
               x += 1
               next
+            end
+            # `nil` is band ground (an off-ring band cell, or a dashed run's
+            # gap): the border bg without a glyph — or, on a transparent
+            # ground, no paint at all (the backdrop cell survives whole).
+            if ch.nil?
+              if border_bg_transparent
+                x += 1
+                next
+              end
+              ch = ' '
             end
             # Horizontal (top/bottom) cells — including corners — take the
             # top/bottom color; a purely vertical cell takes left/right.
@@ -852,53 +876,88 @@ module Crysterm
       # intentionally paint *outside* the rect, so on a clipped edge the band
       # would land past the clipping ancestor's viewport, over cells that
       # belong to other widgets.
-      if (s = style.shadow) && s.any?
-        # Half-block (thin) shadow: each band splits into the straight run
-        # alongside the box and the corner caps beyond its edges, so the cell
-        # where two bands meet gets its own diagonal glyph. Corner ownership
-        # follows the band partition, so no cell is painted twice. The plain
-        # (no-glyphs) path does a single blend per band instead.
-        #
-        # The per-band glyphs — explicit chars merged over any `Shadow#ratio`
-        # derivation — resolve once for all four bands; a `nil` position falls
-        # back to the full-cell blend inside `blend_region`.
-        sg = s.glyphs? ? s.glyph_octet(glyph_tier, octants: glyph_octants?) : nil
-        if s.left? && !coords.no_left?
-          i = (yi - s.top) + (s.bottom? && !s.top? && !s.right? ? s.bottom : 0)
-          l = s.bottom? ? yl + s.bottom : yl - (s.top? && !s.bottom? ? s.top : 0)
-          if sg
-            blend_shadow_v scr, s, xi - s.left, xi, i, l, yi, yl, sg[:l], sg[:tl], sg[:bl]
-          else
-            scr.blend_region s.opacity, xi - s.left, xi, Math.max(i, 0), l
+      if s = style.shadow
+        # The sides the shadow falls on: explicit extents verbatim, or — for
+        # an auto shadow (`shadow: true`, the `Floating` look) — the sides
+        # facing away from the light (`Shadow#resolved_sides`).
+        shadow_light = effective_light(style)
+        sl, st, sr, sb = s.resolved_sides(shadow_light)
+        # A Spot light's rays diverge like a cone, so an auto shadow's
+        # silhouette comes out one cell larger than the widget: each band
+        # spills one cell past each *free* end (an end not already joined to
+        # a perpendicular shadow band, which owns their shared corner) and
+        # drops the directional silhouette shift. Explicit sides keep the
+        # classic directional geometry regardless.
+        spot = s.auto_sides? && shadow_light.kind.spot?
+        if sl > 0 || st > 0 || sr > 0 || sb > 0
+          # Half-block (thin) shadow: each band splits into the straight run
+          # alongside the box and the corner caps beyond its edges, so the cell
+          # where two bands meet gets its own diagonal glyph. Corner ownership
+          # follows the band partition, so no cell is painted twice. The plain
+          # (no-glyphs) path does a single blend per band instead.
+          #
+          # The per-band glyphs — explicit chars merged over any `Shadow#ratio`
+          # derivation — resolve once for all four bands; a `nil` position falls
+          # back to the full-cell blend inside `blend_region`.
+          sg = s.glyphs? ? s.glyph_octet(glyph_tier, octants: glyph_octants?) : nil
+          if sl > 0 && !coords.no_left?
+            if spot
+              i = st > 0 ? yi - st : yi - 1
+              l = sb > 0 ? yl + sb : yl + 1
+            else
+              i = (yi - st) + (sb > 0 && st == 0 && sr == 0 ? sb : 0)
+              l = sb > 0 ? yl + sb : yl - (st > 0 && sb == 0 ? st : 0)
+            end
+            if sg
+              blend_shadow_v scr, s, xi - sl, xi, i, l, yi, yl, sg[:l], sg[:tl], sg[:bl]
+            else
+              scr.blend_region s.opacity, xi - sl, xi, Math.max(i, 0), l
+            end
           end
-        end
 
-        if s.top? && !coords.no_top?
-          l = s.right? ? xl + s.right : (s.left? ? xl - s.left : xl)
-          if sg
-            blend_shadow_h scr, s, xi, l, yi - s.top, yi, xi, xl, sg[:t], sg[:tl], sg[:tr]
-          else
-            scr.blend_region s.opacity, Math.max(xi, 0), l, yi - s.top, yi
+          if st > 0 && !coords.no_top?
+            if spot
+              i = sl > 0 ? xi : xi - 1
+              l = sr > 0 ? xl + sr : xl + 1
+            else
+              i = xi
+              l = sr > 0 ? xl + sr : (sl > 0 ? xl - sl : xl)
+            end
+            if sg
+              blend_shadow_h scr, s, i, l, yi - st, yi, xi, xl, sg[:t], sg[:tl], sg[:tr]
+            else
+              scr.blend_region s.opacity, Math.max(i, 0), l, yi - st, yi
+            end
           end
-        end
 
-        if s.right? && !coords.no_right?
-          i = (s.top? || s.left?) ? yi : yi + s.bottom
-          l = s.bottom? ? yl + s.bottom : yl
-          if sg
-            blend_shadow_v scr, s, xl, xl + s.right, i, l, yi, yl, sg[:r], sg[:tr], sg[:br]
-          else
-            scr.blend_region s.opacity, xl, xl + s.right, Math.max(i, 0), l
+          if sr > 0 && !coords.no_right?
+            if spot
+              i = st > 0 ? yi : yi - 1
+              l = sb > 0 ? yl + sb : yl + 1
+            else
+              i = (st > 0 || sl > 0) ? yi : yi + sb
+              l = sb > 0 ? yl + sb : yl
+            end
+            if sg
+              blend_shadow_v scr, s, xl, xl + sr, i, l, yi, yl, sg[:r], sg[:tr], sg[:br]
+            else
+              scr.blend_region s.opacity, xl, xl + sr, Math.max(i, 0), l
+            end
           end
-        end
 
-        if s.bottom? && !coords.no_bottom?
-          i = s.right? ? xi + (s.left? ? 0 : s.right) : xi
-          l = xl - (s.left? && !s.top? && !s.right? ? s.left : 0)
-          if sg
-            blend_shadow_h scr, s, i, l, yl, yl + s.bottom, xi, xl, sg[:b], sg[:bl], sg[:br]
-          else
-            scr.blend_region s.opacity, Math.max(i, 0), l, yl, yl + s.bottom
+          if sb > 0 && !coords.no_bottom?
+            if spot
+              i = sl > 0 ? xi : xi - 1
+              l = sr > 0 ? xl : xl + 1
+            else
+              i = sr > 0 ? xi + (sl > 0 ? 0 : sr) : xi
+              l = xl - (sl > 0 && st == 0 && sr == 0 ? sl : 0)
+            end
+            if sg
+              blend_shadow_h scr, s, i, l, yl, yl + sb, xi, xl, sg[:b], sg[:bl], sg[:br]
+            else
+              scr.blend_region s.opacity, Math.max(i, 0), l, yl, yl + sb
+            end
           end
         end
       end
@@ -1026,6 +1085,36 @@ module Crysterm
         in_top ? g[:t] : g[:b]
       else
         in_left ? g[:l] : g[:r]
+      end
+    end
+
+    # `border_char` with the band-*rule* flags in place of raw memberships
+    # (see `Border#band_rule?`), returning `nil` for a ground cell: one on
+    # no ruled ring, one an inner-aligned ring's runs don't reach
+    # (`Border#inner_band_ring?` — the raw *in_\** memberships say the cell
+    # sits in a perpendicular band, outward of the ring's corner), or a run
+    # cell a dashed/dotted block stroke gaps (`Border#run_gap?`;
+    # *off_x*/*off_y* are the cell's offsets from the box edges, keeping
+    # opposite runs in phase). Corners are always drawn.
+    protected def border_rule_char(border, g, rule_t, rule_b, rule_l, rule_r,
+                                   in_top, in_bot, in_left, in_right, off_x, off_y) : Char?
+      h_band = rule_t || rule_b
+      v_band = rule_l || rule_r
+
+      if h_band && v_band
+        if rule_t
+          rule_l ? g[:tl] : g[:tr]
+        else
+          rule_l ? g[:bl] : g[:br]
+        end
+      elsif h_band
+        return if (in_left || in_right) && border.inner_band_ring?
+        return if border.run_gap?(off_x)
+        rule_t ? g[:t] : g[:b]
+      elsif v_band
+        return if (in_top || in_bot) && border.inner_band_ring?
+        return if border.run_gap?(off_y)
+        rule_l ? g[:l] : g[:r]
       end
     end
 

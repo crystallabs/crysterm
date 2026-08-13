@@ -548,6 +548,43 @@ module Crysterm
       ShadowThirdTop    # ground upper two-thirds: shadow strip in the bottom third
       ShadowThirdBottom # ground lower two-thirds: shadow strip in the top third
 
+      # -- Heavy weight & corner treatments ------------------------------------
+      # The heavy box-drawing set: what `Border#ratio` above `:half` means for
+      # the line medium, and the lit-side rendition of the weight bevel
+      # (`Border::ReliefStyle::Weight`). Corners + runs like the families
+      # above, plus the heavy *runs* of the dashed/dotted families (their
+      # corners come from the joins below — a dash pattern doesn't change the
+      # corner piece).
+      BorderHeavyTL
+      BorderHeavyTR
+      BorderHeavyBL
+      BorderHeavyBR
+      BorderHeavyH
+      BorderHeavyV
+      BorderHeavyDashedH
+      BorderHeavyDashedV
+      BorderHeavyDottedH
+      BorderHeavyDottedV
+
+      # Mixed-weight corner joins for the weight bevel: the corner where a
+      # heavy arm meets a light one (`┍` = heavy horizontal arm, light
+      # vertical; `┎` the transpose). Named by corner + which arm is heavy.
+      BorderMixedHTL
+      BorderMixedVTL
+      BorderMixedHTR
+      BorderMixedVTR
+      BorderMixedHBL
+      BorderMixedVBL
+      BorderMixedHBR
+      BorderMixedVBR
+
+      # Cut (beveled/chamfered) corners for the line medium — the `Corner::Cut`
+      # treatment: a light diagonal chopping the corner (Qt joinStyle Bevel).
+      BorderCutTL
+      BorderCutTR
+      BorderCutBL
+      BorderCutBR
+
       # Whether this is a *cell* role — one that fills exactly one grid cell
       # by construction (scrollbar/slider parts, rules, junctions, the cursor
       # bar/block, border positions), so grid math never has to measure it. A
@@ -897,6 +934,33 @@ module Crysterm
       set_in t, Role::BorderRoundedBR, Entry.new('+', '╯')
       set_in t, Role::BorderRoundedH, Entry.new('-', '─')
       set_in t, Role::BorderRoundedV, Entry.new('|', '│')
+      # Heavy weight: the heavy box set (line medium at ratio > 1/2, and the
+      # weight bevel's lit sides), plus the heavy dashed/dotted runs.
+      set_in t, Role::BorderHeavyTL, Entry.new('+', '┏')
+      set_in t, Role::BorderHeavyTR, Entry.new('+', '┓')
+      set_in t, Role::BorderHeavyBL, Entry.new('+', '┗')
+      set_in t, Role::BorderHeavyBR, Entry.new('+', '┛')
+      set_in t, Role::BorderHeavyH, Entry.new('-', '━')
+      set_in t, Role::BorderHeavyV, Entry.new('|', '┃')
+      set_in t, Role::BorderHeavyDashedH, Entry.new('-', '┅')
+      set_in t, Role::BorderHeavyDashedV, Entry.new('|', '┇')
+      set_in t, Role::BorderHeavyDottedH, Entry.new('-', '┉')
+      set_in t, Role::BorderHeavyDottedV, Entry.new('|', '┋')
+      # Mixed-weight corner joins (weight bevel): H = horizontal arm heavy.
+      set_in t, Role::BorderMixedHTL, Entry.new('+', '┍')
+      set_in t, Role::BorderMixedVTL, Entry.new('+', '┎')
+      set_in t, Role::BorderMixedHTR, Entry.new('+', '┑')
+      set_in t, Role::BorderMixedVTR, Entry.new('+', '┒')
+      set_in t, Role::BorderMixedHBL, Entry.new('+', '┕')
+      set_in t, Role::BorderMixedVBL, Entry.new('+', '┖')
+      set_in t, Role::BorderMixedHBR, Entry.new('+', '┙')
+      set_in t, Role::BorderMixedVBR, Entry.new('+', '┚')
+      # Cut corners: the light diagonals chop the corner (TL/BR rise, TR/BL
+      # fall).
+      set_in t, Role::BorderCutTL, Entry.new('/', '╱')
+      set_in t, Role::BorderCutTR, Entry.new('\\', '╲')
+      set_in t, Role::BorderCutBL, Entry.new('\\', '╲')
+      set_in t, Role::BorderCutBR, Entry.new('/', '╱')
 
       # Sub-cell corner pieces (see the `Role` docs and `Glyphs.corner_fit`).
       # The sextants (Symbols for Legacy Computing) sit in the `extended`
@@ -1224,6 +1288,49 @@ module Crysterm
     BRAILLE_COLS_RIGHT  = [0xB8, 0xFF]
     BRAILLE_ROWS_TOP    = [0x09, 0x1B, 0x3F, 0xFF]
     BRAILLE_ROWS_BOTTOM = [0xC0, 0xE4, 0xF6, 0xFF]
+
+    # Sparse-stroke run masks for a dashed/dotted braille border, keyed like
+    # the solid tables by the edge the ink hugs. A sparse ring is a hairline
+    # by definition (the stroke rounds the thickness down to one dot-line):
+    # dotted keeps every other dot; dashed keeps dot *pairs* with pair gaps —
+    # expressible only along a column's four rows, so horizontal runs (two
+    # dot-columns per cell) round dashed down to dotted.
+    BRAILLE_DOTTED_ROW_TOP    = 0x01 # dot 1
+    BRAILLE_DOTTED_ROW_BOTTOM = 0x40 # dot 7
+    BRAILLE_DOTTED_COL_LEFT   = 0x05 # dots 13
+    BRAILLE_DOTTED_COL_RIGHT  = 0x28 # dots 46
+    BRAILLE_DASHED_COL_LEFT   = 0x03 # dots 12 — dash of 2, gap of 2
+    BRAILLE_DASHED_COL_RIGHT  = 0x18 # dots 45
+
+    # Centered horizontal rule masks for a braille *separator*
+    # (`Widget::Line`), 1-based by dot-row count: unlike the edge-anchored
+    # border rows, a free-standing rule reads best centered in its cell,
+    # and the braille grid can center horizontals (a 1-line rule sits on
+    # row 2, a 2-line one on rows 2-3). Verticals have only two dot-columns
+    # and anchor left (`BRAILLE_COLS_LEFT`).
+    BRAILLE_RULE_ROWS = [0x12, 0x36, 0x3F, 0xFF]
+
+    # Sparse rule dots for a dotted/dashed braille separator: the centered
+    # analog of the border's sparse masks (one dot per cell on row 2 /
+    # column dashes).
+    BRAILLE_RULE_DOTTED_H = 0x02 # dot 2
+    BRAILLE_RULE_DOTTED_V = 0x05 # dots 13
+    BRAILLE_RULE_DASHED_V = 0x03 # dots 12 — dash of 2, gap of 2
+
+    # The corner-most dot of a braille corner cell whose ink hugs the named
+    # *cell* corner — what `Corner::Rounded` clears from the union mask (at
+    # dot scale, knocking off the apex genuinely reads as rounding).
+    BRAILLE_CORNER_DOT_TL = 0x01
+    BRAILLE_CORNER_DOT_TR = 0x08
+    BRAILLE_CORNER_DOT_BL = 0x40
+    BRAILLE_CORNER_DOT_BR = 0x80
+
+    # `Corner::Cut` corner masks: the two-dot diagonal chopping the named
+    # cell corner (replaces the union mask outright).
+    BRAILLE_CUT_TL = 0x0A # dots 24
+    BRAILLE_CUT_TR = 0x11 # dots 15
+    BRAILLE_CUT_BL = 0x84 # dots 38
+    BRAILLE_CUT_BR = 0x60 # dots 67
 
     # The braille pattern with the dots of *mask* raised.
     @[AlwaysInline]

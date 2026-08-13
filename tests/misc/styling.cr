@@ -1,8 +1,16 @@
-# FEATURE: decorators & styling — borders, shadows, and text attributes.
+# FEATURE: Borders — the highlights.
 #
-# Styles carry fg/bg colors, border type (line or solid bg), drop shadows
-# (alpha-blended), and text attributes (bold, underline, reverse), set per
-# widget via `Style.new(...)` or inline `{tags}` in content.
+# A curated tour of the border system's best looks, one box per idea. This
+# is the summary; the real, structured presentation — the axis model, every
+# medium, thick bands, separators, light, relief, looks and shadows, with
+# text and per-topic demo links — is ../../README-borders.md. The per-group
+# demos it links: styling2/3.cr (block thickness ladders), styling4.cr
+# (braille across the axes), styling5.cr (lights & looks), styling6.cr
+# (thick bands, block strokes, separators), styling7.cr (shadow anatomy).
+#
+# Every border is a stroke over orthogonal axes — medium x stroke x align x
+# ratio x corners (+ corner_ratio) — with `type:` presets naming the common
+# points; anything unachievable rounds down to the nearest rendition.
 
 require "../../src/crysterm"
 
@@ -10,93 +18,72 @@ include Crysterm
 
 s = Window.new title: "Styling"
 
-# Neutral backdrop so drop shadows (which darken whatever's behind a widget)
-# are visible instead of black-on-black.
+# Extended tier pinned for the sub-cell boxes (block eighths, braille dots),
+# as in styling2-7.cr. Interactively the tier is auto-detected.
+s.glyph_tier = Glyphs::Tier::Extended
+
+# Neutral backdrop so transparent grounds and shadows have something to show.
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
   style: Style.new(bg: 0x3a4250)
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
-  content: "{center}Borders, shadows and text attributes{/center}", parse_tags: true,
+  content: "{center}Borders — the highlights · full guide: README-borders.md{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#403040")
 
-# Line border + shadow. The shadow is drawn thin so it doesn't inherit the
-# terminal's ~2:1 cell aspect ratio: the bottom band uses the lower-half block
-# `▄`, whose solid half is the shadow-toned cell background filling the TOP of
-# the cell (hugging the box edge with no hairline gap), while the right band is
-# 1 cell wide — a 1-cell run reads about as thin as half a cell tall.
-Widget::Box.new \
-  parent: s, top: 3, left: 2, width: 22, height: 5,
-  content: "{center}type: :solid\nshadow: right: 1,\nbottom: 1, char: ▄{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#2050a0", border: Border.new(type: :solid),
-    shadow: Shadow.new(right: 1, bottom: 1, horizontal_char: '▄'))
+# {bg, border fg} per box, the shared styling2-7.cr palette.
+COLORS = [
+  {0x2050a0, "#9fc7ff"}, {0x146054, "#5fe0c0"}, {0x4a2060, "#d090ff"},
+  {0x204020, "#90e070"}, {0x601818, "#ff9090"}, {0x585020, "#e0d878"},
+  {0x14505c, "#70cce0"}, {0x50285c, "#cc88e8"}, {0x1c3a5c, "#7fb2e8"},
+  {0x355020, "#b0d878"}, {0x5c2038, "#e888ac"}, {0x20504a, "#78d8c4"},
+]
 
-# Per-side chars: each of the four side runs resolves its glyph independently
-# (side override → the `horizontal_char`/`vertical_char` axis group → the
-# `BorderType` family glyph), so opposite edges can differ — something the axis
-# groups alone can't express. Here the top and left runs are overridden to the
-# heavy ━/┃ while the bottom and right keep the dotted family's own ┈/┊, giving
-# a lit-from-the-top-left bevel. The corners are overridden to match: box
-# drawing has mixed-weight joins (┑ = heavy left + light down), so the ring
-# stays continuous where the two weights meet.
-bevel = Border.new type: :dotted, fg: "#6b4400"
-bevel.top_char = '━'
-bevel.left_char = '┃'
-bevel.top_left_char = '┏'
-bevel.top_right_char = '┑'
-bevel.bottom_left_char = '┖'
+# The tab shape: only the top corners rounded (per-corner treatments).
+tab = Border.new
+tab.corners = Border::Corners.new(tl: Border::Corner::Rounded, tr: Border::Corner::Rounded)
 
-Widget::Box.new \
-  parent: s, top: 3, left: 28, width: 22, height: 5,
-  content: "{center}type: :dotted,\nfg: #6b4400,\nchars: ━ ┃ ┏ ┑ ┖{/center}", parse_tags: true,
-  style: Style.new(fg: "black", bg: "#d0a020", border: bevel)
+# Each entry: {style options beyond fg/bg, 1-3 label lines}.
+boxes = [
+  # Row 1 — the line medium: presets and new axis combinations.
+  {Style.new(border: Border.new(type: :rounded)), # the arc-corner classic
+   "type: :rounded"},
+  {Style.new(border: Border.new(stroke: :double)), # the double-line family
+   "stroke: :double"},
+  {Style.new(border: Border.new(ratio: :full)), # ratio > 1/2 = heavy line
+   "ratio: :full\n(heavy)"},
+  {Style.new(border: Border.new(stroke: :dashed, corners: :rounded)), # composable axes
+   "dashed + rounded"},
+  # Row 2 — sub-cell media: block ink and braille dots.
+  {Style.new(border: Border.new(type: :outer, ratio: :half)), # rim-flush block ink
+   "block :outer\nratio: :half"},
+  {Style.new(border: Border.new(type: :inner, ratio: :half)), # content-hugging, transparent ground
+   "block :inner\n(floating ring)"},
+  {Style.new(border: Border.new(type: :braille)), # dot ring, union corners
+   "medium: :braille"},
+  {Style.new(border: Border.new(type: :outer, ratio: :thin, corner_ratio: :half)), # corner beads
+   "corner beads\n(thin + :half)"},
+  # Row 3 — composed looks: light-driven relief and shadows.
+  {Style.new(border: Border.new(type: :dotted), look: :beveled), # the weight bevel, automatic
+   "look: :beveled"},
+  {Style.new(border: true, look: :elevated), # raised shading + auto shadow
+   "look: :elevated"},
+  {Style.new(border: tab), # border-radius: 8px 8px 0 0
+   "tab corners\n(tl/tr rounded)"},
+  {Style.new(border: Border.new(type: :braille, ratio: :half, corner_ratio: :full)), # braille beads
+   "braille + beads"},
+]
 
-# Text attributes via inline tags. The line border keeps its glyphs (drawn in
-# the terminal default fg) but its background is transparent, so the neutral
-# backdrop shows through the border ring instead of the box's own dark fill.
-Widget::Box.new \
-  parent: s, top: 3, left: 54, width: 24, height: 5,
-  content: "{center}type: :solid,\nbg: transparent\n{bold}bold{/bold} {underline}underl.{/underline} {red-fg}red{/} {green-fg}grn{/}{/center}",
-  parse_tags: true,
-  style: Style.new(fg: "white", bg: "#101010",
-    border: Border.new(type: :solid, bg: "transparent"))
-
-# The remaining line-border families, drawn from the same `Glyphs` registry as
-# `:solid` above — only the six glyphs differ, so every border type honors the
-# same colors, per-side widths and char overrides.
-
-# Rounded: light runs (─│) with arc corners ╭╮╰╯.
-Widget::Box.new \
-  parent: s, top: 10, left: 2, width: 22, height: 5,
-  content: "{center}type: :rounded,\nfg: #5fe0c0{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#146054", border: Border.new(type: :rounded, fg: "#5fe0c0"))
-
-# Double: the ═║╔╗╚╝ family — heaviest of the line borders.
-Widget::Box.new \
-  parent: s, top: 10, left: 28, width: 22, height: 5,
-  content: "{center}type: :double,\nfg: #d090ff{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#4a2060", border: Border.new(type: :double, fg: "#d090ff"))
-
-# Dashed: ┄ horizontally, ┆ vertically, with the plain light corners.
-Widget::Box.new \
-  parent: s, top: 10, left: 54, width: 24, height: 5,
-  content: "{center}type: :dashed,\nfg: #90e070{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#204020", border: Border.new(type: :dashed, fg: "#90e070"))
-
-# A strip of animated 24-bit color: `Widget::Gradient` in rainbow mode,
-# hue-cycling over time, driven by a shared `Timer` (can sync several widgets).
-frame = Widget::Box.new \
-  parent: s, top: 16, left: 2, width: 76, height: 5,
-  content: "Animated 24-bit swatches:", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#101010", border: true)
-
-clock = Timer.new 0.1.seconds
-# `left`/`width` are relative to the frame's interior (border inset applied
-# automatically), 74 cells wide. left:1 + width:72 leaves a symmetric
-# one-cell margin instead of spilling over the border.
-Widget::Gradient.new \
-  parent: frame, top: 1, left: 1, width: 72, height: 2,
-  animate: clock, speed: 0.033
+boxes.each_with_index do |(style, label), i|
+  bg, fg = COLORS[i]
+  style.fg = "white"
+  style.bg = bg
+  style.border.fg = fg if style.border.fg.nil?
+  Widget::Box.new \
+    parent: s, top: 2 + (i // 4) * 7, left: 1 + (i % 4) * 20, width: 18, height: 5,
+    content: "{center}#{label}{/center}", parse_tags: true,
+    style: style
+end
 
 s.exec

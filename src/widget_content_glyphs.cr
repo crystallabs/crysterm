@@ -21,6 +21,14 @@ module Crysterm
       window?.try(&.glyph_octants?) || false
     end
 
+    # The light in effect for this widget: *style*'s own override, else the
+    # owning window's scene light, else the classic NW directional default.
+    # *style* is the frame-resolved style the render is working from (the
+    # widget's own when called outside a render).
+    def effective_light(style : Style = self.style) : Light
+      style.light || window?.try(&.light) || Light::DEFAULT
+    end
+
     # The registry character for *role* at this widget's effective tier. The
     # single hook widget renders use instead of hardcoded chrome literals.
     @[AlwaysInline]

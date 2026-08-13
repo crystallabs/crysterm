@@ -32,22 +32,25 @@ module Crysterm
         when "border-left-color"   then apply_side_color border, Side::Left, value, el_color
         when "border-style"
           apply_border_style border, value, {Side::Left, Side::Top, Side::Right, Side::Bottom}
-        when "border-top"          then apply_border_side border, Side::Top, value, el_color
-        when "border-right"        then apply_border_side border, Side::Right, value, el_color
-        when "border-bottom"       then apply_border_side border, Side::Bottom, value, el_color
-        when "border-left"         then apply_border_side border, Side::Left, value, el_color
-        when "border-top-width"    then border_cells?(value, vertical: true).try { |c| border.top = c }
-        when "border-right-width"  then border_cells?(value).try { |c| border.right = c }
-        when "border-bottom-width" then border_cells?(value, vertical: true).try { |c| border.bottom = c }
-        when "border-left-width"   then border_cells?(value).try { |c| border.left = c }
-        when "border-top-style"    then apply_border_style border, value, {Side::Top}
-        when "border-right-style"  then apply_border_style border, value, {Side::Right}
-        when "border-bottom-style" then apply_border_style border, value, {Side::Bottom}
-        when "border-left-style"   then apply_border_style border, value, {Side::Left}
-        when "border-radius"       then apply_border_radius border, value
-        when "border-ratio"        then apply_border_ratio border, value
-        when "border-chars"        then apply_border_chars border, value
-        when .ends_with?("-char")  then apply_border_char_longhand border, property, value
+        when "border-top"           then apply_border_side border, Side::Top, value, el_color
+        when "border-right"         then apply_border_side border, Side::Right, value, el_color
+        when "border-bottom"        then apply_border_side border, Side::Bottom, value, el_color
+        when "border-left"          then apply_border_side border, Side::Left, value, el_color
+        when "border-top-width"     then border_cells?(value, vertical: true).try { |c| border.top = c }
+        when "border-right-width"   then border_cells?(value).try { |c| border.right = c }
+        when "border-bottom-width"  then border_cells?(value, vertical: true).try { |c| border.bottom = c }
+        when "border-left-width"    then border_cells?(value).try { |c| border.left = c }
+        when "border-top-style"     then apply_border_style border, value, {Side::Top}
+        when "border-right-style"   then apply_border_style border, value, {Side::Right}
+        when "border-bottom-style"  then apply_border_style border, value, {Side::Bottom}
+        when "border-left-style"    then apply_border_style border, value, {Side::Left}
+        when "border-radius"        then apply_border_radius border, value
+        when .ends_with?("-radius") then apply_corner_radius_longhand border, property, value
+        when "border-ratio"         then apply_border_ratio border, value
+        when "border-corner-ratio"  then apply_border_corner_ratio border, value
+        when "border-align"         then apply_border_align border, value
+        when "border-chars"         then apply_border_chars border, value
+        when .ends_with?("-char")   then apply_border_char_longhand border, property, value
         else
           # Unknown border-* property: ignore.
         end
@@ -78,29 +81,111 @@ module Crysterm
         apply_border_char border, position, value if position
       end
 
-      # The CSS `border-radius` shorthand, mapped honestly onto the cell grid:
-      # a terminal can't render partial curves, so any positive radius turns a
-      # light `Solid` border's corners into the arc family
-      # (`BorderType::Rounded`, `╭╮╰╯`), and an explicit zero turns a
-      # `Rounded` border back to square corners. Other families (`Double`/
-      # `Dashed`/`Dotted`/`Fill`) are left alone — the author picked a stronger
-      # corner statement than "slightly rounded". Qt themes' ubiquitous
-      # `border-radius: 4px` thus rounds frames for free. Order note: the
-      # `border` shorthand *replaces* the whole `Border`, so declare the
-      # radius after it (as Qt themes conventionally do); an unparseable or
-      # blank value is dropped.
+      # The CSS `border-radius` shorthand, mapped honestly onto the cell
+      # grid: a terminal can't render partial curves, so each positive
+      # radius turns its corner's treatment `Rounded` and an explicit zero
+      # turns it back `Square` — per corner, with the standard 1-4 value
+      # fill-ins in CSS's tl/tr/br/bl order (`8px 8px 0 0` rounds only the
+      # top, the tab shape). The corners axis is independent of medium and
+      # stroke, so this composes with every family; one without arc pieces
+      # (`Double`) simply rounds the treatment down to square at render.
+      # The numeric magnitude is stored per corner (`Corners#radii`) for the
+      # future multi-cell arcs, rendering clamped to 1 today. Any elliptical
+      # second-radii group (after `/`) adds nothing on a cell grid and is
+      # ignored. Qt themes' ubiquitous `border-radius: 4px` thus rounds
+      # frames for free. Order note: the `border` shorthand *replaces* the
+      # whole `Border`, so declare the radius after it (as Qt themes
+      # conventionally do); an unparseable or blank value is dropped.
       private def self.apply_border_radius(border : Border, value : String) : Nil
+        v = value.strip.split('/').first
+        nums = v.split.compact_map { |token| token.match(/-?\d+(?:\.\d+)?/).try(&.[0].to_f?) }
+        return if nums.empty?
+        tl, tr, br, bl =
+          case nums.size
+          when 1 then {nums[0], nums[0], nums[0], nums[0]}
+          when 2 then {nums[0], nums[1], nums[0], nums[1]}
+          when 3 then {nums[0], nums[1], nums[2], nums[1]}
+          when 4 then {nums[0], nums[1], nums[2], nums[3]}
+          else        return
+          end
+        set_corner_radius border, 0, tl
+        set_corner_radius border, 1, tr
+        set_corner_radius border, 2, br
+        set_corner_radius border, 3, bl
+      end
+
+      # `border-<corner>-radius` longhand → its CSS corner index (pure
+      # data, like `BORDER_CHAR_POSITIONS`).
+      BORDER_CORNER_RADII = {
+        "border-top-left-radius"     => 0,
+        "border-top-right-radius"    => 1,
+        "border-bottom-right-radius" => 2,
+        "border-bottom-left-radius"  => 3,
+      }
+
+      # Applies a `border-<corner>-radius` longhand; an unknown corner is an
+      # unknown property: ignored.
+      private def self.apply_corner_radius_longhand(border : Border, property : String, value : String) : Nil
+        BORDER_CORNER_RADII[property]?.try { |which| apply_corner_radius border, which, value }
+      end
+
+      # A `border-<corner>-radius` longhand: one corner's radius. *which* is
+      # the CSS corner index (0 tl, 1 tr, 2 br, 3 bl).
+      private def self.apply_corner_radius(border : Border, which : Int32, value : String) : Nil
         v = value.strip
         return if v.empty?
-        # First numeric component of the (possibly multi-value, unit-suffixed)
-        # shorthand: `4px`, `0.5em 1em`, `50%` — any positive number rounds.
         return unless m = v.match(/-?\d+(?:\.\d+)?/)
         return unless r = m[0].to_f?
-        if r > 0
-          border.type = BorderType::Rounded if border.type.solid?
-        else
-          border.type = BorderType::Solid if border.type.rounded?
+        set_corner_radius border, which, r
+      end
+
+      # Stores one corner's treatment + radius from a CSS radius value:
+      # positive → `Rounded` (magnitude kept, min 1), zero/negative →
+      # `Square`. *which* is the CSS corner index (0 tl, 1 tr, 2 br, 3 bl);
+      # note `Corners#radii` stores in field order (tl, tr, bl, br).
+      private def self.set_corner_radius(border : Border, which : Int32, radius : Float64) : Nil
+        style = radius > 0 ? Border::Corner::Rounded : Border::Corner::Square
+        r = radius > 0 ? Math.max(radius.round.to_i, 1) : 0
+        c = border.corners
+        radii = c.radii
+        border.corners =
+          case which
+          when 0 then Border::Corners.new(style, c.tr, c.bl, c.br, {r, radii[1], radii[2], radii[3]})
+          when 1 then Border::Corners.new(c.tl, style, c.bl, c.br, {radii[0], r, radii[2], radii[3]})
+          when 2 then Border::Corners.new(c.tl, c.tr, c.bl, style, {radii[0], radii[1], radii[2], r})
+          else        Border::Corners.new(c.tl, c.tr, style, c.br, {radii[0], radii[1], r, radii[3]})
+          end
+      end
+
+      # The `border-align` extension longhand (same non-standard status as
+      # `border-ratio`): the stroke-alignment axis. An unknown keyword is
+      # dropped, per CSS.
+      private def self.apply_border_align(border : Border, value : String) : Nil
+        case Case.fold_keyword(value.strip)
+        when "outer"  then border.align = Border::Align::Outer
+        when "inner"  then border.align = Border::Align::Inner
+        when "center" then border.align = Border::Align::Center
         end
+      end
+
+      # The `border-corner-ratio` extension longhand: the corners' own ink
+      # thickness (`Border#corner_ratio` — corner beads), same value grammar
+      # as `border-ratio`, plus `none` to clear back to run-following.
+      private def self.apply_border_corner_ratio(border : Border, value : String) : Nil
+        v = value.strip
+        return if v.empty?
+        folded = Case.fold_keyword(v)
+        if folded == "none"
+          border.corner_ratio = nil
+          return
+        end
+        if preset = Glyphs::BLOCK_RATIOS[folded]?
+          border.corner_ratio = preset
+          return
+        end
+        f = v.ends_with?("%") ? v.rchop.to_f?.try { |p| p / 100 } : v.to_f?
+        return unless f
+        border.corner_ratio = f if 0 < f <= 1
       end
 
       # A `border-<position>-char` longhand: sets one border char override.
@@ -269,8 +354,112 @@ module Crysterm
         when "ridge"  then Border::Relief::Ridge
         when "solid", "line", "dashed", "dotted",
              "double", "rounded", "round",
-             "outer", "block", "inner",
+             "outer", "block", "inner", "braille",
              "bg", "background" then Border::Relief::None
+        end
+      end
+
+      # Whether *token* is any `border-style` axis keyword — a preset/stroke
+      # keyword, a medium, an alignment, a corner treatment or a relief.
+      private def self.border_style_token?(token : String) : Bool
+        case Case.fold_keyword(token)
+        when "solid", "line", "dashed", "dotted", "double", "rounded", "round",
+             "outer", "block", "inner", "center", "braille", "bg", "background",
+             "cut", "square", "inset", "outset", "groove", "ridge"
+          true
+        else
+          false
+        end
+      end
+
+      # The style axis *token* names, or `nil` for a non-style token —
+      # lets `apply_border_style_tokens` honor only the *first* token of
+      # each axis (the whole-border compromise for CSS's per-side TRBL
+      # form, per BUGS8: `border-style: dotted solid` stays dotted).
+      private def self.border_axis_of(token : String) : Symbol?
+        case Case.fold_keyword(token)
+        when "solid", "dashed", "dotted", "double"          then :stroke
+        when "line", "block", "braille", "bg", "background" then :medium
+        when "outer", "inner", "center"                     then :align
+        when "rounded", "round", "cut", "square"            then :corners
+        when "inset", "outset", "groove", "ridge"           then :relief
+        end
+      end
+
+      # Applies one multi-token `border-style` *token* onto *border* as its
+      # own axis (see plans/BORDERS.md § 6): stroke keywords set the stroke,
+      # medium keywords the medium, `outer|inner|center` the alignment,
+      # `rounded|cut|square` the (uniform) corner treatment, and the 3D
+      # keywords the relief. Returns whether the token was consumed.
+      private def self.apply_border_axis_token(border : Border, token : String) : Bool
+        case Case.fold_keyword(token)
+        when "solid"            then border.stroke = Border::Stroke::Solid
+        when "dashed"           then border.stroke = Border::Stroke::Dashed
+        when "dotted"           then border.stroke = Border::Stroke::Dotted
+        when "double"           then border.stroke = Border::Stroke::Double
+        when "line"             then border.medium = Border::Medium::Line
+        when "block"            then border.medium = Border::Medium::Block
+        when "braille"          then border.medium = Border::Medium::Braille
+        when "bg", "background" then border.medium = Border::Medium::Fill
+        when "outer"            then border.align = Border::Align::Outer
+        when "inner"            then border.align = Border::Align::Inner
+        when "center"           then border.align = Border::Align::Center
+        when "rounded", "round" then border.corners = Border::Corner::Rounded
+        when "cut"              then border.corners = Border::Corner::Cut
+        when "square"           then border.corners = Border::Corner::Square
+        when "inset"            then border.relief = Border::Relief::Inset
+        when "outset"           then border.relief = Border::Relief::Outset
+        when "groove"           then border.relief = Border::Relief::Groove
+        when "ridge"            then border.relief = Border::Relief::Ridge
+        else
+          return false
+        end
+        true
+      end
+
+      # Applies a declaration's collected style tokens onto *border*. A
+      # single token keeps the exact legacy semantics — a preset keyword
+      # replaces the whole type (all axes), a 3D keyword additionally sets
+      # the relief, and a pure axis keyword (`center`, `cut`, `square`)
+      # touches its axis alone. Two or more tokens compose per-axis
+      # (`dotted braille inner`), the *first* token of each axis winning —
+      # so CSS's per-side TRBL repetition (`dotted solid`) degrades to its
+      # first (top) style, per BUGS8.
+      private def self.apply_border_style_tokens(border : Border, tokens : Array(String)) : Nil
+        if tokens.size == 1
+          token = tokens[0]
+          if type = border_type_keyword(token)
+            border.type = type
+            border_relief_keyword(token).try { |r| border.relief = r }
+          else
+            apply_border_axis_token border, token
+          end
+        else
+          # A medium keyword in a multi-token combination carries its
+          # preset's alignment when the declaration names none itself, so
+          # `dotted braille`/`solid block` land on the media's natural
+          # (outer) anchoring — matching the single-token spelling — while
+          # an explicit `inner`/`center`/`outer` token still wins. A
+          # declaration naming no medium leaves the alignment alone.
+          aligned = false
+          medium_named = false
+          applied = Set(Symbol).new
+          tokens.each do |token|
+            axis = border_axis_of(token)
+            next unless axis
+            # First token of each axis wins (BUGS8's TRBL degradation).
+            next unless applied.add?(axis)
+            aligned = true if axis == :align
+            medium_named = true if axis == :medium
+            apply_border_axis_token border, token
+          end
+          if medium_named && !aligned
+            case border.medium
+            in .block?, .braille? then border.align = Border::Align::Outer
+            in .line?             then border.align = Border::Align::Center
+            in .fill?
+            end
+          end
         end
       end
 
@@ -317,7 +506,7 @@ module Crysterm
         # full-cell box by an accompanying `solid`. (Unlike the `border-width`
         # longhand, a shorthand width is not clamped up.)
         explicit_width = nil
-        type_seen = false
+        style_tokens = [] of String
         # Split on top-level whitespace only, so a color function's internal
         # spaces/commas (`rgb(30, 30, 46)`) stay one token — same tokenizing as
         # `parse_border`/`apply_border_color`. A plain `value.split` would break a
@@ -326,12 +515,11 @@ module Crysterm
         Selectors.split_top_level(value).each do |token|
           if border_none_keyword?(token)
             explicit_width = 0
-          elsif type = border_type_keyword(token)
-            border.type = type
-            # A style keyword also settles the relief: the 3D ones switch it on,
-            # the flat ones clear whatever a previous rule left.
-            border_relief_keyword(token).try { |r| border.relief = r }
-            type_seen = true
+          elsif border_style_token?(token)
+            # Style keywords collect and apply together after the loop: one
+            # keeps the legacy preset semantics, several compose per-axis
+            # (see `apply_border_style_tokens`).
+            style_tokens << token
           elsif nw = named_width(token)
             # Named width (`thin`/`medium`/`thick`) before the color fallback, so
             # `border-left: thin solid red` sets a 1-cell edge, not a bogus color.
@@ -352,9 +540,10 @@ module Crysterm
             store_side_color border, side, resolved, cur if valid_side_color?(resolved, cur)
           end
         end
+        apply_border_style_tokens border, style_tokens unless style_tokens.empty?
         if explicit_width
           set_side border, side, explicit_width
-        elsif type_seen
+        elsif !style_tokens.empty?
           ensure_side border, side
         end
       end
@@ -426,22 +615,24 @@ module Crysterm
         border.left = h[i[:left]]
       end
 
-      # Applies a `border-style` keyword to the given *sides*: `none` hides them,
-      # any line/fill keyword (`solid`/`line`/`dashed`/`dotted`/`double`/`bg`)
-      # sets the type and enables the sides.
+      # Applies a `border-style` declaration to the given *sides*: `none`
+      # hides them; a single style keyword keeps the legacy preset
+      # semantics; multiple keywords compose per-axis (`border-style:
+      # dotted braille inner` — see `#apply_border_style_tokens`), enabling
+      # the sides either way. (The border axes are whole-border values, so
+      # CSS's per-side TRBL reading of multiple `border-style` values does
+      # not apply here — the multi-value form is the axis spelling.)
       private def self.apply_border_style(border : Border, value : String, sides : Tuple) : Nil
-        # CSS `border-style` accepts 1–4 space-separated keywords (TRBL). `Border#type`
-        # is whole-border (no per-side type), so honor the *first* token rather
-        # than folding the whole multi-value string and matching nothing.
-        first = value.strip.split.first?
-        return unless first
-        if border_none_keyword?(first)
+        tokens = value.strip.split
+        return if tokens.empty?
+        if tokens.any? { |token| border_none_keyword?(token) }
           sides.each { |side| set_side border, side, 0 }
-        elsif type = border_type_keyword(first)
-          border.type = type
-          border_relief_keyword(first).try { |r| border.relief = r }
-          sides.each { |side| ensure_side border, side }
+          return
         end
+        tokens.select! { |token| border_style_token?(token) }
+        return if tokens.empty?
+        apply_border_style_tokens border, tokens
+        sides.each { |side| ensure_side border, side }
       end
 
       private def self.set_side(border : Border, side : Side, width : Int32) : Nil
@@ -523,12 +714,15 @@ module Crysterm
         # exactly like `border: 2px hidden red`), so it is applied after the
         # token loop rather than inside it.
         hidden = false
+        style_tokens = [] of String
         Selectors.split_top_level(value).each do |token|
           if border_none_keyword?(token)
             hidden = true
-          elsif type = border_type_keyword(token)
-            border.type = type
-            border_relief_keyword(token).try { |r| border.relief = r }
+          elsif border_style_token?(token)
+            # Collected and applied together after the loop: one token keeps
+            # the legacy preset semantics, several compose per-axis
+            # (`border: 1px dotted braille inner red`).
+            style_tokens << token
           elsif nw = named_width(token)
             # A named width (`thin`/`medium`/`thick`) sizes all four sides; must
             # be checked before the color fallback so it isn't treated as an
@@ -558,6 +752,7 @@ module Crysterm
             border.fg_current_color = true if cur
           end
         end
+        apply_border_style_tokens border, style_tokens unless style_tokens.empty?
         border.left = border.right = border.top = border.bottom = 0 if hidden
         border
       end

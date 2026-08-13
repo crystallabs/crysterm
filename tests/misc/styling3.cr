@@ -1,5 +1,9 @@
 # FEATURE: Inner block borders — the full thickness ladder.
 #
+# Part of the borders demo set (guide: ../../README-borders.md). In axis
+# terms these boxes are `medium: :block, align: :inner`, thickness stepped
+# through `ratio`.
+#
 # The `:inner` transpose of styling2.cr: a `BorderType::Inner` border anchors
 # its ink flush with the *content*, and the border cells' remainder is
 # transparent by definition of the family — whatever is behind the widget

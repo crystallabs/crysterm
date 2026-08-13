@@ -387,6 +387,24 @@ module Crysterm
     #     └─────────┴─────────┘
     property? dock_borders : Bool = Config.window_dock_borders
 
+    # The scene's light source — the default every widget's relief shading,
+    # weight bevel and auto-placed shadow follow unless the widget overrides
+    # it (`Style#light`). A scene-coherence property like `dock_borders`:
+    # mixed light directions on one screen read as broken, so the direction
+    # lives here and widgets opt out individually. The default (NW
+    # directional) reproduces the classic hardcoded top-left lighting
+    # bit for bit. Accepts a `Light`, or a bare direction
+    # (`Light::Direction` / `:se`) for a directional light from there.
+    getter light : Light = Light::DEFAULT
+
+    def light=(value : Light | Light::Direction | Symbol) : Light
+      value = Light.from value
+      return value if @light == value
+      @light = value
+      render if @renders > 0
+      value
+    end
+
     # Dockable borders won't dock if colors/attributes differ. This allows
     # docking regardless, which may produce odd multi-colored borders. Exposed
     # so a widget docking its own line art honors the same contrast policy.

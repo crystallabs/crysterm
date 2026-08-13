@@ -61,6 +61,11 @@ with a different theme from [data/css/](data/css/)
 
 *Source: [tests/misc/styling.cr](tests/misc/styling.cr), [tests/misc/styling2.cr](tests/misc/styling2.cr), [tests/misc/styling3.cr](tests/misc/styling3.cr)*
 
+The full guide to borders, shadows and light — the stroke axes (medium,
+dash, alignment, thickness, corners), every medium incl. braille, thick
+bands and separators, relief/looks and the scene light — with a demo for
+each topic, is **[README-borders.md](README-borders.md)**.
+
 ## Rich text — Markdown with GFM
 
 `TextDocument` (a QTextDocument work-alike) supports **Markdown

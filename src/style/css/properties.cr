@@ -123,6 +123,31 @@ module Crysterm
           style.shadow = parse_box_shadow(value) unless value.blank?
         when "tint"
           parse_tint(style, value)
+        when "light"
+          # The scene-light override (crysterm extension, plans/BORDERS.md
+          # § 4): `light: <direction> [spot|directional]`, e.g. `light: n
+          # spot`. Valid on any widget (and on the root for the scene);
+          # `none` clears the override back to inheriting the window's
+          # light. An unparseable direction is dropped, per CSS.
+          tokens = value.strip.split.map { |token| Case.fold_keyword token }
+          if tokens == ["none"]
+            style.light = nil
+          elsif (dir_s = tokens[0]?) && (dir = Light::Direction.parse?(dir_s))
+            kind = tokens[1]? == "spot" ? Light::Kind::Spot : Light::Kind::Directional
+            style.light = Light.new(dir, kind)
+          end
+        when "look"
+          # The predefined 3D looks (crysterm extension, plans/BORDERS.md
+          # § 4.3): `look: raised | sunken | beveled | chiseled | floating |
+          # elevated | flat`. An unknown keyword is dropped, per CSS.
+          Style::Look.parse?(Case.fold_keyword(value.strip)).try { |look| style.look = look }
+        when "relief-style"
+          # How a border's 3D relief is expressed (crysterm extension):
+          # `shade` (color, the default), `weight` (glyph weight — the
+          # bevel), or `both`.
+          Border::ReliefStyle.parse?(Case.fold_keyword(value.strip)).try do |rendition|
+            style.border.relief_style = rendition
+          end
         when "z-index"
           # `auto` clears it (back to the base layer). An unparseable value is
           # ignored rather than clearing a z-index a lower-priority rule set
@@ -253,6 +278,7 @@ module Crysterm
         "background-size", "font", "font-weight",
         "font-style", "text-decoration", "visibility", "display", "opacity",
         "tab-size", "box-shadow", "tint", "z-index", "transition", "animation",
+        "light", "look", "relief-style",
         "padding", "padding-left", "padding-top", "padding-right", "padding-bottom",
         "margin", "margin-left", "margin-top", "margin-right", "margin-bottom",
         "alternate-background-color", "gridline-color",

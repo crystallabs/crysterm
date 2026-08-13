@@ -168,6 +168,8 @@ module Crysterm
       when :glyph_open       then !@glyph_open.nil?
       when :glyph_close      then !@glyph_close.nil?
       when :glyphs           then !@glyphs.nil?
+      when :light            then !@light.nil?
+      when :look             then !@look.nil?
       else                        (@specified_mask & specified_bit(property)) != 0_u32
       end
     end
@@ -569,6 +571,83 @@ module Crysterm
     # :ditto: (lazy, like `#padding`).
     getter shadow : Shadow { Shadow.default }
 
+    # This widget's light override — where the light sits for its border
+    # relief shading, weight bevel and shadow placement. Unset (`nil`, the
+    # default) the widget follows the window's scene light (`Window#light`,
+    # itself defaulting to the classic NW directional). Accepts a `Light`,
+    # or a bare direction (`Light::Direction` / its symbol, `:ne`) for a
+    # directional light from there. See `Light` and plans/BORDERS.md § 4.
+    getter light : Light?
+
+    def light=(value : (Light | Light::Direction | Symbol)?)
+      @light = value.nil? ? nil : Light.from(value)
+    end
+
+    # Predefined 3D looks: one keyword bundling `Border#relief`,
+    # `Border#relief_style` and the shadow into the common combinations, so
+    # "make it look raised" is a single assignment instead of hand-assembly
+    # (see plans/BORDERS.md § 4.3). Each look only *sets* the underlying
+    # options — they stay individually adjustable afterwards.
+    enum Look
+      Flat     # relief off (border/shadow otherwise untouched)
+      Raised   # outset relief, color shading
+      Sunken   # inset relief, color shading
+      Beveled  # outset relief in glyph weight (the styling.cr bevel)
+      Chiseled # inset relief in glyph weight
+      Floating # auto-placed thin shadow (sides follow the light)
+      Elevated # Raised + Floating
+    end
+
+    getter look : Look?
+
+    # Applies *value*'s bundle (see `Look`). A look that shades or weights
+    # the frame materializes a default 1-cell solid border when none is
+    # visible yet; `Floating`/`Elevated` add an auto-placed `ratio: :half`
+    # shadow unless one is already set. `nil` only clears the stored look
+    # (the expanded options keep their values — use `Look::Flat` to switch
+    # the relief off).
+    def look=(value : (Look | Symbol)?)
+      if value.nil?
+        @look = nil
+        return value
+      end
+      value = Look.parse value.to_s if value.is_a?(Symbol)
+      @look = value
+      case value
+      in .flat?
+        @border.try do |b|
+          b.relief = Border::Relief::None
+          b.relief_style = Border::ReliefStyle::Shade
+        end
+      in .raised?   then look_relief Border::Relief::Outset, Border::ReliefStyle::Shade
+      in .sunken?   then look_relief Border::Relief::Inset, Border::ReliefStyle::Shade
+      in .beveled?  then look_relief Border::Relief::Outset, Border::ReliefStyle::Weight
+      in .chiseled? then look_relief Border::Relief::Inset, Border::ReliefStyle::Weight
+      in .floating? then look_shadow
+      in .elevated?
+        look_relief Border::Relief::Outset, Border::ReliefStyle::Shade
+        look_shadow
+      end
+      value
+    end
+
+    # A look that shades/weights the frame needs a visible frame: an unset
+    # or zero-side border materializes as the default 1-cell solid box.
+    private def look_relief(relief : Border::Relief, rendition : Border::ReliefStyle) : Nil
+      b = @border
+      if b.nil? || !b.any?
+        self.border = true
+      end
+      border.relief = relief
+      border.relief_style = rendition
+    end
+
+    # The floating look's shadow: auto-placed (sides follow the light at
+    # render time), thin, added only when the style has none yet.
+    private def look_shadow : Nil
+      self.shadow = Shadow.new(ratio: :half) unless @shadow.try(&.any?)
+    end
+
     def initialize(
       *,
       border = nil,
@@ -629,6 +708,8 @@ module Crysterm
       @glyph_open : String? = nil,
       @glyph_close : String? = nil,
       @glyphs : String? = nil,
+      light = nil,
+      look = nil,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
       # to its `#rrggbb` string (each call type — String, Int, Nil — resolves to
@@ -673,6 +754,11 @@ module Crysterm
       tab_size.try { |v| self.tab_size = v }
       tab_char.try { |v| self.tab_char = v }
       fill.try { |v| self.fill = v }
+      light.try { |v| self.light = v }
+      # After `border`/`shadow`, so the look's bundle lands on the
+      # constructed objects (and its materialized defaults don't shadow a
+      # passed-in border).
+      look.try { |v| self.look = v }
     end
 
     def self.opacity_from(value : Float64?)

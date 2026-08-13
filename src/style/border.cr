@@ -144,7 +144,151 @@ module Crysterm
       end
     end
 
-    property type = BorderType::Solid
+    # -- The stroke axes ----------------------------------------------------
+    # A border is a stroke around the widget, decomposed into orthogonal
+    # axes (see plans/BORDERS.md): what the ink is made of (`#medium`), the
+    # dash pattern along the runs (`#stroke`), where the ink sits in the
+    # border band (`#align`), its sub-cell thickness (`#ratio`, and
+    # `#corner_ratio` for the corners alone), and the per-corner treatment
+    # (`#corners`). `BorderType` survives as the preset vocabulary naming
+    # the common points of that space — `#type=` fans a preset out over the
+    # axes, `#type` reads the nearest preset back — so both spellings stay
+    # first-class. A combination with no exact glyphs *rounds down* to the
+    # most similar achievable rendition (toward the thinner/simpler look),
+    # it never errors.
+
+    # What the border's ink is made of.
+    enum Medium
+      Line    # box-drawing glyphs (the five line families)
+      Block   # edge-anchored block ramps (`▀▌…`, the Outer/Inner presets)
+      Braille # braille dot patterns (U+2800..)
+      Fill    # whole-cell fill (`#fill_char` + colors)
+    end
+
+    # The dash pattern along the runs (Qt `PenStyle`). `Double` lives here —
+    # it is a run treatment, not a corner or medium one.
+    enum Stroke
+      Solid
+      Dashed
+      Dotted
+      Double
+    end
+
+    # Where the ink sits inside the border band (stroke alignment:
+    # inside/center/outside in design-tool terms). The line families draw a
+    # centered rule; the block/braille media anchor flush with the widget's
+    # outermost edge (`Outer`, cell remainder grounded in the widget's own
+    # bg) or with the content (`Inner`, remainder transparent by default).
+    # A medium without glyphs for the requested alignment rounds down
+    # (block/braille `Center` → `Outer`; line `Outer`/`Inner` ≡ `Center` at
+    # 1-cell widths).
+    enum Align
+      Center
+      Outer
+      Inner
+    end
+
+    # A corner's treatment (Qt `joinStyle` / CSS `border-radius`).
+    enum Corner
+      Square  # miter — the families' own corner pieces
+      Rounded # arc: line `╭`; braille drops the apex dot; block → `Cut`
+      Cut     # bevel/chamfer: line `╱`; braille a diagonal dot pair
+    end
+
+    # The four per-corner treatments plus per-corner radii. The radii are
+    # accepted and stored (CSS `border-radius: 2ch` round-trips) but render
+    # clamped to 1 for now — multi-cell arcs are future work; see
+    # plans/BORDERS.md § 3.3.
+    record Corners,
+      tl : Corner = Corner::Square, tr : Corner = Corner::Square,
+      bl : Corner = Corner::Square, br : Corner = Corner::Square,
+      radii : {Int32, Int32, Int32, Int32} = {1, 1, 1, 1} do
+      # Coerces a uniform spelling: a `Corner` (or its symbol) applied to
+      # all four corners; a `Corners` passes through.
+      def self.from(value : Corners | Corner | Symbol) : Corners
+        case value
+        in Corners then value
+        in Corner  then new value, value, value, value
+        in Symbol
+          c = Corner.parse value.to_s
+          new c, c, c, c
+        end
+      end
+
+      # The single treatment all four corners share, or `nil` when mixed.
+      def uniform : Corner?
+        tl if tl == tr && tr == bl && bl == br
+      end
+    end
+
+    getter medium : Medium = Medium::Line
+    getter stroke : Stroke = Stroke::Solid
+    getter align : Align = Align::Center
+    getter corners : Corners = Corners.new
+
+    def medium=(value : Medium | Symbol)
+      @medium = value.is_a?(Symbol) ? Medium.parse(value.to_s) : value
+    end
+
+    def stroke=(value : Stroke | Symbol)
+      @stroke = value.is_a?(Symbol) ? Stroke.parse(value.to_s) : value
+    end
+
+    def align=(value : Align | Symbol)
+      @align = value.is_a?(Symbol) ? Align.parse(value.to_s) : value
+    end
+
+    def corners=(value : Corners | Corner | Symbol)
+      @corners = Corners.from value
+    end
+
+    # Sets the axes to *preset*'s point in the axis space (the table in
+    # plans/BORDERS.md § 3.2). The axes stay individually overridable
+    # afterwards.
+    def type=(preset : BorderType)
+      @medium, @stroke, @align, corner =
+        case preset
+        in .fill?    then {Medium::Fill, Stroke::Solid, Align::Center, Corner::Square}
+        in .solid?   then {Medium::Line, Stroke::Solid, Align::Center, Corner::Square}
+        in .dashed?  then {Medium::Line, Stroke::Dashed, Align::Center, Corner::Square}
+        in .dotted?  then {Medium::Line, Stroke::Dotted, Align::Center, Corner::Square}
+        in .double?  then {Medium::Line, Stroke::Double, Align::Center, Corner::Square}
+        in .rounded? then {Medium::Line, Stroke::Solid, Align::Center, Corner::Rounded}
+        in .outer?   then {Medium::Block, Stroke::Solid, Align::Outer, Corner::Square}
+        in .inner?   then {Medium::Block, Stroke::Solid, Align::Inner, Corner::Square}
+        in .braille? then {Medium::Braille, Stroke::Solid, Align::Outer, Corner::Square}
+        end
+      @corners = Corners.from corner
+      preset
+    end
+
+    # The nearest `BorderType` preset for the current axes — the lossy
+    # compat view (`type = :dotted; type # => Dotted` round-trips exactly;
+    # an off-preset combination reads back as its base preset).
+    def type : BorderType
+      case @medium
+      in .fill?    then BorderType::Fill
+      in .braille? then BorderType::Braille
+      in .block?   then @align.inner? ? BorderType::Inner : BorderType::Outer
+      in .line?
+        return BorderType::Rounded if @stroke.solid? && @corners.uniform.try(&.rounded?)
+        case @stroke
+        in .solid?  then BorderType::Solid
+        in .dashed? then BorderType::Dashed
+        in .dotted? then BorderType::Dotted
+        in .double? then BorderType::Double
+        end
+      end
+    end
+
+    # Whether the border's ground (the border cells' remainder around the
+    # ink) defaults to transparent — an `Inner`-aligned block/braille ring
+    # hugs the content, so by definition of the family whatever is behind
+    # the widget shows up to the ink. An explicit `#bg` always overrides;
+    # the render path keys off this instead of the legacy `type.inner?`.
+    def transparent_ground_default? : Bool
+      @align.inner? && (@medium.block? || @medium.braille?)
+    end
 
     # Ink thickness of a block-family border (`BorderType::Outer`/`Inner`), as
     # a fraction of the cell *width*: `1.0` is a full column of ink, `0.125`
@@ -167,6 +311,24 @@ module Crysterm
     def ratio=(name : Symbol)
       @ratio = Glyphs::BLOCK_RATIOS[name.to_s]? ||
                raise ArgumentError.new "Unknown border ratio #{name.inspect} (known: #{Glyphs::BLOCK_RATIOS.keys.join(", ")})"
+    end
+
+    # The corners' own ink thickness, independent of the runs' `#ratio` —
+    # unset (`nil`), corners follow the runs exactly. Setting it decorates
+    # the frame with corner *beads*: a hairline block ring with quadrant
+    # corner mounts (`ratio: :thin, corner_ratio: :half` → `▏▔` runs, `▛`
+    # corners), heavy corner joins on light line runs (`┏` on `─`), or
+    # full-dot corner blocks on a one-dot braille ring (`⣿` on `⠉`). Above
+    # `:half` a line medium's corners go heavy; a block medium's corners
+    # resolve on the solid elbow ladder (eighth-L → quadrant → full block)
+    # at this step instead of the runs'. Ignored where no bigger corner
+    # piece exists (rounds down, § 3.1 of plans/BORDERS.md).
+    property corner_ratio : Float64? = nil
+
+    # Sets `#corner_ratio` by the same named presets as `#ratio=`.
+    def corner_ratio=(name : Symbol)
+      @corner_ratio = Glyphs::BLOCK_RATIOS[name.to_s]? ||
+                      raise ArgumentError.new "Unknown border corner_ratio #{name.inspect} (known: #{Glyphs::BLOCK_RATIOS.keys.join(", ")})"
     end
 
     # Border colors, as a `0xRRGGBB` int (`-1` = terminal default, `nil` =
@@ -236,7 +398,7 @@ module Crysterm
     # `currentColor` markers resolved against *el_fg*, the element's effective
     # text color. Fallback order mirrors the plain getters — a concrete
     # per-side override still wins over a whole-border `currentColor`.
-    def side_fg(side : Side, el_fg : Int32?) : Int32?
+    def side_fg(side : Side, el_fg : Int32?, light : Light = Light::DEFAULT) : Int32?
       side_current, own =
         case side
         in .top?                           then {@top_fg_current_color, @top_fg}
@@ -257,10 +419,10 @@ module Crysterm
         end
       # Any per-side setting — a concrete `border-top-color` or a per-side
       # `currentColor` — is the author's explicit choice for that edge and is
-      # left alone; the relief shading only derives the two lit/shaded edges
+      # left alone; the relief shading only derives the lit/shaded edges
       # from a *whole-border* color.
       return color if own || side_current
-      shade_for_relief color, side
+      shade_for_relief color, side, light
     end
 
     # The CSS 3D border styles. A terminal draws a single-cell line, so the
@@ -287,16 +449,65 @@ module Crysterm
     # `border-style: inset|outset|groove|ridge`); `None` for the flat styles.
     property relief : Relief = Relief::None
 
+    # :ditto: by symbol (`:outset`, ...).
+    def relief=(name : Symbol)
+      @relief = Relief.parse name.to_s
+    end
+
+    # How a non-`None` `#relief` is *expressed* on the border's glyphs and
+    # colors. `Shade` is the classic color treatment (per-side shading
+    # toward black/white). `Weight` renders the same lit/shaded
+    # classification in glyph weight instead: the emphasized sides take
+    # their stroke's heavy rendition (`━ ┃`, `┅ ┇`, `┉ ┋`), the others keep
+    # its light runs, and the corners resolve to the matching mixed-weight
+    # joins (`┏ ┑ ┖` under the default NW light) — the bevel look
+    # styling.cr used to hand-assemble from five char overrides.
+    # `Outset`/`Ridge` emphasize the lit sides (raised edge catches the
+    # light), `Inset`/`Groove` the shaded ones. Media without a weight
+    # vocabulary round down per plans/BORDERS.md § 3.1: block bumps the
+    # emphasized sides' ink one eighth, braille one dot-line, a `Double`
+    # stroke keeps `Shade` behavior.
+    enum ReliefStyle
+      Shade
+      Weight
+      Both
+    end
+
+    # The active relief rendition; only consulted when `#relief` is not
+    # `None`.
+    property relief_style : ReliefStyle = ReliefStyle::Shade
+
+    # :ditto: by symbol (`:weight`, ...).
+    def relief_style=(name : Symbol)
+      @relief_style = ReliefStyle.parse name.to_s
+    end
+
     # How far a relief shade moves a color toward black/white.
     RELIEF_SHADE = 0.45
 
-    # *color* shaded for *side* under the current `#relief` — unchanged when the
-    # border is flat or the color is unknown (`nil`)/`transparent` (`-1`), which
-    # have nothing to shade.
-    private def shade_for_relief(color : Int32?, side : Side) : Int32?
+    # Whether the weight rendition emphasizes *side* under *light*: the
+    # relief is on and expressed in weight, the side is lit/shaded (not
+    # neutral — a cardinal light leaves the two parallel sides alone), and
+    # the relief's polarity picks which of the two it thickens.
+    protected def weight_side?(side : Side, light : Light) : Bool
+      return false if @relief.none?
+      return false unless @relief_style.weight? || @relief_style.both?
+      lit = light.lit(side)
+      return false if lit.zero?
+      (lit > 0) != @relief.dark_near?
+    end
+
+    # *color* shaded for *side* under the current `#relief` and *light* —
+    # unchanged when the border is flat, the side is neutral to the light,
+    # or the color is unknown (`nil`)/`transparent` (`-1`), which have
+    # nothing to shade. Also unchanged when the relief is expressed purely
+    # in `Weight` — the glyphs carry the effect there, not the colors.
+    private def shade_for_relief(color : Int32?, side : Side, light : Light) : Int32?
       return color if @relief.none? || color.nil? || color == -1
-      near = side.top? || side.left?
-      toward = (near == @relief.dark_near?) ? 0x000000 : 0xFFFFFF
+      return color if @relief_style.weight?
+      lit = light.lit side
+      return color if lit.zero?
+      toward = ((lit > 0) == @relief.dark_near?) ? 0x000000 : 0xFFFFFF
       Colors.mix_resolved toward, color, RELIEF_SHADE, fg: true
     end
 
@@ -413,37 +624,143 @@ module Crysterm
         top_left_char, top_right_char, bottom_left_char, bottom_right_char)
     end
 
-    # The eight glyphs of a line-family border — four corners plus one run per
-    # side — with this border's char overrides merged in: each position takes
-    # its own override, else its group (`corner_char` for the corners,
-    # `horizontal_char`/`vertical_char` for the runs), else the `BorderType`
-    # family glyph at *tier*. The no-override fast path just fans the family's
-    # two run glyphs out over the four sides.
-    def line_glyphs_with_overrides(tier : Glyphs::Tier, cap_v = false, cap_h = false)
-      g = @type.line_glyphs(tier)
-      # Run glyph per axis: the family's own, unless that axis' pair is standing
+    # The line family whose glyphs the `Glyphs` registry serves for the
+    # current `#stroke`. The corners axis and the weight machinery pick
+    # their own pieces on top of it.
+    private def line_base_family : BorderType
+      case @stroke
+      in .double? then BorderType::Double
+      in .dashed? then BorderType::Dashed
+      in .dotted? then BorderType::Dotted
+      in .solid?  then BorderType::Solid
+      end
+    end
+
+    # The heavy run glyph for one axis of the current stroke, or `nil` when
+    # the stroke has no heavy rendition (`Double` is already the heaviest
+    # spelling of its family).
+    private def heavy_run(tier : Glyphs::Tier, horizontal : Bool) : Char?
+      role =
+        case @stroke
+        in .solid?  then horizontal ? Glyphs::Role::BorderHeavyH : Glyphs::Role::BorderHeavyV
+        in .dashed? then horizontal ? Glyphs::Role::BorderHeavyDashedH : Glyphs::Role::BorderHeavyDashedV
+        in .dotted? then horizontal ? Glyphs::Role::BorderHeavyDottedH : Glyphs::Role::BorderHeavyDottedV
+        in .double? then return
+        end
+      Glyphs[role, tier]
+    end
+
+    # Merges the explicit char overrides over a derived octet — the tail
+    # every medium's builder shares: each position takes its own override,
+    # else its group (`corner_char` for the corners, `horizontal_char`/
+    # `vertical_char` for the runs), else the derived glyph. An explicit
+    # char override is the author's choice and outranks even the caps,
+    # which are only the last link of each fall-back chain.
+    private def merge_char_overrides(tl : Char, tr : Char, bl : Char, br : Char,
+                                     t : Char, b : Char, l : Char, r : Char)
+      unless chars?
+        return {tl: tl, tr: tr, bl: bl, br: br, t: t, b: b, l: l, r: r}
+      end
+      {tl: @top_left_char || @corner_char || tl,
+       tr: @top_right_char || @corner_char || tr,
+       bl: @bottom_left_char || @corner_char || bl,
+       br: @bottom_right_char || @corner_char || br,
+       t:  @top_char || @horizontal_char || t,
+       b:  @bottom_char || @horizontal_char || b,
+       l:  @left_char || @vertical_char || l,
+       r:  @right_char || @vertical_char || r}
+    end
+
+    # The square (miter) join for arm weights: heavy when both arms are,
+    # the mixed-weight joins (`┍`/`┎` …) when only one is, the base family
+    # corner when neither. A `Double` stroke has no weight pieces and keeps
+    # its own corners.
+    private def square_corner(tier : Glyphs::Tier, base : Char, arm_h : Bool, arm_v : Bool,
+                              heavy : Glyphs::Role, mixed_h : Glyphs::Role, mixed_v : Glyphs::Role) : Char
+      return base if @stroke.double?
+      if arm_h && arm_v
+        Glyphs[heavy, tier]
+      elsif arm_h
+        Glyphs[mixed_h, tier]
+      elsif arm_v
+        Glyphs[mixed_v, tier]
+      else
+        base
+      end
+    end
+
+    # One corner glyph of a line border: the per-corner `Corner` treatment
+    # resolved against the adjoining arms' weights (*arm_h* is the
+    # horizontal run's, *arm_v* the vertical's). An explicit `#corner_ratio`
+    # outranks the run-derived weights — above `:half` the corner is a
+    # heavy bead on both arms (`┏` joins on `─` runs), at or below it stays
+    # light. The arc pieces exist only light-weight, so a rounded corner
+    # with a heavy arm (or the arc-less `Double` stroke) rounds down to the
+    # square join.
+    private def line_corner_glyph(tier : Glyphs::Tier, base : Char, style : Corner,
+                                  arm_h : Bool, arm_v : Bool,
+                                  rounded : Glyphs::Role, cut : Glyphs::Role,
+                                  heavy : Glyphs::Role, mixed_h : Glyphs::Role, mixed_v : Glyphs::Role) : Char
+      if cr = @corner_ratio
+        arm_h = arm_v = cr > 0.5 && !@stroke.double?
+      end
+      case style
+      in .cut?
+        Glyphs[cut, tier]
+      in .rounded?
+        return Glyphs[rounded, tier] unless @stroke.double? || arm_h || arm_v
+        square_corner tier, base, arm_h, arm_v, heavy, mixed_h, mixed_v
+      in .square?
+        square_corner tier, base, arm_h, arm_v, heavy, mixed_h, mixed_v
+      end
+    end
+
+    # The eight glyphs of a line-medium border — four corners plus one run
+    # per side — with this border's char overrides merged in: each position
+    # takes its own override, else its group (`corner_char` for the corners,
+    # `horizontal_char`/`vertical_char` for the runs), else the axis-derived
+    # glyph at *tier*: the `#stroke` family's run, gone heavy above
+    # `#ratio` 1/2 (the line medium's reading of the thickness knob) or on
+    # the weight bevel's emphasized sides (`#relief_style`, *light*), and
+    # each corner its `#corners` treatment joined to match (see
+    # `#line_corner_glyph`).
+    def line_glyphs_with_overrides(tier : Glyphs::Tier, cap_v = false, cap_h = false,
+                                   light : Light = Light::DEFAULT)
+      g = line_base_family.line_glyphs(tier)
+      base_heavy = !@stroke.double? && @ratio > 0.5
+      hv_t = base_heavy || weight_side?(Side::Top, light)
+      hv_b = base_heavy || weight_side?(Side::Bottom, light)
+      hv_l = base_heavy || weight_side?(Side::Left, light)
+      hv_r = base_heavy || weight_side?(Side::Right, light)
+      run_h = heavy_run(tier, horizontal: true)
+      run_v = heavy_run(tier, horizontal: false)
+      ht = hv_t && run_h ? run_h : g[:h]
+      hb = hv_b && run_h ? run_h : g[:h]
+      vl = hv_l && run_v ? run_v : g[:v]
+      vr = hv_r && run_v ? run_v : g[:v]
+      # Run glyph per axis: the derived one, unless that axis' pair is standing
       # alone because the perpendicular edges didn't fit, in which case the caps
       # take over (see `Glyphs::Role::BorderCapLeft`). The four cap roles stay
       # separate so a theme can give each edge its own rendition, even though the
       # registry defaults them all to the same block.
-      vl = cap_v ? Glyphs[Glyphs::Role::BorderCapLeft, tier] : g[:v]
-      vr = cap_v ? Glyphs[Glyphs::Role::BorderCapRight, tier] : g[:v]
-      ht = cap_h ? Glyphs[Glyphs::Role::BorderCapTop, tier] : g[:h]
-      hb = cap_h ? Glyphs[Glyphs::Role::BorderCapBottom, tier] : g[:h]
-      unless chars?
-        return {tl: g[:tl], tr: g[:tr], bl: g[:bl], br: g[:br],
-                t: ht, b: hb, l: vl, r: vr}
-      end
-      # An explicit char override is the author's choice and outranks the cap,
-      # which is only the last link of each fall-back chain.
-      {tl: @top_left_char || @corner_char || g[:tl],
-       tr: @top_right_char || @corner_char || g[:tr],
-       bl: @bottom_left_char || @corner_char || g[:bl],
-       br: @bottom_right_char || @corner_char || g[:br],
-       t:  @top_char || @horizontal_char || ht,
-       b:  @bottom_char || @horizontal_char || hb,
-       l:  @left_char || @vertical_char || vl,
-       r:  @right_char || @vertical_char || vr}
+      vl = Glyphs[Glyphs::Role::BorderCapLeft, tier] if cap_v
+      vr = Glyphs[Glyphs::Role::BorderCapRight, tier] if cap_v
+      ht = Glyphs[Glyphs::Role::BorderCapTop, tier] if cap_h
+      hb = Glyphs[Glyphs::Role::BorderCapBottom, tier] if cap_h
+      c = @corners
+      tl = line_corner_glyph(tier, g[:tl], c.tl, hv_t, hv_l,
+        Glyphs::Role::BorderRoundedTL, Glyphs::Role::BorderCutTL,
+        Glyphs::Role::BorderHeavyTL, Glyphs::Role::BorderMixedHTL, Glyphs::Role::BorderMixedVTL)
+      tr = line_corner_glyph(tier, g[:tr], c.tr, hv_t, hv_r,
+        Glyphs::Role::BorderRoundedTR, Glyphs::Role::BorderCutTR,
+        Glyphs::Role::BorderHeavyTR, Glyphs::Role::BorderMixedHTR, Glyphs::Role::BorderMixedVTR)
+      bl = line_corner_glyph(tier, g[:bl], c.bl, hv_b, hv_l,
+        Glyphs::Role::BorderRoundedBL, Glyphs::Role::BorderCutBL,
+        Glyphs::Role::BorderHeavyBL, Glyphs::Role::BorderMixedHBL, Glyphs::Role::BorderMixedVBL)
+      br = line_corner_glyph(tier, g[:br], c.br, hv_b, hv_r,
+        Glyphs::Role::BorderRoundedBR, Glyphs::Role::BorderCutBR,
+        Glyphs::Role::BorderHeavyBR, Glyphs::Role::BorderMixedHBR, Glyphs::Role::BorderMixedVBR)
+      merge_char_overrides tl, tr, bl, br, ht, hb, vl, vr
     end
 
     # The eight glyphs of a block-family border (`Outer`/`Inner`): each run an
@@ -459,7 +776,8 @@ module Crysterm
     # substitution (`Glyphs::Role::BorderCapLeft` …) doesn't apply: an
     # edge-anchored run sits flush against the cell edge already and reads as
     # a trough wall on its own, which is all the caps exist to provide.
-    def block_glyphs_with_overrides(tier : Glyphs::Tier, octants : Bool = false)
+    def block_glyphs_with_overrides(tier : Glyphs::Tier, octants : Bool = false,
+                                    light : Light = Light::DEFAULT)
       w8, v8 = Glyphs.block_eighths(@ratio)
       # Below the Extended tier the upper/right ramps only offer the 1/8, 4/8
       # and 8/8 steps. A frame's opposite edges must match, so quantize each
@@ -468,6 +786,8 @@ module Crysterm
       unless tier.extended?
         w8, v8 = coarse_step(w8), coarse_step(v8)
       end
+      wt, wb, wl, wr = block_weight_bumps(light)
+      weighted = wt + wb + wl + wr > 0
       upper = Glyphs.chars(Glyphs::SeqRole::BorderRampUpper, tier)
       lower = Glyphs.chars(Glyphs::SeqRole::BorderRampLower, tier)
       lefts = Glyphs.chars(Glyphs::SeqRole::BorderRampLeft, tier)
@@ -478,15 +798,30 @@ module Crysterm
       # as a bulge, while a run drawn at 1/3 instead of 1/4 or 3/8 just reads
       # as the run — flush joints beat nominal eighth exactness. With the
       # octant pieces in play (*octants*, quarter-height arms) no such trade
-      # is needed: the runs stay at their honest eighths.
-      thirdable = tier.extended? && (v8 == 2 || v8 == 3)
-      if @type.outer?
+      # is needed: the runs stay at their honest eighths. Per-side weight
+      # bumps and explicit corner beads opt out for the same joint-honesty
+      # reason.
+      thirdable = tier.extended? && (v8 == 2 || v8 == 3) && !weighted && @corner_ratio.nil?
+      if !@align.inner?
+        v8t, v8b = (v8 + wt).clamp(1, 8), (v8 + wb).clamp(1, 8)
+        w8l, w8r = (w8 + wl).clamp(1, 8), (w8 + wr).clamp(1, 8)
         octant_corners = outer_octant_corners?(tier, w8, v8, octants)
         thirds = thirdable && w8 <= 6 && !octant_corners
-        t = thirds ? Glyphs[Glyphs::Role::BorderThirdUpper, tier] : upper[v8 - 1]
-        b = thirds ? Glyphs[Glyphs::Role::BorderThirdLower, tier] : lower[v8 - 1]
-        l, r = lefts[w8 - 1], rights[w8 - 1]
-        tl, tr, bl, br = outer_block_corners(tier, w8, v8, octant_corners)
+        t = thirds ? Glyphs[Glyphs::Role::BorderThirdUpper, tier] : upper[v8t - 1]
+        b = thirds ? Glyphs[Glyphs::Role::BorderThirdLower, tier] : lower[v8b - 1]
+        l, r = lefts[w8l - 1], rights[w8r - 1]
+        if cr = @corner_ratio
+          tl, tr, bl, br = outer_corner_beads(tier, cr)
+        elsif weighted
+          # Each corner joins its two adjacent runs — resolve it at those
+          # arms' (possibly bumped) steps so the joint stays flush.
+          tl = outer_block_corners(tier, w8l, v8t, outer_octant_corners?(tier, w8l, v8t, octants))[0]
+          tr = outer_block_corners(tier, w8r, v8t, outer_octant_corners?(tier, w8r, v8t, octants))[1]
+          bl = outer_block_corners(tier, w8l, v8b, outer_octant_corners?(tier, w8l, v8b, octants))[2]
+          br = outer_block_corners(tier, w8r, v8b, outer_octant_corners?(tier, w8r, v8b, octants))[3]
+        else
+          tl, tr, bl, br = outer_block_corners(tier, w8, v8, octant_corners)
+        end
       else
         # Inner: every anchor flips to the content-facing edge, so each ramp
         # serves the opposite side.
@@ -497,17 +832,23 @@ module Crysterm
         l, r = rights[w8 - 1], lefts[w8 - 1]
         tl, tr, bl, br = inner_block_corners(fit, tier, t, b)
       end
-      unless chars?
-        return {tl: tl, tr: tr, bl: bl, br: br, t: t, b: b, l: l, r: r}
+      merge_char_overrides tl, tr, bl, br, t, b, l, r
+    end
+
+    # The weight bevel's per-side extra eighths of block ink `{top, bottom,
+    # left, right}` — all zero unless a weight-rendition relief is on. Only
+    # the outer anchoring participates (an inner ring rounds the rendition
+    # down to `Shade`); the caller skips the thirds re-quantization when
+    # any side is bumped, so the bumped sides keep honest eighths at their
+    # corners.
+    private def block_weight_bumps(light : Light) : {Int32, Int32, Int32, Int32}
+      if @align.inner? || @relief.none? || @relief_style.shade?
+        return {0, 0, 0, 0}
       end
-      {tl: @top_left_char || @corner_char || tl,
-       tr: @top_right_char || @corner_char || tr,
-       bl: @bottom_left_char || @corner_char || bl,
-       br: @bottom_right_char || @corner_char || br,
-       t:  @top_char || @horizontal_char || t,
-       b:  @bottom_char || @horizontal_char || b,
-       l:  @left_char || @vertical_char || l,
-       r:  @right_char || @vertical_char || r}
+      {weight_side?(Side::Top, light) ? 1 : 0,
+       weight_side?(Side::Bottom, light) ? 1 : 0,
+       weight_side?(Side::Left, light) ? 1 : 0,
+       weight_side?(Side::Right, light) ? 1 : 0}
     end
 
     # The eight glyphs of a `Braille` border: each run the braille pattern
@@ -519,38 +860,84 @@ module Crysterm
     # chooser. Same char-override chain as the other families; the one-axis
     # cap substitution doesn't apply for the same reason as the block
     # families (an edge-anchored run reads as a trough wall on its own).
-    def braille_glyphs_with_overrides(tier : Glyphs::Tier)
-      if tier.extended?
-        w2, v4 = Glyphs.braille_steps(@ratio)
-        lm = Glyphs::BRAILLE_COLS_LEFT[w2 - 1]
-        rm = Glyphs::BRAILLE_COLS_RIGHT[w2 - 1]
-        tm = Glyphs::BRAILLE_ROWS_TOP[v4 - 1]
-        bm = Glyphs::BRAILLE_ROWS_BOTTOM[v4 - 1]
-        t, b = Glyphs.braille(tm), Glyphs.braille(bm)
-        l, r = Glyphs.braille(lm), Glyphs.braille(rm)
-        tl, tr = Glyphs.braille(tm | lm), Glyphs.braille(tm | rm)
-        bl, br = Glyphs.braille(bm | lm), Glyphs.braille(bm | rm)
-      else
+    def braille_glyphs_with_overrides(tier : Glyphs::Tier, light : Light = Light::DEFAULT)
+      unless tier.extended?
         # Braille Patterns are Extended-tier repertoire (the taxonomy the
         # braille spinner frames set); below it the nearest look is the
-        # `Dotted` line family, whose registry entries fall down to their own
-        # ascii forms at the bottom tier.
-        g = BorderType::Dotted.line_glyphs(tier)
-        tl, tr, bl, br = g[:tl], g[:tr], g[:bl], g[:br]
-        t = b = g[:h]
-        l = r = g[:v]
+        # dotted line family (dashed for a dashed stroke), whose registry
+        # entries fall down to their own ascii forms at the bottom tier.
+        g = (@stroke.dashed? ? BorderType::Dashed : BorderType::Dotted).line_glyphs(tier)
+        return merge_char_overrides g[:tl], g[:tr], g[:bl], g[:br], g[:h], g[:h], g[:v], g[:v]
       end
-      unless chars?
-        return {tl: tl, tr: tr, bl: bl, br: br, t: t, b: b, l: l, r: r}
+      inner = @align.inner?
+      tm, bm, lm, rm = braille_run_masks(inner, light)
+      # Corner masks: the runs' own, or — under an explicit `#corner_ratio`
+      # — the tables re-read at the corners' step, giving the full-dot
+      # corner blocks on a one-dot ring (`⣿` on `⠉`).
+      if cr = @corner_ratio
+        cw2, cv4 = Glyphs.braille_steps(cr)
+        ctm = braille_row_mask(inner, top: true, steps: cv4)
+        cbm = braille_row_mask(inner, top: false, steps: cv4)
+        clm = braille_col_mask(inner, left: true, steps: cw2)
+        crm = braille_col_mask(inner, left: false, steps: cw2)
+      else
+        ctm, cbm, clm, crm = tm, bm, lm, rm
       end
-      {tl: @top_left_char || @corner_char || tl,
-       tr: @top_right_char || @corner_char || tr,
-       bl: @bottom_left_char || @corner_char || bl,
-       br: @bottom_right_char || @corner_char || br,
-       t:  @top_char || @horizontal_char || t,
-       b:  @bottom_char || @horizontal_char || b,
-       l:  @left_char || @vertical_char || l,
-       r:  @right_char || @vertical_char || r}
+      tl = braille_corner(@corners.tl, ctm | clm, inner, 0)
+      tr = braille_corner(@corners.tr, ctm | crm, inner, 1)
+      bl = braille_corner(@corners.bl, cbm | clm, inner, 2)
+      br = braille_corner(@corners.br, cbm | crm, inner, 3)
+      merge_char_overrides tl, tr, bl, br,
+        Glyphs.braille(tm), Glyphs.braille(bm), Glyphs.braille(lm), Glyphs.braille(rm)
+    end
+
+    # One horizontal braille run's mask, *steps* dot-rows deep, anchored at
+    # the edge the ink hugs: *top* names the widget side, and the inner
+    # anchoring hugs the opposite cell edge — which is the whole of the
+    # outer/inner transpose, and why the corner unions stay flush in both.
+    private def braille_row_mask(inner : Bool, *, top : Bool, steps : Int32) : Int32
+      hug_top = top != inner
+      hug_top ? Glyphs::BRAILLE_ROWS_TOP[steps - 1] : Glyphs::BRAILLE_ROWS_BOTTOM[steps - 1]
+    end
+
+    # :ditto: for a vertical run, *steps* dot-columns wide.
+    private def braille_col_mask(inner : Bool, *, left : Bool, steps : Int32) : Int32
+      hug_left = left != inner
+      hug_left ? Glyphs::BRAILLE_COLS_LEFT[steps - 1] : Glyphs::BRAILLE_COLS_RIGHT[steps - 1]
+    end
+
+    # The four run masks `{top, bottom, left, right}` of a braille ring:
+    # the sparse patterns for a dashed/dotted stroke, else the solid tables
+    # at `#ratio`'s steps — a `Double` stroke pinned to two dot-lines, and
+    # the weight bevel's emphasized sides carrying one extra.
+    private def braille_run_masks(inner : Bool, light : Light) : {Int32, Int32, Int32, Int32}
+      return braille_sparse_masks(inner) if @stroke.dashed? || @stroke.dotted?
+      w2, v4 = Glyphs.braille_steps(@ratio)
+      if @stroke.double?
+        w2 = 2
+        v4 = Math.max(v4, 2)
+      end
+      {braille_row_mask(inner, top: true, steps: (v4 + (weight_side?(Side::Top, light) ? 1 : 0)).clamp(1, 4)),
+       braille_row_mask(inner, top: false, steps: (v4 + (weight_side?(Side::Bottom, light) ? 1 : 0)).clamp(1, 4)),
+       braille_col_mask(inner, left: true, steps: (w2 + (weight_side?(Side::Left, light) ? 1 : 0)).clamp(1, 2)),
+       braille_col_mask(inner, left: false, steps: (w2 + (weight_side?(Side::Right, light) ? 1 : 0)).clamp(1, 2))}
+    end
+
+    # The sparse-stroke run masks: hairline by definition (the thickness
+    # rounds down to one dot-line) — dotted keeps every other dot; dashed
+    # keeps dot pairs, expressible only down a column's four rows, so the
+    # horizontal runs round dashed down to dotted.
+    private def braille_sparse_masks(inner : Bool) : {Int32, Int32, Int32, Int32}
+      tm = inner ? Glyphs::BRAILLE_DOTTED_ROW_BOTTOM : Glyphs::BRAILLE_DOTTED_ROW_TOP
+      bm = inner ? Glyphs::BRAILLE_DOTTED_ROW_TOP : Glyphs::BRAILLE_DOTTED_ROW_BOTTOM
+      if @stroke.dashed?
+        lm = inner ? Glyphs::BRAILLE_DASHED_COL_RIGHT : Glyphs::BRAILLE_DASHED_COL_LEFT
+        rm = inner ? Glyphs::BRAILLE_DASHED_COL_LEFT : Glyphs::BRAILLE_DASHED_COL_RIGHT
+      else
+        lm = inner ? Glyphs::BRAILLE_DOTTED_COL_RIGHT : Glyphs::BRAILLE_DOTTED_COL_LEFT
+        rm = inner ? Glyphs::BRAILLE_DOTTED_COL_LEFT : Glyphs::BRAILLE_DOTTED_COL_RIGHT
+      end
+      {tm, bm, lm, rm}
     end
 
     # The four corner glyphs `{tl, tr, bl, br}` of an `Outer` block border:
@@ -563,6 +950,54 @@ module Crysterm
     # blocks for the non-Extended midrange; and the full block when the
     # sides are nearly solid (a corner reading as a deliberate solid block
     # beats the quadrant's bitten-side notch there).
+    # A braille corner cell under its `Corner` treatment. *which* indexes
+    # `{tl, tr, bl, br}`; the *hugged* cell corner is the same for the
+    # outer anchoring and the diagonal one for inner (an inner TL corner's
+    # ink sits at its cell's BR). `Rounded` clears the hugged corner's apex
+    # dot from the union *mask* — at dot scale, knocking off the apex
+    # genuinely reads as rounding; `Cut` replaces the mask with the two-dot
+    # diagonal.
+    private def braille_corner(style : Corner, mask : Int32, inner : Bool, which : Int32) : Char
+      hug = inner ? 3 - which : which
+      case style
+      in .square?
+        Glyphs.braille mask
+      in .rounded?
+        dot =
+          case hug
+          when 0 then Glyphs::BRAILLE_CORNER_DOT_TL
+          when 1 then Glyphs::BRAILLE_CORNER_DOT_TR
+          when 2 then Glyphs::BRAILLE_CORNER_DOT_BL
+          else        Glyphs::BRAILLE_CORNER_DOT_BR
+          end
+        Glyphs.braille mask & ~dot
+      in .cut?
+        cut =
+          case hug
+          when 0 then Glyphs::BRAILLE_CUT_TL
+          when 1 then Glyphs::BRAILLE_CUT_TR
+          when 2 then Glyphs::BRAILLE_CUT_BL
+          else        Glyphs::BRAILLE_CUT_BR
+          end
+        Glyphs.braille cut
+      end
+    end
+
+    # The decorative corner beads an explicit `#corner_ratio` requests on an
+    # outer block ring: solid elbows on the coarse ladder (eighth-L pieces →
+    # three-quadrant blocks → the full block), deliberately skipping the
+    # thin-armed sextant midrange — the bead is *meant* to out-weigh the
+    # runs (the accidental-turned-deliberate `▛`-on-hairline look; see
+    # plans/BORDERS.md § 3.3).
+    private def outer_corner_beads(tier : Glyphs::Tier, corner_ratio : Float64)
+      cw8, cv8 = Glyphs.block_eighths(corner_ratio)
+      ci = cv8 <= 1 && cw8 <= 2 ? 0 : (cw8 <= 4 && cv8 <= 4 ? 3 : 7)
+      {Glyphs.chars(Glyphs::SeqRole::BorderElbowTL, tier)[ci],
+       Glyphs.chars(Glyphs::SeqRole::BorderElbowTR, tier)[ci],
+       Glyphs.chars(Glyphs::SeqRole::BorderElbowBL, tier)[ci],
+       Glyphs.chars(Glyphs::SeqRole::BorderElbowBR, tier)[ci]}
+    end
+
     # Whether an `Outer` border's corners take the octant elbows: the range
     # they cover (arms half a cell wide, a quarter tall) — except the near-
     # hairline geometries, where the eighth-L pieces sit closer still.
@@ -642,8 +1077,8 @@ module Crysterm
     # on every border cell. Also spares a `Fill` border the line-family glyph
     # build it would otherwise discard.
     #
-    # The families keep their own, distinct fall-back chains: a line border
-    # resolves position → group → `BorderType` family glyph at *tier* (see
+    # The media keep their own, distinct fall-back chains: a line border
+    # resolves position → group → stroke-family glyph at *tier* (see
     # `#line_glyphs_with_overrides`), a block border position → group → ramp
     # step at `#ratio` (see `#block_glyphs_with_overrides`), a `Braille`
     # border position → group → dot mask at `#ratio` (see
@@ -657,12 +1092,66 @@ module Crysterm
     # top/bottom to close them, *cap_h* for the transpose. A `Fill` border
     # paints colored cells and a block border edge-flush runs — neither implies
     # a shape the caps must repair, so both ignore them.
-    def glyph_octet(tier : Glyphs::Tier, cap_v = false, cap_h = false, octants : Bool = false)
-      return braille_glyphs_with_overrides(tier) if @type.braille?
-      return block_glyphs_with_overrides(tier, octants) if @type.block_family?
-      return line_glyphs_with_overrides(tier, cap_v, cap_h) if @type.line_family?
-      {tl: top_left_char, tr: top_right_char, bl: bottom_left_char, br: bottom_right_char,
-       t: top_char, b: bottom_char, l: left_char, r: right_char}
+    # *light* feeds the weight bevel (`#relief_style`), which thickens the
+    # lit or shaded sides' glyphs; under the default relief (`None`) it has
+    # no effect on the octet.
+    def glyph_octet(tier : Glyphs::Tier, cap_v = false, cap_h = false, octants : Bool = false,
+                    light : Light = Light::DEFAULT)
+      case @medium
+      in .braille? then braille_glyphs_with_overrides(tier, light)
+      in .block?   then block_glyphs_with_overrides(tier, octants, light)
+      in .line?    then line_glyphs_with_overrides(tier, cap_v, cap_h, light)
+      in .fill?
+        {tl: top_left_char, tr: top_right_char, bl: bottom_left_char, br: bottom_right_char,
+         t: top_char, b: bottom_char, l: left_char, r: right_char}
+      end
+    end
+
+    # Whether the band cell at *depth* (0 = the outermost cell of its side)
+    # in a side *width* cells thick carries the border's rule, or is band
+    # ground. At 1-cell widths every band cell does — the classic geometry.
+    # For thicker bands the alignment axis decides where the rule sits
+    # (plans/BORDERS.md § phase 6): `Center` repeats the rule through the
+    # whole band (the pre-axes behavior), `Outer` draws it only along the
+    # band's rim ring, `Inner` only along the ring hugging the content. A
+    # block-medium `Double` stroke rules both the rim and content rings —
+    # the two-ring reading of the stroke that a single cell can't express.
+    def band_rule?(depth : Int32, width : Int32) : Bool
+      return true if width <= 1
+      if @medium.block? && @stroke.double?
+        return depth == 0 || depth == width - 1
+      end
+      case @align
+      in .center? then true
+      in .outer?  then depth == 0
+      in .inner?  then depth == width - 1
+      end
+    end
+
+    # Whether a thick band's ruled ring is *smaller than the box* (`Inner`
+    # alignment): its runs then must not cross the perpendicular bands'
+    # outward cells — a cell of the left band short of the ring's corner
+    # column is ground, not a piece of the top run. The rim-hugging rings
+    # (`Outer`/`Center`, and the block `Double` pair, whose outer ring spans
+    # the full box) pass over the whole band width. Meaningless (and never
+    # consulted) at 1-cell widths, where every band cell is on the ring.
+    def inner_band_ring? : Bool
+      @align.inner? && !(@medium.block? && @stroke.double?)
+    end
+
+    # Whether a dashed/dotted *block*-medium run leaves a gap at run cell
+    # *offset* (cells from the box's own edge, so opposite runs stay in
+    # phase): dotted alternates ink and ground cells, dashed runs two ink
+    # cells to one ground. The other media draw their dashes sub-cell
+    # (line: the `┄`/`┈` glyph families; braille: the sparse dot masks), so
+    # they never gap whole cells; corners are always drawn.
+    def run_gap?(offset : Int32) : Bool
+      return false unless @medium.block?
+      case @stroke
+      in .dotted?          then offset.odd?
+      in .dashed?          then offset % 3 == 2
+      in .solid?, .double? then false
+      end
     end
 
     # Assigns the per-position char override for a CSS longhand, keyed by
@@ -717,7 +1206,7 @@ module Crysterm
     end
 
     def initialize(
-      @type = @type,
+      type : BorderType? = nil,
       bg = nil,
       fg = nil,
       @left = @left,
@@ -725,15 +1214,56 @@ module Crysterm
       @right = @right,
       @bottom = @bottom,
       ratio : (Float64 | Symbol)? = nil,
+      medium : (Medium | Symbol)? = nil,
+      stroke : (Stroke | Symbol)? = nil,
+      align : (Align | Symbol)? = nil,
+      corners : (Corners | Corner | Symbol)? = nil,
+      corner_ratio : (Float64 | Symbol)? = nil,
+      relief : (Relief | Symbol)? = nil,
+      relief_style : (ReliefStyle | Symbol)? = nil,
     )
       # Route through setters so a native int or a `"#rrggbb"`/named string
-      # both resolve to the native int form — and a `ratio` given as a named
-      # preset (`:thin`, `:half`, …) to its fraction.
+      # both resolve to the native int form, a `ratio` given as a named
+      # preset (`:thin`, `:half`, …) to its fraction, and enum axes given as
+      # symbols to their members. The `type` preset fans out over the axes
+      # first, so explicit axis arguments override it.
+      self.type = type if type
+      case medium
+      in Medium, Symbol then self.medium = medium
+      in Nil
+      end
+      case stroke
+      in Stroke, Symbol then self.stroke = stroke
+      in Nil
+      end
+      case align
+      in Align, Symbol then self.align = align
+      in Nil
+      end
+      case corners
+      in Corners, Corner, Symbol then self.corners = corners
+      in Nil
+      end
+      case relief
+      in Relief then self.relief = relief
+      in Symbol then self.relief = relief
+      in Nil
+      end
+      case relief_style
+      in ReliefStyle then self.relief_style = relief_style
+      in Symbol      then self.relief_style = relief_style
+      in Nil
+      end
       self.bg = bg unless bg.nil?
       self.fg = fg unless fg.nil?
       case ratio
       in Float64 then self.ratio = ratio
       in Symbol  then self.ratio = ratio
+      in Nil
+      end
+      case corner_ratio
+      in Float64 then self.corner_ratio = corner_ratio
+      in Symbol  then self.corner_ratio = corner_ratio
       in Nil
       end
     end

@@ -1,5 +1,9 @@
 # FEATURE: Outer block borders — the full thickness ladder.
 #
+# Part of the borders demo set (guide: ../../README-borders.md). In axis
+# terms these boxes are `medium: :block, align: :outer`, thickness stepped
+# through `ratio`.
+#
 # A `BorderType::Outer` border draws its ink as edge-anchored block glyphs
 # flush with the widget's outermost cell edges, grounding each border cell's
 # remainder in the widget's own background: the interior color runs up to the

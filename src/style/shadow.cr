@@ -194,17 +194,52 @@ module Crysterm
        bl: bottom_left_char || dbl, br: bottom_right_char || dbr}
     end
 
+    # Whether the sides were left for the light to place: a shadow
+    # constructed without any explicit side (`Shadow.new`, `shadow: true`,
+    # the `Floating` look) resolves them per render from the scene light via
+    # `#resolved_sides` — the shadow falls on the sides facing away from the
+    # light, so re-lighting the scene re-places every auto shadow. Any
+    # explicit side extent pins all four.
+    getter? auto_sides : Bool = false
+
+    # The per-side extents this shadow renders with under *light*:
+    # `{left, top, right, bottom}`. The stored sides when explicitly set;
+    # under `#auto_sides?` the light's away-facing sides at the classic
+    # extents — 2-cell left/right bands, 1-cell top/bottom (a cell is ~2x
+    # taller than wide), except a thin (`#ratio`) shadow whose side bands
+    # narrow to 1 cell (a 1-cell band reads about as thin as a half-cell
+    # tall one). Under the default NW directional light this resolves to
+    # the classic `right: 2, bottom: 1` (or `1/1` thin) exactly.
+    def resolved_sides(light : Light) : {Int32, Int32, Int32, Int32}
+      return {@left, @top, @right, @bottom} unless auto_sides?
+      h = @ratio ? 1 : 2
+      {light.shadow_side?(Side::Left) ? h : 0,
+       light.shadow_side?(Side::Top) ? 1 : 0,
+       light.shadow_side?(Side::Right) ? h : 0,
+       light.shadow_side?(Side::Bottom) ? 1 : 0}
+    end
+
     def initialize(
-      @left = @left,
-      @top = @top,
-      @right = @right,
-      @bottom = @bottom,
+      left : Int32? = nil,
+      top : Int32? = nil,
+      right : Int32? = nil,
+      bottom : Int32? = nil,
       @opacity = @opacity,
       @horizontal_char = @horizontal_char,
       @vertical_char = @vertical_char,
       @diagonal_char = @diagonal_char,
       ratio : (Float64 | Symbol)? = nil,
     )
+      # No explicit side → the light places the shadow (`#auto_sides?`);
+      # the resting extents (right 2 / bottom 1) stay stored as the
+      # unresolved fallback. An explicitly given side pins manual placement
+      # for the whole shadow, and omitted sides keep their resting values —
+      # the pre-auto constructor's exact semantics.
+      @auto_sides = left.nil? && top.nil? && right.nil? && bottom.nil?
+      @left = left unless left.nil?
+      @top = top unless top.nil?
+      @right = right unless right.nil?
+      @bottom = bottom unless bottom.nil?
       case ratio
       in Float64 then self.ratio = ratio
       in Symbol  then self.ratio = ratio
