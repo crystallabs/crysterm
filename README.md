@@ -10,10 +10,10 @@ iterations.
 
 Main features:
 
-## 90+ Qt-like widgets
+## Widgets
 
 More than 90 concrete widgets with Qt-modeled APIs and behavior.
-Twelve representative ones, scripted live:
+Some demoed below:
 
 ![](tests/misc/widgets.5s.apng)
 
@@ -37,6 +37,8 @@ absolute coordinates. There are 12 layouts supported.
 
 *Sources: [tests/misc/layouts.cr](tests/misc/layouts.cr) and
 [tests/misc/layouts2.cr](tests/misc/layouts2.cr). See also
+per-layout demos under
+[tests/layout/](tests/layout/), and the directory with layouts in 
 [src/layout/](src/layout/).*
 
 ## CSS and QSS styling
@@ -50,25 +52,27 @@ It also reads Qt QSS dialect directly — unmodified desktop Qt themes
 can be used to style apps.
 
 Six independent windows below run the same scene, each loaded
-with a different theme from [data/css/](data/css/)
-(`--colors-stylesheet data/css/<name>.qss` on any Crysterm program, or
-`window.load_stylesheet`).
+with a different theme from [data/css/](data/css/).
 
 ![](tests/misc/themes.5s.apng)
 
 *Source: [tests/misc/themes.cr](tests/misc/themes.cr)*
 
+## Borders, Shadow, and Light
+
+The full presentation of borders, shadows, and light
+can be seen in [README-borders.md](README-borders.md).
+
 ![](tests/misc/styling.5s.apng)
 
-*Source: [tests/misc/styling.cr](tests/misc/styling.cr)*
-
-The full presentation of borders, shadows, and light directions
-can be found in [README-borders.md](README-borders.md).
+*Source: [tests/misc/styling.cr](tests/misc/styling.cr),
+[tests/misc/styling2.cr](tests/misc/styling2.cr),
+and other numbered styling files in [tests/misc/](tests/misc/)*
 
 ## Rich text — Markdown with GFM
 
-`TextDocument` (a QTextDocument work-alike) supports **Markdown
-(CommonMark + GFM)**, **HTML** and Crysterm's native tags, and
+`TextDocument` (a QTextDocument work-alike) supports Markdown
+(CommonMark + GitHub-Featured Markdown), HTML, and Crysterm's native tags, and
 `TextEdit`/`TextBrowser` render it: headings, bold/italic/strikethrough,
 inline code and links, fenced code blocks, blockquotes, GFM tables laid out
 as real box-drawing tables, GFM task lists, and GFM alert admonitions —
@@ -98,6 +102,9 @@ wide CJK cells, ambiguous-width resolution probed from the live terminal,
 East Asian width, and glyph chrome that auto-upgrades on modern-font
 terminals.
 
+(The demo program below shows unupgraded glyph chrome due to the screen
+capturing method used.)
+
 ![](examples/text/editor/editor.5s.apng)
 
 *Source: [examples/text/editor/editor.cr](examples/text/editor/editor.cr)*
@@ -120,7 +127,7 @@ per window *and* per widget — each focused widget can present its own cursor.
 
 When the terminal can't style its hardware cursor (or a custom glyph/style is
 requested), Crysterm transparently composites an *artificial* cursor into the
-cell buffer instead, re-deciding hardware-vs-artificial every frame:
+cell buffer instead.
 
 ![](tests/misc/cursors.5s.apng)
 
@@ -136,7 +143,7 @@ be ignored or blended (for the smoothest seam), or the docking can be skipped.
 
 *Source: [tests/misc/docking.cr](tests/misc/docking.cr)*
 
-## `{}` tags in strings
+## Parseable tags in strings
 
 Any widget content can carry inline tags (when `parse_tags: true`), for in-band
 colors (`{red-fg}`, `{#57c7ff-bg}`), attributes (`{bold}`, `{underline}`,
@@ -163,11 +170,11 @@ rasterizes screenshots through them. Terminus and Unifont faces ship in
 One `Media` widget, twenty-one backends, selected automatically per terminal
 and per content (`--media-backend=auto`) or forced by config/CLI/env/code:
 
-* **In-band pixels** — Kitty graphics, iTerm2 inline images, Sixel, ReGIS
-* **Sub-cell glyphs** — octant (2×4), braille (2×4), sextant (2×3),
+* In-band pixels — Kitty graphics, iTerm2 inline images, Sixel, ReGIS
+* Sub-cell glyphs — octant (2×4), braille (2×4), sextant (2×3),
   quadrant (2×2), half (1×2), block, ASCII
-* **ANSI cells** — TrueColor, 256, 16, 8 colors
-* **External** — w3m overlay, überzug, Tektronix 4014
+* ANSI cells — TrueColor, 256, 16, 8 colors
+* External — w3m overlay, überzug, Tektronix 4014
 
 Formats: PNG, APNG, GIF (stills *and* animations), JPEG (iTerm pass-through),
 ANSI/BBS art (`.ans`, `.nfo`, …), and `http(s)://` sources. Fit modes:
@@ -183,14 +190,6 @@ ANSI/BBS art (`.ans`, `.nfo`, …), and `http(s)://` sources. Fit modes:
 [tests/misc/media_glyph.cr](tests/misc/media_glyph.cr),
 [tests/misc/media_ansi.cr](tests/misc/media_ansi.cr)*
 
-**Video** plays through the same widget via ffmpeg (`Widget::Video`): mp4,
-mkv, webm, mov, avi, mpeg, ts, 3gp and more, with eager or constant-memory
-streaming decode (`media.video_decode=auto|eager|stream`):
-
-![](tests/misc/video.5s.apng)
-
-*Source: [tests/misc/video.cr](tests/misc/video.cr)*
-
 APNG and GIF animations play in every backend, with per-frame delays honored
 and multiple widgets optionally driven in lockstep from one shared timer —
 here the same GIF in four backends at once:
@@ -200,6 +199,14 @@ here the same GIF in four backends at once:
 *Source: [tests/misc/animated.cr](tests/misc/animated.cr) — see also
 [tests/misc/netscape.cr](tests/misc/netscape.cr)*
 
+Videos play through the same widget via ffmpeg (`Widget::Video`): mp4,
+mkv, webm, mov, avi, mpeg, ts, 3gp and more, with eager or constant-memory
+streaming decode (`media.video_decode=auto|eager|stream`):
+
+![](tests/misc/video.5s.apng)
+
+*Source: [tests/misc/video.cr](tests/misc/video.cr)*
+
 ## Terminal feature auto-detection
 
 At startup Crysterm probes the live terminal — truecolor (DECRQSS),
@@ -208,9 +215,9 @@ palette and default colors, cursor styling, kitty keyboard protocol,
 in-band resize, pixel mouse, cell pixel geometry — and automatically picks
 the best supported settings.
 
-E.g. the same
-gauges render as braille sub-cells on a plain terminal and as real pixels
-on a Kitty-graphics terminal, untouched:
+E.g. the same gauges render as real pixels on a Kitty-graphics terminal
+and downgrade to braille sub-cells on a plain terminal. All autodetected,
+no user action required.
 
 ![](tests/misc/detect.png)
 
@@ -219,10 +226,10 @@ on a Kitty-graphics terminal, untouched:
 
 ## Everything in the toolkit tunable
 
-Every value choice in the toolkit has a default value and can be overriden.
-Unless left at (auto-detected) defaults, values can be specified in config file
+Every internal setting in the toolkit has a default value and can be overriden.
+Unless left at (pre-set or auto-detected) defaults, values can be specified in config file
 (`~/.config/crysterm/config.yml`), env (`CRYSTERM_*`), CLI flag, or code —
-currently 69 total low-level settings available in any Crysterm program
+currently ~70 total low-level settings available in any Crysterm program
 out of the box.
 
 ```sh
@@ -231,27 +238,12 @@ crystal run app.cr -- --media-backend=sixel  # force a graphics backend
 CRYSTERM_MEDIA_BACKEND=kitty crystal run app.cr
 ```
 
-## Direct (inline) mode
-
-Apps can also run on the command line without taking over the screen. Two
-flavors: `Crysterm::Direct` for styled printing into the normal scrollback
-and **inline windows** (`Window.new inline: true`, optionally
-`auto_grow: true, max_height:`). 
-
-The complete widget stack, popups and
-all, anchored at the shell cursor like `fzf`. For example, a completer on a command line:
-
-![](examples/direct/completer/completer.5s.apng)
-
-*Source:
-[examples/direct/completer/completer.cr](examples/direct/completer/completer.cr)*
-
 ## Multiple screens
 
-One process can drive several terminal screens.
+One process can drive several completely separate terminal screens.
 
-Below, a value assigned on the left screen updates the right one inside
-a single program.
+Below, a value assigned on the left screen updates the right one, running inside
+a single program but on different TTYs.
 
 ![](examples/screen/multiple/multiple.5s.apng)
 
@@ -260,22 +252,22 @@ a single program.
 
 ## Full mouse support
 
-All the protocols — X10, SGR (1006), URxvt (1015), **SGR-Pixels** (1016,
+All the protocols — X10, SGR (1006), URxvt (1015), SGR-Pixels (1016,
 sub-cell pixel coordinates), and GPM on the Linux console — with hover,
 enter/leave, capture, double/triple-click counting, wheel scrolling, focus
 reporting (1004), and a GUI pointer shape over hovered widgets (OSC 22).
 
-Real **drag & drop** with MIME-typed payloads (`text/uri-list`, …),
+Real drag & drop with MIME-typed payloads (`text/uri-list`, …),
 Move/Copy/Link actions negotiated by modifiers, and the same sessions driven
 by keyboard. The editor demo above opens its menu and scrolls by mouse.
 
 ## Paste buffer, kill-ring, undo/redo
 
-Text widgets share a process-wide Emacs **kill-ring** (`C-k`/`C-u`/`C-w`
+Text widgets share a process-wide Emacs kill-ring (`C-k`/`C-u`/`C-w`
 kill, `C-y` yank, consecutive kills merge — kill in one field, yank in
-another), a full **undo/redo stack** on the document model (`C-z`/`M-z`,
+another), a full undo/redo stack on the document model (`C-z`/`M-z`,
 grouped edit blocks, format-preserving), GUI clipboard keys (`C-c`/`C-x`/
-`C-v`), **bracketed paste** (DEC 2004), and the **system clipboard** over
+`C-v`), bracketed paste (DEC 2004), and the system clipboard over
 OSC 52 — copy/paste that works through SSH and tmux.
 
 ## Reactive programming
@@ -293,11 +285,11 @@ batching, and a `reactive_property` macro for widget classes. Assign
 
 ## High-performance rendering
 
-The renderer supports **compositing** and **damage tracking**, and
+The renderer supports compositing and damage tracking, and
 automatically uses whichever is faster for
 the workload.
 
-Output is a minimal cell-level **diff** against what the
+Output is a minimal cell-level diff against what the
 terminal already shows, with CSR/BCE scroll optimizations and optional DEC
 2026 synchronized output. The `Fps` widget reports render/draw/flush times
 and terminal bandwidth live:
@@ -335,9 +327,26 @@ on that with a scripting driver — `d.key`, `d.type`, `d.click`, `d.act`,
 dwell timing — used by ~200 widget demos to film themselves, and equally
 usable for in-app automation and testing.
 
+## Direct (inline) mode
+
+Apps can also run on the command line without taking over the screen. Two
+flavors: `Crysterm::Direct` for styled printing into the normal scrollback
+and inline windows (`Window.new inline: true`, optionally
+`auto_grow: true, max_height:`). 
+
+The complete widget stack, popups and
+all, anchored at the shell cursor like `fzf`. For example, a completer on a command line:
+
+![](examples/direct/completer/completer.5s.apng)
+
+*Source:
+[examples/direct/completer/completer.cr](examples/direct/completer/completer.cr)*
+
+(Note: the above feature is currently experimental.)
+
 ## Remote control
 
-Built with `-Dremote`, an app exposes its **widget tree as a DOM** over
+Built with `-Dremote`, an app exposes its widget tree as a DOM over
 HTTP: JSON-RPC commands (`setContent`, `addClass`, `focus`, `append`,
 `query`, `snapshot`, …) addressed by full CSS selectors.
 
@@ -364,19 +373,19 @@ meant as templates for your own.
 
 ## And more
 
-* **Terminal widget** — a real VT-emulating terminal inside your UI (ptys,
+* Terminal widget — a real VT-emulating terminal inside your UI (ptys,
   colors, mouse), enabling multiplexers and embedded shells.
-* **Charts** — line/bar/pie/donut/sparkline graph widgets on a
+* Charts — line/bar/pie/donut/sparkline graph widgets on a
   backend-agnostic canvas that upgrades from braille to real pixels.
-* **Effects** — animated widget effects (e.g. Matrix rain), marquees,
+* Effects — animated widget effects (e.g. Matrix rain), marquees,
   gradients, shadows with true alpha.
-* **Hyperlinks** — OSC 8 clickable links tracked per cell.
-* **Keyboard** — kitty keyboard protocol and modifyOtherKeys, probed and
+* Hyperlinks — OSC 8 clickable links tracked per cell.
+* Keyboard — kitty keyboard protocol and modifyOtherKeys, probed and
   enabled automatically.
-* **GPM** — mouse on the bare Linux console.
-* **ANSI art** — CP437 `.ans`/`.nfo` art decoded and rendered with sub-cell
+* GPM — mouse on the bare Linux console.
+* ANSI art — CP437 `.ans`/`.nfo` art decoded and rendered with sub-cell
   detail.
-* **Docs with pictures** — `crystal docs` embeds each widget's capture into
+* Docs with pictures — `crystal docs` embeds each widget's capture into
   its API documentation automatically.
 
 ## Other contributed shards
