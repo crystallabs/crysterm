@@ -1,4 +1,4 @@
-# FEATURE: Thick bands, block strokes, and separators.
+# FEATURE: Thick bands, block patterns, and separators.
 #
 # Part of the borders demo set (guide: ../../README-borders.md).
 #
@@ -6,15 +6,15 @@
 # ring of the band carries the rule. `:outer` rules the rim (band ground
 # inside it), `:center` repeats the rule through every band cell (the
 # classic thick-border geometry), `:inner` rules only the content-hugging
-# ring — and a block `Double` stroke rules rim *and* content rings, the
+# ring — and a block `Double` pattern rules rim *and* content rings, the
 # two-ring frame a single cell can't express.
 #
-# Row 2 — block-medium strokes: dashed and dotted block borders gap whole
+# Row 2 — block-type patterns: dashed and dotted block borders gap whole
 # run cells (dotted 1:1, dashed 2:1, phase-locked to the corners, which
 # always ink), at any `ratio`; plus the block corner beads.
 #
 # Row 3 — separators: `Widget::HLine`/`VLine` speak the same axes
-# (`medium:`/`stroke:`/`ratio:`), deriving heavy/dashed/double line rules,
+# (`type:`/`pattern:`/`ratio:`), deriving heavy/dashed/double line rules,
 # block ramp rules, and braille rules — centered dot-rows horizontally, a
 # braille exclusive no box-drawing glyph can match.
 
@@ -34,7 +34,7 @@ Widget::Box.new \
 
 Widget::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
-  content: "{center}Thick bands, block strokes, separators{/center}", parse_tags: true,
+  content: "{center}Thick bands, block patterns, separators{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#403040")
 
 COLORS = [
@@ -52,7 +52,7 @@ row1 = [
    "align: :center"},
   {Border.new(align: :inner, left: 2, top: 2, right: 2, bottom: 2), # content-hugging ring
    "align: :inner"},
-  {Border.new(medium: :block, stroke: :double, ratio: :full, left: 3, top: 3, right: 3, bottom: 3), # rim + content rings
+  {Border.new(type: :block, pattern: :double, ratio: :full, left: 3, top: 3, right: 3, bottom: 3), # rim + content rings
    "2-ring"},
 ]
 row1.each_with_index do |(border, label), i|
@@ -64,13 +64,13 @@ row1.each_with_index do |(border, label), i|
     style: Style.new(fg: "white", bg: bg, border: border)
 end
 
-# Row 2: block strokes and beads.
+# Row 2: block patterns and beads.
 row2 = [
-  {Border.new(medium: :block, stroke: :dotted, ratio: :full), # 1 ink : 1 ground cell
+  {Border.new(type: :block, pattern: :dotted, ratio: :full), # 1 ink : 1 ground cell
    "block :dotted\nratio: :full"},
-  {Border.new(medium: :block, stroke: :dashed, ratio: :full), # 2 ink : 1 ground
+  {Border.new(type: :block, pattern: :dashed, ratio: :full), # 2 ink : 1 ground
    "block :dashed\nratio: :full"},
-  {Border.new(medium: :block, stroke: :dotted, ratio: :half), # gaps at any thickness
+  {Border.new(type: :block, pattern: :dotted, ratio: :half), # gaps at any thickness
    "block :dotted\nratio: :half"},
   {Border.new(type: :outer, ratio: :thin, corner_ratio: :full), # full-block corner mounts
    "corner_ratio:\n:full (beads)"},
@@ -88,24 +88,24 @@ end
 # `Widget::HLine` from the same axes (an explicit `char:` would still pin).
 SEPARATORS = [
   {"line: rules", [
-    {medium: :line, stroke: :solid, ratio: 0.5},  # ─
-    {medium: :line, stroke: :solid, ratio: 1.0},  # ━ (heavy above 1/2)
-    {medium: :line, stroke: :double, ratio: 0.5}, # ═
+    {type: :line, pattern: :solid, ratio: 0.5},  # ─
+    {type: :line, pattern: :solid, ratio: 1.0},  # ━ (heavy above 1/2)
+    {type: :line, pattern: :double, ratio: 0.5}, # ═
   ]},
   {"line: dashes", [
-    {medium: :line, stroke: :dashed, ratio: 0.5}, # ┄
-    {medium: :line, stroke: :dotted, ratio: 0.5}, # ┈
-    {medium: :line, stroke: :dotted, ratio: 1.0}, # ┉ (heavy dotted)
+    {type: :line, pattern: :dashed, ratio: 0.5}, # ┄
+    {type: :line, pattern: :dotted, ratio: 0.5}, # ┈
+    {type: :line, pattern: :dotted, ratio: 1.0}, # ┉ (heavy dotted)
   ]},
   {"block: ramps", [
-    {medium: :block, stroke: :solid, ratio: 0.25}, # ▁
-    {medium: :block, stroke: :solid, ratio: 0.5},  # ▂
-    {medium: :block, stroke: :solid, ratio: 1.0},  # ▄
+    {type: :block, pattern: :solid, ratio: 0.25}, # ▁
+    {type: :block, pattern: :solid, ratio: 0.5},  # ▂
+    {type: :block, pattern: :solid, ratio: 1.0},  # ▄
   ]},
   {"braille: rules", [
-    {medium: :braille, stroke: :solid, ratio: 0.5},  # ⠒ centered dot-row
-    {medium: :braille, stroke: :solid, ratio: 1.0},  # ⠶ two centered rows
-    {medium: :braille, stroke: :dotted, ratio: 0.5}, # ⠂ sparse
+    {type: :braille, pattern: :solid, ratio: 0.5},  # ⠒ centered dot-row
+    {type: :braille, pattern: :solid, ratio: 1.0},  # ⠶ two centered rows
+    {type: :braille, pattern: :dotted, ratio: 0.5}, # ⠂ sparse
   ]},
 ]
 
@@ -117,7 +117,7 @@ SEPARATORS.each_with_index do |(label, rules), i|
     style: Style.new(fg: "white", bg: bg)
   rules.each_with_index do |axes, j|
     Widget::HLine.new parent: panel, top: 1 + j, left: 1, width: 16,
-      medium: axes[:medium], stroke: axes[:stroke], ratio: axes[:ratio],
+      type: axes[:type], pattern: axes[:pattern], ratio: axes[:ratio],
       style: Style.new(fg: fg, bg: bg)
   end
 end

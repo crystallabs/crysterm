@@ -87,7 +87,7 @@ module Crysterm
       # turns it back `Square` — per corner, with the standard 1-4 value
       # fill-ins in CSS's tl/tr/br/bl order (`8px 8px 0 0` rounds only the
       # top, the tab shape). The corners axis is independent of medium and
-      # stroke, so this composes with every family; one without arc pieces
+      # pattern, so this composes with every family; one without arc pieces
       # (`Double`) simply rounds the treatment down to square at render.
       # The numeric magnitude is stored per corner (`Corners#radii`) for the
       # future multi-cell arcs, rendering clamped to 1 today. Any elliptical
@@ -158,7 +158,7 @@ module Crysterm
       end
 
       # The `border-align` extension longhand (same non-standard status as
-      # `border-ratio`): the stroke-alignment axis. An unknown keyword is
+      # `border-ratio`): the pattern-alignment axis. An unknown keyword is
       # dropped, per CSS.
       private def self.apply_border_align(border : Border, value : String) : Nil
         case Case.fold_keyword(value.strip)
@@ -359,7 +359,7 @@ module Crysterm
         end
       end
 
-      # Whether *token* is any `border-style` axis keyword — a preset/stroke
+      # Whether *token* is any `border-style` axis keyword — a preset/pattern
       # keyword, a medium, an alignment, a corner treatment or a relief.
       private def self.border_style_token?(token : String) : Bool
         case Case.fold_keyword(token)
@@ -378,7 +378,7 @@ module Crysterm
       # form, per BUGS8: `border-style: dotted solid` stays dotted).
       private def self.border_axis_of(token : String) : Symbol?
         case Case.fold_keyword(token)
-        when "solid", "dashed", "dotted", "double"          then :stroke
+        when "solid", "dashed", "dotted", "double"          then :pattern
         when "line", "block", "braille", "bg", "background" then :medium
         when "outer", "inner", "center"                     then :align
         when "rounded", "round", "cut", "square"            then :corners
@@ -387,16 +387,16 @@ module Crysterm
       end
 
       # Applies one multi-token `border-style` *token* onto *border* as its
-      # own axis (see plans/BORDERS.md § 6): stroke keywords set the stroke,
+      # own axis (see plans/BORDERS.md § 6): pattern keywords set the pattern,
       # medium keywords the medium, `outer|inner|center` the alignment,
       # `rounded|cut|square` the (uniform) corner treatment, and the 3D
       # keywords the relief. Returns whether the token was consumed.
       private def self.apply_border_axis_token(border : Border, token : String) : Bool
         case Case.fold_keyword(token)
-        when "solid"            then border.stroke = Border::Stroke::Solid
-        when "dashed"           then border.stroke = Border::Stroke::Dashed
-        when "dotted"           then border.stroke = Border::Stroke::Dotted
-        when "double"           then border.stroke = Border::Stroke::Double
+        when "solid"            then border.pattern = Border::Pattern::Solid
+        when "dashed"           then border.pattern = Border::Pattern::Dashed
+        when "dotted"           then border.pattern = Border::Pattern::Dotted
+        when "double"           then border.pattern = Border::Pattern::Double
         when "line"             then border.medium = Border::Medium::Line
         when "block"            then border.medium = Border::Medium::Block
         when "braille"          then border.medium = Border::Medium::Braille

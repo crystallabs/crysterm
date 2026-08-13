@@ -3,15 +3,15 @@ w=80 h=24
 |               Braille borders — dot rings across the stroke axes               |
 |                                                                                |
 | ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹  ⣿⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⣿  ⣿⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⣿  ⣸⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣇ |
-| ⡇ type: :braille ⢸  ⣿ type: :braille ⣿  ⣿ type: :braille ⣿  ⢸medium: :braille⡇ |
+| ⡇ type: :braille ⢸  ⣿ type: :braille ⣿  ⣿ type: :braille ⣿  ⢸ type: :braille ⡇ |
 | ⡇  ratio: :half  ⢸  ⣿  ratio: :full  ⣿  ⣿bg: transparent ⣿  ⢸ align: :inner  ⡇ |
 | ⡇  (1 dot-line)  ⢸  ⣿ (2 dot-lines)  ⣿  ⣿  ratio: :full  ⣿  ⢸ (hugs content) ⡇ |
 | ⣇⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸  ⣿⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣿  ⣿⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣿  ⢹⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡏ |
 |                                                                                |
 |                                                                                |
 | ⣿⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⣿  ⣿⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⣿  ⠅⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠩  ⠃⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠁⠙ |
-| ⣿ type: :braille ⣿  ⣿ type: :braille ⣿  ⠅medium: :braille⠨  ⠃medium: :braille⠘ |
-| ⣿per-side colors ⣿  ⣿relief: :outset ⣿  ⠅stroke: :dotted ⠨  ⠃stroke: :dashed ⠘ |
+| ⣿ type: :braille ⣿  ⣿ type: :braille ⣿  ⠅ type: :braille ⠨  ⠃ type: :braille ⠘ |
+| ⣿per-side colors ⣿  ⣿relief: :outset ⣿  ⠅pattern: :dotted⠨  ⠃pattern: :dashed⠘ |
 | ⣿ (fg per edge)  ⣿  ⣿  (lit/shaded)  ⣿  ⠅ (sparse dots)  ⠨  ⠃(column dashes) ⠘ |
 | ⣿⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣿  ⣿⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣿  ⡅⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡨  ⡃⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡀⡘ |
 |                                                                                |

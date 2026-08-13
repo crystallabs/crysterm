@@ -1,7 +1,7 @@
 # FEATURE: Outer block borders — the full thickness ladder.
 #
 # Part of the borders demo set (guide: ../../README-borders.md). In axis
-# terms these boxes are `medium: :block, align: :outer`, thickness stepped
+# terms these boxes are `type: :block, align: :outer`, thickness stepped
 # through `ratio`.
 #
 # A `BorderType::Outer` border draws its ink as edge-anchored block glyphs

@@ -35,14 +35,47 @@ module Crysterm
     # tier the border degrades to the `Dotted` line family's glyphs.
     Braille
 
+    # The bare-medium spellings, so `type:` is the one "what kind of
+    # border" knob: `Line` is the line medium at its defaults (≡ `Solid`),
+    # `Block` the block medium at its natural outer anchoring (≡ `Outer`).
+    # `Braille` and `Fill` above already double as their media's names.
+    # Reading `Border#type` back collapses these onto their equivalents.
+    Line
+    Block
+
     # DotDash
     # DotDotDash
+
+    # The medium (ink kind) this preset names — the kind component of the
+    # `type` axis: `Solid`/`Dashed`/`Dotted`/`Double`/`Rounded`/`Line` draw
+    # box-drawing glyphs, `Outer`/`Inner`/`Block` edge-anchored block ink,
+    # `Braille` dot patterns, `Fill` whole-cell fill.
+    def medium : Border::Medium
+      case self
+      in .fill?                    then Border::Medium::Fill
+      in .braille?                 then Border::Medium::Braille
+      in .outer?, .inner?, .block? then Border::Medium::Block
+      in .solid?, .dashed?, .dotted?,
+         .double?, .rounded?, .line? then Border::Medium::Line
+      end
+    end
+
+    # The dash pattern this preset names (`Border#pattern`'s component):
+    # `Dashed`/`Dotted`/`Double` their own, everything else `Solid`.
+    def pattern : Border::Pattern
+      case self
+      when .dashed? then Border::Pattern::Dashed
+      when .dotted? then Border::Pattern::Dotted
+      when .double? then Border::Pattern::Double
+      else               Border::Pattern::Solid
+      end
+    end
 
     # Whether this is a block-family border — edge-anchored block ink sized by
     # `Border#ratio` — as opposed to the line families' fixed box-drawing
     # glyphs or the `Fill` fill-character border.
     def block_family?
-      outer? || inner?
+      outer? || inner? || block?
     end
 
     # Whether this is a line-drawing border, as opposed to the `Fill`
@@ -144,20 +177,23 @@ module Crysterm
       end
     end
 
-    # -- The stroke axes ----------------------------------------------------
+    # -- The stroke axes -----------------------------------------------------
     # A border is a stroke around the widget, decomposed into orthogonal
-    # axes (see plans/BORDERS.md): what the ink is made of (`#medium`), the
-    # dash pattern along the runs (`#stroke`), where the ink sits in the
-    # border band (`#align`), its sub-cell thickness (`#ratio`, and
-    # `#corner_ratio` for the corners alone), and the per-corner treatment
-    # (`#corners`). `BorderType` survives as the preset vocabulary naming
-    # the common points of that space — `#type=` fans a preset out over the
-    # axes, `#type` reads the nearest preset back — so both spellings stay
-    # first-class. A combination with no exact glyphs *rounds down* to the
-    # most similar achievable rendition (toward the thinner/simpler look),
-    # it never errors.
+    # axes (see plans/BORDERS.md): what kind of border it is (`#type` — the
+    # one knob naming both the media, `:line`/`:block`/`:braille`/`:fill`,
+    # and the richer presets, `:rounded`/`:outer`/`:dotted`/…, which fan out
+    # over several axes at once), the dash pattern along the runs
+    # (`#pattern`), where the ink sits in the border band (`#align`), its
+    # sub-cell thickness (`#ratio`, and `#corner_ratio` for the corners
+    # alone), and the per-corner treatment (`#corners`). A combination with
+    # no exact glyphs *rounds down* to the most similar achievable rendition
+    # (toward the thinner/simpler look), it never errors.
 
-    # What the border's ink is made of.
+    # The ink kind component of the `#type` axis. Internal: publicly the
+    # kind is spelled through `type` (`BorderType::Line`/`Block`/`Braille`/
+    # `Fill` name the bare media); this enum remains the render dispatch and
+    # the axis-only spelling the CSS multi-token composition sets without
+    # disturbing the pattern/alignment (see `CSS::Properties`).
     enum Medium
       Line    # box-drawing glyphs (the five line families)
       Block   # edge-anchored block ramps (`▀▌…`, the Outer/Inner presets)
@@ -167,7 +203,7 @@ module Crysterm
 
     # The dash pattern along the runs (Qt `PenStyle`). `Double` lives here —
     # it is a run treatment, not a corner or medium one.
-    enum Stroke
+    enum Pattern
       Solid
       Dashed
       Dotted
@@ -221,17 +257,23 @@ module Crysterm
       end
     end
 
-    getter medium : Medium = Medium::Line
-    getter stroke : Stroke = Stroke::Solid
+    getter pattern : Pattern = Pattern::Solid
     getter align : Align = Align::Center
     getter corners : Corners = Corners.new
 
-    def medium=(value : Medium | Symbol)
+    # The ink kind, internal (see `Medium`): read the public `#type` view
+    # instead, set the kind with `type = :line/:block/:braille/:fill` (a
+    # bare-medium preset). This axis-only setter exists for the CSS
+    # multi-token composition, which must switch the kind without resetting
+    # the pattern/alignment a sibling token set.
+    protected getter medium : Medium = Medium::Line
+
+    protected def medium=(value : Medium | Symbol)
       @medium = value.is_a?(Symbol) ? Medium.parse(value.to_s) : value
     end
 
-    def stroke=(value : Stroke | Symbol)
-      @stroke = value.is_a?(Symbol) ? Stroke.parse(value.to_s) : value
+    def pattern=(value : Pattern | Symbol)
+      @pattern = value.is_a?(Symbol) ? Pattern.parse(value.to_s) : value
     end
 
     def align=(value : Align | Symbol)
@@ -243,20 +285,22 @@ module Crysterm
     end
 
     # Sets the axes to *preset*'s point in the axis space (the table in
-    # plans/BORDERS.md § 3.2). The axes stay individually overridable
-    # afterwards.
+    # plans/BORDERS.md § 3.2) — `type` is the one "what kind of border"
+    # knob, its vocabulary covering both the bare media (`:line`/`:block`/
+    # `:braille`/`:fill`) and the richer presets. The other axes stay
+    # individually overridable afterwards.
     def type=(preset : BorderType)
-      @medium, @stroke, @align, corner =
+      @medium, @pattern, @align, corner =
         case preset
-        in .fill?    then {Medium::Fill, Stroke::Solid, Align::Center, Corner::Square}
-        in .solid?   then {Medium::Line, Stroke::Solid, Align::Center, Corner::Square}
-        in .dashed?  then {Medium::Line, Stroke::Dashed, Align::Center, Corner::Square}
-        in .dotted?  then {Medium::Line, Stroke::Dotted, Align::Center, Corner::Square}
-        in .double?  then {Medium::Line, Stroke::Double, Align::Center, Corner::Square}
-        in .rounded? then {Medium::Line, Stroke::Solid, Align::Center, Corner::Rounded}
-        in .outer?   then {Medium::Block, Stroke::Solid, Align::Outer, Corner::Square}
-        in .inner?   then {Medium::Block, Stroke::Solid, Align::Inner, Corner::Square}
-        in .braille? then {Medium::Braille, Stroke::Solid, Align::Outer, Corner::Square}
+        in .fill?           then {Medium::Fill, Pattern::Solid, Align::Center, Corner::Square}
+        in .solid?, .line?  then {Medium::Line, Pattern::Solid, Align::Center, Corner::Square}
+        in .dashed?         then {Medium::Line, Pattern::Dashed, Align::Center, Corner::Square}
+        in .dotted?         then {Medium::Line, Pattern::Dotted, Align::Center, Corner::Square}
+        in .double?         then {Medium::Line, Pattern::Double, Align::Center, Corner::Square}
+        in .rounded?        then {Medium::Line, Pattern::Solid, Align::Center, Corner::Rounded}
+        in .outer?, .block? then {Medium::Block, Pattern::Solid, Align::Outer, Corner::Square}
+        in .inner?          then {Medium::Block, Pattern::Solid, Align::Inner, Corner::Square}
+        in .braille?        then {Medium::Braille, Pattern::Solid, Align::Outer, Corner::Square}
         end
       @corners = Corners.from corner
       preset
@@ -264,15 +308,17 @@ module Crysterm
 
     # The nearest `BorderType` preset for the current axes — the lossy
     # compat view (`type = :dotted; type # => Dotted` round-trips exactly;
-    # an off-preset combination reads back as its base preset).
+    # an off-preset combination reads back as its base preset, and the
+    # bare-medium spellings collapse onto their equivalents: `:line` reads
+    # back `Solid`, `:block` reads back `Outer`).
     def type : BorderType
       case @medium
       in .fill?    then BorderType::Fill
       in .braille? then BorderType::Braille
       in .block?   then @align.inner? ? BorderType::Inner : BorderType::Outer
       in .line?
-        return BorderType::Rounded if @stroke.solid? && @corners.uniform.try(&.rounded?)
-        case @stroke
+        return BorderType::Rounded if @pattern.solid? && @corners.uniform.try(&.rounded?)
+        case @pattern
         in .solid?  then BorderType::Solid
         in .dashed? then BorderType::Dashed
         in .dotted? then BorderType::Dotted
@@ -458,7 +504,7 @@ module Crysterm
     # colors. `Shade` is the classic color treatment (per-side shading
     # toward black/white). `Weight` renders the same lit/shaded
     # classification in glyph weight instead: the emphasized sides take
-    # their stroke's heavy rendition (`━ ┃`, `┅ ┇`, `┉ ┋`), the others keep
+    # their pattern's heavy rendition (`━ ┃`, `┅ ┇`, `┉ ┋`), the others keep
     # its light runs, and the corners resolve to the matching mixed-weight
     # joins (`┏ ┑ ┖` under the default NW light) — the bevel look
     # styling.cr used to hand-assemble from five char overrides.
@@ -466,7 +512,7 @@ module Crysterm
     # light), `Inset`/`Groove` the shaded ones. Media without a weight
     # vocabulary round down per plans/BORDERS.md § 3.1: block bumps the
     # emphasized sides' ink one eighth, braille one dot-line, a `Double`
-    # stroke keeps `Shade` behavior.
+    # pattern keeps `Shade` behavior.
     enum ReliefStyle
       Shade
       Weight
@@ -625,10 +671,10 @@ module Crysterm
     end
 
     # The line family whose glyphs the `Glyphs` registry serves for the
-    # current `#stroke`. The corners axis and the weight machinery pick
+    # current `#pattern`. The corners axis and the weight machinery pick
     # their own pieces on top of it.
     private def line_base_family : BorderType
-      case @stroke
+      case @pattern
       in .double? then BorderType::Double
       in .dashed? then BorderType::Dashed
       in .dotted? then BorderType::Dotted
@@ -636,12 +682,12 @@ module Crysterm
       end
     end
 
-    # The heavy run glyph for one axis of the current stroke, or `nil` when
-    # the stroke has no heavy rendition (`Double` is already the heaviest
+    # The heavy run glyph for one axis of the current pattern, or `nil` when
+    # the pattern has no heavy rendition (`Double` is already the heaviest
     # spelling of its family).
     private def heavy_run(tier : Glyphs::Tier, horizontal : Bool) : Char?
       role =
-        case @stroke
+        case @pattern
         in .solid?  then horizontal ? Glyphs::Role::BorderHeavyH : Glyphs::Role::BorderHeavyV
         in .dashed? then horizontal ? Glyphs::Role::BorderHeavyDashedH : Glyphs::Role::BorderHeavyDashedV
         in .dotted? then horizontal ? Glyphs::Role::BorderHeavyDottedH : Glyphs::Role::BorderHeavyDottedV
@@ -673,11 +719,11 @@ module Crysterm
 
     # The square (miter) join for arm weights: heavy when both arms are,
     # the mixed-weight joins (`┍`/`┎` …) when only one is, the base family
-    # corner when neither. A `Double` stroke has no weight pieces and keeps
+    # corner when neither. A `Double` pattern has no weight pieces and keeps
     # its own corners.
     private def square_corner(tier : Glyphs::Tier, base : Char, arm_h : Bool, arm_v : Bool,
                               heavy : Glyphs::Role, mixed_h : Glyphs::Role, mixed_v : Glyphs::Role) : Char
-      return base if @stroke.double?
+      return base if @pattern.double?
       if arm_h && arm_v
         Glyphs[heavy, tier]
       elsif arm_h
@@ -695,20 +741,20 @@ module Crysterm
     # outranks the run-derived weights — above `:half` the corner is a
     # heavy bead on both arms (`┏` joins on `─` runs), at or below it stays
     # light. The arc pieces exist only light-weight, so a rounded corner
-    # with a heavy arm (or the arc-less `Double` stroke) rounds down to the
+    # with a heavy arm (or the arc-less `Double` pattern) rounds down to the
     # square join.
     private def line_corner_glyph(tier : Glyphs::Tier, base : Char, style : Corner,
                                   arm_h : Bool, arm_v : Bool,
                                   rounded : Glyphs::Role, cut : Glyphs::Role,
                                   heavy : Glyphs::Role, mixed_h : Glyphs::Role, mixed_v : Glyphs::Role) : Char
       if cr = @corner_ratio
-        arm_h = arm_v = cr > 0.5 && !@stroke.double?
+        arm_h = arm_v = cr > 0.5 && !@pattern.double?
       end
       case style
       in .cut?
         Glyphs[cut, tier]
       in .rounded?
-        return Glyphs[rounded, tier] unless @stroke.double? || arm_h || arm_v
+        return Glyphs[rounded, tier] unless @pattern.double? || arm_h || arm_v
         square_corner tier, base, arm_h, arm_v, heavy, mixed_h, mixed_v
       in .square?
         square_corner tier, base, arm_h, arm_v, heavy, mixed_h, mixed_v
@@ -719,7 +765,7 @@ module Crysterm
     # per side — with this border's char overrides merged in: each position
     # takes its own override, else its group (`corner_char` for the corners,
     # `horizontal_char`/`vertical_char` for the runs), else the axis-derived
-    # glyph at *tier*: the `#stroke` family's run, gone heavy above
+    # glyph at *tier*: the `#pattern` family's run, gone heavy above
     # `#ratio` 1/2 (the line medium's reading of the thickness knob) or on
     # the weight bevel's emphasized sides (`#relief_style`, *light*), and
     # each corner its `#corners` treatment joined to match (see
@@ -727,7 +773,7 @@ module Crysterm
     def line_glyphs_with_overrides(tier : Glyphs::Tier, cap_v = false, cap_h = false,
                                    light : Light = Light::DEFAULT)
       g = line_base_family.line_glyphs(tier)
-      base_heavy = !@stroke.double? && @ratio > 0.5
+      base_heavy = !@pattern.double? && @ratio > 0.5
       hv_t = base_heavy || weight_side?(Side::Top, light)
       hv_b = base_heavy || weight_side?(Side::Bottom, light)
       hv_l = base_heavy || weight_side?(Side::Left, light)
@@ -864,9 +910,9 @@ module Crysterm
       unless tier.extended?
         # Braille Patterns are Extended-tier repertoire (the taxonomy the
         # braille spinner frames set); below it the nearest look is the
-        # dotted line family (dashed for a dashed stroke), whose registry
+        # dotted line family (dashed for a dashed pattern), whose registry
         # entries fall down to their own ascii forms at the bottom tier.
-        g = (@stroke.dashed? ? BorderType::Dashed : BorderType::Dotted).line_glyphs(tier)
+        g = (@pattern.dashed? ? BorderType::Dashed : BorderType::Dotted).line_glyphs(tier)
         return merge_char_overrides g[:tl], g[:tr], g[:bl], g[:br], g[:h], g[:h], g[:v], g[:v]
       end
       inner = @align.inner?
@@ -907,13 +953,13 @@ module Crysterm
     end
 
     # The four run masks `{top, bottom, left, right}` of a braille ring:
-    # the sparse patterns for a dashed/dotted stroke, else the solid tables
-    # at `#ratio`'s steps — a `Double` stroke pinned to two dot-lines, and
+    # the sparse patterns for a dashed/dotted pattern, else the solid tables
+    # at `#ratio`'s steps — a `Double` pattern pinned to two dot-lines, and
     # the weight bevel's emphasized sides carrying one extra.
     private def braille_run_masks(inner : Bool, light : Light) : {Int32, Int32, Int32, Int32}
-      return braille_sparse_masks(inner) if @stroke.dashed? || @stroke.dotted?
+      return braille_sparse_masks(inner) if @pattern.dashed? || @pattern.dotted?
       w2, v4 = Glyphs.braille_steps(@ratio)
-      if @stroke.double?
+      if @pattern.double?
         w2 = 2
         v4 = Math.max(v4, 2)
       end
@@ -923,14 +969,14 @@ module Crysterm
        braille_col_mask(inner, left: false, steps: (w2 + (weight_side?(Side::Right, light) ? 1 : 0)).clamp(1, 2))}
     end
 
-    # The sparse-stroke run masks: hairline by definition (the thickness
+    # The sparse-pattern run masks: hairline by definition (the thickness
     # rounds down to one dot-line) — dotted keeps every other dot; dashed
     # keeps dot pairs, expressible only down a column's four rows, so the
     # horizontal runs round dashed down to dotted.
     private def braille_sparse_masks(inner : Bool) : {Int32, Int32, Int32, Int32}
       tm = inner ? Glyphs::BRAILLE_DOTTED_ROW_BOTTOM : Glyphs::BRAILLE_DOTTED_ROW_TOP
       bm = inner ? Glyphs::BRAILLE_DOTTED_ROW_TOP : Glyphs::BRAILLE_DOTTED_ROW_BOTTOM
-      if @stroke.dashed?
+      if @pattern.dashed?
         lm = inner ? Glyphs::BRAILLE_DASHED_COL_RIGHT : Glyphs::BRAILLE_DASHED_COL_LEFT
         rm = inner ? Glyphs::BRAILLE_DASHED_COL_LEFT : Glyphs::BRAILLE_DASHED_COL_RIGHT
       else
@@ -1030,14 +1076,14 @@ module Crysterm
 
     # The four corner glyphs `{tl, tr, bl, br}` of an `Inner` block border,
     # whose ideal corner ink is just the small junction rectangle where the
-    # two strokes meet. *fit* is the caller's `Glyphs.corner_fit` pick of the
+    # two patterns meet. *fit* is the caller's `Glyphs.corner_fit` pick of the
     # least-spill treatment: a miter piece (sextant/quadrant), the horizontal
     # run (*t*/*b*) continued through the cell, or — for hairline rings,
-    # whose strokes meet corner to corner — no glyph at all (`Glyphs::NONE`:
+    # whose patterns meet corner to corner — no glyph at all (`Glyphs::NONE`:
     # the render loop leaves the cell untouched). The open corner is a
     # deliberate pick over the closed alternatives, all of which spill worse
     # at hairline scale: the smallest miter bead (an octant) is several times
-    # the stroke width, and an eighth-L's arms run the cell edges as spikes.
+    # the pattern width, and an eighth-L's arms run the cell edges as spikes.
     private def inner_block_corners(fit : Symbol, tier : Glyphs::Tier, t : Char, b : Char)
       case fit
       when :strip
@@ -1078,7 +1124,7 @@ module Crysterm
     # build it would otherwise discard.
     #
     # The media keep their own, distinct fall-back chains: a line border
-    # resolves position → group → stroke-family glyph at *tier* (see
+    # resolves position → group → pattern-family glyph at *tier* (see
     # `#line_glyphs_with_overrides`), a block border position → group → ramp
     # step at `#ratio` (see `#block_glyphs_with_overrides`), a `Braille`
     # border position → group → dot mask at `#ratio` (see
@@ -1114,11 +1160,11 @@ module Crysterm
     # (plans/BORDERS.md § phase 6): `Center` repeats the rule through the
     # whole band (the pre-axes behavior), `Outer` draws it only along the
     # band's rim ring, `Inner` only along the ring hugging the content. A
-    # block-medium `Double` stroke rules both the rim and content rings —
-    # the two-ring reading of the stroke that a single cell can't express.
+    # block-medium `Double` pattern rules both the rim and content rings —
+    # the two-ring reading of the pattern that a single cell can't express.
     def band_rule?(depth : Int32, width : Int32) : Bool
       return true if width <= 1
-      if @medium.block? && @stroke.double?
+      if @medium.block? && @pattern.double?
         return depth == 0 || depth == width - 1
       end
       case @align
@@ -1136,7 +1182,7 @@ module Crysterm
     # the full box) pass over the whole band width. Meaningless (and never
     # consulted) at 1-cell widths, where every band cell is on the ring.
     def inner_band_ring? : Bool
-      @align.inner? && !(@medium.block? && @stroke.double?)
+      @align.inner? && !(@medium.block? && @pattern.double?)
     end
 
     # Whether a dashed/dotted *block*-medium run leaves a gap at run cell
@@ -1147,7 +1193,7 @@ module Crysterm
     # they never gap whole cells; corners are always drawn.
     def run_gap?(offset : Int32) : Bool
       return false unless @medium.block?
-      case @stroke
+      case @pattern
       in .dotted?          then offset.odd?
       in .dashed?          then offset % 3 == 2
       in .solid?, .double? then false
@@ -1214,8 +1260,7 @@ module Crysterm
       @right = @right,
       @bottom = @bottom,
       ratio : (Float64 | Symbol)? = nil,
-      medium : (Medium | Symbol)? = nil,
-      stroke : (Stroke | Symbol)? = nil,
+      pattern : (Pattern | Symbol)? = nil,
       align : (Align | Symbol)? = nil,
       corners : (Corners | Corner | Symbol)? = nil,
       corner_ratio : (Float64 | Symbol)? = nil,
@@ -1228,12 +1273,8 @@ module Crysterm
       # symbols to their members. The `type` preset fans out over the axes
       # first, so explicit axis arguments override it.
       self.type = type if type
-      case medium
-      in Medium, Symbol then self.medium = medium
-      in Nil
-      end
-      case stroke
-      in Stroke, Symbol then self.stroke = stroke
+      case pattern
+      in Pattern, Symbol then self.pattern = pattern
       in Nil
       end
       case align

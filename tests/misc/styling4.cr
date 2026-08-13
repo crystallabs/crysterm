@@ -12,7 +12,7 @@
 #
 # Since the border API's decomposition into stroke axes (plans/BORDERS.md),
 # braille composes with all of them, and the twelve boxes tour that:
-# thickness and grounds (row 1), colors, relief and the sparse strokes
+# thickness and grounds (row 1), colors, relief and the sparse patterns
 # (row 2), and the corner treatments (row 3) — including `corner_ratio`'s
 # full-dot corner beads and a 2-cell-wide band.
 
@@ -66,17 +66,17 @@ boxes = [
    "type: :braille\nbg: transparent\nratio: :full"},
   # Inner alignment: ink hugs the content, ground transparent by default —
   # the ring floats on the backdrop, snug against the panel.
-  {Border.new(medium: :braille, align: :inner),
-   "medium: :braille\nalign: :inner\n(hugs content)"},
+  {Border.new(type: :braille, align: :inner),
+   "type: :braille\nalign: :inner\n(hugs content)"},
   {sides,
    "type: :braille\nper-side colors\n(fg per edge)"},
   {Border.new(type: :braille, ratio: :full, relief: :outset),
    "type: :braille\nrelief: :outset\n(lit/shaded)"},
-  # The sparse strokes replace styling4's original char-override hack.
-  {Border.new(medium: :braille, stroke: :dotted),
-   "medium: :braille\nstroke: :dotted\n(sparse dots)"},
-  {Border.new(medium: :braille, stroke: :dashed),
-   "medium: :braille\nstroke: :dashed\n(column dashes)"},
+  # The sparse patterns replace styling4's original char-override hack.
+  {Border.new(type: :braille, pattern: :dotted),
+   "type: :braille\npattern: :dotted\n(sparse dots)"},
+  {Border.new(type: :braille, pattern: :dashed),
+   "type: :braille\npattern: :dashed\n(column dashes)"},
   {Border.new(type: :braille, corners: :rounded),
    "type: :braille\ncorners: rounded\n(apex dot off)"},
   {Border.new(type: :braille, corners: :cut),

@@ -1,15 +1,10 @@
 # Borders, shadows and light in Crysterm
 
-Crysterm models a widget's border as a **stroke** decomposed into orthogonal
+Crysterm models a widget's border as orthogonal
 axes — what the ink is made of, its dash pattern, where it sits, how thick it
 is, how its corners join — plus a scene **light** that drives 3D relief and
 drop shadows. Any combination renders: a point with no exact glyphs *rounds
 down* to the most similar achievable rendition, never an error.
-
-The quick tour is [`tests/misc/styling.cr`](tests/misc/styling.cr) (the
-highlights below); each section links the demo that covers it in depth. The
-design rationale lives in [`plans/BORDERS.md`](plans/BORDERS.md), and the
-behavior is pinned by [`spec/border_axes_spec.cr`](spec/border_axes_spec.cr).
 
 ![Borders highlights](tests/misc/styling.png)
 
@@ -17,24 +12,26 @@ behavior is pinned by [`spec/border_axes_spec.cr`](spec/border_axes_spec.cr).
 
 | Axis | Values | Meaning |
 | --- | --- | --- |
-| `medium` | `line` `block` `braille` `fill` | What the ink is made of: box-drawing glyphs, edge-anchored block ramps, braille dot patterns, whole-cell fill. |
-| `stroke` | `solid` `dashed` `dotted` `double` | The dash pattern along the runs (Qt `PenStyle`). |
+| `type` | media: `line` `block` `braille` `fill`; presets: `solid` `dashed` `dotted` `double` `rounded` `outer` `inner` | The one "what kind of border" knob. A bare medium names the ink (box-drawing glyphs, edge-anchored block ramps, braille dots, whole-cell fill); a richer preset fans several axes out at once (`:rounded` = line + arc corners, `:outer` = block + outer alignment, ...). |
+| `pattern` | `solid` `dashed` `dotted` `double` | The dash pattern along the runs (Qt `PenStyle`). |
 | `align` | `center` `outer` `inner` | Stroke alignment: a centered rule, ink flush with the widget's rim (ground = widget bg), or flush with the content (ground = transparent). At band widths ≥ 2 it also picks which ring of the band carries the rule. |
-| `ratio` | `0.0..1.0`, `:thin` `:quarter` `:half` `:full` | Sub-cell thickness as a fraction of the cell width, aspect-compensated per axis. Block quantizes to eighths, braille to dot-lines; a line medium above `1/2` goes heavy (`━ ┃`). |
+| `ratio` | `0.0..1.0`, `:thin` `:quarter` `:half` `:full` | Sub-cell thickness as a fraction of the cell width, aspect-compensated per axis. Block quantizes to eighths, braille to dot-lines; a line-type border above `1/2` goes heavy (`━ ┃`). |
 | `corners` | per-corner `square` `rounded` `cut` | The join treatment (Qt `joinStyle` / CSS `border-radius`); radii are stored per corner for future multi-cell arcs. |
 | `corner_ratio` | like `ratio`, unset = follow runs | The corners' *own* thickness — decorative corner beads (`▛` mounts on a hairline ring, `┏` joins on light runs, `⣿` blocks on a one-dot braille ring). |
 
 ```crystal
 Border.new type: :rounded                                    # presets still work
-Border.new medium: :braille, align: :inner, stroke: :dotted  # axes compose
+Border.new type: :braille, align: :inner, pattern: :dotted  # axes compose
 Border.new type: :outer, ratio: :thin, corner_ratio: :half   # corner beads
 ```
 
-`BorderType` (`:solid :dashed :dotted :double :rounded :outer :inner
-:braille :bg`) survives as the **preset vocabulary**: `type=` fans a preset
-out over the axes, `type` reads the nearest preset back.
+`type`'s vocabulary is one namespace: the bare media (`:line` `:block`
+`:braille` `:fill`) and the richer presets (`:solid` `:dashed` `:dotted`
+`:double` `:rounded` `:outer` `:inner` `:bg`) — setting one fans the axes
+out, reading `type` back gives the nearest preset (`:block` reads back as
+`:outer`, `:line` as `:solid`).
 
-## The media
+## The types
 
 * **Line** — the five box-drawing families, now composable: dashed+rounded,
   cut corners (`╱ ╲`), per-corner tab shapes, heavy weight via `ratio`.
@@ -48,25 +45,25 @@ out over the axes, `type` reads the nearest preset back.
   ![Inner ladder](tests/misc/styling3.png)
 * **Braille** — dot-pattern rings (U+2800..) whose corners are the *union*
   of the adjoining runs' dots, flush by construction; sparse dotted/dashed
-  strokes, apex-dot rounded corners, diagonal-dot cuts, inner anchoring.
+  patterns, apex-dot rounded corners, diagonal-dot cuts, inner anchoring.
   The whole axis tour: [`styling4.cr`](tests/misc/styling4.cr).
 
   ![Braille axes](tests/misc/styling4.png)
 * **Fill** — whole-cell fill via `fill_char` + colors (the classic `bg`
   border).
 
-## Thick bands, block strokes and separators
+## Thick bands, block patterns and separators
 
 At side widths ≥ 2 the `align` axis picks the ruled ring — `outer` the rim,
 `inner` the content-hugging ring, `center` the classic repeat-through-the-
-band. A block `Double` stroke rules rim *and* content rings (the two-ring
-frame a single cell can't express); block dashed/dotted strokes gap whole
+band. A block `Double` pattern rules rim *and* content rings (the two-ring
+frame a single cell can't express); block dashed/dotted patterns gap whole
 run cells, phase-locked to the corners. Separators are the same vocabulary:
-`Widget::Line`/`HLine`/`VLine` take `medium:`/`stroke:`/`ratio:` and derive
+`Widget::Line`/`HLine`/`VLine` take `type:`/`pattern:`/`ratio:` and derive
 their rule — including centered braille dot-rows, which no box-drawing glyph
 can do. All of it: [`styling6.cr`](tests/misc/styling6.cr).
 
-![Bands, block strokes, separators](tests/misc/styling6.png)
+![Bands, block patterns, separators](tests/misc/styling6.png)
 
 ## Light, relief and looks
 
@@ -109,7 +106,7 @@ Thin { border: outer; border-ratio: thin; border-corner-ratio: half; }
 | Property | Notes |
 | --- | --- |
 | `border`, `border-style` | Style tokens compose per axis (`dotted braille inner`); a single keyword keeps its exact legacy preset meaning. |
-| `border-radius` (+ `border-<corner>-radius`) | Per-corner rounding, 1-4 values in tl/tr/br/bl order; works with every medium. |
+| `border-radius` (+ `border-<corner>-radius`) | Per-corner rounding, 1-4 values in tl/tr/br/bl order; works with every type. |
 | `border-ratio`, `border-corner-ratio` | The thickness knobs (number, `%`, or `thin/quarter/half/full`). |
 | `border-align` | `outer` \| `center` \| `inner`. |
 | `light` | `<direction> [spot\|directional]`, e.g. `light: n spot`; on the root = the scene, on a widget = override. |

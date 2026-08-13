@@ -3,14 +3,14 @@ w=80 h=24
 |            Borders — the highlights · full guide: README-borders.md            |
 |                                                                                |
 | ╭────────────────╮  ╔════════════════╗  ┏━━━━━━━━━━━━━━━━┓  ╭┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╮ |
-| │ type: :rounded │  ║stroke: :double ║  ┃  ratio: :full  ┃  ┆dashed + rounded┆ |
+| │ type: :rounded │  ║pattern: :double║  ┃  ratio: :full  ┃  ┆dashed + rounded┆ |
 | │                │  ║                ║  ┃    (heavy)     ┃  ┆                ┆ |
 | │                │  ║                ║  ┃                ┃  ┆                ┆ |
 | ╰────────────────╯  ╚════════════════╝  ┗━━━━━━━━━━━━━━━━┛  ╰┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄╯ |
 |                                                                                |
 |                                                                                |
 | 🬕🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬨  🬞🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬏  ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹  ▛▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▜ |
-| ▌  block :outer  ▐  ▐  block :inner  ▌  ⡇medium: :braille⢸  ▏  corner beads  ▕ |
+| ▌  block :outer  ▐  ▐  block :inner  ▌  ⡇ type: :braille ⢸  ▏  corner beads  ▕ |
 | ▌  ratio: :half  ▐  ▐(floating ring) ▌  ⡇                ⢸  ▏ (thin + :half) ▕ |
 | ▌                ▐  ▐                ▌  ⡇                ⢸  ▏                ▕ |
 | 🬲🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬭🬷  🬁🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬂🬀  ⣇⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸  ▙▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▟ |

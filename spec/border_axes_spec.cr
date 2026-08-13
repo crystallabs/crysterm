@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# The border stroke axes (plans/BORDERS.md): `Border#medium`/`#stroke`/
+# The border stroke axes (plans/BORDERS.md): `Border#type`/`#pattern`/
 # `#align`/`#corners`/`#corner_ratio`, the `BorderType` preset mapping over
 # them, the light-driven relief machinery (`Light`, `Border#relief_style`,
 # shadow auto-placement) and the `Style#look` presets.
@@ -40,19 +40,19 @@ describe "border stroke axes" do
   it "fans presets out over the axes and derives them back" do
     b = Border.new
     {
-      BorderType::Solid   => {Border::Medium::Line, Border::Stroke::Solid, Border::Align::Center},
-      BorderType::Dashed  => {Border::Medium::Line, Border::Stroke::Dashed, Border::Align::Center},
-      BorderType::Dotted  => {Border::Medium::Line, Border::Stroke::Dotted, Border::Align::Center},
-      BorderType::Double  => {Border::Medium::Line, Border::Stroke::Double, Border::Align::Center},
-      BorderType::Rounded => {Border::Medium::Line, Border::Stroke::Solid, Border::Align::Center},
-      BorderType::Outer   => {Border::Medium::Block, Border::Stroke::Solid, Border::Align::Outer},
-      BorderType::Inner   => {Border::Medium::Block, Border::Stroke::Solid, Border::Align::Inner},
-      BorderType::Braille => {Border::Medium::Braille, Border::Stroke::Solid, Border::Align::Outer},
-      BorderType::Fill    => {Border::Medium::Fill, Border::Stroke::Solid, Border::Align::Center},
-    }.each do |preset, (medium, stroke, align)|
+      BorderType::Solid   => {Border::Medium::Line, Border::Pattern::Solid, Border::Align::Center},
+      BorderType::Dashed  => {Border::Medium::Line, Border::Pattern::Dashed, Border::Align::Center},
+      BorderType::Dotted  => {Border::Medium::Line, Border::Pattern::Dotted, Border::Align::Center},
+      BorderType::Double  => {Border::Medium::Line, Border::Pattern::Double, Border::Align::Center},
+      BorderType::Rounded => {Border::Medium::Line, Border::Pattern::Solid, Border::Align::Center},
+      BorderType::Outer   => {Border::Medium::Block, Border::Pattern::Solid, Border::Align::Outer},
+      BorderType::Inner   => {Border::Medium::Block, Border::Pattern::Solid, Border::Align::Inner},
+      BorderType::Braille => {Border::Medium::Braille, Border::Pattern::Solid, Border::Align::Outer},
+      BorderType::Fill    => {Border::Medium::Fill, Border::Pattern::Solid, Border::Align::Center},
+    }.each do |preset, (medium, pattern, align)|
       b.type = preset
-      b.medium.should eq medium
-      b.stroke.should eq stroke
+      b.type.medium.should eq medium
+      b.pattern.should eq pattern
       b.align.should eq align
       b.type.should eq preset
     end
@@ -63,16 +63,16 @@ describe "border stroke axes" do
   end
 
   it "constructs from axis arguments (symbols included)" do
-    b = Border.new medium: :braille, align: :inner, stroke: :dotted, corners: :rounded
-    b.medium.braille?.should be_true
+    b = Border.new type: :braille, align: :inner, pattern: :dotted, corners: :rounded
+    b.type.medium.braille?.should be_true
     b.align.inner?.should be_true
-    b.stroke.dotted?.should be_true
+    b.pattern.dotted?.should be_true
     b.corners.uniform.should eq Border::Corner::Rounded
     b.type.should eq BorderType::Braille # nearest-preset compat view
   end
 
-  it "combines dashed strokes with rounded corners (inexpressible pre-axes)" do
-    g = Border.new(stroke: :dashed, corners: :rounded).glyph_octet(Glyphs::Tier::Unicode)
+  it "combines dashed patterns with rounded corners (inexpressible pre-axes)" do
+    g = Border.new(pattern: :dashed, corners: :rounded).glyph_octet(Glyphs::Tier::Unicode)
     {g[:t], g[:l]}.should eq({'┄', '┆'})
     {g[:tl], g[:tr], g[:bl], g[:br]}.should eq({'╭', '╮', '╰', '╯'})
   end
@@ -107,9 +107,22 @@ describe "border stroke axes" do
 
   it "rounds block Center alignment down to Outer" do
     with_aspect do
-      g = Border.new(medium: :block).glyph_octet(Glyphs::Tier::Unicode)
+      g = Border.new(type: :block, align: :center).glyph_octet(Glyphs::Tier::Unicode)
       {g[:l], g[:t]}.should eq({'▌', '▔'}) # the Outer :half octet
     end
+  end
+
+  it "accepts the bare-medium type spellings, collapsing on read-back" do
+    b = Border.new(type: :block)
+    b.align.outer?.should be_true
+    b.type.should eq BorderType::Outer # Block collapses onto its equivalent
+    l = Border.new(type: :line)
+    l.type.should eq BorderType::Solid
+    l.type.medium.line?.should be_true
+    # A preset's dash pattern stays overridable per axis.
+    d = Border.new(type: :braille, pattern: :dotted)
+    d.type.braille?.should be_true
+    d.pattern.dotted?.should be_true
   end
 end
 
@@ -142,7 +155,7 @@ end
 describe "braille axes" do
   it "anchors an Inner braille ring flush with the content, corners flush by union" do
     with_aspect do
-      g = Border.new(medium: :braille, align: :inner).glyph_octet(Glyphs::Tier::Extended)
+      g = Border.new(type: :braille, align: :inner).glyph_octet(Glyphs::Tier::Extended)
       {g[:t], g[:b], g[:l], g[:r]}.should eq({'⣀', '⠉', '⢸', '⡇'})
       {g[:tl], g[:tr], g[:bl], g[:br]}.should eq({'⣸', '⣇', '⢹', '⡏'})
     end
@@ -158,7 +171,7 @@ describe "braille axes" do
       s << backdrop
       b = Widget::Box.new(left: 1, top: 1, width: 6, height: 3, content: "")
       b.style.bg = 0x222222
-      b.style.border = Border.new(medium: :braille, align: :inner, fg: 0xffffff)
+      b.style.border = Border.new(type: :braille, align: :inner, fg: 0xffffff)
       s << b
       s.repaint
       Attr.bg(s.lines[1][1].attr).should eq 0x111111 # backdrop shows through
@@ -166,11 +179,11 @@ describe "braille axes" do
     end
   end
 
-  it "draws sparse dotted and dashed braille strokes" do
+  it "draws sparse dotted and dashed braille patterns" do
     with_aspect do
-      g = Border.new(medium: :braille, stroke: :dotted).glyph_octet(Glyphs::Tier::Extended)
+      g = Border.new(type: :braille, pattern: :dotted).glyph_octet(Glyphs::Tier::Extended)
       {g[:t], g[:b], g[:l], g[:r]}.should eq({'⠁', '⡀', '⠅', '⠨'})
-      gd = Border.new(medium: :braille, stroke: :dashed).glyph_octet(Glyphs::Tier::Extended)
+      gd = Border.new(type: :braille, pattern: :dashed).glyph_octet(Glyphs::Tier::Extended)
       {gd[:l], gd[:r]}.should eq({'⠃', '⠘'})
       gd[:t].should eq '⠁' # horizontal dashes round down to dotted
     end
@@ -185,8 +198,8 @@ describe "braille axes" do
     end
   end
 
-  it "degrades a dashed braille stroke to the Dashed line family below Extended" do
-    g = Border.new(medium: :braille, stroke: :dashed).glyph_octet(Glyphs::Tier::Unicode)
+  it "degrades a dashed braille pattern to the Dashed line family below Extended" do
+    g = Border.new(type: :braille, pattern: :dashed).glyph_octet(Glyphs::Tier::Unicode)
     {g[:t], g[:l]}.should eq({'┄', '┆'})
   end
 end
@@ -311,7 +324,7 @@ describe "shadow auto-placement" do
   end
 end
 
-describe "band alignment and block strokes (width >= 2)" do
+describe "band alignment and block patterns (width >= 2)" do
   it "keeps 1-cell borders and Center thick bands on the classic geometry" do
     r = band_rows Border.new
     r[0].should eq "┌──────┐"
@@ -339,9 +352,9 @@ describe "band alignment and block strokes (width >= 2)" do
     r[5].should eq "        "
   end
 
-  it "draws a block Double stroke as two rings at width >= 3" do
+  it "draws a block Double pattern as two rings at width >= 3" do
     with_aspect do
-      r3 = band_rows Border.new(medium: :block, stroke: :double, ratio: :full,
+      r3 = band_rows Border.new(type: :block, pattern: :double, ratio: :full,
         left: 3, top: 3, right: 3, bottom: 3)
       # Rim ring, ground between, content-hugging ring.
       r3[0][4].should eq '▀'
@@ -352,13 +365,13 @@ describe "band alignment and block strokes (width >= 2)" do
 
   it "gaps dashed and dotted block runs by whole cells, corners kept" do
     with_aspect do
-      r = band_rows Border.new(medium: :block, stroke: :dotted, ratio: :full)
+      r = band_rows Border.new(type: :block, pattern: :dotted, ratio: :full)
       # Dotted: alternate ink/ground cells along the run, phase-locked to
       # the box edge; the corner cell (offset 0) always inks.
       r[0].should eq "█ ▀ ▀ ▀█"
       r[1].should eq "        " # the side runs gap on odd rows too
       r[2].should eq "█      █"
-      rd = band_rows Border.new(medium: :block, stroke: :dashed, ratio: :full)
+      rd = band_rows Border.new(type: :block, pattern: :dashed, ratio: :full)
       # Dashed: two ink cells to one ground.
       rd[0].should eq "█▀ ▀▀ ▀█"
     end
@@ -388,16 +401,16 @@ describe "borders CSS (axes)" do
     p = Crysterm::CSS::Properties
     p.apply st, "border-style", "dotted braille inner"
     b = st.border
-    b.medium.braille?.should be_true
-    b.stroke.dotted?.should be_true
+    b.type.medium.braille?.should be_true
+    b.pattern.dotted?.should be_true
     b.align.inner?.should be_true
     # Single tokens keep the legacy preset semantics.
     p.apply st, "border-style", "dotted"
     st.border.type.should eq BorderType::Dotted
-    st.border.medium.line?.should be_true
+    st.border.type.medium.line?.should be_true
   end
 
-  it "gives a multi-token medium its natural alignment unless one is named" do
+  it "gives a multi-token type its natural alignment unless one is named" do
     st = Style.new
     p = Crysterm::CSS::Properties
     p.apply st, "border-style", "dotted braille"
@@ -408,8 +421,8 @@ describe "borders CSS (axes)" do
     st = Style.new
     Crysterm::CSS::Properties.apply st, "border", "dotted braille inner #ff0000"
     b = st.border
-    b.medium.braille?.should be_true
-    b.stroke.dotted?.should be_true
+    b.type.medium.braille?.should be_true
+    b.pattern.dotted?.should be_true
     b.align.inner?.should be_true
     b.fg.should eq 0xff0000
     b.top.should eq 1 # the shorthand's default 1-cell box
@@ -455,18 +468,18 @@ describe "borders CSS (axes)" do
 end
 
 describe "Widget::Line stroke axes" do
-  it "derives the separator rule from medium/stroke/ratio" do
+  it "derives the separator rule from type/pattern/ratio" do
     with_aspect do
       s = headless_screen(10, 6)
       s.glyph_tier = Glyphs::Tier::Extended
       Widget::Line.new(parent: s).style.fill_char.should eq '─' # unchanged default
-      Widget::Line.new(parent: s, stroke: :dotted).style.fill_char.should eq '┈'
+      Widget::Line.new(parent: s, pattern: :dotted).style.fill_char.should eq '┈'
       Widget::Line.new(parent: s, ratio: :full).style.fill_char.should eq '━'
-      Widget::Line.new(parent: s, stroke: :dotted, ratio: :full).style.fill_char.should eq '┉'
-      Widget::Line.new(parent: s, stroke: :double).style.fill_char.should eq '═'
-      Widget::Line.new(parent: s, medium: :block, ratio: :full).style.fill_char.should eq '▄'
-      Widget::Line.new(parent: s, medium: :braille).style.fill_char.should eq '⠒' # centered dot-row
-      Widget::Line.new(parent: s, medium: :braille, stroke: :dotted).style.fill_char.should eq '⠂'
+      Widget::Line.new(parent: s, pattern: :dotted, ratio: :full).style.fill_char.should eq '┉'
+      Widget::Line.new(parent: s, pattern: :double).style.fill_char.should eq '═'
+      Widget::Line.new(parent: s, type: :block, ratio: :full).style.fill_char.should eq '▄'
+      Widget::Line.new(parent: s, type: :braille).style.fill_char.should eq '⠒' # centered dot-row
+      Widget::Line.new(parent: s, type: :braille, pattern: :dotted).style.fill_char.should eq '⠂'
     end
   end
 
@@ -474,7 +487,7 @@ describe "Widget::Line stroke axes" do
     with_aspect do
       s = headless_screen(10, 6)
       s.glyph_tier = Glyphs::Tier::Extended
-      l = Widget::Line.new(parent: s, stroke: :dotted)
+      l = Widget::Line.new(parent: s, pattern: :dotted)
       l.orientation = Tput::Orientation::Vertical
       l.style.fill_char.should eq '┊'
       pinned = Widget::Line.new(parent: s, char: '=')
@@ -487,8 +500,8 @@ describe "Widget::Line stroke axes" do
     with_aspect do
       s = headless_screen(10, 6)
       s.glyph_tier = Glyphs::Tier::Unicode
-      Widget::Line.new(parent: s, medium: :braille).style.fill_char.should eq '┈'
-      Widget::Line.new(parent: s, medium: :braille, stroke: :dashed).style.fill_char.should eq '┄'
+      Widget::Line.new(parent: s, type: :braille).style.fill_char.should eq '┈'
+      Widget::Line.new(parent: s, type: :braille, pattern: :dashed).style.fill_char.should eq '┄'
     end
   end
 end

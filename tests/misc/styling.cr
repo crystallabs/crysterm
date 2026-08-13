@@ -2,13 +2,13 @@
 #
 # A curated tour of the border system's best looks, one box per idea. This
 # is the summary; the real, structured presentation — the axis model, every
-# medium, thick bands, separators, light, relief, looks and shadows, with
+# type, thick bands, separators, light, relief, looks and shadows, with
 # text and per-topic demo links — is ../../README-borders.md. The per-group
 # demos it links: styling2/3.cr (block thickness ladders), styling4.cr
 # (braille across the axes), styling5.cr (lights & looks), styling6.cr
-# (thick bands, block strokes, separators), styling7.cr (shadow anatomy).
+# (thick bands, block patterns, separators), styling7.cr (shadow anatomy).
 #
-# Every border is a stroke over orthogonal axes — medium x stroke x align x
+# Every border is a stroke over orthogonal axes — type x pattern x align x
 # ratio x corners (+ corner_ratio) — with `type:` presets naming the common
 # points; anything unachievable rounds down to the nearest rendition.
 
@@ -46,14 +46,14 @@ tab.corners = Border::Corners.new(tl: Border::Corner::Rounded, tr: Border::Corne
 
 # Each entry: {style options beyond fg/bg, 1-3 label lines}.
 boxes = [
-  # Row 1 — the line medium: presets and new axis combinations.
+  # Row 1 — line borders: presets and new axis combinations.
   {Style.new(border: Border.new(type: :rounded)), # the arc-corner classic
    "type: :rounded"},
-  {Style.new(border: Border.new(stroke: :double)), # the double-line family
-   "stroke: :double"},
+  {Style.new(border: Border.new(pattern: :double)), # the double-line family
+   "pattern: :double"},
   {Style.new(border: Border.new(ratio: :full)), # ratio > 1/2 = heavy line
    "ratio: :full\n(heavy)"},
-  {Style.new(border: Border.new(stroke: :dashed, corners: :rounded)), # composable axes
+  {Style.new(border: Border.new(pattern: :dashed, corners: :rounded)), # composable axes
    "dashed + rounded"},
   # Row 2 — sub-cell media: block ink and braille dots.
   {Style.new(border: Border.new(type: :outer, ratio: :half)), # rim-flush block ink
@@ -61,7 +61,7 @@ boxes = [
   {Style.new(border: Border.new(type: :inner, ratio: :half)), # content-hugging, transparent ground
    "block :inner\n(floating ring)"},
   {Style.new(border: Border.new(type: :braille)), # dot ring, union corners
-   "medium: :braille"},
+   "type: :braille"},
   {Style.new(border: Border.new(type: :outer, ratio: :thin, corner_ratio: :half)), # corner beads
    "corner beads\n(thin + :half)"},
   # Row 3 — composed looks: light-driven relief and shadows.

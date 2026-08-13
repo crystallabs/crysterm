@@ -12,13 +12,14 @@ module Crysterm
 
       # The stroke axes, giving a separator the border vocabulary
       # (plans/BORDERS.md § 5.1 — a separator is a one-axis stroke):
-      # `medium` picks the ink (line glyphs, block ramps, braille dots),
-      # `stroke` the dash pattern, `ratio` the weight/thickness (a line
-      # medium above 1/2 goes heavy `━`; block/braille quantize it to their
-      # sub-cell grids). An explicit `char:` still overrides everything,
-      # exactly as before.
-      getter medium : Border::Medium = Border::Medium::Line
-      getter stroke : Border::Stroke = Border::Stroke::Solid
+      # `type` picks the rule's kind — a bare medium (`:line`/`:block`/
+      # `:braille`) or a `BorderType` preset, whose dash pattern is adopted
+      # too (`type: :dotted` is a dotted line rule) — `pattern` the dash
+      # pattern, `ratio` the weight/thickness (a line rule above 1/2 goes
+      # heavy `━`; block/braille quantize it to their sub-cell grids). An
+      # explicit `char:` still overrides everything, exactly as before.
+      getter type : Border::Medium = Border::Medium::Line
+      getter pattern : Border::Pattern = Border::Pattern::Solid
       getter ratio : Float64 = 0.5
 
       # An explicitly given `char:` — pinned across orientation changes;
@@ -26,8 +27,8 @@ module Crysterm
       @rule_char : Char? = nil
 
       def initialize(@orientation = @orientation, char : Char? = nil, line_size : Dim | Int32 | String? = nil,
-                     medium : (Border::Medium | Symbol)? = nil,
-                     stroke : (Border::Stroke | Symbol)? = nil,
+                     type : (Border::Medium | BorderType | Symbol)? = nil,
+                     pattern : (Border::Pattern | Symbol)? = nil,
                      ratio : (Float64 | Symbol)? = nil, **box)
         super **box
 
@@ -40,14 +41,27 @@ module Crysterm
           self.line_size = "100%"
         end
 
-        case medium
-        in Border::Medium then @medium = medium
-        in Symbol         then @medium = Border::Medium.parse medium.to_s
+        # `type` resolves first, so an explicit `pattern:` below overrides
+        # the one a preset carries.
+        case type
+        in Border::Medium
+          @type = type
+        in BorderType
+          @type = type.medium
+          @pattern = type.pattern
+        in Symbol
+          if m = Border::Medium.parse?(type.to_s)
+            @type = m
+          else
+            preset = BorderType.parse type.to_s
+            @type = preset.medium
+            @pattern = preset.pattern
+          end
         in Nil
         end
-        case stroke
-        in Border::Stroke then @stroke = stroke
-        in Symbol         then @stroke = Border::Stroke.parse stroke.to_s
+        case pattern
+        in Border::Pattern then @pattern = pattern
+        in Symbol          then @pattern = Border::Pattern.parse pattern.to_s
         in Nil
         end
         case ratio
@@ -73,7 +87,7 @@ module Crysterm
           return pinned
         end
         horizontal = !@orientation.vertical?
-        case @medium
+        case @type
         in .block?
           block_rule_char horizontal
         in .braille?
@@ -83,13 +97,13 @@ module Crysterm
         end
       end
 
-      # The line-medium rule: *stroke*'s run glyph, heavy above `ratio` 1/2
-      # (`Double` has no heavier spelling). *stroke* defaults to the
+      # The line-kind rule: *pattern*'s run glyph, heavy above `ratio` 1/2
+      # (`Double` has no heavier spelling). *pattern* defaults to the
       # widget's own; the braille fallback passes its degraded one.
-      private def line_rule_char(horizontal : Bool, stroke : Border::Stroke = @stroke) : Char
-        heavy = @ratio > 0.5 && !stroke.double?
+      private def line_rule_char(horizontal : Bool, pattern : Border::Pattern = @pattern) : Char
+        heavy = @ratio > 0.5 && !pattern.double?
         role =
-          case stroke
+          case pattern
           in .double? then horizontal ? Glyphs::Role::BorderDoubleH : Glyphs::Role::BorderDoubleV
           in .dashed?
             if heavy
@@ -113,7 +127,7 @@ module Crysterm
         glyph role
       end
 
-      # The block-medium rule: a ramp step at `ratio`'s aspect-compensated
+      # The block-kind rule: a ramp step at `ratio`'s aspect-compensated
       # thickness — a horizontal rule sits on its row's baseline (the
       # lower-anchored ramp), a vertical one against the left cell edge.
       # Dashes have no block sub-cell rendition; they round down to solid
@@ -129,23 +143,23 @@ module Crysterm
 
       # The braille rule: centered dot-rows for a horizontal rule (the
       # braille grid can center horizontals — `Glyphs::BRAILLE_RULE_ROWS`),
-      # left-anchored dot-columns for a vertical one; the sparse strokes
+      # left-anchored dot-columns for a vertical one; the sparse patterns
       # give dotted/dashed dots. Below the Extended tier braille degrades
       # to the dotted/dashed line families, as for borders.
       private def braille_rule_char(horizontal : Bool) : Char
         unless glyph_tier.extended?
-          degraded = @stroke.dashed? ? Border::Stroke::Dashed : Border::Stroke::Dotted
+          degraded = @pattern.dashed? ? Border::Pattern::Dashed : Border::Pattern::Dotted
           return line_rule_char horizontal, degraded
         end
         mask =
-          case @stroke
+          case @pattern
           in .dotted?
             horizontal ? Glyphs::BRAILLE_RULE_DOTTED_H : Glyphs::BRAILLE_RULE_DOTTED_V
           in .dashed?
             horizontal ? Glyphs::BRAILLE_RULE_DOTTED_H : Glyphs::BRAILLE_RULE_DASHED_V
           in .solid?, .double?
             w2, v4 = Glyphs.braille_steps(@ratio)
-            if @stroke.double?
+            if @pattern.double?
               w2 = 2
               v4 = Math.max(v4, 2)
             end
