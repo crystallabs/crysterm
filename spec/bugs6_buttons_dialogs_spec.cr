@@ -38,7 +38,7 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
     a.focus
     a.focused?.should be_true
 
-    b.on_click nil # simulate a mouse click -> #click
+    b.handle_click nil # simulate a mouse click -> #click
 
     # b opted out of click-to-focus, so pressing it must leave focus on a.
     a.focused?.should be_true
@@ -51,7 +51,7 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
     c = Crysterm::Widget::Button.new parent: s, top: 1, content: "C" # default true
 
     a.focus
-    c.on_click nil # simulate a mouse click -> #click
+    c.handle_click nil # simulate a mouse click -> #click
 
     c.focused?.should be_true
     a.focused?.should be_false
@@ -75,7 +75,7 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
       c.is_a?(Crysterm::Widget::Button) && c.content == "OK"
     end.as(Crysterm::Widget::Button)
 
-    ok.on_click nil # mouse-click the OK button
+    ok.handle_click nil # mouse-click the OK button
 
     called.should be_true
     got_data.should eq "hi" # submitted value, NOT nil (cancel)

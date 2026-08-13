@@ -41,7 +41,7 @@ TEXT
 
 s = Window.new title: "Editor"
 
-win = Widget::MainWindow.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
+win = Widget::MainWindow.new parent: s
 
 status = Widget::StatusBar.new
 win.status_bar = status

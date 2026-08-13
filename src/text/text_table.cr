@@ -265,8 +265,7 @@ module Crysterm
       base_bf = first_block.block_format
       bf = new_format ? base_bf.merge(TextBlockFormat.new(table_format: tf)) : base_bf
       fresh = TextTable.build_blocks(header, body, tf.alignments, tf.columns, bf, border_char_format(first_block))
-      doc.begin_edit_block
-      begin
+      doc.edit do
         common = Math.min(old_count, fresh.size)
         (0...common).each do |k|
           bi = first_bi + k
@@ -306,8 +305,6 @@ module Crysterm
           end
           @format = ntf
         end
-      ensure
-        doc.end_edit_block
       end
     end
 

@@ -4,6 +4,14 @@ module Crysterm
 
     include Mixin::KeyShortcuts
     include Mixin::ActionShortcutHost
+    include Mixin::SyntheticInput
+
+    # `Mixin::SyntheticInput` backend: a widget-level synthetic key goes
+    # straight to this widget's handlers, like a key the window routed to it —
+    # no focus-chain walk, so it works on unfocused widgets too.
+    private def synthesize_key(kp : ::Crysterm::Event::KeyPress) : Nil
+      emit kp
+    end
 
     property? interactive = false
 
@@ -252,12 +260,26 @@ module Crysterm
     # `Event::EnabledChanged` on a real change.
     #
     # Backed by `#state` rather than a flag of its own, so `Disabled` can't drift
-    # out of sync with the state the renderer reads. Since `WidgetState` is
-    # single-valued, enabling always resolves to `Normal` — never back to a prior
-    # `Focused`/`Hovered`/`Selected`.
+    # out of sync with the state the renderer reads.
+
+    # The state a disable displaced, so re-enabling can restore it — without
+    # this, disabling then re-enabling a `Selected` list item silently cleared
+    # its selection (enablement is folded into the single-valued
+    # `WidgetState`). Only `Selected` is restored: `Focused`/`Hovered` are
+    # transient (focus moved on, the pointer may be elsewhere), so they resolve
+    # back to `Normal`.
+    @state_before_disable : WidgetState? = nil
+
     def enabled=(value : Bool) : Bool
       return value if value == enabled?
-      self.state = value ? WidgetState::Normal : WidgetState::Disabled
+      if value
+        restored = @state_before_disable
+        @state_before_disable = nil
+        self.state = restored == WidgetState::Selected ? WidgetState::Selected : WidgetState::Normal
+      else
+        @state_before_disable = @state
+        self.state = WidgetState::Disabled
+      end
       emit ::Crysterm::Event::EnabledChanged, value
       value
     end
@@ -270,7 +292,17 @@ module Crysterm
     end
 
     # Should widget react to some pre-defined keys in it?
-    property? keys : Bool = false
+    getter? keys : Bool = false
+
+    # :ditto: — enabling at runtime also registers the widget for keyboard
+    # dispatch with its window (construction-time `keys:` does this in
+    # `Widget#initialize`; without it a later `keys = true` would silently
+    # never receive a key).
+    def keys=(value : Bool) : Bool
+      @keys = value
+      window?.try &.register_keyable self if value
+      value
+    end
 
     property? ignore_keys : Bool = false
 

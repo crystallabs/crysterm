@@ -104,7 +104,7 @@ module Crysterm
       # tmux: a new window in the current session when run from inside tmux
       # ($TMUX set), otherwise a new detached session.
       Launcher.new("tmux", ->(inner : Array(String), _c : Int32, _r : Int32, t : String?) do
-        argv = Crysterm::Config.environment_tmux ? ["tmux", "new-window"] : ["tmux", "new-session", "-d"]
+        argv = Crysterm::Config.environment_tmux.presence ? ["tmux", "new-window"] : ["tmux", "new-session", "-d"]
         argv += ["-n", t] if t
         argv + inner
       end),

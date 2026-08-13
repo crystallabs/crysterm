@@ -1323,7 +1323,7 @@ module Crysterm
       # structural prefixes handled above). *lead* marks the first fragment
       # as sitting at a line start, where leading block syntax (`- `, `# `,
       # `1. `, …) must be escaped or it re-parses as structure.
-      private def write_inline(io : IO, frags : Array(TextFragment), skip : Int32 = 0, lead : Bool = false) : Nil
+      private def write_inline(io : IO, frags : Array(TextFragment) | TextFragmentView, skip : Int32 = 0, lead : Bool = false) : Nil
         frags.each do |f|
           t = f.text
           if skip > 0
@@ -1464,7 +1464,7 @@ module Crysterm
 
     # The content as markdown (Qt `toMarkdown`).
     def to_markdown : String
-      TextMarkdown.generate(blocks)
+      TextMarkdown.generate(blocks_mut)
     end
 
     # The per-document `TextMarkdown::Stream` behind `#append_markdown`,

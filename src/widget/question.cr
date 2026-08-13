@@ -33,8 +33,8 @@ module Crysterm
 
       # The OK/Cancel `Pressed` handles, so `#destroy` can run the same
       # `teardown_ok_cancel` the normal `finish` path does.
-      @ev_ok : ::EventHandler::Wrapper(::Proc(::Crysterm::Event::Pressed, ::Nil))? = nil
-      @ev_cancel : ::EventHandler::Wrapper(::Proc(::Crysterm::Event::Pressed, ::Nil))? = nil
+      @ev_ok : ::EventHandler::Wrapper(::Proc(::Crysterm::Event::Clicked, ::Nil))? = nil
+      @ev_cancel : ::EventHandler::Wrapper(::Proc(::Crysterm::Event::Clicked, ::Nil))? = nil
 
       # The outstanding answer callbacks. Nil whenever no `ask`/`ask_choices` is
       # pending; `finish` nils its own before invoking it (idempotence latch),
@@ -61,6 +61,21 @@ module Crysterm
 
         append @ok
         append @cancel
+      end
+
+      # Static one-call presenter ↔ `QMessageBox::question`: builds a `Question`
+      # centered on *window* and sized to *text*, asks it, and returns the
+      # dialog. The block receives the yes/no answer. Any keyword (`width:`,
+      # `ok_text:`, `style:`, …) is forwarded to `.new`, overriding the
+      # computed defaults.
+      #
+      # ```
+      # Crysterm::Widget::Question.ask(window, "Delete this file?") { |yes| ... }
+      # ```
+      def self.ask(window : ::Crysterm::Window, text : String, **opts, &block : Bool ->) : Question
+        q = new(**::Crysterm::Mixin::OkCancelDialog.presenter_geometry(window, text).merge(opts))
+        q.ask(text, &block)
+        q
       end
 
       # Asks *text* and delivers the yes/no answer to *block* — the block-based
@@ -121,11 +136,11 @@ module Crysterm
           finish.call(k == Tput::Key::Enter || e.char == 'y')
         end
 
-        ev_ok = @ev_ok = @ok.on(Crysterm::Event::Pressed) do
+        ev_ok = @ev_ok = @ok.on(Crysterm::Event::Clicked) do
           finish.call true
         end
 
-        ev_cancel = @ev_cancel = @cancel.on(Crysterm::Event::Pressed) do
+        ev_cancel = @ev_cancel = @cancel.on(Crysterm::Event::Clicked) do
           finish.call false
         end
 
@@ -190,7 +205,7 @@ module Crysterm
         end
 
         buttons.each_with_index do |b, i|
-          b.on(Crysterm::Event::Pressed) { finish.call i }
+          b.on(Crysterm::Event::Clicked) { finish.call i }
         end
 
         @ask_keys.on(window, Crysterm::Event::KeyPress) do |e|

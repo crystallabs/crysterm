@@ -80,15 +80,12 @@ module Crysterm
           end
         return unless lf
         bp = document.block_position(bi)
-        document.begin_edit_block
-        begin
+        document.edit do
           # Removing the marker pulls this view's caret back to the block
           # start via the shared caret follow (`follow_document_change` —
           # a direct document edit, not a `buf_*` self-edit).
           document.remove(bp, off)
           document.apply_block_format(bp, bp, TextBlockFormat.new(list_format: lf), merge: true)
-        ensure
-          document.end_edit_block
         end
         emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
         request_render

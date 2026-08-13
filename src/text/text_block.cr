@@ -11,8 +11,29 @@ module Crysterm
   # Unlike Qt — where QTextBlock is a lightweight handle into piece-table
   # storage — this is the storage itself.
   class TextBlock
-    getter fragments : Array(TextFragment)
-    property block_format : TextBlockFormat
+    @fragments : Array(TextFragment)
+
+    # The block's runs, as a read-only view — the fragment list must stay
+    # normalized (no empty runs, adjacent same-appearance runs merged) and in
+    # sync with the block's text/size caches, which only this block's own
+    # mutators maintain.
+    def fragments : TextFragmentView
+      TextFragmentView.new(@fragments)
+    end
+
+    # The live array behind `#fragments`, for the block/document editing
+    # internals.
+    protected def fragments_mut : Array(TextFragment)
+      @fragments
+    end
+
+    # The setter is protected: a direct assignment on an adopted block records
+    # no undo command and bumps no document revision — the cache key
+    # `TextList`/`TextTable`/`TextDocument#outline` memoize against — so views
+    # could serve stale results. Use `TextDocument#apply_block_format` (or
+    # build detached blocks with the format up front, as the importers do).
+    getter block_format : TextBlockFormat
+    protected setter block_format
 
     # Highlighter scratch state (Qt `userState`): e.g. "still inside a
     # multi-line comment". -1 = unset.

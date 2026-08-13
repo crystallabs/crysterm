@@ -320,7 +320,10 @@ playing itself through the scripted input paths below*
 ## Scripting and automation
 
 Scripted input goes through the exact code paths that real input uses —
-`window.emit Event::KeyPress, ...` and `window.dispatch_mouse ...`.
+`window.press 'x'` / `window.press Key::Down` / `window.type "hello"` for
+keys, `window.click x, y` / `window.wheel :up, x, y` for the mouse (with
+`window.emit some_event` and `window.dispatch_mouse ...` as the general
+escape hatches).
 
 The
 bundled harness ([tests/widget/example.cr](tests/widget/example.cr)) builds

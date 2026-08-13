@@ -420,7 +420,7 @@ module Crysterm
 
     # The content as tag markup (see `TextTags`).
     def to_tags : String
-      TextTags.generate(blocks)
+      TextTags.generate(blocks_mut)
     end
   end
 

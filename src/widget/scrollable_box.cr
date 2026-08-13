@@ -5,7 +5,8 @@ module Crysterm
   class Widget
     # A `Box` whose content can exceed its visible area and be scrolled.
     #
-    # When created with `keys: true`, the arrow keys (and, with `vi_keys: true`,
+    # Keyboard scrolling is on by default (`keys: false` to opt out; wheel
+    # scrolling is always on): the arrow keys (and, with `vi_keys: true`,
     # `j`/`k`) scroll by a line, `Ctrl-U`/`Ctrl-D` by half a page,
     # `Ctrl-B`/`Ctrl-F`/`PageUp`/`PageDown` by a full page, and `g`/`Home`,
     # `G`/`End` jump to the top/bottom.
@@ -28,15 +29,21 @@ module Crysterm
       # legacy `scrollbar: false`).
       @scrollbar_policy = ScrollBarPolicy::AsNeeded
 
+      # A scrollable widget that can't be scrolled from the keyboard is not a
+      # useful default; wheel scrolling was always on, the keyboard now matches.
+      @keys = true
+
       def initialize(**box)
         super **box
 
-        if @keys
-          on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
-        end
+        # Installed unconditionally and gated on `keys?` per press, so a
+        # runtime `keys = true/false` takes effect (a construction-time-only
+        # install would make later assignment a silent no-op).
+        on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
       end
 
       def on_keypress(e)
+        return unless keys?
         visible = visible_content_rows
         half = Math.max visible // 2, 1
         # A horizontal "page" is one content width, mirroring the vertical page

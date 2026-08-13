@@ -190,10 +190,16 @@ module Crysterm
     def insert_text(text : String, format : TextCharFormat? = nil) : Nil
       format ||= @pending_format
       if selection?
-        @document.begin_edit_block
-        remove_selected_text
-        @document.insert_text(@position, text, format)
-        @document.end_edit_block
+        # Through `edit` (not a manual begin/end pair): a raise mid-edit must
+        # still close the macro, or undo/redo is disabled for good. The
+        # trailing `nil` pins the generic block type: these editing methods
+        # call each other inside `edit` blocks, and the resulting inference
+        # cycle is unsolvable for the compiler in some compilation orders.
+        @document.edit do
+          remove_selected_text
+          @document.insert_text(@position, text, format)
+          nil
+        end
       else
         @document.insert_text(@position, text, format)
       end
@@ -204,10 +210,11 @@ module Crysterm
     # content.
     def insert_fragment(frag : TextDocumentFragment) : Nil
       if selection?
-        @document.begin_edit_block
-        remove_selected_text
-        @document.insert_fragment(@position, frag)
-        @document.end_edit_block
+        @document.edit do
+          remove_selected_text
+          @document.insert_fragment(@position, frag)
+          nil # pins the block type — see `#insert_text`
+        end
       else
         @document.insert_fragment(@position, frag)
       end
@@ -237,10 +244,11 @@ module Crysterm
     # so the whole operation is one undo step.
     def insert_block(block_format : TextBlockFormat? = nil, char_format : TextCharFormat? = nil) : Nil
       if block_format
-        @document.begin_edit_block
-        insert_text("\n")
-        @document.apply_block_format(@position, @position, block_format)
-        @document.end_edit_block
+        @document.edit do
+          insert_text("\n")
+          @document.apply_block_format(@position, @position, block_format)
+          nil # pins the block type — see `#insert_text`
+        end
       else
         insert_text("\n")
       end
@@ -340,12 +348,9 @@ module Crysterm
     # Inserts a new block and makes it the first item of a new list (one undo
     # step).
     def insert_list(format : TextListFormat = TextListFormat.new) : TextList
-      @document.begin_edit_block
-      begin
+      @document.edit do
         insert_block
         create_list(format)
-      ensure
-        @document.end_edit_block
       end
     end
 
@@ -386,6 +391,25 @@ module Crysterm
 
     def end_edit_block : Nil
       @document.end_edit_block
+    end
+
+    # Block form of `#begin_edit_block`/`#end_edit_block`: yields the cursor
+    # and returns the block's value, closing the undo macro on every exit path
+    # (see `TextDocument#edit`).
+    #
+    # ```
+    # cursor.edit do |c|
+    #   c.remove_selected_text
+    #   c.insert_text "replacement"
+    # end
+    # ```
+    def edit(& : self -> U) : U forall U
+      begin_edit_block
+      begin
+        yield self
+      ensure
+        end_edit_block
+      end
     end
 
     # === Document-edit adjustment ===

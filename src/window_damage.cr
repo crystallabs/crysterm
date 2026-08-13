@@ -257,6 +257,25 @@ module Crysterm
       end
     end
 
+    # Marks every top-level subtree containing a widget whose persistent style
+    # source changed — by identity or in place (`Widget#painted_style_stale?`) —
+    # since its last paint. An O(all widgets) integer-compare walk, far cheaper
+    # than the repaint it saves; run per selective attempt only.
+    #
+    # Known limit: a widget that never repaints (e.g. hidden) while its style
+    # keeps mutating in place stays stale and re-marks its subtree every
+    # attempt; the cost-parity check then degrades that scene to the full path,
+    # which is the pre-existing behavior for untrackable scenes.
+    private def damage_sweep_style_revisions : Nil
+      @children.each do |top|
+        stale = top.painted_style_stale?
+        unless stale
+          top.each_descendant { |w| stale = true if w.painted_style_stale? }
+        end
+        @damage_dirty_roots << top if stale
+      end
+    end
+
     # Whether the NEXT frame may attempt the selective path — i.e. whether this
     # frame's full composite must leave fresh damage bounds behind. True when the
     # latch is off, or when the re-probe countdown reaches zero on its next
@@ -392,6 +411,13 @@ module Crysterm
       return false unless @damage_safe || @damage_plane_safe
       return false if @dock_borders # docking joins across widgets
       return false if awidth != @damage_last_awidth || aheight != @damage_last_aheight
+
+      # In-place style mutations (`style.fg = ...`) fire no tracked setter, so
+      # sweep the per-widget `Style#attr_revision` watermarks and mark stale
+      # subtrees dirty first — an animation mutating styles in place then works
+      # under damage tracking with no manual `mark_dirty` and no
+      # `OptimizationFlag::None` opt-out.
+      damage_sweep_style_revisions
 
       # Snapshot the dirty roots and clear the live set BEFORE re-rendering, so
       # marks raised during the re-render carry to the next frame. A `false` return

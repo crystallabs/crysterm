@@ -87,8 +87,12 @@ module Crysterm
       new_child
     end
 
-    # Inserts `element` to list of children at a specified position (at end by default)
-    def insert(element, i = -1)
+    # Inserts `element` to list of children at a specified position (at end by
+    # default). Returns *element* (`nil` when rejected: inserting a widget into
+    # itself or a descendant), matching `Window#insert` and the base
+    # `Mixin::Children#insert` — previously this override leaked the trailing
+    # `emit`'s listener-dependent value instead.
+    def insert(element : Widget, i = -1) : Widget?
       # A widget can never become a child of itself or of one of its own
       # descendants: that would splice a cycle into the tree and make every
       # parent/descendant walk recurse forever. Reject as a no-op before any
@@ -169,6 +173,7 @@ module Crysterm
 
       element.emit Crysterm::Event::Reparented, self
       emit Crysterm::Event::ChildAdded, element
+      element
     end
 
     # Runs the unlink in *block* with `element.reparenting_same_screen` set to
@@ -183,8 +188,9 @@ module Crysterm
       end
     end
 
-    # Removes `element` from list of children
-    def remove(element)
+    # Removes `element` from list of children. Returns *element* (`nil` when it
+    # was not a child of this widget), matching `#insert`.
+    def remove(element : Widget) : Widget?
       return if element.parent != self
 
       # Whether the window's keyboard focus lives inside the subtree being
@@ -234,6 +240,7 @@ module Crysterm
         end
         s.rewind_focus if refocus && s && !element.reparenting_same_screen?
       end
+      element
     end
 
     # Order this widget was reached in during the current render walk. Transient

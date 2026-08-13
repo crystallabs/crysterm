@@ -252,8 +252,16 @@ module Crysterm
     # Emitted on mouse click
     event Click
 
-    # Emitted on button press
-    event Pressed
+    # Emitted on a button's full activation — mouse click OR keyboard
+    # (Space/Enter) — matching Qt's `clicked()`, NOT its press-only
+    # `pressed()`. Named `Clicked` for exactly that reason; the raw mouse
+    # button-down is `Event::Click` above.
+    event Clicked
+
+    # Historical name for `Clicked`, kept as a compatible spelling: it fires on
+    # full activation (Qt's `clicked()`), not on button-down, which the old
+    # name wrongly suggested.
+    alias Pressed = Clicked
 
     # Emitted by an `Action` when a display-affecting property (`text`,
     # `enabled`, `checkable`, `checked`, `visible`) changes, so any widget

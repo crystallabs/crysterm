@@ -9,7 +9,7 @@ include Crysterm::Widgets
 
 Crysterm::WidgetExample.run "MainWindow" do |window|
   window.stylesheet = "Box { color: #c0caf5; } MenuBar { background-color: #283457; } StatusBar { background-color: #283457; }"
-  mw = MainWindow.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
+  mw = MainWindow.new parent: window
   mw.menu_bar = (mb = MenuBar.new)
   %w[File Edit View Help].each { |t| mb.add_menu t }
   dock = DockWidget.new title: " Project ", area: :left, dock_size: 22

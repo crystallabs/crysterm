@@ -8,6 +8,41 @@ module Crysterm
     end
   end
 
+  # Read-only, live view over a block list (`Indexable(TextBlock)`), what
+  # `TextDocument#blocks` / `TextFrame#blocks` hand out. Indexing and the whole
+  # `Enumerable` surface work as on the `Array` these used to return; what's
+  # gone is mutation — `doc.blocks.clear` violated the "a document always has
+  # at least one block" invariant that makes cursor math total, and a direct
+  # push left the document's memoized block offsets stale. Editing goes
+  # through `TextCursor`/`TextDocument`'s editing API; the in-tree editing
+  # primitives use the protected `TextDocument#blocks_mut`.
+  struct TextBlockView
+    include Indexable(TextBlock)
+
+    def initialize(@array : Array(TextBlock))
+    end
+
+    def size : Int32
+      @array.size
+    end
+
+    @[AlwaysInline]
+    def unsafe_fetch(index : Int) : TextBlock
+      @array.unsafe_fetch(index)
+    end
+
+    # Range/segment indexing, as on `Array` (returns a fresh `Array` — safe to
+    # hold, since it is not the storage).
+    def [](range : Range) : Array(TextBlock)
+      @array[range]
+    end
+
+    # :ditto:
+    def [](start : Int, count : Int) : Array(TextBlock)
+      @array[start, count]
+    end
+  end
+
   # A frame of the document (Qt `QTextFrame`).
   #
   # The *root* frame owns the document's block list; a document always contains
@@ -22,8 +57,14 @@ module Crysterm
   # mid-block, since on a cell grid a frame boundary is a row boundary anyway.
   class TextFrame < TextObject
     # The frame's format. For child frames the *instance* is the frame's
-    # identity: every member block's `frame_formats` path contains it.
-    property frame_format : TextFrameFormat
+    # identity: every member block's `frame_formats` path contains it — which
+    # is why there is no public setter: assigning a fresh format would orphan
+    # the view (`#member?` compares by `same?`, so `#blocks` would come back
+    # empty) without touching the document. Restyle a frame by rewriting its
+    # member blocks' formats through the document's editing API instead
+    # (`TextList#format=` is the model).
+    getter frame_format : TextFrameFormat
+    protected setter frame_format
 
     # Block storage — non-nil only on the root frame.
     @storage : Array(TextBlock)?
@@ -51,11 +92,18 @@ module Crysterm
       !!block.block_format.frame_formats.try(&.any?(&.same?(@frame_format)))
     end
 
-    # The frame's blocks in document order — for the root frame the live
-    # storage array, which the document's editing primitives mutate; for a
-    # child frame a fresh selection.
-    def blocks : Array(TextBlock)
-      @storage || document.blocks.select { |b| member?(b) }
+    # The frame's blocks in document order, as a read-only view (see
+    # `TextBlockView`) — over the live storage for the root frame, over a
+    # fresh selection for a child frame.
+    def blocks : TextBlockView
+      TextBlockView.new(@storage || document.blocks.select { |b| member?(b) })
+    end
+
+    # The root frame's live storage array — the mutable counterpart of
+    # `#blocks`, for the document's editing primitives only. Must only be
+    # called on the root frame.
+    protected def root_storage : Array(TextBlock)
+      @storage || raise "root_storage called on a child-frame view"
     end
 
     # Document position of the frame's first block, or nil for an empty

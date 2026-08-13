@@ -184,6 +184,33 @@ module Crysterm
         finish_document_setup input_on_focus: input_on_focus, install_enter: !!input["keys"]?
       end
 
+      # The inherited widget-content accessors historically went nowhere on
+      # `TextEdit`: its paint path assembles from the document's block
+      # layouts and never reads `@content`, so `content =` was a silent no-op
+      # and `content` returned the constructor-time seed forever. Re-pointed
+      # at the document in the widget's content language — the tag markup
+      # (the same `{bold}…{/bold}` vocabulary plain widgets parse) — so all
+      # of the widget's "set the text" entry points agree: `content=`/
+      # `set_content`/`set_text` replace the document wholesale
+      # (`TextDocument#set_tags` reset semantics; `no_tags`/`no_clear` are
+      # ignored) and `content` reads it back as tags. For an undoable partial
+      # edit use the cursor API; for plain text use `value=`.
+      def set_content(content = "", no_clear = false, no_tags = false)
+        return super unless @buf_content_delegated
+        document.set_tags content.to_s
+      end
+
+      # :ditto:
+      def set_text(content = "", no_clear = false)
+        set_content content
+      end
+
+      # :ditto:
+      def content : String
+        return super unless @buf_content_delegated
+        document.tags
+      end
+
       # Replaces the document's whole content from Markdown (Qt
       # `QTextEdit#setMarkdown`), colored by *theme* (this widget's `#theme`
       # by default). Same reset semantics as `TextDocument#set_markdown`:

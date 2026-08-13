@@ -892,7 +892,7 @@ module Crysterm
 
     # The content as HTML (Qt `toHtml`).
     def to_html : String
-      TextHtml.generate(blocks)
+      TextHtml.generate(blocks_mut)
     end
   end
 

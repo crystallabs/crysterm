@@ -15,7 +15,7 @@ module Crysterm
     # canonical idiom works on a bare main window with no setup:
     #
     # ```
-    # win = Widget::MainWindow.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
+    # win = Widget::MainWindow.new parent: window # fills the window by default
     # win.menu_bar.add_menu "File"
     # win.status_bar.show_message "Ready"
     # win.central_widget = Widget::PlainTextEdit.new
@@ -30,6 +30,13 @@ module Crysterm
     # ![MainWindow screenshot](../../tests/widget/main_window/main_window.5s.apng)
     # <!-- /widget-examples:capture -->
     class MainWindow < Box
+      # A main window fills its window by default — in Qt the `QMainWindow`
+      # *is* the window — so `MainWindow.new parent: window` alone is the whole
+      # frame. Any geometry passed explicitly still wins.
+      def initialize(**box)
+        super(**{fill: true}.merge(box))
+      end
+
       # The menu bar, constructed (and parented) on first access — like Qt's
       # `menuBar()`, it never returns null.
       getter menu_bar : MenuBar { MenuBar.new(parent: self) }

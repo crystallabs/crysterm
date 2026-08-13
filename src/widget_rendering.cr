@@ -227,6 +227,10 @@ module Crysterm
       own_style = self.style
       style = parent.try(&.render_style_for(self)) || own_style
 
+      # This paint reflects the style source as of now — stamp the watermark
+      # the damage sweep compares against (see `#capture_painted_style`).
+      capture_painted_style
+
       # Keep any border label glued to the (possibly CSS-resolved) top inset.
       # Must run before the label child renders.
       sync_label_position

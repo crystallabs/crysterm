@@ -11,7 +11,7 @@ module Crysterm
     # * **A default `Action`** (`#default_action=`, Qt's `setDefaultAction`). When set,
     #   the button shows the action's text and, on activation, triggers the
     #   action (emitting its `Event::Triggered`) in addition to its own
-    #   `Event::Pressed`. The same `Action` can drive a menu entry and a toolbar
+    #   `Event::Clicked`. The same `Action` can drive a menu entry and a toolbar
     #   button at once, keeping them in sync. A disabled action is not triggered.
     #
     # * **A popup `Menu`** (`#menu=`, Qt's `setMenu`). How it opens depends on
@@ -60,7 +60,7 @@ module Crysterm
         super **button
 
         # Like `Button`, a tool button activates on a click anywhere on it.
-        handle Crysterm::Event::Click
+        on Crysterm::Event::Click, ->handle_click(Crysterm::Event::Click)
 
         @auto_raise = auto_raise
         @popup_mode = popup_mode
@@ -124,7 +124,7 @@ module Crysterm
         @menu = m
         # Count the button itself as "inside" the open menu's modal grab, so a
         # click on the button while the menu is open is *not* a click-away that
-        # auto-dismisses it. Instead the click reaches `#on_click` and toggles it
+        # auto-dismisses it. Instead the click reaches `#handle_click` and toggles it
         # shut — otherwise the outside-dismiss closes it and the same click
         # reopens it.
         m.try { |mm| mm.treat_as_inside { |x, y| contains_point? x, y } }
@@ -170,7 +170,8 @@ module Crysterm
       # is the drop-down affordance. This is the only mouse route to the menu;
       # a bound `default_action:` stays reachable from the keyboard (Space/Enter run the
       # action, Down opens the menu). A menu-less button just activates.
-      def on_click(e)
+      # (`handle_*`, not `on_*` — see `AbstractButton#handle_click`.)
+      def handle_click(e)
         if (m = @menu)
           if m.visible?
             m.hide_popup

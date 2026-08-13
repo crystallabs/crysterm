@@ -51,7 +51,9 @@ module Crysterm
         end
       end
 
-      getter orientation : Tput::Orientation
+      # The main axis. Writable at runtime (Qt's `QBoxLayout::setDirection`):
+      # flipping it re-arranges the children on the next frame.
+      layout_property orientation, Tput::Orientation
       # `#spacing` (inter-child spacing) is inherited from `Layout`.
 
       # Leftover-space distribution along the main axis when nothing stretches;
@@ -103,6 +105,59 @@ module Crysterm
         @justify : Justify = Justify::Start,
         @align : Align = Align::Stretch,
       )
+      end
+
+      # Appends *w* to the container — Qt's `QBoxLayout::addWidget(widget,
+      # stretch, alignment)`, the canonical way to fill a box layout. A given
+      # *stretch*/*align* is recorded as the child's `Hint`; with neither
+      # given, an existing hint on the widget is left untouched. Returns *w*.
+      #
+      # ```
+      # lay = window.layout = Crysterm::Layout::VBox.new
+      # lay.add_widget header
+      # lay.add_widget body, stretch: 2
+      # lay.add_widget footer, align: :end
+      # ```
+      def add_widget(w : Widget, stretch : Int32? = nil, align : (Align | Shorthands)? = nil) : Widget
+        c = require_container "Layout::Box#add_widget"
+        apply_child_hint w, stretch, align
+        c.append w
+        w
+      end
+
+      # Inserts *w* at child position *index* — Qt's
+      # `QBoxLayout::insertWidget`. See `#add_widget`.
+      def insert_widget(index : Int32, w : Widget, stretch : Int32? = nil, align : (Align | Shorthands)? = nil) : Widget
+        c = require_container "Layout::Box#insert_widget"
+        apply_child_hint w, stretch, align
+        c.insert w, index
+        w
+      end
+
+      # Sets (or updates) *w*'s main-axis stretch factor — Qt's
+      # `QBoxLayout::setStretchFactor` — without rebuilding the `Hint` by hand.
+      def set_stretch(w : Widget, factor : Int32) : Nil
+        hint = w.layout_hint.as?(Hint) || Hint.new
+        hint.stretch = factor
+        w.layout_hint = hint
+        invalidate
+      end
+
+      # Sets (or clears, with `nil`) *w*'s cross-axis alignment override —
+      # Qt's `QLayout::setAlignment(widget, alignment)`.
+      def set_alignment(w : Widget, align : (Align | Shorthands)?) : Nil
+        hint = w.layout_hint.as?(Hint) || Hint.new
+        hint.alignment = align.nil? ? nil : ::Crystallabs::Helpers::Enums.from(Align, align)
+        w.layout_hint = hint
+        invalidate
+      end
+
+      private def apply_child_hint(w : Widget, stretch : Int32?, align : (Align | Shorthands)?) : Nil
+        return if stretch.nil? && align.nil?
+        hint = w.layout_hint.as?(Hint) || Hint.new
+        stretch.try { |s| hint.stretch = s }
+        align.try { |a| hint.alignment = ::Crystallabs::Helpers::Enums.from(Align, a) }
+        w.layout_hint = hint
       end
 
       # Appends a fixed, inert *size*-cell gap to the box — Qt's

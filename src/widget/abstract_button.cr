@@ -12,8 +12,11 @@ module Crysterm
     # `Mixin::CheckMarker`.
     abstract class AbstractButton < Input
       # The button's text label (Qt's `QAbstractButton#text`) — the one label API
-      # for the family. The push buttons store it as their `#content`, so `text:`
-      # and `content:` can never disagree.
+      # for the family. The push buttons store it as their `#content`, so for
+      # them `text:` and `content:` can never disagree. The marker controls
+      # (`CheckBox`/`RadioButton`) shadow this: their `#text` is the bare label
+      # while `#content` carries the composed `"[x] Label"` line the marker
+      # paint writes — on those, read/write the label through `#text` only.
       def text : String
         content
       end
@@ -86,7 +89,7 @@ module Crysterm
       end
 
       # Activates the button (Qt's `QAbstractButton#click`): focuses it (unless
-      # `#focus_on_click?` is off), emits `Event::Pressed`, and toggles the checked
+      # `#focus_on_click?` is off), emits `Event::Clicked`, and toggles the checked
       # state when `#checkable?`.
       #
       # A keyboard activation already has focus, so `#focus_on_click?` only gates
@@ -94,7 +97,7 @@ module Crysterm
       # false`) so a click doesn't pull focus off a live read and cancel it.
       def click
         focus if focus_on_click?
-        emit Crysterm::Event::Pressed
+        emit Crysterm::Event::Clicked
         toggle if checkable?
       end
 
@@ -173,15 +176,20 @@ module Crysterm
         end
       end
 
-      def on_click(e)
+      # The mouse-click slot the push buttons wire up (`Widget::Button`/
+      # `ToolButton` subscribe it to `Event::Click`). Named `handle_*`, not
+      # `on_*`: `on_click` below is the *subscription* API, and an overload
+      # pair whose members mean "handle it" vs "connect to it" is one arity
+      # away from a subclass clobbering the wrong one.
+      def handle_click(e)
         click
       end
 
-      # Subscribes *block* to this button's activation (`Event::Pressed`) — the
-      # block-based spelling of `on(Event::Pressed) { ... }`. Fires on every
+      # Subscribes *block* to this button's activation (`Event::Clicked`) — the
+      # block-based spelling of `on(Event::Clicked) { ... }`. Fires on every
       # click/keyboard-activation, checkable or not.
       def on_click(&block) : Nil
-        on(::Crysterm::Event::Pressed) { block.call }
+        on(::Crysterm::Event::Clicked) { block.call }
       end
 
       # Subscribes *block* to this button's checked-state changes, handing it the

@@ -182,6 +182,19 @@ module Crysterm
     # :ditto:
     getter? explicit_height = false
 
+    # Releases the pin that `#width=` (or a constructor `width:`) placed on the
+    # axis: the device resumes tracking the terminal size from the next
+    # probe/resize report on. The way back that the pinning setter previously
+    # lacked.
+    def unpin_width : Nil
+      @explicit_width = false
+    end
+
+    # :ditto:
+    def unpin_height : Nil
+      @explicit_height = false
+    end
+
     # Whether either axis is pinned (device size doesn't fully follow the
     # terminal).
     def explicit_size? : Bool

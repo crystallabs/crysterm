@@ -165,6 +165,58 @@ module Crysterm
       key
     end
 
+    # Sets the primary (and only) shortcut from Qt's textual key-sequence
+    # syntax (`QKeySequence("Ctrl+B")`): chords separated by `+` within a
+    # stroke, strokes separated by `,` —
+    #
+    # ```
+    # action.shortcut = "Ctrl+B"
+    # action.shortcut = "Ctrl+K, Ctrl+B"
+    # action.shortcut = "F5"
+    # ```
+    #
+    # Raises `ArgumentError` on a stroke that maps to no `Tput::Key` member —
+    # see `Action.parse_key_sequence`.
+    def shortcut=(spec : String) : String
+      self.shortcut = Action.parse_key_sequence(spec)
+      spec
+    end
+
+    # Parses Qt's textual key-sequence syntax into a `KeySequence`:
+    # comma-separated strokes, each a `+`-joined chord resolved against the
+    # `Tput::Key` members (`"Ctrl+B"` → `CtrlB`, `"F5"` → `F5`,
+    # `"Ctrl+PgDn"` → `CtrlPageDown`). Common short names are accepted
+    # (`Esc`, `Del`, `Ins`, `PgUp`, `PgDn`, `Return`). Raises `ArgumentError`
+    # on an unrecognized stroke, naming it. (This is the *shortcut* syntax;
+    # the display-label vocabulary `Event::KeyPress.parse` uses — `"^X"`,
+    # `"Spc"` — is a different, UI-facing language.)
+    def self.parse_key_sequence(spec : String) : KeySequence
+      spec.split(',').map { |stroke| parse_key_stroke(stroke.strip) }
+    end
+
+    # One stroke of `.parse_key_sequence`: `"Ctrl+Shift+F5"` → the matching
+    # `Tput::Key` member.
+    def self.parse_key_stroke(stroke : String) : KeyStroke
+      name = stroke.split('+').join do |part|
+        part = part.strip
+        # Qt spelling → Tput::Key member-fragment spelling.
+        case part.downcase
+        when "esc"            then "Escape"
+        when "del"            then "Delete"
+        when "ins"            then "Insert"
+        when "pgup"           then "PageUp"
+        when "pgdn", "pgdown" then "PageDown"
+        when "return"         then "Enter"
+        else
+          # A single letter upcases (`b` → `B`); multi-char parts keep their
+          # tail (`PageDown` stays `PageDown`, `ctrl` → `Ctrl`).
+          part.size == 1 ? part.upcase : (part[0].upcase + part[1..])
+        end
+      end
+      ::Tput::Key.parse?(name) ||
+        raise ArgumentError.new("Unrecognized key stroke #{stroke.inspect} (no Tput::Key member #{name.inspect})")
+    end
+
     # Sets the primary (and only) shortcut to *seq* (replacing any alternatives).
     def shortcut=(seq : KeySequence) : KeySequence
       self.shortcuts = [seq]

@@ -56,6 +56,21 @@ module Crysterm
         append @cancel
       end
 
+      # Static one-call presenter ↔ `QInputDialog::getText`: builds a `Prompt`
+      # centered on *window* and sized to *text*, starts reading, and returns
+      # the dialog. The block receives the entered string, or `nil` when
+      # cancelled. Any keyword (`width:`, `echo_mode:`, `validator:`, …) is
+      # forwarded to `.new`, overriding the computed defaults.
+      #
+      # ```
+      # Crysterm::Widget::Prompt.read(window, "Name:") { |s| ... }
+      # ```
+      def self.read(window : ::Crysterm::Window, text : String, value = "", **opts, &callback : String? ->) : Prompt
+        p = new(**::Crysterm::Mixin::OkCancelDialog.presenter_geometry(window, text).merge(opts))
+        p.read_input(text, value, &callback)
+        p
+      end
+
       # Prompts with *text* (starting the field at *value*) and delivers the
       # entered string — or `nil` when cancelled — to *callback*. Block-based
       # sugar over the `Dialog` result protocol: a submitted value closes with
@@ -70,9 +85,9 @@ module Crysterm
 
         window.save_focus
 
-        ev_ok = @ok.on(::Crysterm::Event::Pressed) { accept }
+        ev_ok = @ok.on(::Crysterm::Event::Clicked) { accept }
 
-        ev_cancel = @cancel.on(::Crysterm::Event::Pressed) { reject }
+        ev_cancel = @cancel.on(::Crysterm::Event::Clicked) { reject }
 
         # Self-referential reader so a rejected (invalid) submit can re-arm the
         # input without closing the dialog.

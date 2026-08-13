@@ -24,7 +24,7 @@ module Crysterm
     # *Every* button also emits box-level `Event::ButtonClick` carrying the
     # button (Qt's `QDialogButtonBox#clicked`), which `#standard_button` maps
     # back to its `StandardButton`. Each button additionally emits its own
-    # `Event::Pressed`, and `#button` gives access to a specific one.
+    # `Event::Clicked`, and `#button` gives access to a specific one.
     #
     # <!-- widget-examples:capture v1 -->
     # ![DialogButtonBox screenshot](../../tests/widget/dialog_button_box/dialog_button_box.5s.apng)
@@ -53,9 +53,9 @@ module Crysterm
         Accept      # Ok/Save/Yes/Retry → Event::Accepted
         Reject      # Cancel/No/Close   → Event::Rejected
         Destructive # Discard           → Event::Rejected
-        Apply       # Apply             → only its own Event::Pressed
-        Reset       # Reset             → only its own Event::Pressed
-        Help        # Help              → only its own Event::Pressed
+        Apply       # Apply             → only its own Event::Clicked
+        Reset       # Reset             → only its own Event::Clicked
+        Help        # Help              → only its own Event::Clicked
       end
 
       # Left-to-right display order of the standard buttons (affirmative first,
@@ -187,7 +187,7 @@ module Crysterm
           parent: self, top: 0,
           focus_on_click: true, shrink_to_fit: true,
         )
-        b.on(Crysterm::Event::Pressed) do
+        b.on(Crysterm::Event::Clicked) do
           # Box-level "some button was clicked" (Qt's `clicked(QAbstractButton*)`),
           # emitted for every role, so a caller can handle the whole row from one
           # handler and resolve `#standard_button` on it.

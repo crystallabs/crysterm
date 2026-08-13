@@ -56,7 +56,7 @@ s.dock_borders = true
 
 # --- Main window frame -------------------------------------------------------
 
-win = MainWindow.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
+win = MainWindow.new parent: s
 
 status = StatusBar.new
 win.status_bar = status

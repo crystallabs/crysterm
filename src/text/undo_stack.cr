@@ -84,7 +84,10 @@ module Crysterm
 
     class RemoveCommand < Command
       getter pos : Int32
-      getter fragment : TextDocumentFragment
+      # Protected: this is the undo record itself — an outside mutation of it
+      # would rewrite what undo restores (`TextDocument#remove` already hands
+      # its caller a copy for the same reason).
+      protected getter fragment : TextDocumentFragment
 
       def initialize(@pos, @fragment)
       end

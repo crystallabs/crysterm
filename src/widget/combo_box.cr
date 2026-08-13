@@ -174,7 +174,7 @@ module Crysterm
         @filtered = @options.dup
 
         handle Crysterm::Event::KeyPress
-        handle Crysterm::Event::Click
+        on Crysterm::Event::Click, ->handle_click(Crysterm::Event::Click)
 
         # Mouse wheel cycles the value while closed; while open it scrolls the
         # drop-down, keeping the selection under the pointer, rather than
@@ -675,7 +675,8 @@ module Crysterm
         end
       end
 
-      def on_click(e)
+      # (`handle_*`, not `on_*` — see `AbstractButton#handle_click`.)
+      def handle_click(e)
         toggle_popup
       end
 

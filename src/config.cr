@@ -36,4 +36,4 @@ require "./config/builtins"
 #
 # Opt out via `CRYSTERM_NO_AUTO_CONFIGURE`. Apps may still call
 # `Crysterm.configure!` again themselves; it re-applies in precedence order.
-Crysterm.configure! unless ENV["CRYSTERM_NO_AUTO_CONFIGURE"]?
+Crysterm.configure! unless ENV["CRYSTERM_NO_AUTO_CONFIGURE"]?.presence

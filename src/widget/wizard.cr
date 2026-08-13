@@ -57,9 +57,9 @@ module Crysterm
         @cancel_button = wizard_button "Cancel", right: 10
         @next_button = wizard_button "Next", right: 0
 
-        back_button.on(::Crysterm::Event::Pressed) { back }
-        next_button.on(::Crysterm::Event::Pressed) { advance }
-        cancel_button.on(::Crysterm::Event::Pressed) { reject }
+        back_button.on(::Crysterm::Event::Clicked) { back }
+        next_button.on(::Crysterm::Event::Clicked) { advance }
+        cancel_button.on(::Crysterm::Event::Clicked) { reject }
 
         # Enter advances/finishes, Escape cancels. The accelerator stays
         # installed while attached and is torn down on detach/destroy so it

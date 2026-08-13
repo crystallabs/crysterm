@@ -5,9 +5,9 @@ module Crysterm
     # Button element, modeled after Qt's `QPushButton`.
     #
     # By default it is a momentary push button: activating it (Space/Enter or a
-    # click) emits `Event::Pressed`. When `#checkable?` it instead behaves as a
+    # click) emits `Event::Clicked`. When `#checkable?` it instead behaves as a
     # toggle button — each activation flips `#checked?` and emits
-    # `Event::StateChanged` (in addition to `Event::Pressed`), like a checkable
+    # `Event::StateChanged` (in addition to `Event::Clicked`), like a checkable
     # `QPushButton` or a `QToolButton`.
     #
     # <!-- widget-examples:capture v1 -->
@@ -31,7 +31,7 @@ module Crysterm
         @default = default
 
         # A push button additionally activates on a click anywhere on it.
-        handle Crysterm::Event::Click
+        on Crysterm::Event::Click, ->handle_click(Crysterm::Event::Click)
       end
 
       # Positional text convenience — Qt's `QPushButton(text)`. Routed via

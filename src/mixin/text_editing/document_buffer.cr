@@ -159,12 +159,7 @@ module Crysterm
         # Compound mixin actions (typing/pasting over a selection) group into
         # one undo step, Qt's edit-block semantics.
         def buf_edit_group(&)
-          document.begin_edit_block
-          begin
-            yield
-          ensure
-            document.end_edit_block
-          end
+          document.edit { yield }
         end
 
         # O(log) override of the mixin's flat prefix scan: the block index IS the
@@ -461,7 +456,23 @@ module Crysterm
         protected def finish_document_setup(input_on_focus, install_enter) : Nil
           setup_text_editing input_on_focus: input_on_focus, install_enter: install_enter
           wire_document
+          @buf_content_delegated = true
         end
+
+        # Once true, a document-backed widget MAY re-point the widget-level
+        # `content` accessors at the document (see `TextEdit#set_content`).
+        # False during construction: the base `Widget#initialize` seeds
+        # `@content` before the document plumbing is wired (and the
+        # constructor separately adopts `content:` into the document), so the
+        # seeding call must keep base behavior.
+        #
+        # The re-pointing itself deliberately lives on `TextEdit`, NOT here:
+        # `PlainTextEdit`'s paint pipeline *uses* the base widget content as
+        # its display surface (`sync_display` pushes the buffer text through
+        # `set_content` on every document change), so for it the inherited
+        # accessors are live plumbing, not the inert legacy surface they are
+        # on `TextEdit`.
+        @buf_content_delegated = false
       end
     end
   end

@@ -3,6 +3,15 @@ module Crysterm
     # File related to interaction on the display
 
     include Mixin::KeyShortcuts
+    include Mixin::SyntheticInput
+
+    # `Mixin::SyntheticInput` backend: a window-level synthetic key takes the
+    # exact route a typed key takes past parsing — the window emit whose
+    # constructor-installed listener walks the focus chain — plus the
+    # `Event::Key` fan-out.
+    private def synthesize_key(kp : ::Crysterm::Event::KeyPress) : Nil
+      emit_key_transition kp
+    end
 
     # Whether the focused widget has grabbed the keyboard: keys are delivered
     # to it ONLY, with no bubbling up its ancestor chain (so `j` typed into a
@@ -115,8 +124,10 @@ module Crysterm
         ev = Crysterm::Event::Paste.new pasted
         each_focus_chain do |el2|
           # A disabled widget does not react to a paste, but the paste still
-          # propagates up to its (possibly enabled) ancestors.
-          el2.emit ev if el2.has_handlers?(Crysterm::Event::Paste) && !el2.disabled?
+          # propagates up to its (possibly enabled) ancestors. No handler-count
+          # pre-check: `emit` has its own zero-cost fast path, and a guard here
+          # would suppress `AnyEvent` listeners on the widget.
+          el2.emit ev unless el2.disabled?
           break if ev.accepted?
         end
         emit ev unless ev.accepted?
@@ -313,16 +324,27 @@ module Crysterm
       end
     end
 
-    # Emits an Event::KeyPress as usual, plus an event for the individual key
+    # Emits an Event::KeyPress as usual, plus the base `Event::Key` for
+    # listeners that want every transition, plus an event for the individual key
     # if any — so listeners can listen directly for e.g. `Event::KeyPress::CtrlP`
     # instead of checking `#key` on the generic event.
     @[AlwaysInline]
     def emit_key(el, e : Event)
-      if el.has_handlers?(e.class)
-        el.emit e
+      # No handler-count pre-check on the generic emit: `emit` has its own
+      # zero-cost fast path, and a guard here would suppress `AnyEvent`
+      # listeners on the widget.
+      el.emit e
+      # The base-class fan-out `Window#emit_key_transition` does for the window,
+      # per the subscription menu documented on `Event::Key`. Guarded: an
+      # `AnyEvent` listener already saw `e` above, so the guard only skips a
+      # duplicate delivery, never information.
+      if e.is_a?(Crysterm::Event::Key) && el.has_handlers?(Crysterm::Event::Key)
+        el.emit Crysterm::Event::Key, e
       end
       if e.key
         Crysterm::Event::KeyPress::KEYS[e.key]?.try do |keycls|
+          # Guarded so a keypress doesn't allocate a per-key event nobody
+          # subscribed to; `AnyEvent` listeners already received `e` above.
           if el.has_handlers?(keycls)
             # Forward `key_event` so the specific-key event carries the same
             # enhanced-protocol info (modifiers, repeat, codepoint) as `e`, and

@@ -72,7 +72,7 @@ describe Crysterm::Widget::ToolButton do
     end
   end
 
-  describe "#on_click" do
+  describe "#handle_click" do
     it "opens the menu when the button is menu-only (no bound action)" do
       s = headless_screen(80, 24)
       m = Crysterm::Widget::Menu.new
@@ -83,7 +83,7 @@ describe Crysterm::Widget::ToolButton do
 
       pressed = false
       tb.on(Crysterm::Event::Pressed) { pressed = true }
-      tb.on_click nil
+      tb.handle_click nil
       m.visible?.should be_true # a mouse click opens the drop-down...
       pressed.should be_false   # ...instead of emitting a bare Press
     end
@@ -99,7 +99,7 @@ describe Crysterm::Widget::ToolButton do
       tb = Crysterm::Widget::ToolButton.new parent: s, default_action: act, menu: m
       s.repaint
 
-      tb.on_click nil
+      tb.handle_click nil
       m.visible?.should be_true # a click opens the drop-down (the whole button)...
       triggered.should be_false # ...it doesn't run the action (that's Space/Enter)
     end

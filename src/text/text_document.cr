@@ -43,7 +43,12 @@ module Crysterm
       Replace
     end
 
-    getter undo_stack : TextUndoStack
+    # Protected: reaching into the stack from outside could `clear` it
+    # mid-macro or push a hand-built command whose replay doesn't match the
+    # content. The public undo surface is re-exported here — `#undo`, `#redo`,
+    # `#undo_available?`, `#redo_available?`, `#modified?`,
+    # `#begin_edit_block`/`#end_edit_block`/`#edit`.
+    protected getter undo_stack : TextUndoStack
 
     # Monotonic content revision (Qt `QTextDocument::revision`): increases on
     # every mutation — content edits, format-only changes, undo/redo replay
@@ -139,8 +144,18 @@ module Crysterm
       {s, e}
     end
 
-    def blocks : Array(TextBlock)
-      root_frame.blocks
+    # The document's blocks in order, as a read-only live view (see
+    # `TextBlockView`). Mutation goes through the editing API
+    # (`TextCursor`, `#insert_text`/`#remove`/`#apply_*`), never the block
+    # list directly — a direct push/clear would desynchronize the memoized
+    # block offsets and could break the at-least-one-block invariant.
+    def blocks : TextBlockView
+      TextBlockView.new(blocks_mut)
+    end
+
+    # The live storage array behind `#blocks` — for the editing primitives.
+    protected def blocks_mut : Array(TextBlock)
+      root_frame.root_storage
     end
 
     # The innermost frame containing *pos* (Qt `frameAt`): a child-frame view
@@ -367,7 +382,7 @@ module Crysterm
     # adopted, not copied — callers must hand over freshly built ones.
     protected def replace_content(new_blocks : Array(TextBlock)) : Nil
       old_size = size
-      bs = blocks
+      bs = blocks_mut
       bs.clear
       new_blocks.empty? ? (bs << TextBlock.new) : bs.concat(new_blocks)
       each_cursor &.rewind_to_start
@@ -404,7 +419,9 @@ module Crysterm
       return TextDocumentFragment.new([TextBlock.new]) if count <= 0
       frag = raw_remove(pos, count)
       @undo_stack.push(TextUndoStack::RemoveCommand.new(pos, frag), self)
-      frag
+      # A copy, never the instance the undo record holds: mutating the returned
+      # fragment must not rewrite what undo will restore.
+      TextDocumentFragment.new(frag.blocks.map(&.clone))
     end
 
     # Inserts a formatted fragment at `pos` (Qt `QTextCursor::insertFragment`),
@@ -466,6 +483,20 @@ module Crysterm
 
     def end_edit_block : Nil
       @undo_stack.end_macro(self)
+    end
+
+    # Block form of `#begin_edit_block`/`#end_edit_block`: yields the document
+    # and returns the block's value, closing the undo macro on every exit path.
+    # Prefer this over the manual pair — a raise between a manual `begin`/`end`
+    # leaves the macro open forever, permanently disabling `#undo`/`#redo`
+    # (they no-op while `in_macro?`).
+    def edit(& : self -> U) : U forall U
+      begin_edit_block
+      begin
+        yield self
+      ensure
+        end_edit_block
+      end
     end
 
     def modified? : Bool
@@ -567,7 +598,7 @@ module Crysterm
         end
         tail.insert(0, lines.last, format)
         new_blocks << tail
-        blocks[bi + 1, 0] = new_blocks
+        blocks_mut[bi + 1, 0] = new_blocks
       else
         block.insert(off, text, format)
       end
@@ -584,7 +615,7 @@ module Crysterm
         blocks[b1].remove(o1, blocks[b1].size - o1)
         blocks[b2].remove(0, o2)
         blocks[b1].merge_with(blocks[b2])
-        blocks[(b1 + 1)..b2] = [] of TextBlock
+        blocks_mut[(b1 + 1)..b2] = [] of TextBlock
       end
       finish_edit(pos, count, 0)
       frag
@@ -623,7 +654,7 @@ module Crysterm
         end
         tail.block_format = fblocks.last.block_format
         new_blocks << tail
-        blocks[bi + 1, 0] = new_blocks
+        blocks_mut[bi + 1, 0] = new_blocks
       end
       finish_edit(pos, 0, frag.size)
     end

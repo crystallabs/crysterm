@@ -48,14 +48,27 @@ module Crysterm
         dialog_button "Cancel", width, bottom: bottom, right: right, focus_on_click: false, shrink_to_fit: true
       end
 
+      # Geometry for the one-call class presenters (`Question.ask`,
+      # `Prompt.read`): centered on *window*, sized to *text* — wide enough for
+      # its longest line plus the frame, tall enough for its lines plus the
+      # field/button rows (*extra_rows*) — clamped to sane minimums and to the
+      # window. The presenters `merge` caller keywords over this, so any part
+      # can be overridden.
+      def self.presenter_geometry(window : ::Crysterm::Window, text : String, extra_rows : Int32 = 6)
+        lines = text.lines
+        width = ((lines.max_of?(&.size) || 0) + 6).clamp(28, Math.max(28, window.awidth - 4))
+        height = (lines.size + extra_rows).clamp(7, Math.max(7, window.aheight - 2))
+        {parent: window, top: :center, left: :center, width: width, height: height}
+      end
+
       # Standard modal teardown: hide, restore the focus saved when opened, and
       # unregister the OK/Cancel `Pressed` handlers (*ev_ok*/*ev_cancel* may each
       # be nil if never registered).
       protected def teardown_ok_cancel(ev_ok, ev_cancel) : Nil
         hide
         window.restore_focus
-        ev_ok.try { |h| @ok.off ::Crysterm::Event::Pressed, h }
-        ev_cancel.try { |h| @cancel.off ::Crysterm::Event::Pressed, h }
+        ev_ok.try { |h| @ok.off ::Crysterm::Event::Clicked, h }
+        ev_cancel.try { |h| @cancel.off ::Crysterm::Event::Clicked, h }
       end
     end
   end

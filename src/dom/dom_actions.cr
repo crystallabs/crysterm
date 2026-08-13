@@ -128,14 +128,14 @@ module Crysterm
     def self.on_widget_event(widget : Widget, event_name : String, &block : String, String? ->) : Proc(Nil)?
       case event_name
       when "click", "press"
-        # `Event::Pressed` is emitted only by `AbstractButton`, for both mouse click
+        # `Event::Clicked` is emitted only by `AbstractButton`, for both mouse click
         # and keyboard activation, so a button's `onclick` reacts to either, like
         # a browser button. Other widgets never emit `Pressed` and aren't even
         # hit-tested for it, so they bind `Event::Click` instead, which the window
         # emits on a mouse press over any hit-tested widget; registering it also
         # makes the widget mouse-responsive.
         if widget.is_a?(::Crysterm::Widget::AbstractButton)
-          wire(widget, ::Crysterm::Event::Pressed) { block.call "press", nil }
+          wire(widget, ::Crysterm::Event::Clicked) { block.call "press", nil }
         else
           wire(widget, ::Crysterm::Event::Click) { block.call "click", nil }
         end

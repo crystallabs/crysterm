@@ -288,7 +288,18 @@ module Crysterm
 
       # Appends an item showing *content* and returns its box (Qt's
       # `QListWidget#addItem`).
-      def add_item(content : String)
+      #
+      # `protected`, like every raw row mutator here (`#insert_item`,
+      # `#remove_item`, `#set_item`, `#items=`, `#clear`, `#<<`): these edit the
+      # raw row model, which only `Widget::List` (and `ComboBox::Popup`) *own* —
+      # `List` re-publicizes them. On the model-backed views (`Tree`,
+      # `ListTable`, `Menu`, `FileManager`, `TocView`) the rows are re-derived
+      # from the real model on every rebuild, so a raw row added from user code
+      # would be silently wiped; those views expose their own verbs
+      # (`Tree#add`, `ListTable#rows=`, `Menu#add_action`) instead. In-tree
+      # code (same top-level namespace) can still call these — that is how the
+      # views' own rebuilds and `Reactive.bind_items` are implemented.
+      protected def add_item(content : String)
         item = create_item content
         item.top = item_row(@item_boxes.size)
 
@@ -307,7 +318,7 @@ module Crysterm
       end
 
       # :ditto:
-      def add_item(widget : Widget)
+      protected def add_item(widget : Widget)
         add_item widget.rendered_content
       end
 
@@ -321,7 +332,7 @@ module Crysterm
       # `#add_item(widget : Widget)` overload would then yield a `#<<(Widget)`
       # matching `Mixin::Children#<<` exactly, win on ancestor distance, and
       # silently turn child-appends into item-appends.
-      def <<(content : String)
+      protected def <<(content : String)
         add_item content
         self
       end
@@ -329,7 +340,8 @@ module Crysterm
       # Removes the item at *child* — a row index, an item's text, or the item
       # box itself — and returns its box (`nil` when *child* resolves to no item).
       # Row-based, like Qt's `QListWidget#takeItem`.
-      def remove_item(child)
+      # `protected` — see `#add_item`.
+      protected def remove_item(child)
         i = index_of child
         return unless i
 
@@ -457,14 +469,16 @@ module Crysterm
       end
 
       # Removes every item (Qt's `QListWidget#clear`).
-      def clear
+      # `protected` — see `#add_item`.
+      protected def clear
         self.items = [] of String
       end
 
       # Inserts an item showing *content* at row *index* (Qt's
       # `QListWidget#insertItem`). *index* == `#count` appends, so this does not
       # route through `#index_of`, which validates against the *existing* rows.
-      def insert_item(index : Int, content : String)
+      # `protected` — see `#add_item`.
+      protected def insert_item(index : Int, content : String)
         i = index.to_i
         return unless 0 <= i <= @item_boxes.size
         if i == @item_boxes.size
@@ -501,7 +515,7 @@ module Crysterm
 
       # :ditto: — *child* is an existing item's text or box; the new item takes
       # its row.
-      def insert_item(child : String | Widget, content : String)
+      protected def insert_item(child : String | Widget, content : String)
         i = index_of child
         return unless i
         insert_item i, content
@@ -510,7 +524,8 @@ module Crysterm
       # Replaces the text of the item at *child* (a row index, an item's text, or
       # the item box itself). No-op when *child*
       # resolves to no item, including an out-of-range row.
-      def set_item(child, content : String)
+      # `protected` — see `#add_item`.
+      protected def set_item(child, content : String)
         i = index_of child
         return unless i
 
@@ -526,14 +541,15 @@ module Crysterm
       end
 
       # :ditto:
-      def set_item(child, widget : Widget)
+      protected def set_item(child, widget : Widget)
         set_item child, content: widget.rendered_content
       end
 
       # Replaces every item with one per entry of *items* (reusing the existing
       # boxes where it can) and emits `Event::ItemsChanged`. The inverse of
       # `#items` (the text model); the backing boxes are `#item_boxes`.
-      def items=(items : Array(String))
+      # `protected` — see `#add_item`.
+      protected def items=(items : Array(String))
         # Wholesale replacement: stale indices can't be carried over, so drop
         # the multi-selection.
         @selected_indices.clear

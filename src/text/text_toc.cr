@@ -173,7 +173,7 @@ module Crysterm
       bs = document.blocks
       built = build_blocks(TextToc.context_format(bs[first].block_format), theme)
       return false if same_blocks?(bs[first..last], built)
-      document.replace_block_run(first, last, built)
+      document.raw_replace_block_run(first, last, built)
       true
     end
 
@@ -191,8 +191,7 @@ module Crysterm
       bs = document.blocks
       from = document.block_position(first)
       to = document.block_position(last) + bs[last].size
-      document.begin_edit_block
-      begin
+      document.edit do
         if from > 0
           document.remove(from - 1, to - from + 1)
         elsif to < document.size
@@ -206,8 +205,6 @@ module Crysterm
           document.remove(from, to - from)
           document.apply_block_format(from, from, TextBlockFormat.default)
         end
-      ensure
-        document.end_edit_block
       end
       true
     end
@@ -266,14 +263,15 @@ module Crysterm
 
     # Swaps the blocks at index range `[first, last]` for *new_blocks*,
     # adjusting cursors and emitting `Event::ContentsChanged` but recording **no
-    # undo command** — the `raw_*` contract, exposed because generated regions
-    # (`TextToc`) live outside the undo stack by design and are rebuilt by a
-    # different object than the one that owns the primitives.
+    # undo command** — the `raw_*` contract (hence the name and `protected`,
+    # like its siblings): generated regions (`TextToc`) live outside the undo
+    # stack by design and are rebuilt by a different object than the one that
+    # owns the primitives.
     #
     # *new_blocks* must be non-empty and is adopted, not copied.
-    def replace_block_run(first : Int32, last : Int32, new_blocks : Array(TextBlock)) : Nil
-      raise ArgumentError.new("replace_block_run requires at least one block") if new_blocks.empty?
-      bs = blocks
+    protected def raw_replace_block_run(first : Int32, last : Int32, new_blocks : Array(TextBlock)) : Nil
+      raise ArgumentError.new("raw_replace_block_run requires at least one block") if new_blocks.empty?
+      bs = blocks_mut
       first = first.clamp(0, bs.size - 1)
       last = last.clamp(first, bs.size - 1)
       pos = block_position(first)
@@ -298,8 +296,7 @@ module Crysterm
       toc = TextToc.new(@document, fmt)
       built = toc.build_blocks(TextToc.context_format(base).with_frame_formats(path), theme)
 
-      @document.begin_edit_block
-      begin
+      @document.edit do
         # Mid-block, break first so the TOC starts on a row of its own; the
         # cursor lands at the start of the tail block, as Qt's `insertBlock`
         # leaves it.
@@ -324,8 +321,6 @@ module Crysterm
           end
           pos += b.size + 1
         end
-      ensure
-        @document.end_edit_block
       end
       toc
     end

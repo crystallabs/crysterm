@@ -157,6 +157,21 @@ module Crysterm
         spec
       end
 
+      # Static one-call presenter ↔ `QColorDialog::getColor`: builds a
+      # `ColorDialog` centered on *window* at its natural size (see class docs),
+      # shows it, and returns it. The block receives the chosen hex, or `nil`
+      # on cancel. Any keyword is forwarded to `.new`, overriding the defaults.
+      #
+      # ```
+      # Crysterm::Widget::ColorDialog.pick(window) { |color| ... }
+      # ```
+      def self.pick(window : ::Crysterm::Window, **opts, &block : String? -> Nil) : ColorDialog
+        # 56x20 is the smallest size whose children don't spill past the border.
+        cd = new(**{parent: window, top: :center, left: :center, width: 56, height: 20}.merge(opts))
+        cd.get_color(&block)
+        cd
+      end
+
       # Shows the dialog and runs *block* with the chosen hex (or `nil` on
       # cancel). Saves and later restores focus, takes the modal input grab
       # (Qt's `QColorDialog::getColor` is modal), and installs the modal Enter
@@ -251,7 +266,7 @@ module Crysterm
         # row one column right and overrun its right edge.
         add = Button.new parent: self, top: CUST_Y, left: 0, width: COLOR_W, height: 1,
           content: "+", align: :center, focus_on_click: false
-        add.on(Crysterm::Event::Pressed) { store_custom }
+        add.on(Crysterm::Event::Clicked) { store_custom }
         # Slots sit flush against the "+" button. Empty ones carry a "·"
         # placeholder so they read as slots before anything is stored.
         cx = COLOR_W
@@ -278,7 +293,7 @@ module Crysterm
         eyedropper = Button.new parent: self, top: BTN_Y, left: 20, width: 8, height: 1,
           content: "Pick", align: :center, focus_on_click: false
         eyedropper.tool_tip = "Pick a color from anywhere on the window"
-        eyedropper.on(Crysterm::Event::Pressed) { begin_eyedropper }
+        eyedropper.on(Crysterm::Event::Clicked) { begin_eyedropper }
       end
 
       # A `Form`-based editor column: a 1-cell label column plus its field.

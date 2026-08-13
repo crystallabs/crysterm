@@ -207,6 +207,10 @@ module Crysterm
       @screen.height = value
     end
 
+    # Releases a pinned axis so it tracks the terminal size again — see
+    # `Screen#unpin_width`/`#unpin_height`.
+    delegate unpin_width, unpin_height, to: @screen
+
     def full_unicode=(value : Bool)
       @screen.full_unicode = value
     end
@@ -557,6 +561,48 @@ module Crysterm
       end
 
       true
+    end
+
+    # Whether this window currently owns its terminal presentation (alternate
+    # buffer / inline region) — the surface-level `QWindow::isVisible`.
+    # Windows enter their presentation during construction, hence `true`;
+    # `#hide`/`#show` flip it.
+    getter? visible : Bool = true
+
+    # Takes (back) the terminal presentation and repaints — Qt's
+    # `QWindow::show`. No-op while already visible. The terminal-level
+    # primitive underneath is `#enter`.
+    def show : Nil
+      return if @visible
+      @visible = true
+      enter
+      render
+    end
+
+    # Releases the terminal presentation (restores the normal buffer /
+    # tears down the inline region) — Qt's `QWindow::hide`. No-op while
+    # already hidden. The terminal-level primitive underneath is `#leave`.
+    def hide : Nil
+      return unless @visible
+      @visible = false
+      leave
+    end
+
+    # Property spelling of `#show`/`#hide` — Qt's `setVisible`.
+    def visible=(value : Bool) : Bool
+      value ? show : hide
+      value
+    end
+
+    # The window's size in cells ↔ `QWindow::size`.
+    def size : Size
+      Size.new awidth, aheight
+    end
+
+    # The window's rectangle in device cells (origin 0,0) ↔
+    # `QWindow::geometry`.
+    def geometry : Rectangle
+      Rectangle.of_edges 0, 0, awidth, aheight
     end
 
     def enter

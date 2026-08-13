@@ -252,6 +252,27 @@ module Crysterm
     #
     # Deliberately one flat dispatcher over every mouse action kind; splitting
     # it to satisfy the metric would scatter the event-routing rules.
+    # Synthesizes a full mouse click — button press then release — at cell
+    # (*x*, *y*), routed through `#dispatch_mouse` like a real report, so
+    # hit-testing, focus-on-click, hover and `Event::Click` all apply:
+    # `window.click 2, 0`. For tests, demos and self-driving programs.
+    def click(x : Int32, y : Int32, button : ::Tput::Mouse::Button = ::Tput::Mouse::Button::Left) : Nil
+      dispatch_mouse ::Tput::Mouse::Event.new(::Tput::Mouse::Action::Down, button, x, y)
+      dispatch_mouse ::Tput::Mouse::Event.new(::Tput::Mouse::Action::Up, button, x, y)
+    end
+
+    # Synthesizes a wheel scroll at cell (*x*, *y*): `window.wheel :up, 40, 10`.
+    # *direction* is `:up` or `:down` — deliberately not a
+    # `Tput::Mouse::Action`, whose `Down`/`Up` members mean button transitions.
+    def wheel(direction : Symbol, x : Int32, y : Int32) : Nil
+      action = case direction
+               when :up   then ::Tput::Mouse::Action::WheelUp
+               when :down then ::Tput::Mouse::Action::WheelDown
+               else            raise ArgumentError.new("wheel direction must be :up or :down, got #{direction.inspect}")
+               end
+      dispatch_mouse ::Tput::Mouse::Event.new(action, ::Tput::Mouse::Button::None, x, y)
+    end
+
     # ameba:disable Metrics/CyclomaticComplexity
     def dispatch_mouse(ev : ::Tput::Mouse::Event)
       ev = translate_inline_mouse ev

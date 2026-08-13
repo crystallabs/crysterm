@@ -84,7 +84,7 @@ hello = C::Widget::Box.new \
   width: 20,
   height: 5,
   content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
-  parse_tags: true,        # Interpret {…} tags in content (default: true)
+  parse_tags: true,        # Interpret {…} tags in content (default: false)
   style: C::Style.new(fg: "yellow", bg: "blue", border: true)
 
 # `q` / Ctrl-Q already quit by default (see `Window#default_quit_keys?`), so
@@ -182,8 +182,8 @@ To tear a window down, call `Window#destroy`.
 
 `Window` and `Widget` both `include EventHandler`, so they can emit events and
 register listeners. Events are typed classes under `Crysterm::Event`, for
-example `Event::KeyPress`, `Event::Mouse`, `Event::Resize`, `Event::Focus`,
-`Event::PreRender`, and `Event::Rendered`.
+example `Event::KeyPress`, `Event::Mouse`, `Event::Resize`, `Event::FocusIn`,
+`Event::FocusOut`, `Event::PreRender`, and `Event::Rendered`.
 
 Subscribe with `on`:
 
@@ -215,6 +215,13 @@ Coordination uses a single capacity-1 channel as a coalescing *doorbell*:
 - `render_loop` consumes the doorbell *before* rendering, so a change made
   while a render is in progress re-rings the doorbell and is picked up by the
   next frame (no lost updates).
+
+> **Do not use `async:` handlers.** The underlying `event_handler` shard
+> offers `on(..., async: true)` (and a global `EventHandler.async=` switch)
+> which `spawn`s each handler on its own fiber. Crysterm does not support
+> this: handlers would leave the render fiber's interleaving model above, and
+> the reactive layer's state is documented single-fiber. Route cross-fiber
+> work through `post(&block)` below instead.
 
 If you ever compute something on another fiber (or a thread under
 `-Dpreview_mt`) and need to apply it to widgets, use `post(&block)`: it queues
@@ -820,6 +827,38 @@ requests are spaced out to honor `interval`. As a result you can call `render`
 from anywhere at any time — all the changes accumulated since the last frame are
 painted together in one pass, and isolated updates are not delayed.
 
+### 8.5 Timers and the frame clock
+
+The two everyday timers live on `Window` and drive both animation and delayed
+work; each returns the `FrameClock` behind it, so it can be cancelled:
+
+```crystal
+# Recurring: invoke the block, render, sleep, repeat — until stopped.
+clock = window.every(0.1.seconds) { progress.value += 1 }
+clock.stop
+
+# One-shot (`QTimer::singleShot` analog): invoke the block once after the span.
+clock = window.after(2.seconds) { status.content = "Saved." }
+clock.stop # cancels it if it hasn't fired yet
+```
+
+Both render after each block call, so the body only needs to mutate state — no
+explicit `render` inside. `every` is phase-locked: the period stays at the given
+interval regardless of how long the block takes.
+
+The blocks run on their own fiber, off the render fiber, interleaved with it by
+the scheduler — the single-threaded model of
+[§3.3](#33-the-single-threaded-render-model) applies, so no locking is needed.
+Because the render they trigger goes through the coalescing doorbell of
+[§8.4](#84-frame-coalescing-and-the-interval), many fast timers still produce
+at most one frame per render interval.
+
+`FrameClock` itself (see its class docs) is the underlying primitive: a
+phase-locked ticker with optional duration, easing, and completion callback,
+used by animations, transitions, and effects. `every`/`after` are the
+convenience entry points; construct a `FrameClock` directly when you need
+easing or a bounded duration.
+
 ---
 
 ## 9. The cursor
@@ -920,9 +959,15 @@ Crysterm has a single, global configuration registry, `Crysterm::Config`, that
 holds every tunable the framework exposes — and any your app adds. Each option
 has four synchronized surfaces and remembers where its current value came from.
 
-By default nothing is read from the outside: every option keeps its registered
-default, so programs behave exactly as if the registry weren't there. You opt in
-to external sources explicitly.
+External sources are applied automatically: at `require "crysterm"` time the
+library runs `Crysterm.configure!` once, so the config file, `CRYSTERM_*` env
+vars, and command-line flags are honored by every app with no per-app call.
+(This happens at load time because many options are read as `Window` property
+defaults at the start of `initialize` — too early for a later call to affect.)
+To disable it — e.g. for a fully hermetic program — set the
+`CRYSTERM_NO_AUTO_CONFIGURE` environment variable to a non-empty value; then
+every option keeps its registered default unless your code calls `configure!`
+itself.
 
 ### Surfaces
 
@@ -947,7 +992,10 @@ Crysterm::Config.window_resize_interval = 0.5.seconds
 (`Crysterm::Config.get("window.resize_interval", Time::Span)` and `.set` also
 exist for fully dynamic, string-keyed access — that's what the loaders use.)
 
-### Opting in
+### Re-applying and overriding
+
+`configure!` may also be called explicitly — to load an additional file, or to
+re-apply the sources after the automatic load-time pass:
 
 ```crystal
 require "crysterm"

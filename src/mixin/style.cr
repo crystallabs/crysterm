@@ -72,6 +72,11 @@ module Crysterm
         # unstyled would stay borderless forever after a cascade reset.
         @floor_border_applied = nil
         @styles = styles
+        # Like `#state=`: the swap is invisible to the tracked geometry setters,
+        # so flag damage explicitly — otherwise an idle UI never repaints with
+        # the new styles.
+        mark_dirty
+        styles
       end
 
       # Pristine, pre-CSS snapshot of `#styles`, captured lazily on first cascade
@@ -111,10 +116,26 @@ module Crysterm
         @css_base_styles.try(&.normal)
       end
 
-      # User may set specific style for this widget
+      # The honest name for what `#style=` sets: the *inline* override
+      # (`@style`), the write half of `#inline_style`. Named differently from
+      # the `#style` reader because they are not one property — the reader
+      # returns the resolved (possibly CSS-computed, frame-memoized) style,
+      # so `w.style = s; w.style` need not return `s` under a stylesheet.
+      def inline_style=(style : ::Crysterm::Style?)
+        self.style = style
+      end
+
+      # Sets the inline style override. Prefer the spelling `#inline_style=`:
+      # this setter and the `#style` reader are NOT a property pair (see
+      # `#inline_style=`); this name is kept for Qt-porting familiarity.
       def style=(style : ::Crysterm::Style?)
         invalidate_frame_style
         @style = style
+        # Like `#state=`: the swap is invisible to the tracked geometry setters,
+        # so flag damage explicitly — otherwise an idle UI never repaints with
+        # the new style.
+        mark_dirty
+        style
       end
 
       # The raw inline style (the `@style` override), before any CSS folding.

@@ -268,6 +268,33 @@ module Crysterm
     # only mid-grow. `Int64` so it never wraps.
     protected property damage_seen : Int64 = 0
 
+    # The persistent style source (`Mixin::Style#state_style`) and its
+    # `Style#attr_revision` as of this widget's last paint — the watermark
+    # `Window#damage_sweep_style_revisions` compares against, so an *in-place*
+    # style mutation (`style.fg = ...`), which fires no tracked setter, still
+    # repaints under damage tracking. Holding the `Style` itself (not an
+    # `object_id`) keeps `same?` safe from address recycling, the same
+    # reasoning as `Style::AttrMemo`.
+    @painted_style : ::Crysterm::Style? = nil
+    @painted_style_rev : Int64 = 0_i64
+
+    # Records the watermark; called from `#base_render`, i.e. whenever this
+    # widget takes part in a frame.
+    protected def capture_painted_style : Nil
+      cur = state_style
+      @painted_style = cur
+      @painted_style_rev = cur.attr_revision
+    end
+
+    # Whether the persistent style source changed — by identity (a cascade or
+    # `style=` swap) or in place (`attr_revision`) — since the last paint.
+    # `false` for a never-painted widget: the full path covers it.
+    protected def painted_style_stale? : Bool
+      return false unless ps = @painted_style
+      cur = state_style
+      !ps.same?(cur) || @painted_style_rev != cur.attr_revision
+    end
+
     # Index of this widget within the window's base-child list for the current
     # damage frame, addressing the overlap union-find. Transient scratch.
     protected property damage_idx : Int32 = -1
@@ -483,6 +510,14 @@ module Crysterm
       bottom : Dim | Int32 | String | Symbol? = @bottom,
       width : Dim | Int32 | String | Symbol? = @width,
       height : Dim | Int32 | String | Symbol? = @height,
+      # Geometry shorthands: `fill: true` = `top: 0, left: 0, width: "100%",
+      # height: "100%"`; `center: true` = `top: :center, left: :center`
+      # (`center_x`/`center_y` for one axis). Each fills only the fields not
+      # given explicitly, so `fill: true, height: "50%"` works as read.
+      fill : Bool = false,
+      center : Bool = false,
+      center_x : Bool = false,
+      center_y : Bool = false,
       @shrink_to_fit = @shrink_to_fit,
 
       visible = nil,
@@ -526,6 +561,19 @@ module Crysterm
       children = [] of Widget,
     )
       # $ = _ = JSON/YAML::Any
+
+      if fill
+        left ||= 0
+        top ||= 0
+        width ||= "100%"
+        height ||= "100%"
+      end
+      if center || center_x
+        left ||= :center
+      end
+      if center || center_y
+        top ||= :center
+      end
 
       # Geometry lands via `Dim.from` (parse-at-assignment; see `Dim`), not the
       # public setters — no Move/Resize emits or dirty-marking during construction.

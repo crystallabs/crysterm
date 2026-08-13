@@ -39,7 +39,7 @@ describe "BUGS13 T10 insert_fragment at a block start keeps the head block's mem
 
   it "restores the insertion-point block's format on undo" do
     doc = Crysterm::TextDocument.new("x")
-    doc.blocks[0].block_format = TextBlockFormat.new(heading_level: 2)
+    doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 2))
     frag = Crysterm::TextDocumentFragment.from_tags("{!block;list-disc}a\n{!block;list-disc}b")
 
     doc.insert_fragment(0, frag)
@@ -57,7 +57,7 @@ describe "BUGS13 T10 insert_fragment at a block start keeps the head block's mem
 
   it "keeps the surrounding block's format for a mid-block insertion" do
     doc = Crysterm::TextDocument.new("xy")
-    doc.blocks[0].block_format = TextBlockFormat.new(heading_level: 2)
+    doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 2))
     frag = Crysterm::TextDocumentFragment.from_tags("{!block;list-disc}a\n{!block;list-disc}b")
 
     doc.insert_fragment(1, frag)

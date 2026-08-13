@@ -15,6 +15,13 @@ module Crysterm
     # add their own presentation and a block-based convenience form, which is
     # sugar over the same protocol.
     abstract class Dialog < Box
+      # A dialog is the one widget family whose placement the user should never
+      # have to pick: centered on its parent unless told otherwise. Explicit
+      # `top:`/`left:` (as every pre-existing call site passes) still win.
+      def initialize(**box)
+        super(**{top: :center, left: :center}.merge(box))
+      end
+
       # ---- Result protocol (Qt's `QDialog`) ----------------------------------
 
       # The outcome of a dialog (Qt's `QDialog::DialogCode`), with Qt's numbering

@@ -68,9 +68,11 @@ module Crysterm
     # Brings *window* to the front of its device and makes it active: becomes the
     # most-recent window (so input routes to it) and is repainted over any
     # sibling sharing the same `Screen`. The toolkit's "raise window" for stacked
-    # surfaces. No-op if not registered.
-    def activate(window : Window) : Window?
-      return unless @windows.delete window
+    # surfaces. An unregistered window is registered (`#add`) on the spot —
+    # previously this silently no-opped while returning as if it had worked.
+    def activate(window : Window) : Window
+      add window unless @windows.includes? window
+      @windows.delete window
       @windows << window
       # A device resize while this window was non-active may not have reached
       # it yet (its debounced resize loop can still be pending); compositing
@@ -293,11 +295,16 @@ module Crysterm
 
     # Array counterpart of `#exec`: renders and runs every window in *windows*
     # under one shared quit, blocking until the last is gone. So callers reach
-    # for the same verb whether driving one surface or several. Delegates to
+    # for the same verb whether driving one surface or several. Each window is
+    # registered (`#add`) like the single-window overload's is, so `#windows`
+    # and per-window teardown behave identically for both. Delegates to
     # `.exec_all`, which owns quit for the managed windows (each is opted out of
-    # the app-global hard-exit hotkey); returns when none remain.
-    def exec(windows : Array(Window)) : Nil
+    # the app-global hard-exit hotkey); returns `0` when none remain, matching
+    # the single-window overload's last-window-closed status.
+    def exec(windows : Array(Window)) : Int32
+      windows.each { |w| add w }
       self.class.exec_all windows
+      0
     end
 
     # Opens a real terminal emulator window and returns a `Window` driving it.

@@ -340,6 +340,19 @@ module Crysterm
       Size.new awidth, aheight
     end
 
+    # The resolved width in cells — a discoverable alias of `#awidth` for
+    # readers who don't know the `a*` prefix convention. `#width` returns the
+    # size *spec* (`Dim | Int32 | String?` — possibly `"50%"` or `nil`); this
+    # returns the cells actually used.
+    def width_cells : Int32
+      awidth
+    end
+
+    # :ditto: — alias of `#aheight`.
+    def height_cells : Int32
+      aheight
+    end
+
     # `Size` overload of `#resize` — Qt's `QWidget::resize(QSize)`. Pure
     # delegation to the `Int32` form.
     def resize(size : Size) : Nil

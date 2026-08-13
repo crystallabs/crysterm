@@ -5,8 +5,9 @@ module Crysterm
   # ones (uniform cells to their sides). Known to cause flickering with
   # non-full-width elements, but more optimal for terminal rendering.
   #
-  # Fast CSR: Enable CSR on any element within 20 columns of the window edges.
-  # Faster than smart_csr, but may flicker depending on what's on each side.
+  # Fast CSR: Enable CSR on any element within `render.csr_threshold` columns
+  # (see `Config`) of the window edges. Faster than smart_csr, but may flicker
+  # depending on what's on each side.
   #
   # BCE: Perform back_color_erase optimizations for terminals that support it.
   # Also works on terminals that don't, but only on lines with the default
@@ -19,12 +20,17 @@ module Crysterm
   # (multi-plane, nested layers, border docking, out-of-cell-model writes), so
   # it is always output-equivalent.
   #
-  # NOTE: damage tracking only observes mutations made through the tracked
+  # NOTE: damage tracking observes mutations made through the tracked
   # setters (`content=`, geometry/size setters, `show`/`hide`, `scroll`, child
-  # add/remove) or `Widget#mark_dirty`/`#request_render`. Mutating a `Style`
-  # object in place (e.g. `widget.style.bg = ...`) is NOT observed; call
-  # `widget.mark_dirty` after such a change, or opt out via
-  # `render.optimization = OptimizationFlag::None`.
+  # add/remove), `Widget#mark_dirty`/`#request_render`, and — via the
+  # per-frame `Style#attr_revision` sweep — in-place mutation of a style's
+  # attribute fields (`widget.style.bg = ...`: fg/bg/SGR flags/visible). An
+  # in-place change to a *non*-attribute style field (border, padding, …) is
+  # still not observed; call `widget.mark_dirty` after one (or use `#restyle`,
+  # which does). Note the sweep repaints on the next frame — something must
+  # still schedule one (a timer/`every` animation does; a lone in-place write
+  # from idle code should use `#restyle`/`mark_dirty`, which also ring the
+  # render doorbell).
   @[Flags]
   enum OptimizationFlag
     FastCSR

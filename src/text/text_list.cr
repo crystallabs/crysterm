@@ -85,15 +85,12 @@ module Crysterm
     def format=(fmt : TextListFormat) : TextListFormat
       old = @format
       @format = fmt
-      document.begin_edit_block
-      begin
+      document.edit do
         document.blocks.each_with_index do |b, i|
           next unless b.block_format.list_format.same?(old)
           pos = document.block_position(i)
           document.apply_block_format(pos, pos, b.block_format.with_list_format(fmt))
         end
-      ensure
-        document.end_edit_block
       end
       fmt
     end

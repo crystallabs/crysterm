@@ -6,7 +6,7 @@ include Crysterm
 
 window = Window.new title: "hello2"
 
-win = Widget::MainWindow.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
+win = Widget::MainWindow.new parent: window
 
 menubar = Widget::MenuBar.new
 win.menu_bar = menubar
