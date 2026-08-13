@@ -311,10 +311,11 @@ Setting
 program capture itself headlessly — every image on this page was produced
 that way.
 
-![](examples/games/minesweeper/minesweeper.5s.apng)
+![](tests/misc/minesweeper.5s.apng)
 
-*Source:
-[examples/games/minesweeper/minesweeper.cr](examples/games/minesweeper/minesweeper.cr)*
+*Source: [tests/misc/minesweeper.cr](tests/misc/minesweeper.cr) — the game from
+[examples/games/minesweeper/minesweeper.cr](examples/games/minesweeper/minesweeper.cr),
+playing itself through the scripted input paths below*
 
 ## Scripting and automation
 
