@@ -78,8 +78,8 @@ class Minesweeper
     @board.focus # focus up front, so cycle 1's fresh frames match later cycles'
 
     tick = 0
-    @window.every(0.1.seconds) do
-      t = tick % 50 # 50 beats x 0.1 s = the 5 s capture, wrapping on the fresh board
+    @window.every(1.seconds) do
+      t = tick % 5 # 5 beats x 1 s = the 5 s capture, wrapping on the fresh board
       tick += 1
 
       case t
