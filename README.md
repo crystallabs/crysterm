@@ -13,13 +13,18 @@ Main features:
 ## 90+ Qt-like widgets
 
 More than 90 concrete widgets with Qt-modeled APIs and behavior.
+Twelve representative ones, scripted live:
 
-![](tests/misc/qt_widgets.5s.apng)
+![](tests/misc/widgets.5s.apng)
 
-*Source: [tests/misc/qt_widgets.cr](tests/misc/qt_widgets.cr). See also
-[tests/misc/widgets.cr](tests/misc/widgets.cr), per-widget demos under
+![](tests/misc/widgets2.5s.apng)
+
+*Sources: [tests/misc/widgets.cr](tests/misc/widgets.cr) and
+[tests/misc/widgets2.cr](tests/misc/widgets2.cr). See also the full
+MainWindow chrome (menus, toolbars, docks, tabs) in
+[tests/misc/qt_widgets.cr](tests/misc/qt_widgets.cr), per-widget demos under
 [tests/widget/](tests/widget/), and the directory with widgets in
-[src/wiget/](src/wiget/).*
+[src/widget/](src/widget/).*
 
 ## Layouts
 
@@ -422,7 +427,8 @@ shards
 crystal tests/hellos/hello.cr          # the program above
 crystal tests/hellos/hello2.cr         # the Qt shape: MainWindow + a layout
 crystal tests/misc/qt_widgets.cr   # tour of the Qt-inspired widget set
-crystal tests/misc/widgets.cr      # tour of the general widget set
+crystal tests/misc/widgets.cr      # 6 representative widgets, animated (1/2)
+crystal tests/misc/widgets2.cr     # 6 more representative widgets (2/2)
 ```
 
 Larger, complete applications:
