@@ -6,9 +6,9 @@
 # mouse clicks (`Window#dispatch_mouse`) reveal cells and plant flags, and a
 # synthetic `n` keypress starts the next round.
 #
-# The script is a 5.0 s cycle — a fresh board, then the game's first five
-# moves at one move per second (the opening flood click, frontier reveals,
-# one flag), then a new game — that divides the capture length exactly and
+# The script is a 5.0 s cycle — a fresh board, then the game's first seven
+# moves at one move every 0.7 s (the opening flood click, frontier reveals,
+# two flags), then a new game — that divides the capture length exactly and
 # ends back on the fresh covered board it started on, so the recording loops
 # seamlessly at any phase. Mines are laid with a fixed-seed RNG, making every
 # cycle frame-identical.
@@ -86,14 +86,14 @@ class Minesweeper
       case t
       when 3 # move 1: the opening click, dead center — floods open the safe pocket
         demo_click 8, 8
-      when 13, 23, 33, 43 # moves 2-5, one per second: frontier reveals; move 3 flags a known mine
-        flag = t == 23
+      when 10, 17, 24, 31, 38, 45 # moves 2-7, one every 0.7 s: frontier reveals; moves 3 and 6 flag known mines
+        flag = t == 17 || t == 38
         cells = demo_frontier(mine: flag)
         unless cells.empty?
           row, col = demo_nearest(cells)
           demo_click row, col, flag ? ::Tput::Mouse::Button::Right : ::Tput::Mouse::Button::Left
         end
-      when 47 # after the five moves, restart the way a player would — the cycle wraps on the fresh board
+      when 48 # after the seven moves, restart the way a player would — the cycle wraps on the fresh board
         @window.emit Event::KeyPress, Event::KeyPress.new('n', nil)
       end
     end
