@@ -19,10 +19,11 @@ module Crysterm
     #
     # A hidden child releases its slot: siblings pack as though it weren't there.
     #
-    # Assigned sizes are remembered (`@flex_size`/`@filled_size`) so a sized child
-    # stays recognised as managed, and reassigned through the normal setters
-    # (no-op when unchanged) so a stable layout emits no events after the first
-    # frame.
+    # Assigned positions/sizes go through the widget's layout-geometry channel
+    # (`Widget#set_layout_geometry`), never the child's own `width`/`height`
+    # specs — a nil spec means "this layout decides the axis", an explicit
+    # spec means the child keeps it, and a stable layout emits no events
+    # after the first frame (the write is change-guarded).
     class Box < Layout
       enum Justify
         Start
@@ -87,13 +88,6 @@ module Crysterm
       @just_n = 0
       @just_around = false
       @just_k = 0
-      # Last main/cross size this layout *assigned* to a flex/filled child.
-      # Membership alone can't tell a layout-assigned size from a fresh user-set
-      # one, so a tracked child counts as managed only while its raw size still
-      # equals what was last put there; a mismatch means the user reclaimed it.
-      # The key set *is* the tracked set — no separate membership collection.
-      @flex_size = {} of Widget => Int32
-      @filled_size = {} of Widget => Int32
       # Per-arrange cache of fixed children's resolved main-axis size, so the
       # ancestor-chain walk in `a_main_size` runs once per frame, not per pass.
       # Stable between passes since only cross-axis size changes in between.
@@ -201,9 +195,6 @@ module Crysterm
       # Measures the main axis: total fixed size, total grow weight, the leftover
       # to distribute, and (when nothing grows) the `justify` lead/extra-gap.
       private def measure(container : Widget, interior : RenderedGeometry) : Nil
-        prune_managed container, @flex_size
-        prune_managed container, @filled_size
-
         main = main_extent interior
         # Clamp spacing before any gap product/accumulation: a raw `@spacing`
         # near `Int32::MAX` (or negative) would overflow/under-allocate here.
@@ -231,6 +222,10 @@ module Crysterm
             # `Int64` since the *sum* over many children can still overflow.
             grow += stretch_of el
           else
+            # The child's main size is its own spec this frame — quietly drop
+            # any stale layout assignment from a frame it was still flex, or
+            # `a_main_size` reads that instead of the spec.
+            clear_layout_main el
             # Clamp a fixed child's own resolved size against the main extent
             # before accumulating: an unclamped `Int32::MAX`-ish size (a
             # child's own `awidth`/`aheight` isn't bounded by the parent)
@@ -294,35 +289,16 @@ module Crysterm
             # Fill the interior *minus* the child's cross-axis margins: the
             # assigned size is fixed and the render shift pushes it out by the
             # near margin, so a full-extent size would clip by `near + far`.
-            cs = margin_box cross, cross_margin(el)
-            cross_w = cs
-            @filled_size[el] = cs
+            cross_w = margin_box cross, cross_margin(el)
           end
           cross_pos = 0
         else
           # Align moved off Stretch (or a per-child `Hint#alignment` overrides
-          # a still-Stretch box) — release a cross size this layout previously
-          # assigned back to the user's raw `nil` before measuring, mirroring
-          # Form's restore-before-measure. Without this the child
-          # stays frozen at whatever cross extent the Stretch branch last
-          # wrote forever: it stops tracking container resizes and the user's
-          # raw `nil` (auto) is destroyed for good. Safe: a child only
-          # ever enters `@filled_size` when its raw cross size was `nil` (the
-          # `cross_flex?` test above), so `nil` is always the correct
-          # value to restore; a user-reclaimed explicit size (raw no longer
-          # matches `@filled_size`) fails the guard and is left untouched.
-          # Written directly (not coalesced below): the release must land before
-          # `a_cross_size` re-reads the child's cross size.
-          #
-          # Binding `fs` is what keeps this scoped to *tracked* children: an
-          # untracked child has no `@filled_size` entry, and a bare
-          # `cross_size(el) == @filled_size[el]?` would match it whenever its raw
-          # cross size is also nil — releasing (and so nilling) a size this
-          # layout never assigned.
-          if (fs = @filled_size[el]?) && cross_size(el) == fs
-            set_cross_size el, nil
-            @filled_size.delete el
-          end
+          # a still-Stretch box): the child keeps its own cross size this
+          # frame, so quietly drop any stale layout assignment from a Stretch
+          # frame before `a_cross_size` resolves the spec — otherwise the
+          # child stays frozen at the last stretched extent.
+          clear_layout_cross el
 
           # Position the child's whole *margin* box (`cs + cross_margin`), not its
           # border box: the render shift pushes the border box out by the near
@@ -362,20 +338,17 @@ module Crysterm
               0
             end
           main_w = s
-          @flex_size[el] = s
         end
 
-        # One coalesced geometry write for both axes: a single `update`
-        # (one ancestor-chain walk, at most one Move + one Resize) instead of up
-        # to four independent setter runs. An unwritten size axis passes the
-        # child's current raw size, which no-ops in `set_geometry`'s change
-        # guard. `0` is a real size write (only `nil` means keep).
+        # One coalesced layout-geometry write for both axes: a single `update`
+        # (one ancestor-chain walk, at most one Move + one Resize) and the
+        # child's own specs untouched. A `nil` size axis is unmanaged — the
+        # child's spec rules (and any stale assignment clears). `0` is a real
+        # size write.
         if orientation.horizontal?
-          el.set_geometry main_pos, cross_pos,
-            (main_w || el.width), (cross_w || el.height)
+          el.set_layout_geometry main_pos, cross_pos, main_w, cross_w
         else
-          el.set_geometry cross_pos, main_pos,
-            (cross_w || el.width), (main_w || el.height)
+          el.set_layout_geometry cross_pos, main_pos, cross_w, main_w
         end
 
         # Advance by the *clamped* used main size, read after the write: a CSS
@@ -461,38 +434,36 @@ module Crysterm
         end
       end
 
-      # :ditto: for the *assigning* pairs — each arm writes `v` into one of the
-      # child's two axis fields, so the mirror is over which field is written.
-      # `vtype` types the value where the caller constrains it (positions are
-      # `Int32`; sizes take the full `Dim` union and stay unannotated).
-      macro axis_pair_set(main, cross, horiz, vert, vtype = nil)
-        private def {{ main.id }}(el : Widget, v{% if vtype %} : {{ vtype.id }}{% end %}) : Nil
-          orientation.horizontal? ? {{ horiz }} : {{ vert }}
-        end
-
-        private def {{ cross.id }}(el : Widget, v{% if vtype %} : {{ vtype.id }}{% end %}) : Nil
-          orientation.horizontal? ? {{ vert }} : {{ horiz }}
-        end
-      end
-
       # The child's total margin (near + far) along the main / cross axis.
       axis_pair main_margin, cross_margin, el.mhorizontal, el.mvertical, Int32
 
-      # Whether the child's main-axis size is decided by this layout: either its
-      # raw size is unset (`nil`), or we assigned it and it still holds that
-      # value. If the raw size no longer matches what we last assigned, the user
-      # reclaimed the child (`child.width = 20`), so it reverts to fixed.
-      # An untracked child needs no membership term: its `@flex_size` lookup is
-      # nil, which a non-nil raw size never equals, and a nil raw size already
-      # short-circuits on the first disjunct.
+      # Whether the child's main-axis size is decided by this layout: its spec
+      # is unset (`nil`). Exact by construction — this layout never writes the
+      # specs, so a non-nil spec is always the user's, and setting one
+      # (`child.width = 20`) reclaims the axis with no bookkeeping.
       private def main_flex?(el : Widget) : Bool
-        (ms = main_size(el)).nil? || ms == @flex_size[el]?
+        main_size(el).nil?
       end
 
-      # Whether the child's cross-axis size is decided (stretched) by this layout;
-      # released the same way as `main_flex?` when the user sets an explicit size.
+      # Whether the child's cross-axis size is decided (stretched) by this
+      # layout; same spec-nil test as `main_flex?`.
       private def cross_flex?(el : Widget) : Bool
-        (cs = cross_size(el)).nil? || cs == @filled_size[el]?
+        cross_size(el).nil?
+      end
+
+      # Quietly drops the child's layout-assigned main / cross size — before
+      # this engine resolves the child's own spec on that axis mid-arrange
+      # (`a_main_size`/`a_cross_size` prefer a layout-assigned value, so a
+      # stale one from a frame the axis was still layout-sized would shadow
+      # the spec). The base `#clear_layout_sizes` clears both; these are the
+      # single-axis forms the box's per-axis flow needs.
+      private def clear_layout_main(el : Widget) : Nil
+        orientation.horizontal? ? el.clear_layout_width : el.clear_layout_height
+      end
+
+      # :ditto:
+      private def clear_layout_cross(el : Widget) : Nil
+        orientation.horizontal? ? el.clear_layout_height : el.clear_layout_width
       end
 
       private def main_extent(interior : RenderedGeometry) : Int32
@@ -508,12 +479,6 @@ module Crysterm
 
       # The child's resolved (`a*`) main / cross size in cells.
       axis_pair a_main_size, a_cross_size, el.awidth, el.aheight, Int32
-
-      # Writes `v` as the child's cross size (placement itself goes through
-      # `el.set_geometry`, so only the cross-size writer is needed).
-      private def set_cross_size(el : Widget, v) : Nil
-        orientation.horizontal? ? (el.height = v) : (el.width = v)
-      end
     end
   end
 end

@@ -2,11 +2,12 @@ require "./spec_helper"
 
 include Crysterm
 
-# `ensure_widget_visible` must map the descendant's outer-relative top
-# (`child.rtop`, which folds in the scroll area's near inset `itop`) down to a
-# content-row index before calling `ensure_visible`. Passing `child.rtop`
-# verbatim is correct only when `itop == 0`; with a border (`itop == 1`) it
-# scrolls one row too far, failing to reveal a child above the viewport.
+# `ensure_widget_visible` must map the descendant's top to a content-row
+# index in this container's content space before calling `ensure_visible`
+# (it computes from absolute tops: `child.atop - atop - itop`). Historically
+# `rtop` folded the scroll area's near inset in and had to be corrected by
+# `- itop`; since the spec-space `r*` redefinition (#10), a direct child's
+# `rtop` IS its content-row index, with no inset to strip.
 describe "Widget#ensure_widget_visible with a bordered scroll area" do
   it "reveals a descendant above the viewport, accounting for the top inset" do
     s = headless_screen(80, 24)
@@ -17,8 +18,8 @@ describe "Widget#ensure_widget_visible with a bordered scroll area" do
       width: 5, height: 1, content: "x"
     s.repaint
 
-    box.itop.should eq 1                # border contributes a top inset
-    content_row = child.rtop - box.itop # the child's true content-row index
+    box.itop.should eq 1     # border contributes a top inset
+    content_row = child.rtop # spec-space rtop: the content-row index directly
     content_row.should eq 10
 
     # Scroll the viewport well past the child so it sits above the top edge.

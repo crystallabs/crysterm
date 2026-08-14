@@ -137,6 +137,6 @@ describe "BUGS15 flow MoveWidget moves an overflowing child back in (fix #73)" d
     # container's yl; the whole box must translate back inside the interior
     # bottom.
     sl.yl.should be <= (bl.yl - box.ibottom)
-    second.top.should eq 1 # interior.height(4) - mvertical(0) - aheight(3)
+    second.rtop.should eq 1 # interior.height(4) - mvertical(0) - aheight(3)
   end
 end

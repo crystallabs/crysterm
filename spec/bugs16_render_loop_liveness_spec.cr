@@ -38,13 +38,13 @@ describe "BUGS16 B16-01: render_loop liveness after the throttle sleep" do
 
     # First render: `@last_render_at` is nil, so it paints immediately and arms
     # the throttle.
-    w2.render
+    w2.update
     wait_until { w2.renders == 1 }
     w2.renders.should eq 1
 
     # Second render: the fiber wakes, passes the pre-sleep checks and parks in
     # the trailing throttle (elapsed < frame_interval).
-    w2.render
+    w2.update
     sleep 0.05.seconds
 
     # Teardown lands mid-sleep: sibling path, so the shared device stays live
@@ -65,11 +65,11 @@ describe "BUGS16 B16-01: render_loop liveness after the throttle sleep" do
     w = headless_screen(40, 10)
     w.frame_interval = 0.5.seconds
 
-    w.render
+    w.update
     wait_until { w.renders == 1 }
     w.renders.should eq 1
 
-    w.render
+    w.update
     sleep 0.05.seconds
 
     w.destroy

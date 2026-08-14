@@ -41,21 +41,16 @@ module Crysterm
         end
       end
 
-      # Placing a child writes a resolved `Int32` back over *both* axes — the
-      # consume axis (from `aheight`/`awidth`) and the span axis (the full
-      # remaining width/height) — which would destroy the raw values: a `"50%"`
-      # would freeze at frame 1's cell count, a transient clamp would stick,
-      # and (the bug this guards against) re-docking a child to a perpendicular
-      # region would read the OTHER axis's stale resolved value as if it were
-      # the new consume axis's raw size. Bookkeeping is therefore axis-keyed,
-      # not role-keyed (consume/span flips per region, per child, per re-dock):
-      # a width pair and a height pair, each restored and recorded for every
-      # managed child (edge *and* center) every frame, exactly mirroring
-      # `Layout::Form`'s `@raw_width`/`@raw_height` split.
-      @raw_width = {} of Widget => (Dim | Int32 | String)?
-      @assigned_width = {} of Widget => Int32
-      @raw_height = {} of Widget => (Dim | Int32 | String)?
-      @assigned_height = {} of Widget => Int32
+      # Placing a child assigns *both* axes — the consume axis (from
+      # `aheight`/`awidth`) and the span axis (the full remaining
+      # width/height) — through the layout-geometry channel
+      # (`Widget#set_layout_geometry`), so the child's own specs stay
+      # untouched: a `"50%"` re-resolves every frame and a perpendicular
+      # re-dock (top/bottom <-> left/right) reads true specs, never a stale
+      # resolved value. The one ordering rule that remains is
+      # `clear_layout_sizes` before the consume-axis `a*` read (see
+      # `#consume_edge`), since `awidth`/`aheight` prefer a layout-assigned
+      # value over the spec.
 
       # Reused, cleared-not-reallocated per-region buckets: one bucketing pass
       # over the children fills these. Within-region order is preserved
@@ -68,12 +63,6 @@ module Crysterm
       @bucket_center = [] of Widget
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
-        # Prune bookkeeping for children that have left the container.
-        prune_managed container, @raw_width
-        prune_managed container, @assigned_width
-        prune_managed container, @raw_height
-        prune_managed container, @assigned_height
-
         # Working rect in interior-local coordinates.
         x0 = 0
         y0 = 0
@@ -110,15 +99,11 @@ module Crysterm
         x0, y0, x1, y1 = consume_edge @bucket_left, :left, x0, y0, x1, y1
         x0, y0, x1, y1 = consume_edge @bucket_right, :right, x0, y0, x1, y1
         @bucket_center.each do |el|
-          # Center: everything not top/bottom/left/right. Consumes neither axis
-          # by name, but still has its raw width/height overwritten with a
-          # resolved full-span Int32 every frame, so it needs the same
-          # restore/record bookkeeping as the edges (e.g. a center child later
-          # re-hinted to an edge must not inherit a poisoned span size).
-          restore_size el
+          # Center: everything not top/bottom/left/right — both axes assigned
+          # the remaining rect (via the layout channel; specs untouched).
           cw = margin_box(x1 - x0, el.mhorizontal)
           ch = margin_box(y1 - y0, el.mvertical)
-          place_recorded el, x0, y0, cw, ch, @assigned_width, @assigned_height
+          place_child el, x0, y0, cw, ch
           render_child el
         end
       end
@@ -138,13 +123,16 @@ module Crysterm
         vertical = region.top? || region.bottom?
         far = region.bottom? || region.right?
         bucket.each do |el|
-          restore_size el
+          # Both axes were layout-assigned last frame (consume + span), and the
+          # consume-axis `a*` read below must resolve the child's own spec —
+          # quietly drop the stale assignments first.
+          clear_layout_sizes el
           if vertical
             # Consume height off the near/far edge; span the remaining width.
             mh = el.mvertical
             ch = el.aheight.clamp(0, margin_box(y1 - y0, mh))
             cw = margin_box(x1 - x0, el.mhorizontal)
-            place_recorded el, x0, (far ? y1 - ch - mh : y0), cw, ch, @assigned_width, @assigned_height
+            place_child el, x0, (far ? y1 - ch - mh : y0), cw, ch
             render_child el
             far ? (y1 -= ch + mh) : (y0 += ch + mh)
           else
@@ -152,26 +140,12 @@ module Crysterm
             mw = el.mhorizontal
             cw = el.awidth.clamp(0, margin_box(x1 - x0, mw))
             ch = margin_box(y1 - y0, el.mvertical)
-            place_recorded el, (far ? x1 - cw - mw : x0), y0, cw, ch, @assigned_width, @assigned_height
+            place_child el, (far ? x1 - cw - mw : x0), y0, cw, ch
             render_child el
             far ? (x1 -= cw + mw) : (x0 += cw + mw)
           end
         end
         {x0, y0, x1, y1}
-      end
-
-      # Restores `el`'s remembered raw width AND height before either
-      # `aheight`/`awidth` is re-read. Both axes get overwritten with a
-      # resolved `Int32` every frame regardless of which one the child's
-      # current region *consumes* — the other axis gets the full span — so
-      # both must be restored/tracked independently or a perpendicular
-      # re-dock (top/bottom <-> left/right) reads the wrong axis's stale
-      # resolved value as its "raw" size. Per axis: if the raw size no longer
-      # equals what was last assigned, the user reclaimed it — forget the old
-      # value and honor the new one.
-      private def restore_size(el : Widget) : Nil
-        restore_managed(el, @raw_width, @assigned_width, el.width) { |v| el.width = v }
-        restore_managed(el, @raw_height, @assigned_height, el.height) { |v| el.height = v }
       end
 
       private def region_of(el : Widget) : Region

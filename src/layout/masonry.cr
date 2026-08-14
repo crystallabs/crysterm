@@ -47,7 +47,9 @@ module Crysterm
         # the *first* previous-row child with minimal `abs(el.left - left)`.
         row = @prev_row
         return if row.empty?
-        el_left = el.left.as(Int)
+        # `eff_left`: `flow_place` layout-placed `el` just before, so its
+        # effective left is the layout assignment (an `Int` by construction).
+        el_left = el.eff_left.as(Int)
         best_bottom = 0
         abovea = Int32::MAX
         i = 0
@@ -64,8 +66,9 @@ module Crysterm
         if abovea != Int32::MAX
           # `Math.min` against the wrap-path top already assigned by
           # `flow_place` means gravitation can only pull `el` up, never push it
-          # below its row-assigned position.
-          el.top = Math.min(el.top.as(Int), best_bottom)
+          # below its row-assigned position. Rewrites the layout position
+          # (left unchanged); the change guard no-ops when nothing moves.
+          place_child el, el_left, Math.min(el.eff_top.as(Int), best_bottom), nil, nil
         end
       end
 
@@ -83,14 +86,16 @@ module Crysterm
           # (the same fall-through `flow_place` uses); in
           # steady state both give the same edges.
           if deferred_this_frame?(l)
-            left = l.left.as(Int) + l.mleft
+            # `eff_*`: the deferred child was layout-placed this frame, so its
+            # effective edges are the layout assignments (Ints by construction).
+            left = l.eff_left.as(Int) + l.mleft
             # The above child's assigned bottom edge (`top + mtop +
             # occupied_height + mbottom` — `occupied_height`, not `aheight`, so a
             # shrink-to-fit deferred child anchors at its drawn height rather
             # than the stretched interior), which equals the painted edge in
             # steady state. Widen to Int64 and clamp to the interior so
             # a pathological extent can't overflow the checked Int32 sum.
-            bottom = (l.top.as(Int).to_i64 + l.mtop + occupied_height(l) + l.mbottom).clamp(0_i64, interior.height.to_i64).to_i32
+            bottom = (l.eff_top.as(Int).to_i64 + l.mtop + occupied_height(l) + l.mbottom).clamp(0_i64, interior.height.to_i64).to_i32
           else
             left = lp.xi - xi
             # The drawn bottom edge (`lp.yl - yi`) glues `el` flush beneath it;

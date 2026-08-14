@@ -81,10 +81,11 @@ module Crysterm
           # Every arrangeable child gets an index slot (z-order bookkeeping).
           bump_index el
           if visible == shown
-            # Coalesced position write: one `update`/ancestor-walk and a
-            # single Move, vs a walk each from `left=` and `top=`. Size is left
-            # to the child (Stack pages keep their own extent).
-            el.move 0, 0
+            # Coalesced layout-position write: one `update`/ancestor-walk and
+            # a single Move. Size is left to the child (`nil` = unmanaged —
+            # Stack pages keep their own extent), and a page's own position
+            # spec survives for when the layout is removed.
+            place_child el, 0, 0, nil, nil
             render_or_defer el
           else
             skip_subtree el

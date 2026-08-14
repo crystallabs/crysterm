@@ -31,23 +31,14 @@ module Crysterm
       # allocating a `reject` array per render.
       @row_children = [] of Widget
 
-      # Placing a child writes the resolved row height back over its raw
-      # `@height`, which would freeze a `"30%"`/`nil` height at frame 1's cells
-      # and make the shared pair-row max sticky. Remember each child's raw height
-      # and the Int last assigned, restore the raw value before re-measuring, and
-      # release a child whose raw height the user changed.
-      @raw_height = {} of Widget => (Dim | Int32 | String)?
-      @assigned = {} of Widget => Int32
-
-      # Placing a child likewise writes the resolved column width back over its
-      # raw `@width`, which would freeze an auto (`nil`)/`"50%"` width at frame
-      # 1's cells and — worse — make the auto label column sticky, since
-      # `measured_label_width` reads back the assigned Int as if it were an
-      # explicit width. Same raw/assigned bookkeeping as height, but restored
-      # *before* the placement loop: label widths are read up front by
-      # `label_column_width`, so restoring inside the loop would be too late.
-      @raw_width = {} of Widget => (Dim | Int32 | String)?
-      @assigned_width = {} of Widget => Int32
+      # Placement goes through the layout-geometry channel
+      # (`Widget#set_layout_geometry`), so the children's own `width`/`height`
+      # specs stay untouched: `measured_label_width` always reads a true spec
+      # (the auto label column can't go sticky), and a `"30%"` row height
+      # re-resolves every frame. Two ordering rules remain, both "clear the
+      # stale layout assignment before resolving through it": widths before
+      # the label scan (content re-wraps at the effective width), heights
+      # before `#row_height` resolves a `Dim` spec via `aheight`.
 
       def initialize(@label_width : Int32? = nil, @horizontal_spacing : Int32 = 1, @vertical_spacing : Int32 = 0)
       end
@@ -63,22 +54,19 @@ module Crysterm
         hs = clamped_spacing @horizontal_spacing, w
         vs = clamped_spacing @vertical_spacing, interior.height
 
-        # Prune bookkeeping for children no longer in the container.
-        prune_managed container, @raw_height
-        prune_managed container, @assigned
-        prune_managed container, @raw_width
-        prune_managed container, @assigned_width
-
         # Only pair arrangeable children: layout-excluded chrome must not be
         # consumed as a label/field slot.
         children = @row_children
         children.clear
         each_arrangeable(container) { |el| children << el }
 
-        # Restore each child's raw width before it is measured/placed, so an
-        # auto/percent width re-resolves and a layout-assigned Int never leaks
-        # into the next frame's `label_column_width`.
-        children.each { |el| restore_width el }
+        # Quietly drop last frame's assigned column widths before the label
+        # scan: `measured_label_width` measures a label's *wrapped* content
+        # (`_clines`), which re-wraps at the effective width — a stale layout
+        # width from the previous arrange would wrap the content to the old
+        # column and freeze the auto column at it. The layout-channel analogue
+        # of the old restore-before-the-loop.
+        children.each &.clear_layout_width
 
         # Label column width: the fixed `#label_width`, or the widest paired
         # label's own content when auto (`nil`). Clamped to the interior width.
@@ -90,9 +78,12 @@ module Crysterm
         i = 0
         while i < children.size
           label = children[i]
-          restore_height label
+          # `#row_height` resolves a `Dim` spec through `aheight`, which
+          # prefers a layout-assigned height — quietly drop last frame's row
+          # assignment first so the spec is what resolves.
+          label.clear_layout_height
           if field = children[i + 1]?
-            restore_height field
+            field.clear_layout_height
             # Shared content row height, so the label and field align. Each
             # child's assigned width reserves its own horizontal margin box:
             # `_get_coords` shifts a fixed-size box outward by its near margin
@@ -106,8 +97,8 @@ module Crysterm
             rh = clamped_size(Math.max(row_height(label), row_height(field)), interior.height)
             lc = margin_box lw, label.mhorizontal
             fc = margin_box fw, field.mhorizontal
-            place_recorded label, 0, y, lc, rh, @assigned_width, @assigned
-            place_recorded field, lw + hs, y, fc, rh, @assigned_width, @assigned
+            place_child label, 0, y, lc, rh
+            place_child field, lw + hs, y, fc, rh
             render_child label
             render_child field
             # Advance by the tallest margin box on the row so a margined child
@@ -118,7 +109,7 @@ module Crysterm
             # Trailing odd child spans the full width, less its margin box.
             rh = clamped_size(row_height(label), interior.height)
             lc = margin_box w, label.mhorizontal
-            place_recorded label, 0, y, lc, rh, @assigned_width, @assigned
+            place_child label, 0, y, lc, rh
             render_child label
             y += rh + label.mvertical + vs
             i += 1
@@ -212,6 +203,14 @@ module Crysterm
         if (w = el.width).is_a?(Int32)
           return w
         end
+        # Re-wrap the label's content at its current effective width before
+        # measuring: `_clines` is a render-time cache and may still hold lines
+        # wrapped at last frame's assigned column (or older content). The old
+        # spec-restoring bookkeeping caused this re-wrap as a side effect of
+        # its `width=` restore (Resize -> reprocess); the layout channel asks
+        # for it explicitly. Cache-keyed, so a stable label costs one key
+        # check.
+        el.process_content
         el._clines.max_width + el.ihorizontal
       end
 
@@ -224,19 +223,6 @@ module Crysterm
         when Dim, String then el.aheight
         else                  1
         end
-      end
-
-      # Restores `el`'s remembered raw height before it is re-measured. Releases
-      # the child when its raw height no longer matches what was last assigned.
-      private def restore_height(el : Widget) : Nil
-        restore_managed(el, @raw_height, @assigned, el.height) { |v| el.height = v }
-      end
-
-      # Restores `el`'s remembered raw width before it is re-measured/placed.
-      # Releases the child when its raw width no longer matches what was last
-      # assigned (the user set an explicit width).
-      private def restore_width(el : Widget) : Nil
-        restore_managed(el, @raw_width, @assigned_width, el.width) { |v| el.width = v }
       end
     end
   end

@@ -46,6 +46,21 @@ module Crysterm
       end
     {% end %}
 
+    # `eff_left`/`eff_top`: the near-edge value geometry resolution consumes —
+    # the layout-assigned offset when a parent engine manages this widget's
+    # position (`@layout_left`/`@layout_top`), else the user's spec. This is
+    # the substitution point of the layout-geometry split
+    # (plans/SIZE-POLICY-PLAN.md §2.2): engines used to write resolved `Int32`s
+    # into the specs, so preferring the layout field here reproduces exactly
+    # the ivar state resolution always saw, while the specs stay untouched.
+    # Only the near edges exist — engines never manage `right`/`bottom`.
+    {% for side in %w[left top] %}
+      @[AlwaysInline]
+      protected def eff_{{ side.id }}
+        @layout_{{ side.id }} || @{{ side.id }}
+      end
+    {% end %}
+
     #
     # Computed relative position on window
     #
@@ -204,8 +219,9 @@ module Crysterm
       # branches; passing it in avoids a second `a{{ axis[:dim].id }}` walk per
       # frame. When nil it is resolved on demand.
       def a{{ axis[:near].id }}(rendered = false, {{ axis[:dim].id }} = nil, parent_pos = nil, with_margin = true) : Int32
-        # Original {{ axis[:near].id }}
-        o{{ axis[:near].id }} = @{{ axis[:near].id }}
+        # Layout-assigned {{ axis[:near].id }} when managed, else the user's
+        # spec (see `eff_*` above); the far edge is never layout-managed.
+        o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
         o{{ axis[:far].id }} = @{{ axis[:far].id }}
 
         mg = style.margin
@@ -255,7 +271,7 @@ module Crysterm
                    ] %}
       # Returns computed absolute {{ axis[:far].id }} position
       def a{{ axis[:far].id }}(rendered = false) : Int32
-        o{{ axis[:near].id }} = @{{ axis[:near].id }}
+        o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
         o{{ axis[:far].id }} = @{{ axis[:far].id }}
 
         parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
@@ -425,7 +441,7 @@ module Crysterm
         cw = clamp_awidth(sw)
         if cw != sw
           cw = 0 if cw < 0
-          if far_anchored?(@left, @right)
+          if far_anchored?(eff_left, @right)
             xi = xl - cw
           else
             xl = xi + cw
@@ -435,7 +451,7 @@ module Crysterm
         ch = clamp_aheight(sh)
         if ch != sh
           ch = 0 if ch < 0
-          if far_anchored?(@top, @bottom)
+          if far_anchored?(eff_top, @bottom)
             yi = yl - ch
           else
             yl = yi + ch
@@ -449,8 +465,8 @@ module Crysterm
       # stretched auto size already folded its margin into `awidth`/`aheight`, so
       # shifting is all that remains; a fixed size never shrinks.
       if (margin = style.margin).any?
-        xi, xl = shift_margin(xi, xl, @left, @right, margin.left, margin.right)
-        yi, yl = shift_margin(yi, yl, @top, @bottom, margin.top, margin.bottom)
+        xi, xl = shift_margin(xi, xl, eff_left, @right, margin.left, margin.right)
+        yi, yl = shift_margin(yi, yl, eff_top, @bottom, margin.top, margin.bottom)
       end
 
       # Nearest ancestor that clips its children (memoized, see `#clip_ancestor`):

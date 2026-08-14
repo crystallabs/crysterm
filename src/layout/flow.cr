@@ -108,7 +108,11 @@ module Crysterm
             # Ignore. Anchor the child's whole margin box within the interior.
             # Compute the anchor in Int64 and clamp so a huge
             # margin+height can't underflow/overflow the checked Int32 math.
-            el.top = Math.max(0_i64, interior.height.to_i64 - el.mvertical - el.aheight).clamp(0_i64, interior.height.to_i64).to_i32
+            # `place_one` layout-placed the child just above, so `layout_left`
+            # is non-nil and carries through unchanged.
+            place_child el, (el.layout_left || 0),
+              Math.max(0_i64, interior.height.to_i64 - el.mvertical - el.aheight).clamp(0_i64, interior.height.to_i64).to_i32,
+              nil, nil
           end
 
           # A deferred (z-indexed) child still renders at the position assigned
@@ -191,9 +195,10 @@ module Crysterm
         # an auto-sized deferred predecessor chains at its real extent).
         # The x position is threaded as a LOCAL through the chain and the
         # grid snap, so the intermediate values never reach the change-guarded
-        # `left=` setter — each such write costs a full `update` ancestor
-        # walk plus a `Move` emit. Every branch commits through the coalescing
-        # `Widget#move` primitive instead (one walk, one emit for both axes).
+        # writer — each such write costs a full `update` ancestor walk plus a
+        # `Move` emit. Every branch commits through the coalescing
+        # `#place_child` layout write instead (one walk, one emit for both
+        # axes; sizes stay unmanaged/`nil`, flow children keep their own).
         if (last = @last_rendered) && !deferred_this_frame?(last) &&
            (llp = rendered_geometry(last))
           left = (llp.xl + last.mright) - xi
@@ -203,12 +208,15 @@ module Crysterm
           # Widen the chain sum to Int64 and clamp to the interior so a
           # pathological predecessor extent can't overflow the checked Int32
           # accumulation (`occupied_width` returns raw `awidth`).
-          left = (last.left.as(Int).to_i64 + last.mleft + last_drawn + last.mright).clamp(0_i64, width.to_i64).to_i32
+          # `eff_left`: the predecessor was layout-placed this frame, so its
+          # effective left is the layout assignment (an `Int` by
+          # construction), not its untouched spec.
+          left = (last.eff_left.as(Int).to_i64 + last.mleft + last_drawn + last.mright).clamp(0_i64, width.to_i64).to_i32
         else
           # No predecessor at all: start the row at the origin. `top` is
           # `@row_offset` (the current row), not a hardcoded 0, so a mid-flow
           # chain break can't fold later rows back onto row 0.
-          el.move 0, @row_offset
+          place_child el, 0, @row_offset, nil, nil
           return
         end
 
@@ -219,13 +227,14 @@ module Crysterm
 
         # Commit the chained position before the fit test, NOT after it: for a
         # nil-width (shrink-to-fit) child `cached_awidth` resolves `el.awidth`,
-        # whose auto branch reads the child's own `@left` (widget_size.cr) — so
-        # the fit test only means what it means once `left` is assigned. This is
-        # also what makes such a child never wrap (`left + awidth` collapses to
-        # the interior width), the horizontal twin of `#overflow_action`'s NOTE;
-        # testing against a local would resolve `awidth` from the *previous*
-        # frame's `left` and wrap every auto-width child onto its own row.
-        el.move left, @row_offset
+        # whose auto branch reads the child's effective left (`eff_left` —
+        # the layout assignment, widget_size.cr) — so the fit test only means
+        # what it means once the position is assigned. This is also what makes
+        # such a child never wrap (`left + awidth` collapses to the interior
+        # width), the horizontal twin of `#overflow_action`'s NOTE; testing
+        # against a local would resolve `awidth` from the *previous* frame's
+        # position and wrap every auto-width child onto its own row.
+        place_child el, left, @row_offset, nil, nil
 
         # Include the child's own left margin: render shifts the drawn box right
         # by `mleft` without shrinking a fixed width, so the child occupies
@@ -243,7 +252,7 @@ module Crysterm
           @row_offset += clamped_size(row_tallest(container, @row_index, i), interior.height)
           @last_row_index = @row_index
           @row_index = i
-          el.move 0, @row_offset
+          place_child el, 0, @row_offset, nil, nil
         end
       end
 
@@ -348,7 +357,10 @@ module Crysterm
         # vertical margins in, so adding `mtop` still can't exceed the interior.
         # Run the overflow comparison in Int64 so the bottom-edge sum
         # can't overflow the checked Int32 arithmetic.
-        if el.top.as(Int).to_i64 + el.mtop + el.aheight > height
+        # `eff_top`: the child was layout-placed this frame, so its effective
+        # top is the layout assignment (an `Int` by construction), not its
+        # untouched spec.
+        if el.eff_top.as(Int).to_i64 + el.mtop + el.aheight > height
           return container.overflow
         end
         nil

@@ -61,9 +61,9 @@ module Crysterm
           rad = (start_angle + step * i) * Math::PI / 180.0
           x = ((iw - w) / 2.0 * (1.0 + Math.cos(rad))).round.to_i32
           y = ((ih - h) / 2.0 * (1.0 + Math.sin(rad))).round.to_i32
-          # Move only — children keep their own size, so a percent/auto size
-          # stays live (no managed-size bookkeeping needed).
-          el.move x, y
+          # Position only — children keep their own size (`nil` = unmanaged),
+          # so a percent/auto size stays live.
+          place_child el, x, y, nil, nil
           render_or_defer el
           i += 1
         end

@@ -254,78 +254,40 @@ module Crysterm
       el.suppress_subtree
     end
 
-    # Assigns `el`'s full rectangle (left/top/width/height) in one call. Does not
-    # render, so an engine placing several children before rendering them stays
-    # in control of the order. One combined geometry write, so the whole
-    # rectangle costs a single `update` and at most one `Move` + one
-    # `Resize`, rather than four independent setter runs.
-    protected def place_child(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
-      el.set_geometry left, top, width, height
+    # Assigns `el`'s full layout-managed rectangle in one call — through the
+    # widget's *layout-geometry* fields (`Widget#set_layout_geometry`), never
+    # the user's `left`/`top`/`width`/`height` specs, which stay exactly as
+    # the user set them (a `"50%"` re-resolves every frame; an explicit spec
+    # reclaims the axis with no bookkeeping). `nil` for a size leaves that
+    # axis to the child's own spec (and clears any stale assignment from a
+    # frame the axis was still managed).
+    #
+    # Does not render, so an engine placing several children before rendering
+    # them stays in control of the order. One combined write: a single
+    # `update` and at most one `Move` + one `Resize`, only for what actually
+    # changed — a stable layout emits nothing after its first frame.
+    protected def place_child(el : Widget, left : Int32, top : Int32, width : Int32?, height : Int32?) : Nil
+      el.set_layout_geometry left, top, width, height
     end
 
     # Places `el`'s full rectangle and immediately renders it. Not for engines
     # that must place several children before rendering any of them (e.g. to
     # apply a shared row height to both) — those call `#place_child` and
     # `#render_child` separately.
-    protected def place_and_render(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
+    protected def place_and_render(el : Widget, left : Int32, top : Int32, width : Int32?, height : Int32?) : Nil
       place_child el, left, top, width, height
       render_child el
     end
 
-    # --- Layout-owned ("managed") size bookkeeping -------------------------
-    #
-    # An engine that resolves a child's raw size to cells and writes the
-    # resolved `Int32` back would *destroy* the original value: a `"50%"` string
-    # would never resolve again (frozen at frame 1's cell count), an auto size
-    # would freeze, a transient clamp would stick. So an engine keeps a
-    # `raw_map` (the value the user set) beside an `assigned_map` (the Int it
-    # last wrote), restoring the raw value before re-measuring and releasing a
-    # child once its raw size no longer equals what was assigned. These helpers
-    # single-source that core; the caller supplies the per-engine axis/field.
-    # All three are allocation-free — the blocks are `yield`ed, never captured.
-
-    # Drops bookkeeping entries for children that have left `container`.
-    # Hash-shaped maps (two-arg block); `Widget#child?` is O(1), so this stays
-    # linear in the tracked entries rather than `tracked × children`.
-    protected def prune_managed(container : Widget, map) : Nil
-      map.select! { |el, _| container.child? el }
-    end
-
-    # Restores `el`'s remembered raw size (passed in as `raw`) before a
-    # re-measure — so a percent/nil/clamped size resolves against the *live*
-    # container every frame — or, when the raw size no longer equals what was
-    # last assigned, forgets the old value and records the new one (the user
-    # reclaimed the child). The block receives the remembered raw value and
-    # writes it back into the child's axis.
-    protected def restore_managed(el : Widget, raw_map, assigned_map, raw, &) : Nil
-      if (assigned = assigned_map[el]?) && raw == assigned && raw_map.has_key?(el)
-        yield raw_map[el]
-      else
-        raw_map[el] = raw
-      end
-    end
-
-    # Remembers the resolved `Int32` just written into `el`, so the next frame
-    # can tell a layout-owned size from a user-reclaimed one.
-    protected def record_managed(el : Widget, assigned_map, v : Int32) : Nil
-      assigned_map[el] = v
-    end
-
-    # Places `el`'s full rectangle (`#place_child`) and records the resolved
-    # width/height into `assigned_w`/`assigned_h` (`#record_managed`, called
-    # for both) — the "place child, then remember what got assigned on *both*
-    # axes" step Border's edge/center placement and Form's row placement each
-    # repeat. Both axes are recorded even though an engine may only *consume*
-    # one of them (a Border edge, a Form row's shared height): the other axis
-    # still gets overwritten with a resolved `Int32` span/row value every
-    # frame, so tracking just the consumed axis would let a later re-dock or
-    # re-pair read the other axis's stale resolved value back as if it were
-    # the user's own raw size. Does not render — callers still choose their
-    # own render order/timing via `#render_child`, same as `#place_child`.
-    protected def place_recorded(el : Widget, x : Int32, y : Int32, w : Int32, h : Int32, assigned_w : Hash(Widget, Int32), assigned_h : Hash(Widget, Int32)) : Nil
-      place_child el, x, y, w, h
-      record_managed el, assigned_w, w
-      record_managed el, assigned_h, h
+    # Quietly drops both of `el`'s layout-assigned sizes, for an engine about
+    # to resolve the child's own size specs mid-arrange (`awidth`/`aheight`
+    # prefer a layout-assigned value, so a stale assignment from the previous
+    # frame would shadow the spec — the layout-channel analogue of the old
+    # restore-before-measure). Position assignments need no counterpart: no
+    # engine reads a child's position spec back through `a*` before placing it.
+    protected def clear_layout_sizes(el : Widget) : Nil
+      el.clear_layout_width
+      el.clear_layout_height
     end
 
     # Cumulative offset of fence line `i` when `total` is divided into `n`

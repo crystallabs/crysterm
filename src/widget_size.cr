@@ -248,6 +248,20 @@ module Crysterm
       end
     {% end %}
 
+    # `eff_width`/`eff_height`: the size value geometry resolution consumes —
+    # the layout-assigned cells when a parent engine manages this widget's
+    # size (`@layout_width`/`@layout_height`), else the user's spec. The size
+    # half of the substitution point described at `eff_left`
+    # (widget_position.cr); a layout-assigned size then flows through the
+    # `Int32` arm below exactly as the engine-written specs used to —
+    # `min-*`/`max-*` clamps and `box_sizing` padding included.
+    {% for dim in %w[width height] %}
+      @[AlwaysInline]
+      protected def eff_{{ dim.id }}
+        @layout_{{ dim.id }} || @{{ dim.id }}
+      end
+    {% end %}
+
     # Size-context variant of `#resolve_dim`: a stored `Dim` resolves as
     # parsed; the cold raw-`String` arm parses with the `"half"` alias.
     private def resolve_size_dim(o : Dim | String, against : Int32) : Int32
@@ -272,9 +286,11 @@ module Crysterm
                    ] %}
       # Returns computed {{ axis[:dim].id }}, in cells. See *rendered* above.
       def a{{ axis[:dim].id }}(rendered = false) : Int32
-        o{{ axis[:near].id }} = @{{ axis[:near].id }}
+        # Layout-assigned values when managed, else the user's specs (see
+        # `eff_*`); the far edge is never layout-managed.
+        o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
         o{{ axis[:far].id }} = @{{ axis[:far].id }}
-        {{ axis[:dim].id }} = @{{ axis[:dim].id }}
+        {{ axis[:dim].id }} = eff_{{ axis[:dim].id }}
 
         # Parent's rendered position is only needed by the Dim/String/`nil` branches;
         # a fixed `Int32` {{ axis[:dim].id }} (common case) ignores it, so it's resolved
@@ -380,7 +396,7 @@ module Crysterm
     # what "shrinks on this axis" means, or the children-derived and
     # content-derived rectangles silently disagree — hence the single definition.
     private def shrink_width? : Bool
-      @width.nil? && (@left.nil? || @right.nil?)
+      eff_width.nil? && (eff_left.nil? || @right.nil?)
     end
 
     # Whether the y axis shrinks to its content — the `#shrink_width?` mirror,
@@ -389,7 +405,7 @@ module Crysterm
     # scroll), *except* an item view, whose height is derived from its item
     # count.
     private def shrink_height? : Bool
-      @height.nil? && (@top.nil? || @bottom.nil?) && (!@scrollable || item_view?)
+      eff_height.nil? && (eff_top.nil? || @bottom.nil?) && (!@scrollable || item_view?)
     end
 
     # Returns minimum widget size based on bounding box
@@ -447,13 +463,13 @@ module Crysterm
         # A shrunk parent's children assume max available space, so a
         # right/bottom-anchored child would inflate the parent's shrunken size;
         # use just the element's own height/width instead.
-        if el.left.nil? && !el.right.nil?
+        if el.eff_left.nil? && !el.right.nil?
           ret.xl = xi + (ret.xl - ret.xi)
           ret.xi = xi
           ret.xl += ileft
           ret.xi += ileft
         end
-        if el.top.nil? && !el.bottom.nil?
+        if el.eff_top.nil? && !el.bottom.nil?
           ret.yl = yi + (ret.yl - ret.yi)
           ret.yi = yi
           ret.yl += itop
@@ -471,7 +487,7 @@ module Crysterm
       end
 
       if shrink_width?
-        if far_anchored?(@left, @right)
+        if far_anchored?(eff_left, @right)
           xi = xl - (mxl - mxi)
           # `mxl - mxi` already bakes in the *near* (left) inset: children sit at
           # `parent.ileft` while `mxi` is seeded to the parent's own left edge, so
@@ -503,7 +519,7 @@ module Crysterm
           # branch's span (`myl - myi == items + itop`) unchanged.
           myl = yi + item_box_count + itop
         end
-        if far_anchored?(@top, @bottom)
+        if far_anchored?(eff_top, @bottom)
           yi = yl - (myl - myi)
           # `myl - myi` already bakes in the *near* (top) inset (see the x-axis
           # branch above), so pull the top edge back by the *far* (bottom) inset to
@@ -532,7 +548,7 @@ module Crysterm
       # an outward margin shifts this box rather than shrinking it (see
       # `coords`), so no margin room is reserved here.
       if shrink_width?
-        if far_anchored?(@left, @right)
+        if far_anchored?(eff_left, @right)
           xi = xl - w - ihorizontal
         else
           xl = xi + w + ihorizontal
@@ -540,7 +556,7 @@ module Crysterm
       end
 
       if shrink_height?
-        if far_anchored?(@top, @bottom)
+        if far_anchored?(eff_top, @bottom)
           yi = yl - h - ivertical
         else
           yl = yi + h + ivertical
@@ -602,13 +618,13 @@ module Crysterm
       # Recenter shrunken elements (`center`/`center±N`): a shrunk widget pulled
       # its origin back by half its full width in `aleft`, so recentering by half
       # the freed space keeps an offset-centered widget from landing far off.
-      if xl < xll && center_expr?(@left)
+      if xl < xll && center_expr?(eff_left)
         xll = (xll - xl) // 2
         xi += xll
         xl += xll
       end
 
-      if yl < yll && center_expr?(@top)
+      if yl < yll && center_expr?(eff_top)
         yll = (yll - yl) // 2
         yi += yll
         yl += yll

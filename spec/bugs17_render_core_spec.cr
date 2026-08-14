@@ -52,7 +52,7 @@ describe "BUGS17 B17-02: background window does not paint the shared device" do
       # loop. That loop must not composite or flush w1's changed cells onto
       # the shared tty, over w2's frame. It must write nothing at all.
       box.content = "W1CHANGED"
-      w1.render # explicitly ring w1's doorbell too
+      w1.update # explicitly ring w1's doorbell too
       sleep 80.milliseconds
       out.to_s.should eq ""
 
@@ -73,7 +73,7 @@ describe "BUGS17 B17-03: cross-fiber request_frame during _render is not dropped
     win = b17_window dev
     begin
       # Prime one frame so the loop is idle and parked on the doorbell.
-      win.render
+      win.update
       wait_until { win.renders > 0 }
       baseline = win.renders
 
@@ -97,7 +97,7 @@ describe "BUGS17 B17-03: cross-fiber request_frame during _render is not dropped
         end
       end
 
-      win.render # ring the doorbell -> frame -> PreRender -> cross-fiber request_frame
+      win.update # ring the doorbell -> frame -> PreRender -> cross-fiber request_frame
       # Two frames occur (this one plus the scheduled follow-up); the
       # cross-fiber request_frame must not be suppressed.
       wait_until { win.renders >= baseline + 2 }

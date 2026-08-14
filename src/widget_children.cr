@@ -210,6 +210,10 @@ module Crysterm
       previous = element.window?
       element.parent_ivar = nil
       element.window = nil
+      # This parent's layout engine (if any) no longer owns the element's
+      # geometry: revert it to its own specs, so a stale layout assignment
+      # can't shadow them under a future parent.
+      element.clear_layout_geometry
 
       # Drop this element (and its subtree) from the window's keyboard/mouse
       # registries. Routed through `previous`, since the widget itself doesn't

@@ -361,6 +361,78 @@ module Crysterm
       set_geometry r.x, r.y, r.width, r.height
     end
 
+    # --- Layout-assigned geometry (plans/SIZE-POLICY-PLAN.md §2.2) ----------
+    #
+    # A parent layout engine places this widget through these fields, NOT by
+    # writing the user's `left`/`top`/`width`/`height` specs — so `w.width`
+    # always reads what the user set, a `"50%"` re-resolves against the live
+    # container every frame, and "the user reclaimed the child" is simply "the
+    # spec is non-nil", with no shadow-map bookkeeping. Geometry resolution
+    # (`aleft`/`awidth` & co.) consumes these via the `eff_*` readers, which
+    # prefer a layout-assigned field over the spec — reproducing exactly the
+    # ivar state engines used to create by overwriting the specs.
+    #
+    # `nil` = not layout-managed on that field (the spec rules). Whole-frame
+    # ownership: an engine (re)writes every field it manages and clears every
+    # field it does not, for each child it arranges, every arrange.
+    @layout_left : Int32? = nil
+    @layout_top : Int32? = nil
+    @layout_width : Int32? = nil
+    @layout_height : Int32? = nil
+
+    {% for f in %w[left top width height] %}
+      # The layout-assigned {{ f.id }}, or `nil` when not layout-managed.
+      protected def layout_{{ f.id }} : Int32?
+        @layout_{{ f.id }}
+      end
+    {% end %}
+
+    # Assigns the layout-managed geometry in one shot — the engines' analogue
+    # of `#set_geometry`, with the same coalescing: all four fields land before
+    # any dispatch, `#update` runs at most once, and `Move`/`Resize` are
+    # emitted only for the pairs that actually changed. A full no-op when
+    # nothing changed, so a stable layout emits no events after its first
+    # frame. `nil` clears a field back to spec control.
+    protected def set_layout_geometry(left : Int32?, top : Int32?, width : Int32?, height : Int32?) : Nil
+      moved = (@layout_left != left) || (@layout_top != top)
+      resized = (@layout_width != width) || (@layout_height != height)
+      return unless moved || resized
+
+      @layout_left = left
+      @layout_top = top
+      @layout_width = width
+      @layout_height = height
+
+      update
+      emit ::Crysterm::Event::Move if moved
+      emit ::Crysterm::Event::Resize if resized
+    end
+
+    # Quietly (no `#update`, no emits) drops the layout-assigned width — for an
+    # engine about to resolve the child's own spec mid-arrange (a stale
+    # assignment from the frame the child was still layout-sized would shadow
+    # it). The final `#set_layout_geometry` of the same arrange emits whatever
+    # actually changed.
+    protected def clear_layout_width : Nil
+      @layout_width = nil
+    end
+
+    # :ditto: for the height.
+    protected def clear_layout_height : Nil
+      @layout_height = nil
+    end
+
+    # Quietly clears all four layout-assigned fields — the widget's geometry
+    # reverts to its specs. Called when the widget leaves its parent and when a
+    # container's `#layout=` swaps engines, so a stale assignment can't shadow
+    # the specs under a new parent/engine.
+    protected def clear_layout_geometry : Nil
+      @layout_left = nil
+      @layout_top = nil
+      @layout_width = nil
+      @layout_height = nil
+    end
+
     # Assigns `left`/`top` in one shot — the move-only counterpart to
     # `#set_geometry`: a single `#update` and only a `Move` emit, and a full
     # no-op when the position doesn't change ↔ Qt's `QWidget::move()`.

@@ -55,6 +55,11 @@ module Crysterm
       @layout.try(&.container=(nil))
       @layout = value
       value.try(&.container=(self))
+      # The outgoing engine's assignments must not shadow the children's own
+      # specs under the new engine (or under manual placement, for `nil`) —
+      # e.g. a swapped-in `UniformGrid` measures child widths before its first
+      # placement pass would overwrite them. Quiet; the `update` below repaints.
+      @children.each &.clear_layout_geometry
       update
       value
     end

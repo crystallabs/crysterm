@@ -10,10 +10,11 @@ private def rendered_height(el)
   l.yl - l.yi
 end
 
-# BUGS15 #3 — Layout::Border must not write each edge child's resolved
-# consume-axis size back into its raw @height/@width, destroying a percent
-# size (frozen at frame 1's cells) and making a transient clamp permanent;
-# mirrors Layout::Box's @flex_size release bookkeeping.
+# BUGS15 #3 — Layout::Border must not destroy a percent consume-axis size
+# (frozen at frame 1's cells) nor make a transient clamp permanent.
+# Originally guarded by raw/assigned shadow maps; since the layout-geometry
+# split (plans/SIZE-POLICY-PLAN.md §2.2) the engine never touches the child's
+# specs at all, and these pin that structural guarantee.
 describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
   it "re-resolves a top child's percent height against the live container" do
     s = headless_screen(80, 24)
@@ -95,9 +96,11 @@ describe "BUGS15 grid clamps an off-grid column to the last column (fix #33)" do
     s.repaint
 
     # Guards against: width 0, left 30 (past the interior), lpos nil.
+    # `awidth`/`rleft`: the assignment lives in the layout-geometry channel;
+    # the child's own specs stay nil.
     off.lpos.should_not be_nil
-    off.width.should eq 10 # last of three 10-wide columns
-    off.left.should eq 20  # column 2 origin
+    off.awidth.should eq 10 # last of three 10-wide columns
+    off.rleft.should eq 20  # column 2 origin
   end
 end
 
@@ -144,9 +147,9 @@ describe "BUGS15 flow keeps scrolled rows visible (fix #4)" do
     # and stay staggered across the row, not collapse every child onto (0,0).
     kids[4].lpos.should_not be_nil
     kids[7].lpos.should_not be_nil
-    kids[4].left.should eq 0
-    kids[7].left.should eq 9 # 4th column, proving the chain didn't collapse
-    kids[4].top.should eq 2  # row cursor advanced past the clipped row
+    kids[4].rleft.should eq 0
+    kids[7].rleft.should eq 9 # 4th column, proving the chain didn't collapse
+    kids[4].rtop.should eq 2  # row cursor advanced past the clipped row
   end
 end
 
