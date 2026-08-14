@@ -40,7 +40,7 @@ module Crysterm
     # artificial cursor is composited into the cell buffer by `#draw` and
     # cursor-state changes must repaint to take effect.
     private def render_if_active : Nil
-      render if @renders > 0
+      update if @renders > 0
     end
 
     # The cursor in effect: the focused widget's own cursor, else the screen
@@ -146,7 +146,7 @@ module Crysterm
     #
     # Color is stored as `cursor.style.fg`, the one field driving both the
     # artificial renderer and `#apply_cursor`. An artificial cursor applies it
-    # on the next `render`; otherwise it is pushed to the terminal.
+    # on the next `update`; otherwise it is pushed to the terminal.
     def set_cursor_color(color : Int | String?, cursor : Cursor = @cursor) : Nil
       cursor.style.fg = color
       cursor._set = true

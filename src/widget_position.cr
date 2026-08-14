@@ -41,7 +41,7 @@ module Crysterm
         val = Dim.from val
         return if @{{ side.id }} == val
         @{{ side.id }} = val
-        mark_dirty
+        update
         emit ::Crysterm::Event::Move
       end
     {% end %}

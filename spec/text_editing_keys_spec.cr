@@ -6,7 +6,7 @@ include Crysterm
 # (shared by `Widget::LineEdit` and `Widget::PlainTextEdit`), companion to
 # `text_selection_mouse_spec.cr` (which covers mouse cursor-positioning and
 # click-drag selection). Same headless harness: a `Window` over in-memory IOs,
-# a synchronous `Window#repaint` (NOT `#render`, which only rings the async
+# a synchronous `Window#repaint` (NOT `#update`, which only rings the async
 # render doorbell) so geometry/painted-line caches exist, then keystrokes fed
 # straight through `#_listener` (as `_read_input` wires them) and mouse events
 # through `Window#dispatch_mouse` (for `#click_count`).

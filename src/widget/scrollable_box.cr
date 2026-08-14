@@ -81,7 +81,7 @@ module Crysterm
 
         # Consume the handled key (don't also drive an ancestor) and repaint.
         e.accept
-        request_render
+        update!
       end
     end
   end

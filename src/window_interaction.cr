@@ -292,11 +292,11 @@ module Crysterm
           when Tput::Key::Tab
             e.accept
             focus_next
-            render
+            update
           when Tput::Key::ShiftTab
             e.accept
             focus_previous
-            render
+            update
           end
         end
 
@@ -310,15 +310,15 @@ module Crysterm
           when e.key == Tput::Key::F6 && !e.shift?
             e.accept
             focus_region_next
-            render
+            update
           when e.key == Tput::Key::F18 || (e.key == Tput::Key::F6 && e.shift?)
             e.accept
             focus_region_previous
-            render
+            update
           when e.key == Tput::Key::Escape && region_of(focused)
             e.accept
             focus_central
-            render
+            update
           end
         end
       end

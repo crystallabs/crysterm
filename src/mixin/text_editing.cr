@@ -55,7 +55,7 @@ module Crysterm
       #
       # The payload is `#buf_text` — for a document-backed buffer that is a full
       # `String` rebuild of the document on every content-changing keystroke, so
-      # the guard is worth having. Call sites must keep `request_render` and
+      # the guard is worth having. Call sites must keep `update!` and
       # `_update_cursor` *outside* the guard: rendering does not depend on
       # anyone observing the event.
       #
@@ -89,7 +89,7 @@ module Crysterm
         ensure_cursor_visible
         ensure_cursor_visible_x
         emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
-        request_render
+        update!
         _update_cursor
       end
 
@@ -154,7 +154,7 @@ module Crysterm
         @selection_anchor = 0
         @cursor_pos = buf_size
         @goal_col = nil
-        request_render
+        update!
       end
 
       # Drops the in-progress/completed mouse selection without moving the
@@ -296,9 +296,9 @@ module Crysterm
             window?.try &.capture_mouse(self)
             # Reflect the reposition/selection ourselves rather than relying on
             # `dispatch_mouse`'s click-to-focus render, which is skipped when
-            # `focus_on_click?` is off. `render` repositions the terminal caret via
+            # `focus_on_click?` is off. `paint` repositions the terminal caret via
             # `_update_cursor` too.
-            request_render
+            update!
           elsif e.action.move? && !e.button.none? && focused?
             # Extend the selection to the pointer. If the pointer is past the
             # vertical edge, scroll first so the drag can select off-window
@@ -310,7 +310,7 @@ module Crysterm
             @goal_col = nil
             @selection_anchor ||= @cursor_pos
             @cursor_pos = pos
-            request_render
+            update!
             e.accept
           end
         end

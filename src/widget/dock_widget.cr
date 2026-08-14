@@ -70,14 +70,14 @@ module Crysterm
         refresh_buttons
         invalidate_frame_style
         emit ::Crysterm::Event::Float, floating? if value.floating? != was_floating
-        # `#mark_dirty`, not `window?.try &.update`: a pure area move (e.g.
+        # `#update`, not `window?.try &.update`: a pure area move (e.g.
         # Left→Right) can leave the woken frame with nothing marked dirty
         # under `DamageTracking` — `#refresh_buttons`' writes may be no-ops
         # when the glyphs don't change, and `#invalidate_frame_style`
         # registers no damage on its own — so `#update` alone risks a
         # no-op frame that never re-lays-out the dock (same class of bug as
         # in `#dock_size=`).
-        mark_dirty
+        update
         value
       end
 
@@ -86,7 +86,7 @@ module Crysterm
         return value if value == @title
         @title = value
         @titlebar.try &.set_content(value)
-        request_render
+        update!
         value
       end
 
@@ -96,7 +96,7 @@ module Crysterm
       # Not a bare `property`: only `MainWindow#relayout` reads it, and only
       # while a frame is already being built, so a bare-ivar assignment
       # schedules nothing on an idle UI — the dock stays painted at its old
-      # size until some unrelated event happens to render a frame. `#mark_dirty`
+      # size until some unrelated event happens to render a frame. `#update`
       # (not `window?.try &.update`) both wakes the render loop and registers
       # damage, which `#update` alone doesn't — an empty dirty set under
       # `DamageTracking` would otherwise no-op the woken frame.
@@ -105,7 +105,7 @@ module Crysterm
       def dock_size=(value : Int32) : Int32
         return value if value == @dock_size
         @dock_size = value
-        mark_dirty
+        update
         value
       end
 
@@ -270,7 +270,7 @@ module Crysterm
         else
           @dock_content.try &.remove_from_parent
           @dock_content = nil
-          request_render
+          update!
         end
         w
       end
@@ -312,10 +312,10 @@ module Crysterm
         # style and let it re-sync on the next `#style` read.
         invalidate_frame_style
         emit ::Crysterm::Event::Float, floating?
-        # `#mark_dirty`: usually saved by `#apply_rect`/`#freeze_rect`'s
+        # `#update`: usually saved by `#apply_rect`/`#freeze_rect`'s
         # geometry writes marking dirty on their own, but not guaranteed for
         # every path (see `#area=` above) — cheap and correct to mark here too.
-        mark_dirty
+        update
       end
 
       @prev_area : Area?
@@ -524,7 +524,7 @@ module Crysterm
           # parent's border/padding. Only the undock-on-drag entry above is
           # dock-specific.
           drag_move_to e.x, e.y, @drag_dx, @drag_dy
-          request_render
+          update!
         end
       end
     end

@@ -4,7 +4,7 @@ require "./spec_helper"
 # strip (Qt's `QToolBar::addWidget`), laid out by the `Mixin::ActionBar` item
 # model alongside the buttons/separators.
 #
-# NOTE the bars pack their item boxes in `#render`, so every position assertion
+# NOTE the bars pack their item boxes in `#paint`, so every position assertion
 # here is made after an explicit `Window#repaint` — nothing lays the strip out
 # on its own in a headless window.
 describe "API4 A4-38b: ToolBar#add_widget" do

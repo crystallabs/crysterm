@@ -4,7 +4,7 @@ include Crysterm
 
 # `Widget::Graph::Donut` draws its ring on a `Graph::Canvas`, which only
 # re-rasterizes when its `@paint_dirty` flag is set. `#value=` is a custom
-# setter that calls `canvas.invalidate_paint` (+ `request_render`), and the
+# setter that calls `canvas.invalidate_paint` (+ `update!`), and the
 # ring-shape/color setters (`thickness`, `fill_color`, `track_color`,
 # `show_track`, `minimum`, `maximum`) must do the same — as plain `property`
 # setters, e.g. `donut.thickness = 0.9` leaves the *old* ring on window until

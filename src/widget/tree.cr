@@ -384,7 +384,7 @@ module Crysterm
             self.current_index = j
           end
         end
-        request_render
+        update!
       end
 
       # Nearest ancestor of *node* that is currently a visible row, or `nil`.
@@ -504,7 +504,7 @@ module Crysterm
           if node && !node.leaf?
             node.expanded? ? down : expand(node)
             e.accept
-            request_render
+            update!
             return
           end
         when e.key == Tput::Key::Left
@@ -515,14 +515,14 @@ module Crysterm
               self.current_index = i
             end
             e.accept
-            request_render
+            update!
             return
           end
         when e.char == ' '
           if node && !node.leaf?
             toggle node
             e.accept
-            request_render
+            update!
             return
           end
         end

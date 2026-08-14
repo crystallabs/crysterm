@@ -126,7 +126,7 @@ module Crysterm
       # subscriptions for deps it no longer reads and schedules a repaint of the
       # owner. Deps stable across runs keep their existing subscription.
       #
-      # The repaint goes through `Widget#request_render` (mark damaged + ring the
+      # The repaint goes through `Widget#update!` (mark damaged + ring the
       # doorbell), not the bare doorbell: see `Binding#run` for why a
       # doorbell-only request loses the change under damage tracking.
       #
@@ -167,7 +167,7 @@ module Crysterm
             true
           end
         end
-        @owner.try &.request_render
+        @owner.try &.update!
       end
 
       # Cancels all subscriptions and stops the effect. Idempotent.

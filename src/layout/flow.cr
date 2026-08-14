@@ -191,7 +191,7 @@ module Crysterm
         # an auto-sized deferred predecessor chains at its real extent).
         # The x position is threaded as a LOCAL through the chain and the
         # grid snap, so the intermediate values never reach the change-guarded
-        # `left=` setter — each such write costs a full `mark_dirty` ancestor
+        # `left=` setter — each such write costs a full `update` ancestor
         # walk plus a `Move` emit. Every branch commits through the coalescing
         # `Widget#move` primitive instead (one walk, one emit for both axes).
         if (last = @last_rendered) && !deferred_this_frame?(last) &&

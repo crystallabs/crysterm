@@ -10,7 +10,7 @@
 # `%`-relative position resolution, content tag-parsing, per-widget composite
 # and damage bookkeeping) is exactly the cost being stressed.
 #
-# `quicktro.cr` throws all of that away. It is ONE widget whose `#render` writes
+# `quicktro.cr` throws all of that away. It is ONE widget whose `#paint` writes
 # the finished cells straight into the window buffer with `fill_region` — the
 # same primitive the effect widgets bottom out to — computing each cell's glyph
 # and packed `0xRRGGBB` attr by hand. No per-cell widgets, no content strings,
@@ -20,7 +20,7 @@
 # Why still a widget, and not a bare `window.draw` loop? Because Crysterm's
 # headless capture (the `.dump`/`.png`/`.apng` goldens) is driven by the
 # window's own `repaint` → `Event::Rendered` cycle. Painting inside a child's
-# `#render` — during the compositor's pass, after its buffer clear — keeps the
+# `#paint` — during the compositor's pass, after its buffer clear — keeps the
 # demo fully capturable, exactly like `cracktro.cr`, while collapsing ~1200
 # widgets into one. (A pure `window.fill_region … ; window.draw` loop with no
 # widgets would be marginally faster still, but `repaint` never runs, so nothing
@@ -57,9 +57,9 @@ BLACK = 0x000000
 # per-frame math, but written straight to cells via `window.fill_region` — the
 # fast path the effect widgets themselves use internally.
 class Scene < Widget::Box
-  # Frame counter, advanced by the master clock below. `#render` is a pure
+  # Frame counter, advanced by the master clock below. `#paint` is a pure
   # function of it (state and paint are split, exactly as the real effect
-  # widgets split `#step` from `#render`).
+  # widgets split `#step` from `#paint`).
   property frame : Int64 = 0_i64
 
   # Geometry, (re)derived from the window size — cached and rebuilt only on a
@@ -120,7 +120,7 @@ class Scene < Widget::Box
     Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg))
   end
 
-  def render(with_children = true)
+  def paint(with_children = true)
     # Establish `@lpos`/background via the normal box path (the compositor has
     # already cleared the buffer to the default cell, so this writes nothing new
     # on a full-screen default-styled box), then overpaint the scene.
@@ -239,7 +239,7 @@ Widget::Fps.new \
   style: Style.new(fg: "white", bg: "black")
 
 # One master clock advances the frame; the render right after it repaints the
-# whole scene. (State-advance here, painting in `#render` — the same split the
+# whole scene. (State-advance here, painting in `#paint` — the same split the
 # effect widgets use.)
 s.every(0.07.seconds) { scene.frame += 1 }
 

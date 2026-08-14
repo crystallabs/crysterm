@@ -15,7 +15,7 @@ module Crysterm
         visible = visible_content_rows
         return if visible <= 0
 
-        mark_dirty
+        update
         base = @child_base
         @child_offset = 0
         @child_base = (base + offset).clamp(0, Math.max(0, scroll_height - visible))
@@ -182,7 +182,7 @@ module Crysterm
             # Collapsing a selection (`had_sel` cleared just above) must repaint
             # too — otherwise the previously highlighted cells stay painted, since
             # `_update_cursor` only moves the terminal caret.
-            request_render if scrolled || extend_sel || had_sel
+            update! if scrolled || extend_sel || had_sel
             @_pending_rowcol = rc
             _update_cursor
             @_pending_rowcol = nil
@@ -276,14 +276,14 @@ module Crysterm
           # compare the full text (both endpoints already needed the serialize).
           if (after = buf_text) != before
             emit Crysterm::Event::TextChanged, after
-            request_render
+            update!
           end
         elsif buf_size != before_size
           # No starting selection: a size change is the only way the text changed,
           # so an unchanged size means unchanged text — no serialization at all.
           # Serializing for the payload is itself skipped when nobody listens.
           emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
-          request_render
+          update!
         end
 
         # Any keystroke that wasn't itself a kill ends the consecutive-kill run,
@@ -320,7 +320,7 @@ module Crysterm
         ensure_cursor_visible_x
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         refresh_value
         super
       end

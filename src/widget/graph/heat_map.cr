@@ -111,19 +111,19 @@ module Crysterm
         # Overlay toggles: `#draw_legend`/`#draw_labels` stamp these over the
         # rendered widget (not the Canvas raster), so no `invalidate_canvas`; but
         # a plain `property?` setter schedules nothing and the toggle stays
-        # invisible on an idle screen. `mark_dirty` registers damage and schedules
+        # invisible on an idle screen. `update` registers damage and schedules
         # a frame.
         def show_legend=(v : Bool) : Bool
           return v if v == @show_legend
           @show_legend = v
-          mark_dirty
+          update
           v
         end
 
         def show_labels=(v : Bool) : Bool
           return v if v == @show_labels
           @show_labels = v
-          mark_dirty
+          update
           v
         end
 
@@ -223,7 +223,7 @@ module Crysterm
           @colormap
         end
 
-        def render(with_children = true)
+        def paint(with_children = true)
           super
           draw_labels
           draw_legend

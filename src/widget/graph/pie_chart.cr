@@ -131,23 +131,23 @@ module Crysterm
         # Text-overlay setters: these change only what `#draw_legend` stamps
         # (the Canvas raster is untouched, so no `invalidate_canvas`), but a
         # plain `property?` setter schedules nothing and the change never
-        # appears on an idle screen. `mark_dirty` registers damage and
+        # appears on an idle screen. `update` registers damage and
         # schedules a frame.
         def show_legend=(v : Bool) : Bool
           return v if v == @show_legend
           @show_legend = v
-          mark_dirty
+          update
           v
         end
 
         def show_percentages=(v : Bool) : Bool
           return v if v == @show_percentages
           @show_percentages = v
-          mark_dirty
+          update
           v
         end
 
-        def render(with_children = true)
+        def paint(with_children = true)
           super
           draw_legend
         end

@@ -20,9 +20,9 @@ module Crysterm
     # * `Media::Tek` — a separate Tektronix window.
     #
     # Animation is **render-driven**: `#play` composites source frames once (in a
-    # fiber), then a loop advances `#anim_index` and calls `request_render` at
+    # fiber), then a loop advances `#anim_index` and calls `update!` at
     # each frame's delay; the backend samples the current frame in its own
-    # `#render`. Backends whose terminal animates for them (iTerm2), or that
+    # `#paint`. Backends whose terminal animates for them (iTerm2), or that
     # can't animate, opt out — the latter route `#play`/`#pause`/`#stop` through
     # `#unsupported`.
     abstract class Media::Base < Box
@@ -163,7 +163,7 @@ module Crysterm
       def anim_index=(i : Int32) : Int32
         unless i == @anim_index
           @anim_index = i
-          mark_dirty
+          update
         end
         i
       end
@@ -337,9 +337,9 @@ module Crysterm
         # Stop the private playback driver when the widget is hidden or
         # detached, or the fiber (`@animation`'s `FrameClock`, or the
         # streaming pull loop) keeps advancing frames and ringing
-        # `request_render` forever on a widget that is never painted — a
-        # hidden widget's `coords` is nil so `render` never runs, and a
-        # detached-but-alive widget's `request_render` no-ops while the
+        # `update!` forever on a widget that is never painted — a
+        # hidden widget's `coords` is nil so `paint` never runs, and a
+        # detached-but-alive widget's `update!` no-ops while the
         # driver still burns CPU. Mirrors `Effect::Animated`/
         # `Widget#pulse`/`Widget::Gradient`. The pause
         # leaves `@playback_paused` set, so the Show/Attached hook resumes
@@ -445,7 +445,7 @@ module Crysterm
         src = @src_frames
         return if src.nil? || src.empty?
         @anim_index = (@anim_index + 1) % src.size
-        request_render
+        update!
       end
 
       # Pauses playback on the current frame. A streaming decoder is left open
@@ -552,7 +552,7 @@ module Crysterm
             end
             first = false
 
-            request_render
+            update!
 
             delay = src[@anim_index]?.try(&.[1]) || 100
             ms = (delay / @speed).to_i
@@ -638,7 +638,7 @@ module Crysterm
         slot[0] = {bmp, delay}
         @anim_index = 0
         invalidate_frame 0 # the slot's content changed; drop any cached render
-        request_render
+        update!
         true
       end
 

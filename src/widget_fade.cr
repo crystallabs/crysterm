@@ -80,7 +80,7 @@ module Crysterm
                 fps : Int32 = FADE_FPS, &on_done : ->) : FrameClock
       show
       set_opacity 0.0
-      request_render
+      update!
       fade_to(1.0, duration, easing, fps) do
         set_opacity nil # fully opaque ⇒ no blend; drop the opacity entirely
         on_done.call
@@ -122,7 +122,7 @@ module Crysterm
       @fade.try &.stop
       @pulse_paused = false
       # Stop the ticker when the widget is hidden or detached, or the fiber
-      # keeps ticking `set_opacity` + `request_render` forever on a widget
+      # keeps ticking `set_opacity` + `update!` forever on a widget
       # that is never painted — mirrors the CSS-animation/Effect::Animated
       # fix. The pause leaves `@pulse_paused` set, so the Show/Attached hook
       # resumes it on the first render after `show`/re-attach. Installed
@@ -153,7 +153,7 @@ module Crysterm
         tri = phase <= 1.0 ? phase : 2.0 - phase # 0..1..0
         eased = Easing::InOutSine.apply(tri)
         set_opacity min + (max - min) * eased
-        request_render
+        update!
       end
       @fade = anim
       @pulse_clock = anim

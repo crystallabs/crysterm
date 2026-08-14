@@ -106,7 +106,7 @@ module Crysterm
         # Keyboard: target follows focus, starting on the source itself.
         retarget_over sess, focused
       end
-      render
+      update
       sess
     end
 
@@ -120,7 +120,7 @@ module Crysterm
       sess.source.emit ::Crysterm::Event::Drag, pooled_drag_event(sess)
       move_ghost sess
       retarget_over sess, widget_at(x, y, skip: sess.source)
-      render
+      update
     end
 
     # Keyboard arrow during a drag. A repositioning source moves in the pressed
@@ -153,7 +153,7 @@ module Crysterm
       # are unaffected.
       sess.x = src.aleft + sess.offset_x
       sess.y = src.atop + sess.offset_y
-      render
+      update
     end
 
     # Switches the candidate drop target, emitting `DragLeave`/`DragEnter`.
@@ -190,7 +190,7 @@ module Crysterm
     private def drag_focus_step(sess : DragSession, forward : Bool) : Nil
       forward ? focus_next : focus_previous
       retarget_over sess, focused
-      render
+      update
     end
 
     # Commits the drag at the current target. An accepting target receives a
@@ -216,7 +216,7 @@ module Crysterm
       ev = ::Crysterm::Event::DragEnd.new sess
       ev.dropped = dropped
       sess.source.emit ev
-      render
+      update
     end
 
     # Cancels the drag (e.g. Escape) without dropping.
@@ -229,7 +229,7 @@ module Crysterm
       ev.dropped = false
       sess.source.emit ev
       announce "Cancelled"
-      render
+      update
     end
 
     # Ctrl forces Copy, Shift forces Move — the cross-platform desktop
@@ -333,7 +333,7 @@ module Crysterm
       else
         t.emit ::Crysterm::Event::DragLeave, sess
       end
-      render
+      update
       dropped
     end
 

@@ -50,7 +50,7 @@ module Crysterm
           inside: ->(x : Int32, y : Int32) { grab_contains?(x, y) }) { hide_popup }
         s.open
         @dismiss = s
-        request_render
+        update!
       end
 
       # Hides the pop-up and releases the grab and outside-click watcher. Returns
@@ -60,7 +60,7 @@ module Crysterm
         @open = false
         @dismiss.try &.close
         popup_widget.try &.hide
-        request_render
+        update!
         true
       end
 

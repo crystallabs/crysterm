@@ -19,14 +19,14 @@ describe "Widget#_scroll_bottom with children" do
     Widget.new parent: box, top: 0, left: 0, width: 10, height: 2
     Widget.new parent: box, top: 8, left: 0, width: 10, height: 3
 
-    s.render
+    s.update
 
     # Bottom-most child ends at row 8 + 3 = 11 (relative to the box interior),
     # so scroll height must be at least that far.
     box.scroll_height.should eq 11
 
     # Stable across repeated renders (memo + scratch reuse must not corrupt it).
-    s.render
+    s.update
     box.scroll_height.should eq 11
   end
 
@@ -35,11 +35,11 @@ describe "Widget#_scroll_bottom with children" do
     box = Widget.new parent: s, top: 0, left: 0, width: 20, height: 5,
       scrollable: true
     Widget.new parent: box, top: 2, left: 0, width: 10, height: 2
-    s.render
+    s.update
     box.scroll_height.should eq 4
 
     Widget.new parent: box, top: 20, left: 0, width: 10, height: 1
-    s.render
+    s.update
     box.scroll_height.should eq 21
   end
 end

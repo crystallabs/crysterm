@@ -93,7 +93,7 @@ module Crysterm
       # :ditto:
       def text=(value : String) : String
         set_content with_indicator(value)
-        request_render
+        update!
         value
       end
 

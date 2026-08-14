@@ -5,7 +5,7 @@ include Crysterm
 # Regression spec for BUGS17 B17-37:
 #
 # An infinite CSS `@keyframes` animation on a widget drives a ~30fps
-# `FrameClock` that calls `request_render` every tick. When the widget is
+# `FrameClock` that calls `update!` every tick. When the widget is
 # hidden it is skipped from rendering (its `coords` is nil), so
 # `ensure_css_animation` stops being called and nothing stops the clock — it
 # would keep ticking a full-window render loop forever. A one-time

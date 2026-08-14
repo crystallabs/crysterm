@@ -25,7 +25,7 @@ module Crysterm
     # With `rainbow: true` each glyph carries its own hue, cycling across the
     # columns and over time — the classic demoscene color scroller.
     #
-    # Glyphs are painted straight into the window cells in `#render`, each cell's
+    # Glyphs are painted straight into the window cells in `#paint`, each cell's
     # color set as a native `0xRRGGBB` attribute via `style_to_attr`. Building a
     # `{#rrggbb-fg}`-tagged content string instead would re-tokenize every frame.
     #
@@ -63,7 +63,7 @@ module Crysterm
 
       # Paints the `awidth`-wide window onto the looping message into the top
       # content row, writing each glyph's cell directly with its native color.
-      def render(with_children = true)
+      def paint(with_children = true)
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           w = xl - xi
           h = yl - yi

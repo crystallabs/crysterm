@@ -147,7 +147,7 @@ module Crysterm
         value
       end
 
-      # Once-per-frame redisplay (called from `#render`): recomputes the shown
+      # Once-per-frame redisplay (called from `#paint`): recomputes the shown
       # text with the caret preserved, without treating it as an external set.
       def refresh_value : Nil
         apply_value nil
@@ -173,7 +173,7 @@ module Crysterm
 
       # Computes the string actually shown, scrolling the `@view_start` window so
       # the caret stays visible when the value is wider than the box. Called from
-      # `#value=` (and thus once per frame via `Mixin::TextEditing#render`), so
+      # `#value=` (and thus once per frame via `Mixin::TextEditing#paint`), so
       # the window re-tracks the caret every render.
       private def compute_display : String
         key = display_snapshot_key

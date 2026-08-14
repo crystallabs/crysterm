@@ -66,25 +66,25 @@ module Crysterm
         # Text-overlay setters: these change only what `#draw_center_label` stamps
         # (the Canvas raster is untouched, so no `invalidate_canvas`), but a plain
         # `property` setter schedules nothing and the change never appears on an
-        # idle screen. `mark_dirty` registers damage and schedules a frame.
+        # idle screen. `update` registers damage and schedules a frame.
         def show_label=(v : Bool) : Bool
           return v if v == @show_label
           @show_label = v
-          mark_dirty
+          update
           v
         end
 
         def format=(v : String) : String
           return v if v == @format
           @format = v
-          mark_dirty
+          update
           v
         end
 
         def label=(v : String) : String
           return v if v == @label
           @label = v
-          mark_dirty
+          update
           v
         end
 
@@ -156,7 +156,7 @@ module Crysterm
           percent_of @value
         end
 
-        def render(with_children = true)
+        def paint(with_children = true)
           super
           draw_center_label
         end

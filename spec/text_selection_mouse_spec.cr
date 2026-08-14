@@ -7,7 +7,7 @@ include Crysterm
 # `#_setup_text_mouse`, `#selection_anchor`/`#selection_range`). Driven
 # headlessly over in-memory IOs, same pattern as `drag_spec.cr` and
 # `widget_qt_render_spec.cr`: a real synchronous render (`Window#repaint`,
-# NOT `Window#render` — the latter only rings the async render-loop doorbell
+# NOT `Window#update` — the latter only rings the async render-loop doorbell
 # and never actually paints in a headless spec with no render fiber running)
 # followed by `Window#dispatch_mouse` with synthesized `::Tput::Mouse::Event`s.
 #

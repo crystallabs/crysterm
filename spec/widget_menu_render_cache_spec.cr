@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression spec for the menu per-frame allocation caches.
 #
-# A menu's `#render` runs `#fit_width`/`#fit_height`/`#size_rows` and re-docks
+# A menu's `#paint` runs `#fit_width`/`#fit_height`/`#size_rows` and re-docks
 # its separators every frame. The derived data is cached instead of rebuilt
 # per frame:
 #   * separator dock-row indices reuse `@dock_rows_buf`.

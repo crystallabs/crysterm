@@ -206,7 +206,7 @@ module Crysterm
       end
 
       # *right* defaults to `#content_margin_x` (vertical bar width, reserved
-      # only when shown) as the item's *initial* value; `#render` re-syncs it
+      # only when shown) as the item's *initial* value; `#paint` re-syncs it
       # every frame. The horizontal bar reserves a bottom row via
       # `#hscrollbar_rows` instead, so nothing is taken off the right for it.
       protected def create_item(content : String, window = ::Crysterm::Window.global, align : ::Tput::AlignFlag | Shorthands = @align, top = 0, left = 0, right = content_margin_x, parse_tags = @parse_tags, focus_on_click = false, normal_resizable = false, width = nil) # XXX hover_effects, focus_effects
@@ -251,7 +251,7 @@ module Crysterm
               else
                 self.current_index = i
               end
-              request_render
+              update!
             end
           end
 
@@ -263,11 +263,11 @@ module Crysterm
             if e.action.wheel_up?
               wheel_scroll -1
               e.accept
-              request_render
+              update!
             elsif e.action.wheel_down?
               wheel_scroll 1
               e.accept
-              request_render
+              update!
             end
           end
 
@@ -277,7 +277,7 @@ module Crysterm
             item.on(::Crysterm::Event::MouseEnter) do
               if i = item_index_of item
                 hover_item i
-                request_render
+                update!
               end
             end
           end

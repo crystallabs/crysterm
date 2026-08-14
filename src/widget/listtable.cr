@@ -55,7 +55,7 @@ module Crysterm
           @sort_column = nil
           @sort_descending = false
         end
-        request_render
+        update!
         value
       end
 
@@ -74,7 +74,7 @@ module Crysterm
       @first_col = 0
 
       # Whether the box is sized to its content width (no explicit `width:`). When
-      # true, `#render`/`#rows=` keep pinning `@width = row_width + ihorizontal`, so
+      # true, `#paint`/`#rows=` keep pinning `@width = row_width + ihorizontal`, so
       # the table grows to fit every column and never overflows horizontally. When
       # false (a fixed `width:` was given), the width is left alone and the table
       # scrolls horizontally by column. Captured once, after `super`.
@@ -172,7 +172,7 @@ module Crysterm
           if col = column_at(e.x - header.aleft)
             order = @sort_column == col ? (@sort_descending ? SortOrder::Ascending : SortOrder::Descending) : SortOrder::Ascending
             sort_by_column col, order
-            request_render
+            update!
           end
         end
 
@@ -188,7 +188,7 @@ module Crysterm
             self.rows = @rows
             self.current_index = sel
           end
-          request_render
+          update!
         end
 
         self.rows = rows
@@ -420,7 +420,7 @@ module Crysterm
         @first_col = new_col
         @child_base_x = snapped
         reslice_rows
-        mark_dirty
+        update
         emit Crysterm::Event::Scroll, @child_base_x - base, Tput::Orientation::Horizontal
       end
 
@@ -467,7 +467,7 @@ module Crysterm
         # width before remeasuring so `compute_column_widths` sizes columns from
         # content again (the numeric-slack branch keys off a non-nil `@width`).
         # Without this the previously pinned width — including the scroll-bar
-        # `reserve` folded in by `#render` — feeds back into the column widths and
+        # `reserve` folded in by `#paint` — feeds back into the column widths and
         # the table grows one column per refresh and never shrinks. A fixed-width
         # table keeps its `@width` and its slack-distribution behaviour.
         @width = nil if @content_sized
@@ -565,7 +565,7 @@ module Crysterm
         end
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         # Re-pin the width now that the CSS cascade has run (runs at the top of
         # the window's `repaint`, before any widget renders). `#rows=` pins
         # the width at construction/Attach time, but a border arriving via CSS
@@ -582,7 +582,7 @@ module Crysterm
         compute_column_widths
 
         # Reserve the vertical scroll bar's column (when shown) for the pinned
-        # header too, mirroring body items (synced in `Mixin::ItemView#render`).
+        # header too, mirroring body items (synced in `Mixin::ItemView#paint`).
         # The header is an interior overlay built by `render_row`, already
         # sliced for horizontal scroll like the rows, so it needs the same
         # right-edge reservation, else the shown bar overpaints its last

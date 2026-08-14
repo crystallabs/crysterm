@@ -17,7 +17,7 @@ describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
     triggered = false
     m.add_action("Delete file") { triggered = true }
     m.focus
-    s.render
+    s.update
 
     cancelled = false
     m.on(Crysterm::Event::ItemCancelled) { cancelled = true }
@@ -39,7 +39,7 @@ describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
     triggered = false
     m.add_action("Delete file") { triggered = true }
     m.focus
-    s.render
+    s.update
 
     # Enter reveals the highlight on the first press...
     m.handle_key_press Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Enter)

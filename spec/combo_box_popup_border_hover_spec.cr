@@ -27,7 +27,7 @@ describe "ComboBox popup border sizing" do
     cb.show_popup
     pop = cb.popup_widget.not_nil!
     s.apply_stylesheet # cascade the freshly-created popup -> `.popup` (borderless)
-    pop.render         # per-frame refit (`Popup#render` re-fits height to resolved border)
+    pop.paint          # per-frame refit (`Popup#paint` re-fits height to resolved border)
 
     # Borderless: no interior insets, so outer height is exactly 3 rows (not
     # 3 + 2) — proves the size tracks the popup's actual border.
@@ -58,7 +58,7 @@ describe "ComboBox popup hover-select" do
       options: ["red", "green", "blue"], current_index: 0
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     pop.hover_select?.should be_true
     pop.current_index.should eq 0

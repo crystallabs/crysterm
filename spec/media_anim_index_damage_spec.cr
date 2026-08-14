@@ -7,7 +7,7 @@ include Crysterm
 # under `OptimizationFlag::DamageTracking` (on by default).
 #
 # `anim_index=` is a supported way to drive playback; the internal loops
-# advance the frame *and* call `request_render` (which marks the widget dirty),
+# advance the frame *and* call `update!` (which marks the widget dirty),
 # so an external `anim_index =` must mark the widget dirty too (when the index
 # actually changes). The selective damage composite only repaints widgets in the
 # dirty set, so a fixed-size image whose only per-frame change is `anim_index=`

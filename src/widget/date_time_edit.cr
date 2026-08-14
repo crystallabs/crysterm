@@ -36,7 +36,7 @@ module Crysterm
         @show_seconds = value
         @section = @section.clamp(0, section_count - 1)
         update_content
-        request_render
+        update!
         value
       end
 

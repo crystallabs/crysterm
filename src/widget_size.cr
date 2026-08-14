@@ -41,7 +41,7 @@ module Crysterm
         val = Dim.from val, size: true
         return if @{{ dim.id }} == val
         @{{ dim.id }} = val
-        mark_dirty
+        update
         emit ::Crysterm::Event::Resize
       end
     {% end %}
@@ -133,7 +133,7 @@ module Crysterm
         @{{ dim.id }} = val
         @size_constrained = !(@min_width.nil? && @max_width.nil? &&
                               @min_height.nil? && @max_height.nil?)
-        mark_dirty
+        update
         emit ::Crysterm::Event::Resize
       end
     {% end %}
@@ -554,7 +554,7 @@ module Crysterm
     # re-derive the same subtree rectangle once per ancestor shrink pass plus
     # their own render — O(depth × subtree) per frame. Keyed on the exact
     # arguments plus `Window#renders`, so a moved/resized caller or a new frame
-    # recomputes; `#mark_dirty` clears it eagerly.
+    # recomputes; `#update` clears it eagerly.
     @_minrect : Rectangle?
     @_minrect_key : Tuple(Int32, Int32, Int32, Int32, Bool, Int32)?
 

@@ -22,7 +22,7 @@ module Crysterm
       # field and scrolling never resets it):
       #
       # * `resize(w, h)` — (re)allocate per-area state when the *w*×*h* interior
-      #   size changes. Called from `render` before any `cell`.
+      #   size changes. Called from `paint` before any `cell`.
       # * `advance(w, h)` — step the simulation one frame (state only — no
       #   painting, no strings). Called from `step`, i.e. once per frame.
       # * `cell(x, y, w, h) : {Char, Int32}` — the glyph and fg color (a packed
@@ -31,7 +31,7 @@ module Crysterm
       #
       # Drives its own animation (`#start`/`#stop`) like the other effects;
       # `#step` (state only) is public so several effects can share one
-      # external clock, with a single `window.render` painting them all.
+      # external clock, with a single `window.update` painting them all.
       module Direct
         include Animated
 
@@ -49,12 +49,12 @@ module Crysterm
         # be driven from an external clock instead of its own fiber.
         def step
           advance @cols, @rows
-          mark_dirty # repaint under damage tracking
+          update # repaint under damage tracking
         end
 
         # Position via the normal `Box` render (borders, background, docking and
         # `@lpos`), then overwrite the interior cells directly from `#cell`.
-        def render(with_children = true)
+        def paint(with_children = true)
           with_content_coords(with_children) do |xi, xl, yi, yl|
             paint xi, xl, yi, yl
           end

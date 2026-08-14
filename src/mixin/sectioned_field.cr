@@ -49,7 +49,7 @@ module Crysterm
         select_section_at e.x
         yield
         e.accept
-        request_render
+        update!
       end
 
       # Maps an absolute *x* to a section index given each section's inclusive
@@ -129,7 +129,7 @@ module Crysterm
           return false
         end
         e.accept
-        request_render
+        update!
         true
       end
 
@@ -149,7 +149,7 @@ module Crysterm
       protected def commit_value(value : Time) : Nil
         update_content
         emit Crysterm::Event::DateChanged, value
-        request_render
+        update!
       end
 
       # Builds a `Time` for "now" when no explicit value is given, falling back so

@@ -71,7 +71,7 @@ module Crysterm
               # ride the whole input-routing path and could be consumed before
               # reaching focus navigation.
               window.focus_next
-              window.render
+              window.update
             end
             # Up/Down move between fields rather than through input history.
             input.history_keys = false

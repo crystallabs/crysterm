@@ -10,7 +10,7 @@ private def t13_lineedit(value : String, pos : Int32)
   s = headless_screen(default_quit_keys: true)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
   le.value = value
-  s.render
+  s.update
   le.cursor_pos = pos
   le.kill_ring = Crysterm::KillRing.new # isolate from the shared default
   le
@@ -83,7 +83,7 @@ describe "BUGS13 T17 same-string external value= still updates the display curso
     s = headless_screen(default_quit_keys: true)
     w = T13FlatEdit.new parent: s, left: 0, top: 0, width: 20, height: 3
     w.value = "hello"
-    s.render
+    s.update
     w.cursor_pos = 0
 
     before = w.cursor_updates
@@ -96,7 +96,7 @@ describe "BUGS13 T17 same-string external value= still updates the display curso
     s = headless_screen(default_quit_keys: true)
     w = T13FlatEdit.new parent: s, left: 0, top: 0, width: 20, height: 3
     w.value = "hello"
-    s.render
+    s.update
     w.cursor_pos = 2
 
     before = w.cursor_updates

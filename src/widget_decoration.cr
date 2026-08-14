@@ -99,7 +99,7 @@ module Crysterm
     #
     # * from an `Event::Mouse` handler it is the last painted rectangle — the one
     #   the user actually clicked on;
-    # * from inside `#render` it is this frame's, since `@lpos` is assigned before
+    # * from inside `#paint` it is this frame's, since `@lpos` is assigned before
     #   children (and any custom painting) run.
     #
     # ```
@@ -127,9 +127,9 @@ module Crysterm
     # degenerate-box check.
     #
     # *pos* is duck-typed on `xi`/`xl`/`yi`/`yl`, so it takes either the
-    # per-frame `RenderedGeometry` a `#render` receives from `#base_render`
+    # per-frame `RenderedGeometry` a `#paint` receives from `#base_render`
     # (the clip-adjusted one, when an ancestor clips) or the stored `@lpos`.
-    # Painting code inside `#render` wants the former; anything asking after
+    # Painting code inside `#paint` wants the former; anything asking after
     # the fact wants `#contents_rect`.
     @[AlwaysInline]
     protected def content_edges(pos) : Tuple(Int32, Int32, Int32, Int32)

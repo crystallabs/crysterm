@@ -59,7 +59,7 @@ module Crysterm
         return v if v == @title
         @title = v
         v.empty? ? remove_label : set_label(v)
-        request_render
+        update!
         v
       end
 
@@ -95,12 +95,6 @@ module Crysterm
         @navigate_handler = block
       end
 
-      # :ditto:
-      @[Deprecated("Renamed to `#navigate_handler`: this sets a single overwritable slot, which the `on_*` prefix (the multicast-subscription convention) misrepresented.")]
-      def on_navigate(&block : Int32 ->) : Nil
-        navigate_handler(&block)
-      end
-
       # Optional hook for a top-level menu's owner, called after the menu chain
       # was dismissed *by activating a leaf action* (Enter/Space/click on a
       # plain entry) — not by Escape or an outside click. Consulted on the
@@ -115,12 +109,6 @@ module Crysterm
       # Sets the leaf-activation dismissal hook via a block (see the getter).
       def chain_activated_handler(&block : ->) : Nil
         @chain_activated_handler = block
-      end
-
-      # :ditto:
-      @[Deprecated("Renamed to `#chain_activated_handler` — see `#navigate_handler`.")]
-      def on_chain_activated(&block : ->) : Nil
-        chain_activated_handler(&block)
       end
 
       # Whether the highlighted row is drawn highlighted. A menu opens with *no*
@@ -336,7 +324,7 @@ module Crysterm
         return unless i = edge_selectable(dir)
         @show_highlight = true
         self.current_index = i
-        request_render
+        update!
       end
 
       # Index of the first (`dir > 0`) or last (`dir < 0`) selectable
@@ -528,7 +516,7 @@ module Crysterm
           elsif !intent.none?
             edge_selectable(1).try { |i| self.current_index = i }
           end
-          request_render
+          update!
           e.accept
           return
         end
@@ -583,7 +571,7 @@ module Crysterm
           dir = intent.forward? ? 1 : -1
           unless selectable_beyond? dir
             edge_selectable(dir).try { |i| self.current_index = i }
-            request_render
+            update!
             e.accept
             return
           end
@@ -624,7 +612,7 @@ module Crysterm
           activate_index i
         end
         e.accept
-        request_render
+        update!
         true
       end
 
@@ -692,7 +680,7 @@ module Crysterm
         close_submenu if @submenu_open
         @show_highlight = false
         emit ::Crysterm::Event::ItemCancelled, @item_boxes[current_index], current_index
-        request_render
+        update!
       end
 
       def destroy

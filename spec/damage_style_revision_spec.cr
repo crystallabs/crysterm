@@ -52,7 +52,7 @@ describe "damage tracking observes in-place style mutation (attr_revision sweep)
     dmg.repaint
     before = dmg.lines[2][3].attr
 
-    # The in-place mutation, with no `mark_dirty` and no tracked setter — the
+    # The in-place mutation, with no `update` and no tracked setter — the
     # persistent per-state style is what rendering derives from.
     boxes.each(&.state_style.bg=("red"))
     plain.repaint

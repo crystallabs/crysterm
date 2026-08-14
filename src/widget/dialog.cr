@@ -59,7 +59,7 @@ module Crysterm
         when Code::Rejected.to_i then emit ::Crysterm::Event::Rejected
         end
         emit ::Crysterm::Event::Finished, result
-        request_render
+        update!
         @finished.try &.send result
       end
 
@@ -117,7 +117,7 @@ module Crysterm
         show_modal
         focus
         install_dialog_keys
-        request_render
+        update!
       end
 
       # Channel a blocking `#exec` parks on, created per call and dropped by the
@@ -185,7 +185,7 @@ module Crysterm
         when Tput::Key::Enter  then dialog_enter_gesture; e.accept
         when Tput::Key::Escape then reject; e.accept
         end
-        request_render if e.accepted?
+        update! if e.accepted?
       end
 
       # What the accelerator's Enter does. A plain dialog accepts; `Wizard`

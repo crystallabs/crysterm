@@ -26,11 +26,11 @@ describe "BUGS5 scrolling & item-view fixes" do
       # mid-content position.
       log.follow_tail = false
       100.times { |i| log.add "ln#{i}" }
-      s.render
+      s.update
 
       # Park mid-content and lay out so `@lpos` (used by `scroll_percent`) is set.
       log.child_base = 40
-      s.render
+      s.update
       log.child_base.should eq(40)
 
       # The heart of the bug: `w.scroll_percent = w.scroll_percent` must be
@@ -49,7 +49,7 @@ describe "BUGS5 scrolling & item-view fixes" do
       rows = [["Name", "Age"]]
       (1..20).each { |i| rows << ["person#{i}", i.to_s] }
       lt = Widget::ListTable.new parent: s, top: 0, left: 0, width: 24, height: 6, rows: rows
-      s.render
+      s.update
 
       lt.current_index = 3
       lt.current_index.should eq(3)
@@ -70,8 +70,8 @@ describe "BUGS5 scrolling & item-view fixes" do
       items = (0...20).map { |i| "item#{i}" }
       list = Widget::List.new parent: s, top: 0, left: 0, width: 20, height: 5, items: items
       list.item_spacing = 1
-      # `repaint` (not `render`) actually lays the list out and sets `@lpos`;
-      # `current_index=`'s scroll path is gated on `@lpos`, so a bare `render` would skip it.
+      # `repaint` (not `update`) actually lays the list out and sets `@lpos`;
+      # `current_index=`'s scroll path is gated on `@lpos`, so a bare `update` would skip it.
       s.repaint
 
       # Select the last item. With spacing 1 it sits at content row 19*2 == 38.

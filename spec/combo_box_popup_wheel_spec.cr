@@ -31,7 +31,7 @@ describe "ComboBox popup wheel scrolling" do
     cb.focus
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     cb.open?.should be_true
     before = pop.current_index
@@ -51,7 +51,7 @@ describe "ComboBox popup wheel scrolling" do
     cb.focus
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     cb.open?.should be_true
     before = pop.current_index

@@ -128,7 +128,7 @@ module Crysterm
         end
       end
 
-      # Cached value string; `#render` draws it every frame when `#text_visible?`.
+      # Cached value string; `#paint` draws it every frame when `#text_visible?`.
       @value_text : String = ""
 
       # Returns `@value.to_s`, rebuilding only when the value changed.
@@ -200,7 +200,7 @@ module Crysterm
       private def draw_ticks(xi, xl, yi, yl)
         return if value_span == 0
         interval = effective_tick_interval
-        # Same slot as `#render`'s track attr, so this fetch is a memo hit on
+        # Same slot as `#paint`'s track attr, so this fetch is a memo hit on
         # the frame that just painted the track.
         attr = @attr_memo.fetch(style)
         edges = @tick_edges
@@ -234,7 +234,7 @@ module Crysterm
         end
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         # Must paint into the *content* region (border AND padding inset), not the
         # border-only interior: `#pointer_offset` maps clicks through insets that
         # include padding, so anything else makes the drawn handle and the

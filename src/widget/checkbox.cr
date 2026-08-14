@@ -48,7 +48,7 @@ module Crysterm
         initialize(**{content: text}.merge(opts))
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         # `[`/`]` and the state mark resolve CSS-first (`CheckBox::indicator`,
         # with `:checked`/`:indeterminate` addressing the per-state mark), then
         # the registry; the width is stabilized over every reachable state.
@@ -109,7 +109,7 @@ module Crysterm
           emit Crysterm::Event::StateChanged, ::Crysterm::CheckState::PartiallyChecked
           # `toggled(bool)` peer of `StateChanged`; partial is not checked.
           emit Crysterm::Event::Toggled, false
-          request_render # repaint the `-` marker
+          update! # repaint the `-` marker
         end
         state
       end

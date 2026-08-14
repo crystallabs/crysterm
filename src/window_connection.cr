@@ -83,7 +83,7 @@ module Crysterm
       # Restore input listening only if it was active before disconnecting.
       start_input if @was_listening
       start_window_watcher
-      render
+      update
     end
 
     # Tears down this screen's connection to its terminal: restores the
@@ -301,7 +301,7 @@ module Crysterm
     # Constructs a new screen on *term*'s terminfo (copying this screen's
     # salient options, but not its IO — the new screen opens fresh, since
     # `#destroy` closes this one's), reparents every widget onto it, destroys
-    # this screen, and returns the new one. Re-`render`/`exec` the returned
+    # this screen, and returns the new one. Re-`update`/`exec` the returned
     # screen.
     #
     # ```

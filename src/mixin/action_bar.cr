@@ -452,7 +452,7 @@ module Crysterm
         idx = @item_boxes.index(el)
         fire (idx || current_index), el
         self.current_index = idx if idx
-        request_render
+        update!
       end
 
       # Generates the `{open}`/`{close}` tags used to colorize the command
@@ -464,7 +464,7 @@ module Crysterm
         {open: "{#{hex}-fg}", close: "{/#{hex}-fg}"}
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         # Item boxes use a *content-relative* `left` (0 == the bar's content
         # origin): `Widget#aleft` already adds the parent's `ileft`, so starting
         # the cursor at `ileft` here would double-count the inset and shove items
@@ -716,7 +716,7 @@ module Crysterm
         # landing on one must be a no-op too.
         return unless cmd.selectable?
         self.current_index = i
-        request_render
+        update!
         emit ::Crysterm::Event::CurrentChanged, i
       end
 
@@ -751,13 +751,13 @@ module Crysterm
         case
         when e.key == ::Tput::Key::Left, (@vi_keys && e.char == 'h')
           move_left
-          request_render
+          update!
         when e.key == ::Tput::Key::Right, (@vi_keys && e.char == 'l')
           move_right
-          request_render
+          update!
         when e.key == ::Tput::Key::Enter, (@vi_keys && e.char == 'k')
           fire current_index
-          request_render
+          update!
         when e.key == ::Tput::Key::Escape, (@vi_keys && e.char == 'q')
           if item = @item_boxes[current_index]?
             emit ::Crysterm::Event::ItemActivated, item, current_index

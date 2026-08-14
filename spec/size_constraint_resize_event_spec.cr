@@ -9,7 +9,7 @@ include Crysterm
 # state goes stale after a `max-height`/`min-width` change.
 #
 # A plain unattached `Box` is enough headless: `emit`/`on` work without a
-# screen and `mark_dirty` no-ops when detached.
+# screen and `update` no-ops when detached.
 describe "Widget size-constraint setters emit Resize" do
   {% for dim in %w[min_width max_width min_height max_height] %}
     it "emits Event::Resize when {{ dim.id }} changes" do
@@ -35,7 +35,7 @@ end
 # the events the four independent setters would each fire: at most one `Move`
 # (if position changed) + one `Resize` (if size changed), and a full no-op when
 # nothing changed. Used by `Layout#place_child` so a repositioned child runs one
-# `mark_dirty` + one `process_content` instead of up to four each.
+# `update` + one `process_content` instead of up to four each.
 describe "Widget#set_geometry" do
   it "emits exactly one Move and one Resize for a combined change" do
     b = Widget::Box.new

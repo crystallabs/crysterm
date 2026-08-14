@@ -114,7 +114,7 @@ module Crysterm
             # `Finished` handler and the block see the same `#result`.
             done(data ? Code::Accepted : Code::Rejected)
             blk.call data
-            request_render
+            update!
           end
         end
 
@@ -147,7 +147,7 @@ module Crysterm
         window.save_focus
         focus
 
-        request_render
+        update!
       end
 
       # Asks the user to pick one of an arbitrary list of *choices*. The block
@@ -200,7 +200,7 @@ module Crysterm
             # above); the public block sees `nil` for a dismissal, a real index
             # otherwise.
             blk.call(idx >= 0 ? idx : nil)
-            request_render
+            update!
           end
         end
 
@@ -215,13 +215,13 @@ module Crysterm
             cur = (cur - 1) % buttons.size
             buttons[cur].focus
             e.accept
-            request_render
+            update!
           when Tput::Key::Right
             next if buttons.empty?
             cur = (cur + 1) % buttons.size
             buttons[cur].focus
             e.accept
-            request_render
+            update!
           when Tput::Key::Escape
             e.accept
             finish.call -1
@@ -230,7 +230,7 @@ module Crysterm
 
         window.save_focus
         buttons[cur]?.try &.focus
-        request_render
+        update!
       end
 
       # Tears down a pending `ask`/`ask_choices` before the dialog goes away.

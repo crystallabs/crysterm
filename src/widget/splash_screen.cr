@@ -123,7 +123,7 @@ module Crysterm
       # Updates the bottom status line (Qt's `showMessage`).
       def show_message(text : String) : Nil
         message_box.set_content text
-        request_render
+        update!
       end
 
       # Dismisses the splash: emits `Event::Completed`, detaches and destroys it.
@@ -138,10 +138,10 @@ module Crysterm
         emit ::Crysterm::Event::Completed
         scr.try &.remove self
         destroy
-        # Repaint so the splash clears immediately; `request_render` is a no-op
+        # Repaint so the splash clears immediately; `update!` is a no-op
         # once detached. Removing a top-level child forces a full composite, so
         # this one render suffices.
-        scr.try &.render
+        scr.try &.update
       end
 
       # Dismisses the splash after *span* (on the render fiber, so it's safe to

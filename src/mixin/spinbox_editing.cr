@@ -117,12 +117,12 @@ module Crysterm
             cancel_edit
             step_value_up
             e.accept
-            request_render
+            update!
           elsif e.action.wheel_down?
             cancel_edit
             step_value_down
             e.accept
-            request_render
+            update!
           end
         end
       end
@@ -179,7 +179,7 @@ module Crysterm
       def clear
         @editing = ""
         update_content
-        request_render
+        update!
       end
 
       def handle_key_press(e)
@@ -207,11 +207,11 @@ module Crysterm
           # with this one into a double-fire for a single user action.
           emit ::Crysterm::Event::EditingFinished
           e.accept
-          request_render
+          update!
         elsif k == ::Tput::Key::Escape && editing?
           cancel_edit
           e.accept
-          request_render
+          update!
         elsif (k == ::Tput::Key::Backspace || k == ::Tput::Key::CtrlH) && editing?
           apply_edit(e) { @editing = @editing.to_s[0...-1] }
         elsif k == ::Tput::Key::Up || ch == 'k' || ch == '+'
@@ -244,7 +244,7 @@ module Crysterm
         cancel_edit
         yield
         e.accept
-        request_render
+        update!
       end
 
       # Applies a buffer mutation (the *block* edits `@editing`), then refreshes
@@ -254,7 +254,7 @@ module Crysterm
         yield
         update_content
         e.accept
-        request_render
+        update!
       end
     end
   end

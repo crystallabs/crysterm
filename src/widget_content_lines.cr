@@ -24,7 +24,7 @@ module Crysterm
       # Style inputs baked into the wrapped line text — TAB expansion
       # (`tab_char * tab_size`, `clean_content_chars`) and alignment padding
       # (`fill_char`, `_align`/`split_right_align`). Part of the wrap cache key
-      # so a style change (direct mutation + `mark_dirty`, or a CSS cascade)
+      # so a style change (direct mutation + `update`, or a CSS cascade)
       # forces a rewrap; types match `Style#tab_char` (String) and
       # `Style#fill_char` (Char).
       property tab_size = 4
@@ -277,7 +277,7 @@ module Crysterm
       end
 
       # Mirror the full path: mark for repaint and emit the same events.
-      mark_dirty
+      update
       emit Crysterm::Event::ContentParsed
       emit Crysterm::Event::ContentChanged
       true

@@ -45,7 +45,7 @@ module Crysterm
 
       # Cached grapheme cluster strings for `@text`, plus the text they were built
       # from (identity-compared) and the memoized shrink-to-content advance width.
-      # Rebuilt only when `@text` changes, keeping the per-frame `#render` free of
+      # Rebuilt only when `@text` changes, keeping the per-frame `#paint` free of
       # a grapheme array + a `String` per cluster.
       @graphemes = [] of String
       @_graphemes_src : String?
@@ -54,7 +54,7 @@ module Crysterm
       # `style_to_attr` memo for the per-frame render: the glyph field redraws
       # every frame with an unchanged style, so the attr derivation is skipped
       # until a style setter (or a cascade swap) invalidates it. Caches the
-      # plain form; the reverse-video swap in `#render` stays per-frame bit ops.
+      # plain form; the reverse-video swap in `#paint` stays per-frame bit ops.
       @attr_memo = Style::AttrMemo.new
 
       # Character used to paint the "on" pixels of the bitmap font. The default
@@ -66,7 +66,7 @@ module Crysterm
 
       def foreground_char=(value : Char) : Char
         @foreground_char = value
-        request_render
+        update!
         value
       end
 
@@ -101,13 +101,13 @@ module Crysterm
         @text = content || ""
         # Glyphs are drawn from `@text`, so a content change must schedule its
         # own repaint the way the base `set_content` does.
-        mark_dirty
+        update
       end
 
       # The rendered column width of one grapheme's glyph: the glyph's own column
       # count (a full-width CJK/emoji glyph decodes to 2×`@ratio.width`), falling
       # back to the cell width for a missing glyph. Shared by the shrink-to-content
-      # width and the right-align offset so both match the pen advance in `#render`.
+      # width and the right-align offset so both match the pen advance in `#paint`.
       private def glyph_width(g : String) : Int32
         @active_font.glyph(g)[0]?.try(&.size) || @ratio.width
       end
@@ -123,7 +123,7 @@ module Crysterm
         @_shrink_width_value = nil
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         ensure_graphemes
         # Re-derive the active font every frame: `style.bold?` may only settle
         # after the CSS cascade (which runs before repaint, after construction),

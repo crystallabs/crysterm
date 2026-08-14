@@ -11,7 +11,7 @@ include Crysterm
 #   enter+draw+leave as one atomic write (mirroring the still path), so the
 #   terminal is never left in Tek mode between frames.
 #
-# * B16-54 — `Media::Cells#render`'s animation branch made the still fallback
+# * B16-54 — `Media::Cells#paint`'s animation branch made the still fallback
 #   unreachable, so an animated cell backend painted a blank box until the
 #   background frame composite finished. The render falls back to the still
 #   (frame 1 via `png.bmp`) synchronously while the frames build, and

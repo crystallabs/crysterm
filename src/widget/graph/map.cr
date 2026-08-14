@@ -163,14 +163,14 @@ module Crysterm
           # Markers are a text overlay, not part of the coastline Canvas paint, so
           # deliberately do NOT invalidate the Canvas: its content is unchanged
           # and it can reuse the last raster.
-          request_render
+          update!
           m
         end
 
         def clear_markers : Nil
           @markers.clear
           # Overlay-only change: the coastline Canvas is unaffected.
-          request_render
+          update!
         end
 
         # Recenters the view on (lat, lon) with the given degree spans (Qt's
@@ -198,7 +198,7 @@ module Crysterm
           invalidate_canvas
         end
 
-        def render(with_children = true)
+        def paint(with_children = true)
           super
           draw_markers
         end

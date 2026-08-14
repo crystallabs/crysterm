@@ -252,7 +252,7 @@ module Crysterm
       window.screen
     end
 
-    # Coarse per-widget marker set by `#mark_dirty` when this widget's appearance
+    # Coarse per-widget marker set by `#update` when this widget's appearance
     # may have changed. An informational hint, NOT the repaint gate — that is the
     # window-level dirty set. Starts `true` so an unpainted widget is treated as
     # needing paint.
@@ -299,15 +299,17 @@ module Crysterm
     # damage frame, addressing the overlap union-find. Transient scratch.
     protected property damage_idx : Int32 = -1
 
-    # Schedules a repaint of this widget ↔ `QWidget::update()` (`#update` is
-    # the Qt-named alias). Safe to call from any state-changing setter, and
-    # the thing to call after an in-place change the tracked setters don't see
-    # (e.g. mutating a `Style` directly).
+    # Schedules a coalesced repaint of this widget ↔ `QWidget::update()`. Safe
+    # to call from any state-changing setter, and the thing to call after an
+    # in-place change the tracked setters don't see (e.g. mutating a `Style`
+    # directly).
     #
     # The frame request is skipped while a frame is already being built: layout
     # assigns child geometry through these same setters mid-frame, and that must
-    # not re-arm the doorbell from inside the frame it belongs to.
-    def mark_dirty : Nil
+    # not re-arm the doorbell from inside the frame it belongs to. `#update!` is
+    # the unconditional variant (for drivers that deliberately want *another*
+    # frame); `#repaint` the synchronous one.
+    def update : Nil
       @render_dirty = true
       # A dirtying change can alter the resolved style within the same frame
       # (e.g. `hide`/`show` writing `state_style.visible` — the frame-memoized
@@ -328,15 +330,9 @@ module Crysterm
       end
     end
 
-    # Schedules a coalesced repaint ↔ `QWidget::update()`. Alias of
-    # `#mark_dirty`; the synchronous counterpart is `#repaint`.
-    def update : Nil
-      mark_dirty
-    end
-
     # Assigns `left`/`top`/`width`/`height` in one shot, coalescing the side
     # effects the four independent setters would each run on their own: all four
-    # ivars are assigned before any dispatch, `mark_dirty` runs at most once, and
+    # ivars are assigned before any dispatch, `#update` runs at most once, and
     # `Move`/`Resize` are emitted only for the axes that actually changed. A full
     # no-op when nothing changed. The individual setters keep their per-axis
     # behavior; only this primitive coalesces.
@@ -355,7 +351,7 @@ module Crysterm
       @width = width
       @height = height
 
-      mark_dirty
+      update
       emit ::Crysterm::Event::Move if moved
       emit ::Crysterm::Event::Resize if resized
     end
@@ -366,7 +362,7 @@ module Crysterm
     end
 
     # Assigns `left`/`top` in one shot — the move-only counterpart to
-    # `#set_geometry`: a single `mark_dirty` and only a `Move` emit, and a full
+    # `#set_geometry`: a single `#update` and only a `Move` emit, and a full
     # no-op when the position doesn't change ↔ Qt's `QWidget::move()`.
     #
     # Delegates to `#set_geometry` with the size pair unchanged: `Dim.from` is
@@ -377,7 +373,7 @@ module Crysterm
     end
 
     # Assigns `width`/`height` in one shot — the resize-only counterpart to
-    # `#set_geometry`: a single `mark_dirty` and only a `Resize` emit, and a full
+    # `#set_geometry`: a single `#update` and only a `Resize` emit, and a full
     # no-op when the size doesn't change ↔ Qt's `QWidget::resize()`.
     #
     # Delegates to `#set_geometry` with the position pair unchanged (see
@@ -446,12 +442,12 @@ module Crysterm
     # Unconditionally schedules a render of the owning `Window`. No-op when
     # detached.
     #
-    # Unconditional, unlike `#mark_dirty`/`#update`: this one still rings the
-    # doorbell mid-frame, so it is the right call for a driver that deliberately
+    # Unconditional, unlike `#update`: this one still rings the doorbell
+    # mid-frame, so it is the right call for a driver that deliberately
     # wants *another* frame after this one (animations, transitions, media
     # decode). For a plain state change prefer `#update`; for a synchronous
     # paint of just this widget see `#repaint`.
-    def request_render : Nil
+    def update! : Nil
       window?.try do |s|
         s.damage_mark_dirty self
         s.update

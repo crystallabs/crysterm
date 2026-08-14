@@ -71,7 +71,7 @@ module Crysterm
         return unless nm = normalize_range(min, max)
         @minimum, @maximum = nm
         @value = @value.clamp(@minimum, @maximum)
-        request_render
+        update!
       end
 
       # Whether to draw the inline percentage label (single mode) / segment
@@ -100,7 +100,7 @@ module Crysterm
       # schedules a repaint.
       def fill_color=(c : Int32 | String?) : Int32?
         @fill_color = Colors.to_native c
-        request_render
+        update!
         @fill_color
       end
 
@@ -123,7 +123,7 @@ module Crysterm
       def segments=(segs : Array(Segment)?) : Array(Segment)?
         @segments = segs
         @segments_version &+= 1
-        request_render
+        update!
         segs
       end
 
@@ -158,7 +158,7 @@ module Crysterm
       # Sets the value, clamping into range. Emits `Event::DoubleValueChanged` on
       # an actual change, and `Event::Completed` upon reaching `#maximum`.
       def value=(v : Number) : Float64
-        assign_completable(v) { request_render }
+        assign_completable(v) { update! }
       end
 
       # Current fill as a `0..100` percentage of the range.
@@ -180,7 +180,7 @@ module Crysterm
       # keeping a stale ramp.
       @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, Int32?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
 
-      def render(with_children = true)
+      def paint(with_children = true)
         key = {@value, awidth, aheight, ihorizontal, ivertical, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
                glyph_key(style)}
         if key != @content_key

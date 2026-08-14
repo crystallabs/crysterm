@@ -171,7 +171,7 @@ module Crysterm
                             &tick : FrameClock ->) : FrameClock
       anim = FrameClock.new((1.0 / fps).seconds, duration: duration, easing: easing) do |clock|
         tick.call clock
-        request_render
+        update!
       end
       if od = on_done
         anim.stop_handler { od.call if anim.completed? }

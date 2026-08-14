@@ -225,7 +225,7 @@ module Crysterm
           # pathological `@spacing` still overflows `Int32` in these products,
           # so each offset/size runs in `Int64` and clamps back to the
           # interior it can never legitimately exceed.
-          # One coalesced geometry write (single `mark_dirty` + one ancestor-chain
+          # One coalesced geometry write (single `update` + one ancestor-chain
           # walk + at most one Move/Resize) instead of four independent setters,
           # each of which would walk the ancestor chain and damage-mark on its own.
           left = (x0.to_i64 + c0.to_i64 * @spacing).clamp(0_i64, w.to_i64).to_i32

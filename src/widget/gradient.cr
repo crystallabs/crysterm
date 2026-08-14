@@ -55,7 +55,7 @@ module Crysterm
       # `gradient.phase = …` from an external clock scrolls the colors.
       def stops=(stops : Array(Int32 | String))
         @stops = convert_stops(stops)
-        mark_dirty
+        update
       end
 
       # Coerces gradient stops (native ints, or `"#rrggbb"`/named color strings)
@@ -66,15 +66,15 @@ module Crysterm
       end
 
       def direction=(@direction : Direction)
-        mark_dirty
+        update
       end
 
       def phase=(@phase : Float64)
-        mark_dirty
+        update
       end
 
       def cycles=(@cycles : Float64)
-        mark_dirty
+        update
       end
 
       # The timer driving the animation (own or shared), if any.
@@ -118,15 +118,15 @@ module Crysterm
         @timer.try do |t|
           @tick_sub.on(t, Crysterm::Event::Tick) do
             @phase += @speed
-            request_render
+            update!
           end
         end
 
         # Stop the private timer when the widget is hidden or detached, or
-        # the fiber keeps ticking `phase += speed` + `request_render`
+        # the fiber keeps ticking `phase += speed` + `update!`
         # forever on a widget that is never painted — a hidden widget's
-        # `coords` is nil so `render` never runs, and a detached-but-alive
-        # widget's `request_render` no-ops while the timer still burns CPU.
+        # `coords` is nil so `paint` never runs, and a detached-but-alive
+        # widget's `update!` no-ops while the timer still burns CPU.
         # Same guard as `Effect::Animated` and `Widget#pulse`.
         # The pause leaves `@gradient_paused` set, so the Show/Attached hook
         # resumes it on the next show/re-attach. Only wired for a privately
@@ -215,7 +215,7 @@ module Crysterm
         end
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         # Interior inset; border kept intact.
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           next if xl <= xi || yl <= yi

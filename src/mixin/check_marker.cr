@@ -115,7 +115,7 @@ module Crysterm
         @text
       end
 
-      # :ditto: — a change only needs a repaint; `#render` re-composes the marker
+      # :ditto: — a change only needs a repaint; `#paint` re-composes the marker
       # line from `@text`.
       repaint_property text, String
 
@@ -162,7 +162,7 @@ module Crysterm
           marker_row = origin[1]
           if e.y == marker_row && e.x >= marker_start && e.x < marker_start + @_marker_width
             toggle
-            request_render
+            update!
             e.accept
           end
         end
@@ -171,7 +171,7 @@ module Crysterm
       # The marker controls toggle, rather than push, on activation.
       protected def activate
         toggle
-        request_render
+        update!
       end
 
       protected def handle_focus_in(e : ::Crysterm::Event::FocusIn)

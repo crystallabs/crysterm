@@ -48,7 +48,7 @@ describe "BUGS17 B17-02: background window does not paint the shared device" do
       out.clear
 
       # w1 is now the background window. A widget mutation on it funnels
-      # mark_dirty -> request_frame -> schedule_render, ringing w1's render
+      # update -> request_frame -> schedule_render, ringing w1's render
       # loop. That loop must not composite or flush w1's changed cells onto
       # the shared tty, over w2's frame. It must write nothing at all.
       box.content = "W1CHANGED"

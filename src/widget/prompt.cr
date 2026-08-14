@@ -113,7 +113,7 @@ module Crysterm
         end
         reader.call
 
-        request_render
+        update!
       end
 
       # The affirmative gesture submits the embedded field rather than closing

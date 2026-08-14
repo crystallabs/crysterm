@@ -469,7 +469,7 @@ module Crysterm
         end
 
         def handle_content_changed(e)
-          request_render
+          update!
         end
 
         # Whether *entry*'s raw body exceeds `#collapse_threshold`.

@@ -17,5 +17,5 @@ Widget::Box.new \
   content: "{center}Media::Ansi  ·  one cell per pixel · default colormode{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#202830")
 
-s.render
+s.update
 s.exec

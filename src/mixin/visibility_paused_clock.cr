@@ -10,9 +10,9 @@ module Crysterm
     #    visibility* (as opposed to an explicit `#stop`/`#stop_fade`);
     # 2. `Event::Hide`/`Event::Detached` hooks calling the pause half — the
     #    fiber would otherwise keep ticking `step`/`set_opacity` +
-    #    `request_render` forever on a widget that is never painted (a hidden
-    #    widget's `coords` is nil so `render` never runs, and a
-    #    detached-but-alive widget's `request_render` no-ops while the clock
+    #    `update!` forever on a widget that is never painted (a hidden
+    #    widget's `coords` is nil so `paint` never runs, and a
+    #    detached-but-alive widget's `update!` no-ops while the clock
     #    still burns CPU);
     # 3. `Event::Show`/`Event::Attached` hooks calling the resume half;
     # 4. the explicit stop clearing the flag, so a deliberate stop issued while

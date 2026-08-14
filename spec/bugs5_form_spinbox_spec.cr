@@ -32,7 +32,7 @@ describe "BUGS5 Form focus (bug 1, already fixed) — 2-field edge case" do
     form = Crysterm::Widget::Form.new(parent: s, keys: true)
     Crysterm::Widget::Box.new(parent: form, keys: true, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: form, keys: true, top: 1, left: 0, width: 5, height: 1)
-    s.render
+    s.update
 
     form.focusable.size.should eq 2
 
@@ -48,7 +48,7 @@ describe "BUGS5 Form focus (bug 1, already fixed) — 2-field edge case" do
     fields = (0...3).map do |i|
       Crysterm::Widget::Box.new(parent: form, keys: true, top: i, left: 0, width: 5, height: 1)
     end
-    s.render
+    s.update
 
     form.focus_last
     form.current_field.should eq fields.last

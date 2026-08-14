@@ -152,7 +152,7 @@ module Crysterm
         remove_dock dock
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         relayout
         super
       end

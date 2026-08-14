@@ -62,11 +62,6 @@ module Crysterm
         property confirm_handler : Proc(Array(T), Nil)?
 
         # Block form of `#confirm_handler=`, e.g. `picker.confirm_handler { |chosen| ... }`.
-        @[Deprecated("Renamed to `#confirm_handler` — a single overwritable slot, not an `on_*` multicast subscription.")]
-        def on_confirm(&block : Array(T) ->) : Nil
-          confirm_handler(&block)
-        end
-
         def confirm_handler(&block : Array(T) ->) : Nil
           @confirm_handler = block
         end
@@ -162,7 +157,7 @@ module Crysterm
             @checked_indices.add i
           end
           set_item current_index, format_row(records[i], i)
-          request_render
+          update!
         end
 
         # Invoked on `Event::ItemActivated` (Enter / click). In multi mode toggles
@@ -204,7 +199,7 @@ module Crysterm
           records.each_with_index do |item, i|
             set_item i, format_row(item, i)
           end
-          request_render
+          update!
         end
       end
     end

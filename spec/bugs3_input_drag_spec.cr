@@ -43,7 +43,7 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
   it "computes the viewport from the element, not the window (they differ when nested)" do
     s = headless_screen(40, 20, default_quit_keys: true)
     container, _ = scroll_fixture s
-    s.render
+    s.update
 
     element_based = (container.aheight || 0) - container.itop - container.ibottom
     window_based = s.aheight - container.atop - container.itop -
@@ -56,7 +56,7 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
   it "scrolls an off-screen child into a below-top scrollable container's viewport" do
     s = headless_screen(40, 20, default_quit_keys: true)
     container, children = scroll_fixture s
-    s.render
+    s.update
 
     visible = (container.aheight || 0) - container.itop - container.ibottom
     visible.should be > 0
@@ -66,7 +66,7 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
     target.rtop.should be >= visible # genuinely off-screen before focus
 
     s.focus target
-    s.render
+    s.update
 
     base = container.child_base
     # The focused child's content row must sit inside the visible window
@@ -79,12 +79,12 @@ describe "BUGS3 scroll-into-view uses the container's own viewport" do
   it "does not scroll when the focused child already fits the viewport" do
     s = headless_screen(40, 20, default_quit_keys: true)
     container, children = scroll_fixture s
-    s.render
+    s.update
     container.child_base.should eq 0
 
     # First child is already visible: focusing it must not scroll the container.
     s.focus children[0]
-    s.render
+    s.update
     container.child_base.should eq 0
   end
 end

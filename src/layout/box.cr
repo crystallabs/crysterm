@@ -365,7 +365,7 @@ module Crysterm
           @flex_size[el] = s
         end
 
-        # One coalesced geometry write for both axes: a single `mark_dirty`
+        # One coalesced geometry write for both axes: a single `update`
         # (one ancestor-chain walk, at most one Move + one Resize) instead of up
         # to four independent setter runs. An unwritten size axis passes the
         # child's current raw size, which no-ops in `set_geometry`'s change

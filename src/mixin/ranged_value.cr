@@ -138,7 +138,7 @@ module Crysterm
         @value = v
         on_value_changed
         emit_value_change
-        request_render
+        update!
         @value
       end
 
@@ -297,7 +297,7 @@ module Crysterm
         # wrapping to the opposite bound: an out-of-range `@value` would trip
         # `#value=`'s wrap branch.
         self.value = @value.clamp(@minimum, @maximum)
-        request_render
+        update!
       end
 
       # `#range=` (the `Range`-based `#set_range` sugar) comes from

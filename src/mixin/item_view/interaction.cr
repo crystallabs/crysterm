@@ -154,7 +154,7 @@ module Crysterm
         sb.set_label(backward ? "?" : "/")
         sb.value = ""
         sb.show
-        request_render
+        update!
 
         sb.read_input do |data|
           sb.hide
@@ -164,7 +164,7 @@ module Crysterm
           if data && !data.empty? && (hit = fuzzy_find(data, backward: backward))
             self.current_index = hit
           end
-          request_render
+          update!
         end
       end
 
@@ -216,7 +216,7 @@ module Crysterm
 
         # Consume the key so it doesn't also drive an ancestor, and repaint.
         e.accept
-        request_render
+        update!
       end
 
       def handle_resize(e)

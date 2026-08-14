@@ -120,12 +120,12 @@ spawn do
     show.call left, idx
     show.call right, idx
     resize_right.call idx
-    s.render
+    s.update
     clock.interval = frame_delays[idx].milliseconds # sleep the shown frame's delay
     idx += 1
     idx = 0 if idx >= frame_count
   end.start
 end
 
-s.render
+s.update
 s.exec

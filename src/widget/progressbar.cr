@@ -61,7 +61,7 @@ module Crysterm
         # the current value is a reconfiguration, not a completion — `Completed`
         # fires only when the value *rises* to `maximum`.
         set_value @value.clamp(@minimum, @maximum), complete: false
-        request_render
+        update!
       end
 
       # `#range=` (the `Range`-based `#set_range` sugar, Qt's `setRange`) comes
@@ -77,7 +77,7 @@ module Crysterm
       # like Qt's `QProgressBar#textVisible`.
       getter? text_visible : Bool = false
 
-      # Assigns `#text_visible?` and schedules a repaint: `#render` reads it
+      # Assigns `#text_visible?` and schedules a repaint: `#paint` reads it
       # directly (no content cache to key on), so a bare `property` setter's
       # change would only become visible on some later, unrelated frame.
       repaint_property text_visible, Bool
@@ -198,12 +198,12 @@ module Crysterm
         @value = v
         emit Crysterm::Event::ValueChanged, @value
         emit Crysterm::Event::Completed if complete && @value == @maximum && span > 0
-        request_render
+        update!
         @value
       end
 
       # Cached indicator text and the `{value, minimum, maximum, format}` it was
-      # built for; `#render` calls `#formatted_text` every frame when
+      # built for; `#paint` calls `#formatted_text` every frame when
       # `#text_visible?`. `#percent` derives from the range, so the key covers it.
       @text_cache : String?
       @text_cache_key : Tuple(Int32, Int32, Int32, String)?
@@ -223,7 +223,7 @@ module Crysterm
         cached
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           pct = percent
           # Filled sub-region (rest of interior stays unfilled). Kept separate so
@@ -267,7 +267,7 @@ module Crysterm
       end
 
       # Draws `text` centered over the whole inner region (passed in from
-      # `#render`'s own `with_inner_coords` block), so the indicator stays
+      # `#paint`'s own `with_inner_coords` block), so the indicator stays
       # readable regardless of fill amount. Takes the coords as arguments
       # rather than re-entering `with_inner_coords`: that helper re-runs
       # `base_render`, whose interior repaint would erase the fill drawn just
@@ -285,7 +285,7 @@ module Crysterm
         emit Crysterm::Event::Reset
         @value = @minimum
         emit Crysterm::Event::ValueChanged, @value
-        request_render
+        update!
       end
 
       def handle_key_press(e)

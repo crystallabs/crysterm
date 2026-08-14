@@ -29,7 +29,7 @@ class X
       end
     end
 
-    s.render
+    s.update
 
     s.exec
   end

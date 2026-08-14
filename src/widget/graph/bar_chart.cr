@@ -21,13 +21,13 @@ module Crysterm
       # `@bar_width`/`@bar_spacing` (`Int32`) and a private `#build_content`.
       module BarChart
         # Bumped by `values=` and every decoration setter of the including chart,
-        # so `#render` can tell when the plotted inputs changed. Together with the
+        # so `#paint` can tell when the plotted inputs changed. Together with the
         # interior size it keys the built-content cache below.
         @data_version = 0
 
         # The last built tagged-content string and the `{cols, rows, version}` key
         # it was built for. When nothing affecting the plot changed since the last
-        # frame, `#render` reuses the string instead of rebuilding it.
+        # frame, `#paint` reuses the string instead of rebuilding it.
         @content_cache : String?
         @content_cache_key : Tuple(Int32, Int32, Int32, {String?, Glyphs::Tier, UInt64})?
 
@@ -44,10 +44,10 @@ module Crysterm
           def {{ name.id }}=(value : {{ type }})
             @{{ name.id }} = value
             bump_data_version
-            # A decoration change alters the built content; `mark_dirty` both
+            # A decoration change alters the built content; `update` both
             # registers damage and schedules a frame, so the chart actually
             # repaints instead of waiting for an unrelated render.
-            mark_dirty
+            update
             value
           end
         end
@@ -60,7 +60,7 @@ module Crysterm
           (cols + @bar_spacing) // unit
         end
 
-        def render(with_children = true)
+        def paint(with_children = true)
           # `glyph_key(style)` covers the fill-ramp inputs `build_content`
           # resolves (CSS `glyphs:`, effective tier, `Glyphs.generation`), so a
           # ramp change rebuilds instead of serving the stale cached content.

@@ -16,5 +16,5 @@ Widget::Box.new \
   content: "{center}Media::Ascii::TrueColor  ·  TrueColor · 24-bit RGB{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#202830")
 
-s.render
+s.update
 s.exec

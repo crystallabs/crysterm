@@ -132,7 +132,7 @@ module Crysterm
           # `@current_field` still points at the last Tab-navigated field (or nil).
           @current_field = el
           focus_next
-          request_render
+          update!
         end
       end
 
@@ -331,11 +331,11 @@ module Crysterm
         when 'j'
           e.accept
           focus_next
-          request_render
+          update!
         when 'k'
           e.accept
           focus_previous
-          request_render
+          update!
         end
       end
     end

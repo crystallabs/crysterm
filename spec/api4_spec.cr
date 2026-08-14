@@ -55,7 +55,7 @@ describe "API4 additions" do
       win = headless_window(width: 20, height: 10)
       outer = Crysterm::Widget::Box.new parent: win, left: 0, top: 0, width: 20, height: 10
       inner = Crysterm::Widget::Box.new parent: outer, left: 2, top: 1, width: 6, height: 3
-      win.render
+      win.update
       outer.child_at(3, 2).should eq inner # absolute coords
       outer.child_at(Crysterm::Point.new(3, 2)).should eq inner
       outer.child_at(19, 9).should be_nil

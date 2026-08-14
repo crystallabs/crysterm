@@ -146,11 +146,11 @@ module Crysterm
           when ::Tput::Key::CtrlK
             @registry.stop_all
             e.accept
-            request_render
+            update!
           when ::Tput::Key::Escape
             if interrupt_current
               e.accept
-              request_render
+              update!
             else
               super
             end

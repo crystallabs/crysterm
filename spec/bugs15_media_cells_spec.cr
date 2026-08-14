@@ -15,7 +15,7 @@ include Crysterm
 # * #22 — `Media::Base#fit=` calls `#reset_sample_cache`, which (for cell
 #   backends) also set `@animated = false`. Nothing but `#load` recomputes
 #   `@animated`, so changing `fit=` on a playing animation permanently froze it:
-#   `#render`'s animation branch was skipped forever while the frame clock kept
+#   `#paint`'s animation branch was skipped forever while the frame clock kept
 #   ticking. `#reset_sample_cache` is source-neutral; `@animated` is cleared
 #   only where the source is actually replaced (`#bitmap=`, `#clear_image`).
 

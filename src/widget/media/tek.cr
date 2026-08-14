@@ -69,7 +69,7 @@ module Crysterm
         @playing = false # stop any running animation loop first
         @drawn = false
         @decode_failed = false # a parameter/source change warrants a retry
-        request_render
+        update!
       end
 
       @drawn = false
@@ -114,7 +114,7 @@ module Crysterm
         @decode_failed = false # new source: retry decoding
         @src_frames = nil
         @anim_index = 0
-        request_render
+        update!
       end
 
       def clear_image

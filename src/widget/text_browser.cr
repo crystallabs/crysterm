@@ -333,8 +333,8 @@ module Crysterm
           @link_sel = sel
           @extra_selections << sel
         end
-        mark_dirty
-        request_render if window?
+        update
+        update! if window?
       end
 
       private def refresh_links : Nil

@@ -60,7 +60,7 @@ module Crysterm
         return v if v == @z
         @z = v
         reset_payload_cache
-        request_render
+        update!
         v
       end
 

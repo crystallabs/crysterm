@@ -396,7 +396,7 @@ module Crysterm
         # matching Tab navigation.
         if w.focus_on_click? && w.keyable? && !w.disabled?
           w.focus
-          render
+          update
         end
         # A draggable widget defers its click to release (handled above).
         w.emit ::Crysterm::Event::Click unless w.draggable?
@@ -442,7 +442,7 @@ module Crysterm
       return unless wheel_delta(ev)
       if target = focusable_at w
         target.focus
-        render
+        update
       end
     end
 
@@ -546,7 +546,7 @@ module Crysterm
       el = w.first_self_or_ancestor &.scrollable?
       return unless el
       horizontal ? el.scroll_by_x(offset) : el.scroll(offset)
-      render
+      update
     end
 
     # Emits hover transition events for the topmost widget under the pointer.

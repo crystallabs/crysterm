@@ -45,7 +45,7 @@ class X
     names.each do |name|
       bar.add_item(name) do
         box.content = "Pressed #{name}."
-        s.render
+        s.update
       end
     end
 
@@ -59,7 +59,7 @@ class X
       end
     end
 
-    s.render
+    s.update
 
     s.exec
   end

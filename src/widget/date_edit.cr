@@ -164,7 +164,7 @@ module Crysterm
         if calendar_popup? && (e.key == Tput::Key::Enter || e.key == Tput::Key::Space || e.char == ' ')
           toggle_popup
           e.accept
-          request_render
+          update!
           return
         end
 
@@ -173,7 +173,7 @@ module Crysterm
         if e.key == Tput::Key::Escape && @open
           hide_popup
           e.accept
-          request_render
+          update!
         end
       end
 

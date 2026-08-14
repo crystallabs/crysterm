@@ -5,9 +5,9 @@ include Crysterm
 # `Widget::Graph::Bar#values=` must schedule a repaint along with storing the
 # data — under `DamageTracking` a bare `bar.values = [...]` would otherwise
 # leave stale bars until an unrelated frame dirtied it. Matches sibling
-# `StackedBar#values=`, which calls `mark_dirty`.
+# `StackedBar#values=`, which calls `update`.
 #
-# `mark_dirty` records the widget (via its top-level ancestor) in
+# `update` records the widget (via its top-level ancestor) in
 # `@damage_dirty_roots`; the bar here is a direct screen child so it's its own
 # root. Specs render once, drain the damage set, then assign values with no
 # manual render and assert the bar got marked dirty.

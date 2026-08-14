@@ -315,7 +315,7 @@ module Crysterm
     private def damage_full_composite(need_bounds : Bool = true) : Nil
       # Consume the dirty set BEFORE rendering: this frame satisfies every pending
       # mark, while marks raised DURING the render (a widget calling `set_content`
-      # from its own `#render`, a CSS keyframe step) must survive to drive the next.
+      # from its own `#paint`, a CSS keyframe step) must survive to drive the next.
       @damage_dirty_roots.clear if @optimization.damage_tracking?
 
       clear_region 0, awidth, 0, aheight
@@ -330,7 +330,7 @@ module Crysterm
         if el.style.z_index
           defer_layer el
         else
-          el.render
+          el.paint
         end
       end
       @render_index_cursor = -1
@@ -391,7 +391,7 @@ module Crysterm
     private def damage_reclear_root(root : Widget) : {Tuple(Int32, Int32, Int32, Int32)?, Tuple(Int32, Int32, Int32, Int32)?}
       old = root.damage_bounds
       clear_region old[0], old[1], old[2], old[3] if old
-      root.render
+      root.paint
       nb = damage_subtree_bounds root
       root.damage_bounds = nb
       {old, nb}
@@ -415,7 +415,7 @@ module Crysterm
       # In-place style mutations (`style.fg = ...`) fire no tracked setter, so
       # sweep the per-widget `Style#attr_revision` watermarks and mark stale
       # subtrees dirty first — an animation mutating styles in place then works
-      # under damage tracking with no manual `mark_dirty` and no
+      # under damage tracking with no manual `update` and no
       # `OptimizationFlag::None` opt-out.
       damage_sweep_style_revisions
 
@@ -545,7 +545,7 @@ module Crysterm
       @children.each do |el|
         next if el.style.z_index
         next unless el.damage_seen == stamp
-        el.render
+        el.paint
         el.damage_bounds = damage_subtree_bounds el
       end
     end

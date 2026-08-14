@@ -32,7 +32,7 @@ describe "BUGS15 #29: @plane_buckets pruning" do
       # (from the previous frame's now-different alpha) stays in the hash
       # forever.
       a.style.opacity = 0.1 + i * 0.01
-      a.mark_dirty
+      a.update
       s.repaint
     end
 

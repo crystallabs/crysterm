@@ -88,7 +88,7 @@ module Crysterm
           document.apply_block_format(bp, bp, TextBlockFormat.new(list_format: lf), merge: true)
         end
         emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
-        request_render
+        update!
         _update_cursor
       end
 
@@ -180,7 +180,7 @@ module Crysterm
         if want && (after = buf_text) != before
           emit Crysterm::Event::TextChanged, after
         end
-        request_render
+        update!
         _update_cursor
         true
       end

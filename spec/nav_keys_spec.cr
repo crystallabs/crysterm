@@ -19,7 +19,7 @@ private def nk_list(vi_keys = false)
     parent: s, vi_keys: vi_keys,
     top: 0, left: 0, width: 20, height: 6,
     items: (1..30).map { |i| "item #{i}" })
-  s.render
+  s.update
   {s, list}
 end
 

@@ -50,12 +50,12 @@ class X
     table.rows = data2
     s.append table
     table.focus
-    s.render
+    s.update
 
     spawn do
       sleep 3.seconds
       table.rows = data1
-      s.render
+      s.update
     end
 
     s.on(Crysterm::Event::KeyPress) do |e|

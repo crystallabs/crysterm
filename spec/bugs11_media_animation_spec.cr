@@ -7,7 +7,7 @@ include Crysterm
 # The FrameClock tick must advance `@anim_index` at the START of each tick
 # (skipping the very first), THEN render and set the interval from the frame
 # actually being displayed. A render-then-advance tick shows frame i+1 for
-# frame i's delay — `request_render` only flags a render that runs after the
+# frame i's delay — `update!` only flags a render that runs after the
 # (cooperative) tick block returns, so the deferred render samples the
 # already-advanced index — and never displays frame 0 for its own delay. With
 # variable per-frame delays this is observable: after the immediate first tick,

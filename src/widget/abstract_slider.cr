@@ -43,7 +43,7 @@ module Crysterm
           self.value = v
         else
           @slider_position = v
-          request_render
+          update!
         end
         v
       end
@@ -55,7 +55,7 @@ module Crysterm
         return false unless p
         @slider_position = nil
         self.value = p
-        request_render
+        update!
         true
       end
 

@@ -16,5 +16,5 @@ Widget::Box.new \
   content: "{center}Media::Unicode::Braille  ·  Braille 2x4 dots · 1 color/cell{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#202830")
 
-s.render
+s.update
 s.exec

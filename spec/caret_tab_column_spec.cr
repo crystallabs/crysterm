@@ -18,7 +18,7 @@ describe "Mixin::TextEditing caret column with TABs" do
     pte.style.tab_char = " "
     pte.value = "a\tb"
     pte.focus
-    s.render
+    s.update
 
     pte.cursor_pos = 3 # caret at the end of "a\tb"
     pte._update_cursor

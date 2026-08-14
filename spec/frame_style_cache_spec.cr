@@ -6,7 +6,7 @@ include Crysterm
 # (`Mixin::Style#style` + `Widget#frame_insets` + the `minimal_rectangle`
 # frame memo). The caches are stamped by
 # `Window#renders` and invalidated eagerly by `#state=`, `#style=`, `#styles=`,
-# `#css_styled=` (the cascade) and `#mark_dirty`, so every externally-visible
+# `#css_styled=` (the cascade) and `#update`, so every externally-visible
 # change must be reflected no later than the next render — and same-frame for
 # the eager hooks.
 

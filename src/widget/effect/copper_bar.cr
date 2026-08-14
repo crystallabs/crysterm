@@ -66,7 +66,7 @@ module Crysterm
         def step
           style.bg = color
           @frame += 1
-          mark_dirty
+          update
         end
       end
     end

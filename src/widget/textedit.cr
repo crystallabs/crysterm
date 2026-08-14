@@ -126,8 +126,8 @@ module Crysterm
 
       def extra_selections=(list : Array(ExtraSelection))
         @extra_selections = list
-        mark_dirty
-        request_render if window?
+        update
+        update! if window?
         list
       end
 
@@ -308,8 +308,8 @@ module Crysterm
         (b1..b2).each do |i|
           blocks[i]?.try { |b| @block_layouts.delete(b.object_id) }
         end
-        mark_dirty
-        request_render if window?
+        update
+        update! if window?
       end
 
       # === Layout ===
@@ -565,8 +565,8 @@ module Crysterm
         @cursor_pos = c.position.clamp(0, buf_size)
         @selection_anchor = c.selection? ? c.anchor.clamp(0, buf_size) : nil
         @goal_col = nil
-        mark_dirty
-        request_render if window?
+        update
+        update! if window?
       end
 
       # Format typing at the caret would get: the pending typing format, else

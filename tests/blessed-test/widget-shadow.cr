@@ -45,14 +45,14 @@ over = Widget::Box.new \
 
 over.focus
 
-s.render
+s.update
 
 s.on(Event::KeyPress) do |e|
   case e.key
-  when ::Tput::Key::Left  then over.left = over.aleft - 2; s.render
-  when ::Tput::Key::Right then over.left = over.aleft + 2; s.render
-  when ::Tput::Key::Up    then over.top = over.atop - 1; s.render
-  when ::Tput::Key::Down  then over.top = over.atop + 1; s.render
+  when ::Tput::Key::Left  then over.left = over.aleft - 2; s.update
+  when ::Tput::Key::Right then over.left = over.aleft + 2; s.update
+  when ::Tput::Key::Up    then over.top = over.atop - 1; s.update
+  when ::Tput::Key::Down  then over.top = over.atop + 1; s.update
   else
     if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
       s.destroy

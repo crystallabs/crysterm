@@ -4,7 +4,7 @@ module Crysterm
     def show
       return if state_style.visible?
       set_visible true
-      mark_dirty
+      update
       emit Crysterm::Event::Show
       # Descendants stop/resume rendering with the ancestor but get no `Show`/
       # `Hide` of their own, skipping their hover/tooltip/pointer-shape cleanup.
@@ -18,7 +18,7 @@ module Crysterm
       # No need to erase the old footprint: the whole cell buffer is cleared
       # before each frame, so a hidden widget's old cells are gone next render.
       set_visible false
-      mark_dirty
+      update
       emit Crysterm::Event::Hide
       # As in `#show`: descendants must run their own Hide cleanup (tooltip
       # removal, OSC-22 pointer-shape restore) even though only we were hidden.

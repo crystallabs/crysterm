@@ -13,7 +13,7 @@ module Crysterm
       def {{ name.id }}=(val{% if val_type %} : {{ val_type.id }}{% end %})
         return if @{{ name.id }} == val
         @{{ name.id }} = val
-        mark_dirty
+        update
         emit ::Crysterm::Event::{{ event.id }}
       end
     end
@@ -22,14 +22,14 @@ module Crysterm
     # `change_guarded_setter` (which marks dirty + emits) and `reactive_property`
     # (which fans out to signal subscribers). The generated setter bails when the
     # value is unchanged, otherwise assigns, runs the optional *after* hook, and
-    # schedules a repaint via `request_render`, returning the new value:
+    # schedules a repaint via `update!`, returning the new value:
     #
     # ```
     # def name=(value : Type) : Type
     #   return value if value == @name
     #   @name = value
     #   <after>        # only when given
-    #   request_render
+    #   update!
     #   value
     # end
     # ```
@@ -45,12 +45,12 @@ module Crysterm
     #   `getter`/`getter?` line, it stays the source of the reader.
     #
     # *after* is an optional post-assign hook run **before** the unconditional
-    # `request_render` — deliberately scoped to hooks that do **not** themselves
+    # `update!` — deliberately scoped to hooks that do **not** themselves
     # schedule a repaint (`update_content`, `invalidate_css`). A hook that already
-    # schedules one (`mark_dirty`/`invalidate`/`invalidate_canvas`) would
+    # schedules one (`update`/`invalidate`/`invalidate_canvas`) would
     # double-schedule and must not be used here; route those through a plain
     # setter (or `change_guarded_setter`) instead. Assumes the including type is a
-    # `Widget` (uses `request_render`), like `change_guarded_setter`.
+    # `Widget` (uses `update!`), like `change_guarded_setter`.
     macro repaint_property(name, type, default = nil, after = nil)
       {% if default != nil %}
         @{{ name.id }} : {{ type }} = {{ default }}
@@ -64,7 +64,7 @@ module Crysterm
         return value if value == @{{ name.id }}
         @{{ name.id }} = value
         {% if after %} {{ after.id }} {% end %}
-        request_render
+        update!
         value
       end
     end
@@ -80,13 +80,13 @@ module Crysterm
     #   read inside an `Effect`/`Computed`, so `obj.title` participates in
     #   auto-tracking just like a bare signal read.
     # * `#title=` — change-guarded assign. On a real change it notifies signal
-    #   subscribers, `mark_dirty`s, and schedules a repaint of the owning window,
+    #   subscribers, `update`s, and schedules a repaint of the owning window,
     #   so a bare `obj.title = "x"` both fans out to bindings/effects and redraws
     #   the widget itself. Pass *event* to also emit a widget-level event (parity
     #   with `change_guarded_setter`).
     #
     # A default value is required (the signal needs an initial value). Assumes the
-    # including type is a `Widget` (uses `mark_dirty`/`window?`), like
+    # including type is a `Widget` (uses `update`/`window?`), like
     # `change_guarded_setter`.
     #
     # Like `enum_property`, the `name : Type = default` argument reads as an
@@ -111,7 +111,7 @@ module Crysterm
         # inside an effect doesn't spuriously depend on the property.
         return val if sig.peek == val
         sig.value = val
-        mark_dirty
+        update
         window?.try &.update
         {% if event %} emit ::Crysterm::Event::{{ event.id }} {% end %}
         val

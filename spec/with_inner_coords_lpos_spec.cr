@@ -5,7 +5,7 @@ include Crysterm
 # Regression coverage for `Widget#with_inner_coords` (`widget_rendering.cr`).
 #
 # Widgets that paint their own interior (`Gradient`, `ProgressBar`, `Slider`,
-# `Dial`, `ScrollBar`, `Marquee`, ...) drive `#render` through
+# `Dial`, `ScrollBar`, `Marquee`, ...) drive `#paint` through
 # `with_inner_coords`, which insets the rendered rectangle by the border and
 # yields the interior to the block.
 #

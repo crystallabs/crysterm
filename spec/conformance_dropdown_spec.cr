@@ -147,7 +147,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
         is_open: -> { cb.open? },
         selected: -> { cb.popup_widget.not_nil!.as(Crysterm::Widget::ComboBox::Popup).current_index },
         item_count: -> { cb.popup_widget.not_nil!.@item_boxes.size },
-        render: -> { s.render; nil },
+        render: -> { s.update; nil },
         wheel_down: -> {
           pop = cb.popup_widget.not_nil!
           dd_wheel s, pop.aleft + 2, pop.atop + pop.itop + 1; nil

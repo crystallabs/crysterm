@@ -153,7 +153,7 @@ module Crysterm
         end
 
         emit ::Crysterm::Event::ItemAdded
-        request_render
+        update!
         tablet
       end
 
@@ -193,7 +193,7 @@ module Crysterm
         t.click.off
         reclamp_focus idx, kept
         emit ::Crysterm::Event::ItemRemoved
-        request_render
+        update!
       end
 
       # :ditto: — moves focus to *index*.
@@ -203,7 +203,7 @@ module Crysterm
         anchor_focus_top index
         @focused_index = index.to_i
         emit ::Crysterm::Event::CurrentChanged, @focused_index
-        request_render
+        update!
       end
 
       # Moves focus to the next tablet in ring order, wrapping past the last
@@ -237,8 +237,8 @@ module Crysterm
 
       # Relayout on every paint: tablet heights and the visible window depend
       # on the widget's resolved size, only known once coordinates are
-      # computed (the `ToolBox#render` pattern).
-      def render(with_children = true)
+      # computed (the `ToolBox#paint` pattern).
+      def paint(with_children = true)
         relayout
         super
       end
@@ -253,7 +253,7 @@ module Crysterm
           return
         end
         e.accept
-        request_render
+        update!
       end
 
       # Restores a valid focus after the tablet at *removed_index* left the

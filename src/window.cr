@@ -117,7 +117,7 @@ module Crysterm
         app.emit ::Crysterm::Event::ScreenAdded, new_screen if new_device
       end
       start_input if was_listening
-      render
+      update
       new_screen
     end
 
@@ -416,7 +416,7 @@ module Crysterm
       @screen.detect_cell_geometry if probe_device
       restyle
 
-      # The loop doesn't render until the first `#render`, so spawning here is fine.
+      # The loop doesn't render until the first `#update`, so spawning here is fine.
       @_render_loop_fiber = spawn render_loop
     end
 
@@ -466,7 +466,7 @@ module Crysterm
       # repaints — otherwise the last-created sibling would paint over the
       # activated one while input still routed to it. A non-active window's
       # buffers are reallocated above; it fully repaints on `activate`.
-      render if device_active_window?
+      update if device_active_window?
 
       # For children (`Widget`s).
       emit_descendants e
@@ -576,7 +576,7 @@ module Crysterm
       return if @visible
       @visible = true
       enter
-      render
+      update
     end
 
     # Releases the terminal presentation (restores the normal buffer /

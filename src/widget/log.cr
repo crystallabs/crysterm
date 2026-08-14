@@ -105,7 +105,7 @@ module Crysterm
       end
 
       def handle_set_content(e)
-        request_render
+        update!
       end
 
       # Append a line to the log. Arguments are stringified and joined with a

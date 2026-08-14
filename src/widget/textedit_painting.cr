@@ -3,7 +3,7 @@ module Crysterm
     class TextEdit
       # === Render ===
 
-      def render(with_children = true)
+      def paint(with_children = true)
         # Relayout before following the caret: `ensure_cursor_visible` maps
         # the caret through `@_clines`, which a document edit just staled.
         process_content

@@ -29,7 +29,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
 
     # Render once to clear any pending dirty/CSS state.
-    s.render
+    s.update
     a.render_dirty = false
 
     # `a` starts before `b`; bring it to front (last slot).
@@ -47,7 +47,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
 
-    s.render
+    s.update
     b.render_dirty = false
 
     parent.children.index(b).should eq 1
@@ -63,7 +63,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     a = Crysterm::Widget::Box.new(parent: s, top: 0, left: 0, width: 5, height: 1)
     Crysterm::Widget::Box.new(parent: s, top: 1, left: 0, width: 5, height: 1)
 
-    s.render
+    s.update
     a.render_dirty = false
 
     s.children.index(a).should eq 0
@@ -80,7 +80,7 @@ describe "BUGS5 z-order reorder invalidation (fix #1)" do
     Crysterm::Widget::Box.new(parent: parent, top: 0, left: 0, width: 5, height: 1)
     b = Crysterm::Widget::Box.new(parent: parent, top: 1, left: 0, width: 5, height: 1)
 
-    s.render
+    s.update
     b.render_dirty = false
 
     # `b` is already last (front): calling to_front must not churn dirty/CSS state.

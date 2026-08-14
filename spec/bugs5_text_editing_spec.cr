@@ -30,7 +30,7 @@ private def editor(value : String, pos : Int32)
     default_quit_keys: false)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
   le.value = value
-  s.render # populate content/cursor geometry so motion keys can resolve
+  s.update # populate content/cursor geometry so motion keys can resolve
   le.cursor_pos = pos
   le.kill_ring = Crysterm::KillRing.new # isolate from the shared default
   le

@@ -37,7 +37,7 @@ describe "BUGS3 Form field collection (fix #1)" do
       parent: form, name: "when", top: 2, left: 0, width: 12, height: 1,
       date: Time.utc(2021, 3, 14))
 
-    s.render
+    s.update
 
     form.submit
     data = form.submission.not_nil!
@@ -59,7 +59,7 @@ describe "BUGS3 Form field collection (fix #1)" do
       parent: form, name: "ratio", top: 0, left: 0, width: 10, height: 1,
       minimum: 0.0, maximum: 10.0, decimals: 2, value: 3.5)
 
-    s.render
+    s.update
     form.submit
     form.submission.not_nil!["ratio"]?.should eq 3.5
   end
@@ -77,7 +77,7 @@ describe "BUGS3 Form reset (fix #2)" do
       parent: form, name: "color", top: 1, left: 0, width: 12, height: 1,
       options: ["red", "green", "blue"], current_index: 2)
 
-    s.render
+    s.update
 
     sb.value.should eq 42
     cb.current_text.should eq "blue"
@@ -97,7 +97,7 @@ describe "BUGS3 Form reset (fix #2)" do
       parent: form, name: "ratio", top: 0, left: 0, width: 10, height: 1,
       minimum: 1.0, maximum: 10.0, value: 7.0)
 
-    s.render
+    s.update
     form.reset
     dsb.value.should eq dsb.minimum
     dsb.value.should eq 1.0
@@ -158,7 +158,7 @@ describe "BUGS3 DateEdit#section_at consistency (fix #4)" do
     de = Crysterm::Widget::DateEdit.new(
       parent: s, top: 0, left: 0, width: 20, height: 1,
       date: Time.utc(2021, 3, 14), calendar_popup: false)
-    s.render
+    s.update
 
     # Opens on the day section (index 2): the day is highlighted.
     de.content.should eq "2021-03-{reverse}14{/reverse}"
@@ -178,7 +178,7 @@ describe "BUGS3 DateEdit#section_at consistency (fix #4)" do
     dte = Crysterm::Widget::DateTimeEdit.new(
       parent: s, top: 0, left: 0, width: 24, height: 1,
       date_time: Time.utc(2021, 3, 14, 9, 8, 7))
-    s.render
+    s.update
 
     # Col 4 (first dash) -> year section highlighted.
     click_col s, dte, 4

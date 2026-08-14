@@ -89,7 +89,7 @@ module Crysterm
       # destroy so they don't leak `self`.
       protected def wire_extra_listener_hooks : Nil
         on(::Crysterm::Event::Hide) { clear_overlay }
-        on(::Crysterm::Event::Show) { request_render }
+        on(::Crysterm::Event::Show) { update! }
         on(::Crysterm::Event::Destroy) { teardown }
       end
 
@@ -188,7 +188,7 @@ module Crysterm
         # run the clear path once (`@last_drawn = nil` stops it re-running
         # every frame); scrolling back in / re-showing repaints via
         # `#redraw_image`, since `#overlay_cleared` drops the emit-skip key.
-        # No explicit `s.render`: inside `PreRender` the ongoing pass flushes
+        # No explicit `s.update`: inside `PreRender` the ongoing pass flushes
         # the invalidated cells.
         if rect.nil?
           overlay_cleared s
@@ -222,7 +222,7 @@ module Crysterm
         overlay_cleared s
         invalidate_rect s, last
         @last_drawn = nil
-        s.render
+        s.update
       end
     end
   end

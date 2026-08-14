@@ -22,7 +22,7 @@ b = BigText.new \
 
 s.append b
 b.focus
-s.render
+s.update
 
 s.on(Event::KeyPress) do |e|
   e.accept

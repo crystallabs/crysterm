@@ -22,7 +22,7 @@ include Crysterm
 #   SAUCE record's TInfo1, else 80); explicit CUP positioning stays unwrapped.
 #
 # * #84 — a manual `#play` on an `animate: false` cell-grid image never animated:
-#   `#render`'s branch was gated on the load-time `@animated` latch (still false),
+#   `#paint`'s branch was gated on the load-time `@animated` latch (still false),
 #   so the still was repainted forever while the frame clock spun. The gate
 #   also follows live playback (`@playing && @src_frames`).
 

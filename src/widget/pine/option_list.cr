@@ -207,7 +207,7 @@ module Crysterm
         private def commit_change(o : Option, index : Int32)
           set_item index, format_row(o, index)
           o.callback.try &.call(o.value)
-          request_render
+          update!
         end
 
         # Begins inline editing of the selected `Text`/`Number` option.
@@ -242,7 +242,7 @@ module Crysterm
           @edit_index = nil
           o = records[idx]? if idx
           set_item idx, format_row(o, idx) if idx && o
-          request_render
+          update!
         end
 
         # Redraws the row currently being edited, showing the edit buffer.
@@ -251,7 +251,7 @@ module Crysterm
           return unless idx
           o = records[idx]?
           set_item idx, format_row(o, idx) if o
-          request_render
+          update!
         end
 
         # Formats one option into a fixed-column row: an optional `[X]`/`[ ]`

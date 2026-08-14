@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Renders `container` headlessly (`Window#render` only *schedules* a render via
+# Renders `container` headlessly (`Window#update` only *schedules* a render via
 # the loop fiber, which never runs in a one-shot spec) and returns each child's
 # rendered rectangle as `{xi, xl, yi, yl}` tuples.
 private def render_children(s, container)

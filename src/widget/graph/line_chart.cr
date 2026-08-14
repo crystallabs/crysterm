@@ -104,19 +104,19 @@ module Crysterm
         # Title/legend affect only the chrome (title also shifts the margins), not
         # the Canvas raster, so no `invalidate_paint`; but a plain `property`
         # setter schedules nothing, leaving the change invisible on an idle
-        # screen. `mark_dirty` registers damage, schedules a frame and invalidates
+        # screen. `update` registers damage, schedules a frame and invalidates
         # the frame-memoized minimal-rectangle chain the title's margin feeds.
         def title=(v : String) : String
           return v if v == @title
           @title = v
-          mark_dirty
+          update
           v
         end
 
         def show_legend=(v : Bool) : Bool
           return v if v == @show_legend
           @show_legend = v
-          mark_dirty
+          update
           v
         end
 
@@ -127,7 +127,7 @@ module Crysterm
           return v if v == @show_grid
           @show_grid = v
           plot?.try &.invalidate_paint
-          request_render
+          update!
           v
         end
 
@@ -193,7 +193,7 @@ module Crysterm
         private def invalidate_data : Nil
           @data_version &+= 1
           plot?.try &.invalidate_paint
-          request_render
+          update!
         end
 
         # Adds a series (Qt's `QChart#addSeries`). A `nil` color is auto-assigned
@@ -231,7 +231,7 @@ module Crysterm
           invalidate_data
         end
 
-        def render(with_children = true)
+        def paint(with_children = true)
           compute_ranges
           # Tick positions + label strings are stable for the whole frame and only
           # change when the resolved range / tick params / series set change;

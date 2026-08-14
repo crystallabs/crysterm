@@ -26,7 +26,7 @@ module Crysterm
       # scroller.start
       # ```
       #
-      # Glyphs are painted straight into the window cells in `#render`, each
+      # Glyphs are painted straight into the window cells in `#paint`, each
       # cell's color set as a native `0xRRGGBB` attribute via `style_to_attr`, rather
       # than through a `{#rrggbb-fg}`-tagged content string re-tokenized every
       # frame. A full-window scroller emits one color run per column, which makes
@@ -70,7 +70,7 @@ module Crysterm
         # Paints the looping message across the full height on a sine wave,
         # writing each glyph's cell directly with its native color. The box
         # background is filled first, then the glyphs are laid over it.
-        def render(with_children = true)
+        def paint(with_children = true)
           with_inner_coords(with_children) do |xi, xl, yi, yl|
             w = xl - xi
             h = yl - yi

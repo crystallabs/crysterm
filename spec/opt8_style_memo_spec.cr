@@ -5,7 +5,7 @@ include Crysterm
 # O8: `Style::AttrMemo` — the shared per-site memo of the
 # `Widget.style_to_attr(style)` derivation, gated on
 # {style identity via `same?`, `Style#attr_revision`} — and its converted
-# per-frame call sites (`Cursor#style_attr`, `Widget::Marquee#render`,
+# per-frame call sites (`Cursor#style_attr`, `Widget::Marquee#paint`,
 # `Widget::Table`'s recolor/gridline pass, `Widget::TextEdit`'s steady frame,
 # and the bar/dial/effect family: `Slider`, `ScrollBar`, `Dial`,
 # `ProgressBar`, `BigText`, `StatusBar`, `Effect::Direct`,

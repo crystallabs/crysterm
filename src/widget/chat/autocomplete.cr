@@ -83,13 +83,6 @@ module Crysterm
         def initialize(@registry = ::Crysterm::Chat::Completion::Registry.new)
         end
 
-        # Subscribes *block* to completion acceptance; it receives the chosen
-        # `Item` after the token has been replaced in the buffer.
-        @[Deprecated("Renamed to `#accept_handler` — a single overwritable slot, not an `on_*` multicast subscription.")]
-        def on_accept(&block : ::Crysterm::Chat::Completion::Item ->) : Nil
-          accept_handler(&block)
-        end
-
         def accept_handler(&block : ::Crysterm::Chat::Completion::Item ->) : Nil
           @accept_handler = block
         end

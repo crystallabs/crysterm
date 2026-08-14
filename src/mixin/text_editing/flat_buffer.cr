@@ -99,7 +99,7 @@ module Crysterm
         # Records `value` as the authoritative content and repositions the caret.
         # A non-nil `value` is an external set: record it, cursor to the end, and
         # drop any selection the new content invalidates. `nil` is a redisplay
-        # (e.g. from `render`): keep the cursor where it is, clamped in case the
+        # (e.g. from `paint`): keep the cursor where it is, clamped in case the
         # content changed underneath. The block normalizes the resolved value
         # before storing it — the multi-line editor keeps newlines, `LineEdit`
         # strips them. Returns whether this was an external set.
@@ -116,7 +116,7 @@ module Crysterm
           # An external set moves the caret to the end; drop the vertical goal
           # column so the next Up/Down tracks the caret's actual column. The
           # redisplay path (`nil` value) must leave `@goal_col` intact so an
-          # in-progress Up/Down sequence survives a `render`.
+          # in-progress Up/Down sequence survives a `paint`.
           @goal_col = nil if external
 
           # A programmatic set notifies too, like Qt's `QLineEdit::textChanged`
@@ -135,7 +135,7 @@ module Crysterm
           apply_value value
         end
 
-        # Once-per-frame redisplay (from `#render`): re-syncs the display with the
+        # Once-per-frame redisplay (from `#paint`): re-syncs the display with the
         # caret preserved, without treating it as an external set.
         def refresh_value : Nil
           apply_value nil

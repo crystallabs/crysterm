@@ -9,7 +9,7 @@ include Crysterm
 # `Window.instances` and from its `Application`'s routing table, and leaves a
 # dangling (unsubscribed) global-resize handler. `Window#connect` deliberately
 # supports rebinding a destroyed window; merely clearing `@destroyed` would
-# yield a window that claims to be alive while every `render` rings
+# yield a window that claims to be alive while every `update` rings
 # `@render_wakeup` with no receiver (permanently blank terminal) and resizes
 # are never processed. `#connect` must call `#revive`, which resets the stop
 # flags before respawning both loops (generation-tagged, so a not-yet-exited
@@ -55,7 +55,7 @@ describe "BUGS12 #5 connect() revives a destroyed Window" do
 
     # And the doorbell keeps working for subsequent explicit renders.
     base = rendered
-    w.render
+    w.update
     wait_until { rendered > base }
 
     w.destroy

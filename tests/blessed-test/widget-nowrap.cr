@@ -25,5 +25,5 @@ s.on(Event::KeyPress) do |e|
   end
 end
 
-s.render
+s.update
 s.exec

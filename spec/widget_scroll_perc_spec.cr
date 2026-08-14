@@ -16,7 +16,7 @@ describe "Widget#scroll_percent" do
     # ⇒ scroll_height == 1 ⇒ the `i - 1 == 0` span.
     w = Widget.new parent: s, top: 0, left: 0, width: 20, height: 1,
       style: Crysterm::Style.new(border: true), scrollable: true, content: "only line"
-    s.render
+    s.update
 
     w.scroll_height.should eq 1
 
@@ -31,12 +31,12 @@ describe "Widget#scroll_percent" do
     s = headless_screen(default_quit_keys: true)
     st = Widget::ScrollableText.new parent: s, top: 0, left: 0, width: 20, height: 5
     st.content = (1..30).map { |i| "row #{i}" }.join('\n')
-    s.render
+    s.update
 
     st.scroll_percent.should eq 0 # at the top
 
     st.scroll_percent = 1.0
-    s.render
+    s.update
     st.scroll_percent.should be >= 1.0 # fully scrolled
   end
 end

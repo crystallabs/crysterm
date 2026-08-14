@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS17 B17-33 — `Media::Cells#render` ignored the ancestor clip base/origin:
+# BUGS17 B17-33 — `Media::Cells#paint` ignored the ancestor clip base/origin:
 # it sized/composed the sample to the *visible* slice (`cols = xl - xi`, with
 # no use of `coords.base`), so an image partially scrolled out of a scrollable
 # container was resampled with the WHOLE source squashed into the shrunken

@@ -1,7 +1,7 @@
 # FEATURE: single-threaded, fiber-based, lock-free rendering (Qt-style).
 #
 # Every widget below is animated by its own independent fiber, calling
-# `screen.render` whenever it likes. Crysterm coalesces bursts of render
+# `screen.update` whenever it likes. Crysterm coalesces bursts of render
 # requests via a capacity-1 "doorbell" channel into frames on one fiber, so
 # widget state is never mutated concurrently and no locks are needed.
 

@@ -72,7 +72,7 @@ module Crysterm
       def show_message(text : String, timeout : Time::Span? = nil) : Nil
         @message = text
         gen = bump_dismiss_gen
-        request_render
+        update!
 
         if timeout
           after timeout do
@@ -80,7 +80,7 @@ module Crysterm
             window?.try &.post do
               if dismiss_current?(gen)
                 @message = ""
-                request_render
+                update!
               end
             end
           end
@@ -91,7 +91,7 @@ module Crysterm
       def clear_message : Nil
         @message = ""
         bump_dismiss_gen
-        request_render
+        update!
       end
 
       # :ditto: assignment form.
@@ -138,10 +138,10 @@ module Crysterm
       # Rebuilds the cached joined render string after any section change.
       private def rebuild_permanent : Nil
         @permanent_text = @permanent.join " #{glyph(Glyphs::Role::LineVertical)} "
-        request_render
+        update!
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         set_content @message
         super
         draw_permanent

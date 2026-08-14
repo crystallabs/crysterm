@@ -103,7 +103,7 @@ module Crysterm
         if @animated
           @file.try { |f| load f }
         else
-          request_render
+          update!
         end
       end
 

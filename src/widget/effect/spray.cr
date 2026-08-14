@@ -60,7 +60,7 @@ module Crysterm
           return value if value == @fill
           @fill = value
           reset_slots(@cols, @rows) if @cols > 0 && @rows > 0
-          mark_dirty
+          update
           value
         end
 
@@ -82,7 +82,7 @@ module Crysterm
               {x, y, letters[i % letters.size]}
             end
           end
-          mark_dirty
+          update
           value
         end
 
@@ -113,7 +113,7 @@ module Crysterm
           if @fill.as?(Fill).try(&.radial?) && @cols > 0 && @rows > 0
             reset_slots(@cols, @rows)
           end
-          mark_dirty
+          update
           value
         end
 
@@ -163,11 +163,6 @@ module Crysterm
         property complete_handler : Proc(Nil)?
 
         # Block form of `#complete_handler=`: `spray.complete_handler { ... }`.
-        @[Deprecated("Renamed to `#complete_handler` — a single overwritable slot, not an `on_*` multicast subscription.")]
-        def on_complete(&block : ->) : Nil
-          complete_handler(&block)
-        end
-
         def complete_handler(&block : ->) : Nil
           @complete_handler = block
         end

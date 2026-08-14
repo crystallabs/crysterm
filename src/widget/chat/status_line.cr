@@ -138,7 +138,7 @@ module Crysterm
         # strip again.
         def idle : Nil
           @spinner.stop
-          request_render
+          update!
         end
 
         # Time since the last `#busy` call.

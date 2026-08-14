@@ -24,7 +24,7 @@ module Crysterm
       # :ditto:
       def text=(value : String) : String
         set_content value
-        request_render
+        update!
         value
       end
 
@@ -43,7 +43,7 @@ module Crysterm
         uncheck unless value
         @checkable = value
         invalidate_css
-        request_render
+        update!
         value
       end
 
@@ -112,7 +112,7 @@ module Crysterm
         # fire (Qt likewise emits `toggled` and `stateChanged`), so a listener may
         # take whichever payload it wants. `#on_toggle` adapts `StateChanged`.
         emit Crysterm::Event::Toggled, @checked
-        request_render
+        update!
       end
 
       # Whether a third, partially-checked (indeterminate) state is currently
@@ -143,7 +143,7 @@ module Crysterm
         set_checked to
         emit Crysterm::Event::StateChanged, (to ? ::Crysterm::CheckState::Checked : ::Crysterm::CheckState::Unchecked)
         emit Crysterm::Event::Toggled, to
-        request_render
+        update!
       end
 
       # Sets the checked state (only when `#checkable?`), emitting

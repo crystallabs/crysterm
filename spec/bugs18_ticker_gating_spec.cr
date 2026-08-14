@@ -8,11 +8,11 @@ include Crysterm
 # in two more self-driving clocks —
 #
 #   * `Widget::Gradient`'s private `Timer` (`animate: true`,
-#     src/widget/gradient.cr) — ticks `phase += speed` + `request_render`
+#     src/widget/gradient.cr) — ticks `phase += speed` + `update!`
 #     forever.
 #   * `Widget::Media::Base`'s animation frame clock (`#animate_loop`, driving
 #     `#play`'d GIF/APNG playback, src/widget/media/base.cr) — ticks
-#     `anim_index` + `request_render` forever.
+#     `anim_index` + `update!` forever.
 #
 # Both now install one-time Hide/Detached pause + Show/Attached resume hooks,
 # mirroring the Effect::Animated/Widget#pulse convention exactly: a

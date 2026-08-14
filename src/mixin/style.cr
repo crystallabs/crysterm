@@ -40,7 +40,7 @@ module Crysterm
         # The style swap is in-place and invisible to the tracked geometry
         # setters, so flag damage explicitly — otherwise the optimized render
         # leaves the previous state's pixels behind (a stale highlight).
-        mark_dirty
+        update
         window?.try do |scr|
           if scr.css_dynamic_state?
             scr.restyle_subtree self # ancestor-state rules exist: recascade
@@ -75,7 +75,7 @@ module Crysterm
         # Like `#state=`: the swap is invisible to the tracked geometry setters,
         # so flag damage explicitly — otherwise an idle UI never repaints with
         # the new styles.
-        mark_dirty
+        update
         styles
       end
 
@@ -134,7 +134,7 @@ module Crysterm
         # Like `#state=`: the swap is invisible to the tracked geometry setters,
         # so flag damage explicitly — otherwise an idle UI never repaints with
         # the new style.
-        mark_dirty
+        update
         style
       end
 

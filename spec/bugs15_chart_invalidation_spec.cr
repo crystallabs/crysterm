@@ -9,7 +9,7 @@ include Crysterm
 # Canvas, not just the tick chrome).
 
 # Non-blocking receive on the render doorbell: true iff a frame is pending.
-# The setters under test must ring this doorbell (via `mark_dirty` ->
+# The setters under test must ring this doorbell (via `update` ->
 # `request_frame`) so an idle screen actually repaints. Consumes one token.
 private def frame_scheduled?(w) : Bool
   select

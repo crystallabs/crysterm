@@ -15,32 +15,32 @@ describe "Group N per-frame content caching" do
       s = headless_screen(40, 12)
       cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
 
-      cb.render
+      cb.paint
       cb.content.should eq "[ ] Accept"
       # A second render with no state change must yield the identical string.
-      cb.render
+      cb.paint
       cb.content.should eq "[ ] Accept"
 
       cb.check
-      cb.render
+      cb.paint
       cb.content.should eq "[x] Accept"
 
       cb.uncheck
-      cb.render
+      cb.paint
       cb.content.should eq "[ ] Accept"
 
       cb.text = "Other"
-      cb.render
+      cb.paint
       cb.content.should eq "[ ] Other"
     end
 
     it "reflects the partially-checked marker" do
       s = headless_screen(40, 12)
       cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, tristate: true, content: "All"
-      cb.render
+      cb.paint
       cb.content.should eq "[ ] All"
       cb.partial
-      cb.render
+      cb.paint
       cb.content.should eq "[-] All"
     end
   end
@@ -49,12 +49,12 @@ describe "Group N per-frame content caching" do
     it "renders the marker line, stable across redundant render, updates on check" do
       s = headless_screen(40, 12)
       rb = Crysterm::Widget::RadioButton.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "One"
-      rb.render
+      rb.paint
       rb.content.should eq "( ) One"
-      rb.render
+      rb.paint
       rb.content.should eq "( ) One"
       rb.check
-      rb.render
+      rb.paint
       rb.content.should eq "(*) One"
     end
   end
@@ -64,14 +64,14 @@ describe "Group N per-frame content caching" do
       s = headless_screen(40, 12)
       l = Crysterm::Widget::Loading.new parent: s, compact: true,
         frames: ["a", "b", "c"], content: "Working"
-      l.render
+      l.paint
       l.content.should eq "a Working"
       # Redundant render: identical.
-      l.render
+      l.paint
       l.content.should eq "a Working"
       # Advancing the spinner rebuilds the cached compact line.
       l.step
-      l.render
+      l.paint
       l.content.should eq "b Working"
     end
   end
@@ -80,18 +80,18 @@ describe "Group N per-frame content caching" do
     it "caches grapheme clusters + shrink width, stable across renders, updated on set_content" do
       s = headless_screen(40, 12)
       bt = Crysterm::Widget::BigText.new parent: s, top: 0, left: 0, content: "Hi"
-      bt.render
+      bt.paint
       bt.@graphemes.should eq ["H", "i"]
       w1 = bt.@_shrink_width_value
       w1.should_not be_nil
       w1.not_nil!.should be > 0
 
       # Redundant render: the cached width value is reused unchanged.
-      bt.render
+      bt.paint
       bt.@_shrink_width_value.should eq w1
 
       bt.set_content "ABC"
-      bt.render
+      bt.paint
       bt.@graphemes.should eq ["A", "B", "C"]
       bt.@_shrink_width_value.should_not eq w1 # three glyphs wider than two
     end

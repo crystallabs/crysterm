@@ -110,7 +110,7 @@ are kept in the window's (and each widget's) `children` array.
 
 `Window#exec` is the usual way to start an application. It:
 
-1. Performs the first **render** of the window (via `render`, which schedules a
+1. Performs the first **render** of the window (via `update`, which schedules a
    frame — see [§8](#8-rendering-and-drawing)).
 2. Calls `listen`, which begins processing terminal input (keyboard, mouse,
    resize).
@@ -124,22 +124,22 @@ requests: a burst of changes collapses into one repaint, capped at ~60fps. So
 application code sets state and stops there —
 
 ```cr
-status.content = "Saved"   # repaints; no `window.render` needed
+status.content = "Saved"   # repaints; no `window.update` needed
 panel.hide                 # ditto — and its layout slot is released
 ```
 
-— and there is no need to call `window.render` after a mutation. Everything
-routed through `Widget#mark_dirty` does this: content, geometry
+— and there is no need to call `window.update` after a mutation. Everything
+routed through `Widget#update` does this: content, geometry
 (`left`/`top`/`width`/`height`), visibility (`show`/`hide`), focus and widget
 state. An idle UI produces no frames at all.
 
 You still call a render explicitly in two cases:
 
-* **`window.render`** — to request a frame for a change the setters can't see,
+* **`window.update`** — to request a frame for a change the setters can't see,
   such as mutating a `Style` object in place (`widget.style.bg = "red"`). Or
-  call `widget.mark_dirty` after it, which is the same thing plus damage
+  call `widget.update` after it, which is the same thing plus damage
   tracking.
-* **`window._render`** — to paint *synchronously, right now*, when the next line
+* **`window.repaint`** — to paint *synchronously, right now*, when the next line
   depends on the result. Two situations need it: reading layout-assigned
   geometry (a layout engine only assigns a child's position and size during a
   frame, so it isn't known before one), and driving an animation from a blocking
@@ -212,6 +212,17 @@ Three naming conventions divide the event surface, one per job:
   sub.off # disconnected; idempotent, safe to call twice
   ```
 
+  The sugar exists for *every* event: declaring an event generates a matching
+  `on_<event underscored>(&)` on every emitter (`w.on_resize { |e| }`,
+  `w.on_focus_in { |e| }`, …), yielding the event object. A few widgets
+  shadow theirs with a richer adapter that yields the payload instead
+  (`on_toggled { |bool| }`, `on_value_changed { |v| }`,
+  `on_text_changed { |s| }`, `on_current_index_changed { |i| }`). The
+  generated per-key `Event::KeyPress::<member>` family is excluded —
+  subscribe to those with `on(Event::KeyPress::CtrlQ) { }` (or `on_key`).
+  To shorten the long event paths, `include Crysterm::Events` — the events
+  sibling of `Crysterm::Widgets` — and write `on(Clicked)` directly.
+
   For several handlers torn down together, collect them in a
   `Crysterm::Subscriptions` bag (`subs.on(target, Event::X) { }` … `subs.off`);
   `subs.auto_dispose(widget) { }` ties the teardown to the widget's
@@ -225,8 +236,9 @@ Three naming conventions divide the event surface, one per job:
 
 - **`<name>_handler`** (`clock.stop_handler { }`, `menu.navigate_handler { }`)
   sets a **single overwritable callback** — one slot, where a second
-  assignment replaces the first. The `on_*` spellings of these are deprecated:
-  they looked like subscriptions but silently dropped the previous handler.
+  assignment replaces the first. The old `on_*` spellings of these have been
+  removed: they looked like subscriptions but silently dropped the previous
+  handler.
 
 ### 3.3 The single-threaded render model
 
@@ -256,7 +268,7 @@ Coordination uses a single capacity-1 channel as a coalescing *doorbell*:
 If you ever compute something on another fiber (or a thread under
 `-Dpreview_mt`) and need to apply it to widgets, use `post(&block)`: it queues
 the closure to run *on the render fiber* just before the next frame, keeping all
-widget mutation on that one fiber. `render` / `schedule_render` are themselves
+widget mutation on that one fiber. `update` / `schedule_render` are themselves
 safe to call from any fiber.
 
 ---
@@ -533,7 +545,7 @@ identified by position.
 Note that a layout assigns a child's position and size **during a frame**. Before
 the first render that arranges it, a layout-managed child has no resolved
 geometry — so code that must *read* that geometry (or focus a text field, so its
-caret lands in the right column) needs one synchronous `window._render` first.
+caret lands in the right column) needs one synchronous `window.repaint` first.
 See [§2.3](#23-what-exec-does).
 
 The table widgets (`Widget::Table`, `Widget::ListTable`) instead mix in the
@@ -800,10 +812,28 @@ cell attributes.
 Crysterm separates **rendering** (computing the desired screen state in memory)
 from **drawing** (emitting the minimal terminal output to realize it).
 
+The repaint verbs mirror Qt's pair and are the same on `Window` and `Widget`:
+
+- **`update`** — schedule a coalesced repaint (Qt's `QWidget::update()`). The
+  default; every tracked setter calls it for you. On a widget it is a no-op
+  mid-frame (layout writes must not re-arm the frame they belong to).
+- **`Widget#update!`** — the unconditional variant: still rings the doorbell
+  mid-frame, for drivers that deliberately want *another* frame (animations,
+  media decode).
+- **`repaint`** — build a frame synchronously, on the calling fiber (Qt's
+  `QWidget::repaint()`). On a widget, paints just that widget.
+- **`Widget#paint`** — the overridable paint entry a subclass implements
+  (Qt's `paintEvent()` analogue); called by the pipeline, not by users.
+
+The old spellings — `Window#render`, `Widget#render`, `Widget#mark_dirty`,
+`Widget#request_render` — have been removed. A subclass that overrode
+`render(with_children = true)` must rename the override to `paint` (the
+pipeline dispatches through `paint`).
+
 ### 8.1 The pipeline
 
-`Window#render` (usually invoked indirectly) schedules a frame. When the frame
-runs, `_render`:
+`Window#update` (usually invoked indirectly) schedules a frame. When the frame
+runs (`Window#repaint` builds one synchronously, on the calling fiber):
 
 1. Emits `Event::PreRender`.
 2. Clears the in-memory cell buffer (`@lines`) back to the default cell. Widgets
@@ -811,7 +841,7 @@ runs, `_render`:
    This also makes alpha/transparency blending correct (each frame blends over
    the base, not over the previous frame's already-blended result) and removes
    the need to manually clear spots a widget has vacated.
-3. Walks the window's direct children in order and calls `render` on each, which
+3. Walks the window's direct children in order and calls `paint` on each, which
    recursively renders their children. Each widget paints itself into `@lines`.
 4. Optionally docks borders (when `dock_borders` is on).
 5. Calls **`draw`**, which compares the new buffer to what is on the terminal and
@@ -853,7 +883,7 @@ between frames, defaulting to `1/29` of a second — about 29 fps.
 The render loop parks on the
 coalescing doorbell described in [§3.3](#33-the-single-threaded-render-model);
 the first request after an idle period renders immediately, while back-to-back
-requests are spaced out to honor `interval`. As a result you can call `render`
+requests are spaced out to honor `interval`. As a result you can call `update`
 from anywhere at any time — all the changes accumulated since the last frame are
 painted together in one pass, and isolated updates are not delayed.
 
@@ -873,7 +903,7 @@ clock.stop # cancels it if it hasn't fired yet
 ```
 
 Both render after each block call, so the body only needs to mutate state — no
-explicit `render` inside. `every` is phase-locked: the period stays at the given
+explicit `update` inside. `every` is phase-locked: the period stays at the given
 interval regardless of how long the block takes.
 
 The blocks run on their own fiber, off the render fiber, interleaved with it by

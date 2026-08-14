@@ -46,14 +46,14 @@ module Crysterm
       # coalescing (it rings the render doorbell), so many bindings firing in one
       # turn still collapse into a single frame.
       #
-      # It goes through `Widget#request_render` — which marks the owner damaged
+      # It goes through `Widget#update!` — which marks the owner damaged
       # *and* rings the doorbell — rather than the bare doorbell, because the
       # block's mutation may be one damage tracking cannot observe (an in-place
       # `Style` write, a plain ivar the widget renders from). A doorbell-only
       # frame would then find an empty dirty set, take the selective path's
       # "nothing changed" shortcut and carry the previous frame's buffer over
       # verbatim, dropping the change entirely (it would render only with damage
-      # tracking off). Same pairing as `reactive_property`'s `mark_dirty` +
+      # tracking off). Same pairing as `reactive_property`'s `update` +
       # `update`.
       #
       # The block runs untracked: bindings never legitimately track (the watched
@@ -64,7 +64,7 @@ module Crysterm
       def run : Nil
         return if disposed?
         Reactive.untracked { @block.call }
-        @owner.request_render
+        @owner.update!
       end
 
       # Cancels every subscription. Idempotent.

@@ -30,7 +30,7 @@ module Crysterm
 
       # Visible-action snapshot and the per-row left/right text columns, rebuilt
       # only in `#sync_items` (i.e. on structural/visibility/label change), never
-      # per frame: `#render` reaches them through
+      # per frame: `#paint` reaches them through
       # `#fit_width`/`#fit_height`/`#size_rows` on every frame.
       @visible_actions = [] of Action
       @row_lefts = [] of String
@@ -89,7 +89,7 @@ module Crysterm
         sel = current_index
         sync_items
         self.current_index = sel
-        request_render
+        update!
       end
 
       # Whether this menu auto-fits its width to its content (a popup or submenu);
@@ -238,7 +238,7 @@ module Crysterm
       # so each reads as `├────┤` rather than a detached dash. Reuses the
       # window's border-docking component (`#dock_rows`); runs after `super`
       # so it re-applies the junctions each frame the border is repainted.
-      def render(with_children = true)
+      def paint(with_children = true)
         refresh_glyphs
         strip_item_box_model
         autosize

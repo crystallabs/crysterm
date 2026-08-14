@@ -71,7 +71,7 @@ describe "BUGS13 W5: streaming decoder only opens on explicit request" do
       img = SourceProbe.new parent: s, top: 0, left: 0, width: 8, height: 4
       img.probe_set_file "/nonexistent/bugs13-w5-clip.mp4"
 
-      # The unconditional render-fiber call (`Media::Cells#render`) — must not
+      # The unconditional render-fiber call (`Media::Cells#paint`) — must not
       # attempt the open (no ffprobe/ffmpeg launch), and must NOT latch
       # `@load_failed` (a later explicit play must still be able to open).
       img.probe_source.should be_nil

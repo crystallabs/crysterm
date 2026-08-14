@@ -155,7 +155,7 @@ describe "BUGS18 B18-34 alternate_row composes live across in-place mutations" d
       s.repaint # first frame memoizes the composed alternate-row style
       t.css_styled?.should be_false
       t.styles.normal.fg = "#ff0000" # in-place: same Style object
-      t.mark_dirty
+      t.update
       s.repaint
       b18_count_cells_fg_bg(s, 0xff0000, 0x333333).should be > 0
     ensure

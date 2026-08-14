@@ -196,7 +196,7 @@ module Crysterm
         elsif (pending = @pending ||= IO::Memory.new).size + slice.size <= PENDING_BYTES_CAP
           pending.write slice
         end
-        request_render
+        update!
       end
 
       # Emit any buffered partial line as a final line (used on EOF and the
@@ -257,7 +257,7 @@ module Crysterm
       # Renders via the base implementation (box, border, background), then — in
       # `:ansi` mode — sizes the emulator to the content area and paints its grid
       # over it. `:text` mode is left entirely to `Log`/`ScrollableText`.
-      def render(with_children = true)
+      def paint(with_children = true)
         coords = super
         return coords unless coords && @mode.ansi?
 
@@ -284,7 +284,7 @@ module Crysterm
       # have nowhere to go and are discarded.
       private def bootstrap_emulator(cols : Int32, rows : Int32) : Nil
         em = TerminalEmulator.new cols, rows, style_to_attr(style)
-        em.on_refresh = -> { request_render; nil }
+        em.on_refresh = -> { update!; nil }
         @emulator = em
 
         if pending = @pending
@@ -314,7 +314,7 @@ module Crysterm
         if em = @emulator
           em.scroll offset.to_i
           emit Crysterm::Event::Scroll, offset
-          request_render
+          update!
         else
           super
         end
@@ -325,7 +325,7 @@ module Crysterm
         if em = @emulator
           em.scroll_to offset.to_i
           emit Crysterm::Event::Scroll
-          request_render
+          update!
         else
           super
         end
@@ -336,7 +336,7 @@ module Crysterm
         if em = @emulator
           em.reset_scroll
           emit Crysterm::Event::Scroll
-          request_render
+          update!
         else
           super
         end

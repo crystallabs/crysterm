@@ -40,7 +40,7 @@ module Crysterm
       # Marks the Canvas content stale and schedules a render.
       protected def invalidate_canvas : Nil
         canvas?.try &.invalidate_paint
-        request_render
+        update!
       end
     end
   end

@@ -14,7 +14,7 @@ module Crysterm
       # its neighbor. The table loops modulo its own display width (trailing
       # spaces become the inter-repeat gap), advancing one column per `#step`,
       # optionally tinting each glyph with a cycling hue. The including widget
-      # supplies its own `#render` compositing (via `#scroll_column`); the
+      # supplies its own `#paint` compositing (via `#scroll_column`); the
       # message itself, and the `#text=` that rebuilds the tables behind it, are
       # shared here.
       module TextScroll
@@ -40,7 +40,7 @@ module Crysterm
         # :ditto:
         def text=(@text : String)
           rebuild_scroll_columns @text
-          mark_dirty
+          update
         end
 
         # `text` decomposed into its characters once, so the per-column paint can
@@ -86,11 +86,11 @@ module Crysterm
         @frame : Int64 = 0_i64
 
         # Advance one column. State only — painting happens in the including
-        # widget's `#render`, so an external master clock can call `step` and then
+        # widget's `#paint`, so an external master clock can call `step` and then
         # trigger a single render.
         def step
           @frame += 1
-          mark_dirty
+          update
         end
 
         # Rebuilds `@chars`/`@widths` and the display-column table from *text*.

@@ -102,7 +102,7 @@ module Crysterm
       @throughput_avg : Window::Average
       @throughput_actual_avg : Window::Average
 
-      # Averages computed once per frame in `#render` (so referencing a metric
+      # Averages computed once per frame in `#paint` (so referencing a metric
       # zero or many times in `#format` never skews the rolling window).
       @render_avg_val : Int64 = 0
       @draw_avg_val : Int64 = 0
@@ -137,7 +137,7 @@ module Crysterm
         end
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         if s = window?
           @render_avg_val = @render_avg.avg s.render_rate
           @draw_avg_val = @draw_avg.avg s.draw_rate

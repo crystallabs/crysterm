@@ -5,7 +5,7 @@ include Crysterm
 # `ProgressBar` keeps its own range (Qt's `QProgressBar` is a plain `QWidget`,
 # not a `QAbstractSlider`); `minimum=`/`maximum=` route through `#set_range`,
 # which — like `#value=` — re-clamps the value into the new range and
-# `#request_render`s. Since `#percent` (and `%p`/`%m`/`%M` text) derive from
+# `#update!`s. Since `#percent` (and `%p`/`%m`/`%M` text) derive from
 # the range, bare `property` setters would leave the value out of range and
 # the bar stale when `maximum` drops below it.
 #

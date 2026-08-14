@@ -91,7 +91,7 @@ module Crysterm
         bar.bottom = @tab_position.bottom? ? 0 : nil
         bar.height = @tab_height
         @pages.each { |p| layout_page p }
-        request_render
+        update!
       end
 
       # Whether tabs show a `✕` marker and can be closed.
@@ -367,7 +367,7 @@ module Crysterm
         @switching = true
         tab_bar.current_index = @current_index if @current_index >= 0
         @switching = false
-        request_render
+        update!
       end
 
       # Positions *page* to fill the widget beside the tab bar.
@@ -417,7 +417,7 @@ module Crysterm
         reclamp_after_removal index, cur
 
         emit ::Crysterm::Event::ItemRemoved
-        request_render
+        update!
         page
       end
 
@@ -446,7 +446,7 @@ module Crysterm
         end
         if removed
           emit ::Crysterm::Event::ItemRemoved
-          request_render
+          update!
         end
       end
 

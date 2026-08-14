@@ -41,7 +41,7 @@ module Crysterm
         return v if v == @page_step
         @page_step = v
         emit Crysterm::Event::RangeChanged, @minimum, @maximum
-        request_render
+        update!
         v
       end
 
@@ -170,7 +170,7 @@ module Crysterm
           if steppers && e.action.down? && (raw <= 0 || raw >= inner - 1)
             raw <= 0 ? step_down : step_up
             e.accept
-            request_render
+            update!
             next
           end
           # Seek within the trough, which starts one cell in when steppers show.
@@ -191,7 +191,7 @@ module Crysterm
           # strand uncommitted on a release off the bar. Idempotent.
           window?.try &.capture_mouse(self)
           e.accept
-          request_render
+          update!
         end
       end
 
@@ -241,7 +241,7 @@ module Crysterm
         # Mirror the engine's scroll position along this bar's axis.
         self.value = pos.clamp(@minimum, @maximum)
         @syncing = false
-        request_render
+        update!
       rescue
         # Target not laid out yet.
       end
@@ -302,7 +302,7 @@ module Crysterm
         end
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         base = style
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           horizontal = @orientation.horizontal?

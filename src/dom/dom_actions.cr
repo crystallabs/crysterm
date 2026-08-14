@@ -215,7 +215,7 @@ module Crysterm
         else
           return false
         end
-        window.render
+        window.update
         true
       end
 

@@ -42,7 +42,7 @@ module Crysterm
     @cell_widths = [] of Array(Int32)
 
     # Whether `@maxes` needs recomputing. `#compute_column_widths` runs every
-    # `render` but depends only on `@rows`, `@width` and `@column_spacing`,
+    # `paint` but depends only on `@rows`, `@width` and `@column_spacing`,
     # which change exclusively through `#rows=` and `#column_spacing=` — both
     # of which set this. Skips the per-frame re-scan of every cell when
     # nothing relevant changed.

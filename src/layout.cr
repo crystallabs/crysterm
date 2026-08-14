@@ -64,9 +64,9 @@ module Crysterm
     # Schedules a repaint of the container, when installed. Called by the
     # shape-changing setters (`#spacing`, and the per-engine `justify`/`columns`/
     # ... below) so mutating a layout after the first frame re-arranges its
-    # children — the layout analogue of `Widget#mark_dirty`.
+    # children — the layout analogue of `Widget#update`.
     protected def invalidate : Nil
-      container.try &.mark_dirty
+      container.try &.update
     end
 
     # Declares a shape-changing layout knob: the `@name : type` ivar, its getter,
@@ -212,7 +212,7 @@ module Crysterm
         el.layout_suppressed = false
         el.window.defer_layer el
       else
-        el.render
+        el.paint
       end
     end
 
@@ -257,7 +257,7 @@ module Crysterm
     # Assigns `el`'s full rectangle (left/top/width/height) in one call. Does not
     # render, so an engine placing several children before rendering them stays
     # in control of the order. One combined geometry write, so the whole
-    # rectangle costs a single `mark_dirty` and at most one `Move` + one
+    # rectangle costs a single `update` and at most one `Move` + one
     # `Resize`, rather than four independent setter runs.
     protected def place_child(el : Widget, left : Int32, top : Int32, width : Int32, height : Int32) : Nil
       el.set_geometry left, top, width, height

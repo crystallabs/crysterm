@@ -36,23 +36,23 @@ class X
 
     fm.on(Crysterm::Event::DirectoryChanged) do |e|
       fm.set_label " #{e.path} "
-      s.render
+      s.update
     end
 
     fm.on(Crysterm::Event::FileSelected) do |e|
       box.content = "Selected: #{e.path}"
       box.show
-      s.render
+      s.update
       spawn do
         sleep 2.seconds
         box.hide
-        s.render
+        s.update
       end
     end
 
     fm.refresh
     fm.focus
-    s.render
+    s.update
 
     s.on(Crysterm::Event::KeyPress) do |e|
       case
@@ -63,11 +63,11 @@ class X
         fm.pick do |file|
           box.content = file ? "Picked: #{file}" : "Cancelled"
           box.show
-          s.render
+          s.update
           spawn do
             sleep 2.seconds
             box.hide
-            s.render
+            s.update
           end
         end
       end

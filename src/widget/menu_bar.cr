@@ -142,7 +142,7 @@ module Crysterm
             self.current_index = 0
             w.focus_region self
           end
-          w.render
+          w.update
         elsif (c = alt_char(e)) && (i = @mnemonics.index(c))
           e.accept
           # Entering from the central area records the return slot; with the
@@ -151,7 +151,7 @@ module Crysterm
           # plain menu open/switch.
           w.focus_region self unless @open_index || w.region_of(w.focused).same?(self)
           open_selected i
-          w.render
+          w.update
         end
       end
 
@@ -348,7 +348,7 @@ module Crysterm
       private def deactivate_after_activation : Nil
         w = window? || return
         w.focus_central
-        w.render
+        w.update
       end
 
       private def on_menu_hidden(menu : Menu) : Nil

@@ -12,7 +12,7 @@ include Crysterm
 private def new_lineedit(s, value : String)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
   le.value = value
-  s.render
+  s.update
   le
 end
 

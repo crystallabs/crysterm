@@ -89,7 +89,7 @@ module Crysterm
       # only on (re)takeover, so without this the raised window keeps running
       # under the sibling's cursor and title indefinitely.
       window.reassert_terminal_state
-      window.render
+      window.update
       window
     end
 
@@ -282,7 +282,7 @@ module Crysterm
         return 0
       end
 
-      window.render
+      window.update
       window.start_input
 
       status = @quit_channel.receive
@@ -402,7 +402,7 @@ module Crysterm
       end
 
       windows.each do |w|
-        w.render
+        w.update
         w.start_input
       end
 

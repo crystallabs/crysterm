@@ -84,25 +84,25 @@ describe "ALLOCS Group P/I behaviour preservation" do
       box = Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20, height: 8,
         content: content
       bar = Widget::ScrollBar.new parent: s, top: 0, left: 20, width: 1, height: 8
-      s.render
+      s.update
       bar.attach box
-      s.render
+      s.update
 
       bar.value.should eq 0
 
       # Scrolling the target drives the bar (via the Scroll event → sync).
       box.scroll_to 5
-      s.render
+      s.update
       bar.value.should eq 5
 
       # A redundant scroll to the same offset is a no-op; value stays put.
       box.scroll_to 5
-      s.render
+      s.update
       bar.value.should eq 5
 
       # A further scroll still updates the bar (early-return didn't strand it).
       box.scroll_to 10
-      s.render
+      s.update
       bar.value.should eq 10
     end
   end

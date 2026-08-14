@@ -16,7 +16,7 @@ describe "BUGS4 Menu separator click (does not activate a neighbor)" do
     m.add_action("A") { fired << "A" }
     m.add_separator
     m.add_action("B") { fired << "B" }
-    s.render
+    s.update
 
     # Rows: [A, ───, B]. `activate_item(1)` is exactly what the separator row's
     # Click handler invokes.
@@ -31,7 +31,7 @@ describe "BUGS4 Menu separator click (does not activate a neighbor)" do
     m.add_action("A") { fired << "A" }
     m.add_separator
     m.add_action("B") { fired << "B" }
-    s.render
+    s.update
 
     m.activate_item 0
     fired.should eq ["A"]

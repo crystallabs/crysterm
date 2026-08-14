@@ -39,7 +39,7 @@ module Crysterm
       return value if value == @wrap_content
       @wrap_content = value
       @_content_version += 1
-      mark_dirty
+      update
       value
     end
 
@@ -47,7 +47,7 @@ module Crysterm
       return value if value == @parse_tags
       @parse_tags = value
       @_content_version += 1
-      mark_dirty
+      update
       value
     end
 
@@ -55,7 +55,7 @@ module Crysterm
       return value if value == @align
       @align = value
       @_content_version += 1
-      mark_dirty
+      update
       value
     end
 
@@ -242,7 +242,7 @@ module Crysterm
         @_clines.ftor.clear
         @_clines.rtof.clear
       end
-      mark_dirty
+      update
       emit(Crysterm::Event::ContentChanged)
     end
 

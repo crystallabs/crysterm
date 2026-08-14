@@ -5,7 +5,7 @@ include Crysterm
 # `Widget::TextEdit` rendering: document fragments written directly into the
 # cell buffer with packed attributes. Headless harness
 # like `text_editing_keys_spec.cr`: a `Window` over in-memory IOs and a
-# synchronous `Window#repaint` (NOT `#render`, which only rings the async
+# synchronous `Window#repaint` (NOT `#update`, which only rings the async
 # render-loop doorbell), then cells asserted straight off `Window#lines`.
 
 private def new_te(s, content = "")

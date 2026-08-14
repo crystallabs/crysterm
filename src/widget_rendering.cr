@@ -29,7 +29,7 @@ module Crysterm
       # Whether this widget clips its children (overflow: Hidden) changed → its
       # subtree's nearest clipping ancestor may differ.
       invalidate_clip_ancestor_cache
-      mark_dirty
+      update
       value
     end
 
@@ -55,7 +55,7 @@ module Crysterm
       @layout.try(&.container=(nil))
       @layout = value
       value.try(&.container=(self))
-      mark_dirty
+      update
       value
     end
 
@@ -73,7 +73,7 @@ module Crysterm
     def layout_hint=(value : Crysterm::Layout::Hint?) : Crysterm::Layout::Hint?
       return value if value == @layout_hint
       @layout_hint = value
-      mark_dirty
+      update
       value
     end
 
@@ -208,8 +208,8 @@ module Crysterm
 
     # The base painting implementation: renders this widget (and, when
     # *with_children*, its subtree) into the window's cell buffer. Subclass
-    # `#render` overrides call this the way a `paintEvent` override calls the
-    # base class — it never dispatches back into `#render`, so an override can
+    # `#paint` overrides call this the way a `paintEvent` override calls the
+    # base class — it never dispatches back into `#paint`, so an override can
     # run it and then paint on top. External callers use `#repaint` (sync) or
     # `#update` (scheduled) instead.
     # ameba:disable Metrics/CyclomaticComplexity
@@ -1126,16 +1126,17 @@ module Crysterm
     # the polymorphic paint entry — subclasses override it (keeping the
     # `(with_children = true)` signature, or the call is an overload rather
     # than an override) and invoke `#base_render` for the standard box/content
-    # pass. `#repaint` is the Qt-named spelling of the same thing.
-    def render(with_children = true)
+    # pass. Callers outside the render pipeline should prefer `#repaint` (the
+    # Qt-named public spelling) or, for a coalesced scheduled frame, `#update`.
+    def paint(with_children = true)
       base_render with_children
     end
 
     # Synchronously paints this widget ↔ `QWidget::repaint()` — dispatches to
-    # the (possibly overridden) `#render`. For a coalesced, scheduled frame of
+    # the (possibly overridden) `#paint`. For a coalesced, scheduled frame of
     # the whole window use `#update`.
     def repaint(with_children = true)
-      render with_children
+      paint with_children
     end
 
     # Runs `base_render`, insets the resulting coordinates by this widget's
@@ -1343,7 +1344,7 @@ module Crysterm
     # * `Widget#insert` re-establishes the state on a subtree attached under
     #   a suppressed parent at mutation time (see there).
     #
-    # (Residual edge: directly `#render`/`#repaint`-ing a *visible* widget
+    # (Residual edge: directly `#paint`/`#repaint`-ing a *visible* widget
     # strictly inside a suppressed subtree raises out of `coords` — its parent
     # has no rendered position — but only after `base_render` already cleared
     # that widget's own flag. Code that swallows the exception leaves the

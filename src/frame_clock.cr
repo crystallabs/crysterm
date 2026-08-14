@@ -15,14 +15,14 @@ module Crysterm
   #
   # ```
   # # ticker: cycle a hue every 100 ms
-  # anim = Crysterm::FrameClock.new(0.1.seconds) { widget.phase += 0.02; widget.request_render }
+  # anim = Crysterm::FrameClock.new(0.1.seconds) { widget.phase += 0.02; widget.update! }
   # anim.start
   # anim.stop
   #
   # # tween: fade a widget out over half a second (the block gets the clock)
   # Crysterm::FrameClock.new(0.03.seconds, duration: 0.5.seconds, easing: :in_out_sine) do |clock|
   #   widget.style.opacity = 1.0 - clock.value
-  #   widget.request_render
+  #   widget.update!
   # end.start
   # ```
   class FrameClock
@@ -91,12 +91,6 @@ module Crysterm
     # inside it to distinguish completion from cancellation.
     def stop_handler(&@stop_handler : ->) : self
       self
-    end
-
-    # :ditto:
-    @[Deprecated("Renamed to `#stop_handler`: this sets a single overwritable slot, which the `on_*` prefix (the multicast-subscription convention, cf. `Timer#on_tick`) misrepresented.")]
-    def on_stop(&block : ->) : self
-      stop_handler(&block)
     end
 
     # Starts the loop fiber. No-op if already running. Returns self for chaining.

@@ -556,7 +556,7 @@ module Crysterm
     #
     # Both axes go through the coalescing `#move` primitive rather than
     # the two individual setters, so one drag-motion costs a single
-    # `mark_dirty` and a single `Move` emit instead of two of each.
+    # `update` and a single `Move` emit instead of two of each.
     protected def drag_move_to(x : Int32, y : Int32, dx : Int32, dy : Int32) : Nil
       ox, oy = drag_origin
       move (x - dx - ox).clamp(0, drag_max_left),

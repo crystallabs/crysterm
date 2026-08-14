@@ -4,11 +4,11 @@ include Crysterm
 
 # `Widget::Gauge#segments=` must both bump `@segments_version` (so the *next*
 # render rebuilds the cached content) and schedule that render via
-# `request_render`, matching its sibling `#value=` (and `Bar#values=` /
+# `update!`, matching its sibling `#value=` (and `Bar#values=` /
 # `GaugeList`'s data setters) — bumping alone leaves the previous stacked bars
 # on window under `DamageTracking` until an unrelated frame happens to repaint.
 #
-# `request_render` records the widget (mapped to its top-level ancestor) in
+# `update!` records the widget (mapped to its top-level ancestor) in
 # `@damage_dirty_roots` and rings the render doorbell (async, no synchronous
 # drain). The gauge here is a direct screen child, so it is its own root. The
 # spec renders once, drains the damage set, then assigns segments with no manual

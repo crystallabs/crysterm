@@ -12,7 +12,7 @@ include Crysterm
 #     configuration renders the fully-landed pattern instead (and a negative
 #     `hold` cannot freeze the spray in the pending-spark state).
 #
-#   * B18-85 — `Effect::Direct#paint` (and `SineScroller#render`) derived the
+#   * B18-85 — `Effect::Direct#paint` (and `SineScroller#paint`) derived the
 #     simulation size from the clip-adjusted visible rectangle. Each scroll
 #     step of a clipping ancestor changed the visible height, re-running
 #     `resize` and wiping the whole simulation state, while the visible slice
@@ -32,7 +32,7 @@ include Crysterm
 #     cadence change was inert until stop/start. The setter forwards to
 #     the running clock.
 #
-# Everything is driven headlessly over in-memory IOs; `#render`/`#advance` are
+# Everything is driven headlessly over in-memory IOs; `#paint`/`#advance` are
 # synchronous, and the one `#start` below never yields to its fiber.
 
 # Minimal `Effect::Direct` includer instrumenting the module's contract calls

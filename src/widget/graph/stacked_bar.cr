@@ -67,7 +67,7 @@ module Crysterm
           @show_legend = value
           bump_data_version
           # Rebuilds the content and schedules a frame (mirrors `values=`).
-          mark_dirty
+          update
           value
         end
 
@@ -91,7 +91,7 @@ module Crysterm
         def values=(vals : Array)
           @values = vals.map { |bar| bar.map(&.to_f) }
           bump_data_version
-          mark_dirty
+          update
         end
 
         private def segment_color(level : Int32) : String

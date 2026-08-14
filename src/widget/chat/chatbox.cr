@@ -430,7 +430,7 @@ module Crysterm
           f.show
           f.to_front
           task ? f.open(task) : f.roster.focus
-          request_render
+          update!
           f
         end
 
@@ -440,7 +440,7 @@ module Crysterm
           return unless f && f.visible?
           f.hide
           focus_input
-          request_render
+          update!
         end
 
         # -- Internals ---------------------------------------------------------
@@ -491,7 +491,7 @@ module Crysterm
           end
           status_line.task_count = @tasks.active_count
           check_completions
-          request_render
+          update!
         end
 
         # Emits `Event::TaskCompleted` for each task that finished since the
@@ -520,7 +520,7 @@ module Crysterm
         private def apply_mode(mode : ::Crysterm::Chat::Mode) : Nil
           input.state_style.border.fg = mode.color
           input.invalidate_frame_style
-          input.request_render
+          input.update!
           emit ::Crysterm::Event::ModeChanged, mode
         end
 

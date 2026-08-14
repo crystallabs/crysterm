@@ -83,7 +83,7 @@ module Crysterm
       old.try &.remove_from_parent
       stretch_child new_child, top: top, left: left, right: right, bottom: bottom
       append new_child
-      request_render
+      update!
       new_child
     end
 
@@ -319,7 +319,7 @@ module Crysterm
       # new stacking order isn't painted until an unrelated full-frame trigger
       # fires, and order-dependent selectors (`:nth-child`, `:first`/`:last-child`,
       # sibling combinators) never re-evaluate.
-      mark_dirty
+      update
       window?.try &.damage_force_full
       invalidate_css_tree
 

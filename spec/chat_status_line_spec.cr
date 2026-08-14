@@ -98,7 +98,7 @@ describe Crysterm::Widget::Chat::StatusLine do
     sl.busy "Pondering"
     sl.busy?.should be_true
     sl.spinner.hidden?.should be_false
-    s.render
+    s.update
 
     line = sl.spinner.content
     line.should contain "Pondering"
@@ -108,13 +108,13 @@ describe Crysterm::Widget::Chat::StatusLine do
     sl.idle
     sl.busy?.should be_false
     sl.spinner.hidden?.should be_true
-    s.render
+    s.update
 
     # Re-entering busy restarts the elapsed clock and takes a fresh label.
     sl.busy
     sl.busy?.should be_true
     sl.busy_elapsed.total_seconds.should be < 1.0
-    s.render
+    s.update
     sl.spinner.content.should contain "Thinking#{ChatGlyphs::ELLIPSIS}"
     sl.idle
   end
@@ -137,7 +137,7 @@ describe Crysterm::Widget::Chat::StatusLine do
     sl.spinner.icon.content.should eq frames[0]
 
     # Every step recomputes the busy line, keeping the readout live.
-    s.render
+    s.update
     sl.spinner.content.should match /Working \(\d+s #{ChatGlyphs::MIDDOT} esc to interrupt\)/
     sl.idle
   end

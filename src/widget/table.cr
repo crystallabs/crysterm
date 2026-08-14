@@ -58,7 +58,7 @@ module Crysterm
       @aattr_memo = Style::AttrMemo.new
 
       # Whether the box is sized to its content width (no explicit `width:`).
-      # When true, `#rows=`/`#render` keep pinning `@width = row_width +
+      # When true, `#rows=`/`#paint` keep pinning `@width = row_width +
       # ihorizontal` so the box fits every column, but clear it before each
       # remeasure so the pin stays one-way (columns size from content and can
       # shrink again). When false (a fixed `width:` was given), the width is left
@@ -66,7 +66,7 @@ module Crysterm
       # after `super`.
       @content_sized = true
 
-      # A `Table` is content-sized: `#render` pins `@width` so the box always fits
+      # A `Table` is content-sized: `#paint` pins `@width` so the box always fits
       # every column and never overflows horizontally. It opts out of horizontal
       # scrolling entirely — a wide table is just clipped by its parent. For a
       # scrollable wide table use `Widget::ListTable` instead.
@@ -101,14 +101,14 @@ module Crysterm
         on(Crysterm::Event::Attached) { self.rows = @rows }
         on(Crysterm::Event::Resize) do
           self.rows = @rows
-          request_render
+          update!
         end
       end
 
       # Replaces the table data and rebuilds the rendered content. Must go through
       # here rather than assigning `@rows`: that would bypass `#reload_rows`,
       # leaving the column widths, the pinned `@width` and the content describing
-      # the old data while `#render` sized the box from the new row count.
+      # the old data while `#paint` sized the box from the new row count.
       def rows=(rows)
         # One-way width pin: for a content-sized table, clear the self-pinned
         # width before remeasuring so `compute_column_widths` sizes columns from
@@ -145,7 +145,7 @@ module Crysterm
         set_content text
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         # Re-pin the size now that the CSS cascade has run: `#rows=` pins width at
         # construction/Attach time, before a border arriving via CSS is folded into
         # `style`, so `ihorizontal` would omit the border columns and leave

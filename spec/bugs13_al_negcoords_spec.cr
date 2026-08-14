@@ -10,7 +10,7 @@ include Crysterm
 #     so a widget partly off the top/left edge stamped its text overlay onto the
 #     bottom/right of the terminal.
 #
-#  A2 (src/widget/bigtext.cr): `BigText#render` guarded negative columns but not
+#  A2 (src/widget/bigtext.cr): `BigText#paint` guarded negative columns but not
 #     negative rows — `lines[y]?` with `y = top < 0` wrapped to the bottom of
 #     the screen. Its column guard also compared against a possibly-negative
 #     `left`, admitting negative columns.

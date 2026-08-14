@@ -33,14 +33,14 @@ require "../../../src/crysterm"
 # buffer (the fast `fill_region` path, as in `tests/misc/quicktro.cr`) — no
 # per-frame tag strings to parse. See `Commando#draw_scene`.
 #
-# `Field` is the play-window widget: a bordered box whose `#render` runs during
+# `Field` is the play-window widget: a bordered box whose `#paint` runs during
 # the compositor's pass (after its buffer clear), then hands off to the game to
 # overpaint the scene. A `painter` proc is used so this can be defined before
 # `Commando`.
 class Field < Crysterm::Widget::Box
   property painter : (Field ->)? = nil
 
-  def render(with_children = true)
+  def paint(with_children = true)
     super
     painter.try &.call(self)
   end
@@ -282,13 +282,13 @@ class Commando
     @banner.hide
 
     @window.on(Event::KeyPress) { |e| on_key e }
-    @window.on(Event::Resize) { @window.render }
+    @window.on(Event::Resize) { @window.update }
   end
 
   def run
     show_title
-    # State-advance here; the repaint happens in `Field#render` (triggered by
-    # the `render` that `every` runs after this block). Painting writes cells
+    # State-advance here; the repaint happens in `Field#paint` (triggered by
+    # the `update` that `every` runs after this block). Painting writes cells
     # straight to the buffer, so a frame stays well under the interval and the
     # FrameClock sleeps normally — no busy-loop, input stays responsive.
     @window.every((1.0 / FPS).seconds) { tick }
@@ -603,7 +603,7 @@ class Commando
     # Loop the attract demo when Joe falls or breaks through, without ending it.
     setup_world if @state.title? && (@lives < 0 || @py <= 1)
 
-    # Refresh the status bar (state phase); the repaint is `Field#render`, run
+    # Refresh the status bar (state phase); the repaint is `Field#paint`, run
     # by `every` right after this tick.
     render_status
   end
@@ -849,7 +849,7 @@ class Commando
 
   # Paint the whole scene by writing packed cells straight into the window
   # buffer (the fast path from `quicktro.cr`) — no content strings, no tag
-  # parsing. Runs inside `Field#render`, after the box has cleared/bordered its
+  # parsing. Runs inside `Field#paint`, after the box has cleared/bordered its
   # region, so it only overpaints the field's interior.
   private def draw_scene(f : Field)
     win = f.window
@@ -943,7 +943,7 @@ class Commando
   # the clock's frames. Refreshes the status bar, then composites.
   private def render
     render_status
-    @window.render
+    @window.update
   end
 
   # Map one world tile to {glyph, fg, bg} (colours packed `0xRRGGBB`).

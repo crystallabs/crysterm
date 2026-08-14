@@ -30,10 +30,10 @@ describe "ComboBox popup placement on a padded window" do
     s = cbp_screen 2
     cb = cbp_combo s, top: 5
     cb.focus
-    s.render
+    s.update
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     # Absolute placement must track the combo exactly, regardless of the
     # window's 2-cell padding.
@@ -47,10 +47,10 @@ describe "ComboBox popup placement on a padded window" do
     s = cbp_screen 2
     cb = cbp_combo s, top: 17
     cb.focus
-    s.render
+    s.update
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     pop.aleft.should eq cb.aleft
     pop.atop.should be < cb.atop

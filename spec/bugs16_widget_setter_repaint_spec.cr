@@ -28,7 +28,7 @@ private def assert_same_lines(a : Crysterm::Window, b : Crysterm::Window, ctx = 
   end
 end
 
-# B16-10 — `overflow=` did not `mark_dirty`, so a runtime overflow-policy
+# B16-10 — `overflow=` did not `update`, so a runtime overflow-policy
 # change never scheduled a repaint. Under `OptimizationFlag::DamageTracking`
 # this is observable: since the widget is never added to the dirty-roots set,
 # a later selective frame skips its subtree entirely and the newly-imposed

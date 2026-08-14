@@ -20,7 +20,7 @@ describe "center±N / half±N position & size offsets" do
     s = headless_screen(default_quit_keys: true)
     base = Widget::Box.new parent: s, top: "center", left: "center", content: "hi", shrink_to_fit: true
     plus = Widget::Box.new parent: s, top: "center", left: "center+4", content: "hi", shrink_to_fit: true
-    s.render
+    s.update
 
     bp = base.coords(true).not_nil!
     pp = plus.coords(true).not_nil!

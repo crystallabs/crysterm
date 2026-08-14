@@ -8,12 +8,12 @@ module Crysterm
       # Shared self-animation lifecycle for effects that drive their own frame
       # loop. An including widget must be a `Widget` (the loop calls `window`)
       # and define `#step` — advance the simulation and repaint one frame,
-      # state and paint only (no `window.render`, no `sleep`). Supplies
+      # state and paint only (no `window.update`, no `sleep`). Supplies
       # `#start`/`#stop`/`#toggle` and the fiber loop tying
-      # `step` -> `window.render` -> `sleep interval` together.
+      # `step` -> `window.update` -> `sleep interval` together.
       #
       # `#step` is public so an effect can also be advanced from an external
-      # clock — several effects sharing one frame counter, one `window.render`
+      # clock — several effects sharing one frame counter, one `window.update`
       # painting them all.
       #
       # A finite effect (like a non-looping `Spray`) signals the end of its run
@@ -79,12 +79,12 @@ module Crysterm
         def start
           return if running?
           # Stop the frame clock when the widget is destroyed, or the fiber keeps
-          # ticking `step` + `request_render` on the dead widget for the process
+          # ticking `step` + `update!` on the dead widget for the process
           # lifetime. Also stop it (instead) when the widget is hidden or
-          # detached, or the fiber keeps ticking `step` + `request_render`
+          # detached, or the fiber keeps ticking `step` + `update!`
           # forever on a widget that is never painted — a hidden widget's
-          # `coords` is nil so `render` never runs, and a detached-but-alive
-          # widget's `request_render` no-ops while the clock still burns CPU.
+          # `coords` is nil so `paint` never runs, and a detached-but-alive
+          # widget's `update!` no-ops while the clock still burns CPU.
           # The pause leaves `@animation_paused` set, so the Show/Attached hook
           # resumes it on the first render after `show`/re-attach. `Event::Hide`
           # and `Event::Attached` both propagate to descendants (via
@@ -101,7 +101,7 @@ module Crysterm
           end
           @animation = FrameClock.new(@interval) do
             step
-            request_render
+            update!
             if done?
               # End on this frame (so the final state is shown), then notify.
               # `on_done` fires only on natural finish, not an external `#stop`.
@@ -168,7 +168,7 @@ module Crysterm
         # consistent — the origin uses `aleft + inset_left`, the width subtracts
         # both left and right. Callers choose which inset defines "interior":
         # `Direct#paint` passes the content insets (padding-inclusive), while
-        # `SineScroller#render` passes the border-only insets. Each keeps its
+        # `SineScroller#paint` passes the border-only insets. Each keeps its
         # own early-return guard on the returned `full_w`/`full_h`.
         protected def full_field_geometry(
           xi : Int32,

@@ -97,7 +97,7 @@ module Crysterm
       @cursor = nil
       if (s = window?) && s.focused == self
         s.apply_cursor
-        s.render if s.renders > 0
+        s.update if s.renders > 0
       end
     end
   end

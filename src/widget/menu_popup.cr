@@ -116,7 +116,7 @@ module Crysterm
           @popup_session = s
         end
 
-        request_render
+        update!
         self
       end
 
@@ -140,7 +140,7 @@ module Crysterm
         # captured window (safe even if `window?` is already nil).
         @popup_session.try &.close
         @popup_session = nil
-        request_render
+        update!
       end
 
       # Configured width used for on-window clamping in `#popup` (the value just
@@ -275,13 +275,13 @@ module Crysterm
             window, grab_owner: nil, inside: inside) do
             close_submenu
             @show_highlight = false
-            request_render
+            update!
           end
           s.open
           @submenu_session = s
         end
 
-        request_render
+        update!
       end
 
       # Closes this menu's open child submenu (recursively), refocusing this menu
@@ -295,7 +295,7 @@ module Crysterm
           focus
           window?.try &.remove child
           child.destroy
-          request_render
+          update!
         end
 
         # Once the top-level menu has no submenu left, drop the click watcher.

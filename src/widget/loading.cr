@@ -53,7 +53,7 @@ module Crysterm
       @orig_text = ""
       @text : String?
 
-      # Cached `"<icon> <text>"` line used by compact-mode `#render`. Rebuilt in
+      # Cached `"<icon> <text>"` line used by compact-mode `#paint`. Rebuilt in
       # the state-change paths rather than interpolated every frame.
       @compact_content = ""
 
@@ -159,7 +159,7 @@ module Crysterm
       end
 
       # Advances the spinner one frame (state + paint only); the shared
-      # `Effect::Animated` loop handles `window.render` and the inter-frame sleep.
+      # `Effect::Animated` loop handles `window.update` and the inter-frame sleep.
       #
       # `@pos` is advanced *before* painting: the icon already shows `frames[0]`
       # from `initialize`/`spinner=`, so painting first would freeze the spinner
@@ -176,10 +176,10 @@ module Crysterm
         hide
         @text = nil
         rebuild_compact_content
-        request_render
+        update!
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         if compact?
           set_content @compact_content, true
           super false

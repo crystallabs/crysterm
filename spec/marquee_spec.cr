@@ -3,9 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Marquee` scroll logic, driven headlessly over in-memory IOs. Glyphs
-# are painted straight into the screen cell buffer in `#render` (`#step` only
+# are painted straight into the screen cell buffer in `#paint` (`#step` only
 # advances the frame clock), so these specs run a real synchronous
-# `Window#repaint` and inspect the resulting cells. `#render` reads `@frame`, so
+# `Window#repaint` and inspect the resulting cells. `#paint` reads `@frame`, so
 # frame 0 is the state before the first `#step`.
 
 describe Crysterm::Widget::Marquee do

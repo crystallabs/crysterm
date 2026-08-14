@@ -278,7 +278,7 @@ module Crysterm
           @goal_col = nil
         end
 
-        # Once-per-frame redisplay (from `#render`): just clamps the caret,
+        # Once-per-frame redisplay (from `#paint`): just clamps the caret,
         # leaving the content (and the vertical goal column) untouched.
         def refresh_value : Nil
           @cursor_pos = @cursor_pos.clamp(0, buf_size)
@@ -330,7 +330,7 @@ module Crysterm
                 if want && (after = buf_text) != before
                   emit Crysterm::Event::TextChanged, after
                 end
-                request_render
+                update!
                 _update_cursor
               end
               return true
@@ -355,8 +355,8 @@ module Crysterm
           @goal_col = nil
           reset_document_caches
           wire_document
-          mark_dirty
-          request_render if window?
+          update
+          update! if window?
         end
 
         # Replaces the edited document (Qt `setDocument`), e.g. to share one

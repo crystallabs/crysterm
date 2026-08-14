@@ -327,7 +327,7 @@ describe Crysterm::Completer do
     # Down opens the drop-down on the whole model.
     box.emit Crysterm::Event::KeyPress, '\0', Tput::Key::Down
     c.open?.should be_true
-    s.render
+    s.update
 
     pop = c.@popup.not_nil!
     visible = pop.aheight - pop.ivertical - pop.hscrollbar_rows
@@ -341,7 +341,7 @@ describe Crysterm::Completer do
       y = content_top + row
       s.dispatch_mouse ::Tput::Mouse::Event.new(
         ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, x, y)
-      s.render
+      s.update
 
       # Within the viewport, highlight tracks the pointer; below it, highlight
       # stays parked on the last shown row.

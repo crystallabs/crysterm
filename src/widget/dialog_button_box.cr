@@ -112,7 +112,7 @@ module Crysterm
         end
         @standard.clear
         build_standard buttons
-        request_render
+        update!
         buttons
       end
 

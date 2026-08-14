@@ -45,7 +45,7 @@ module Crysterm
         # (`#end_it`→`#done`, and `#destroy`) releases the grab.
         show_modal
         set_content text
-        request_render
+        update!
 
         if !time || time.to_f <= 0
           # No timeout: dismiss on next keypress.

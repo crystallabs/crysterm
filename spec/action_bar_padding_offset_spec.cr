@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Mixin::ActionBar#render` positions each item box with a content-relative
+# `Mixin::ActionBar#paint` positions each item box with a content-relative
 # left (0 == the bar's content origin). `Widget#aleft` already folds the
 # parent's `ileft` into a child's relative `left`, so the render cursor must
 # start at 0, not `ileft` — else the inset is double-counted, shoving items

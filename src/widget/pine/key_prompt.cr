@@ -131,7 +131,7 @@ module Crysterm
           @answer = choice.key
           choice.callback.try &.call
           emit ::Crysterm::Event::Activated, choice.key
-          request_render
+          update!
         end
 
         # (Re)creates the child boxes: an optional question box, then one
@@ -161,7 +161,7 @@ module Crysterm
             append box
             @cells << box
           end
-          request_render
+          update!
         end
       end
     end

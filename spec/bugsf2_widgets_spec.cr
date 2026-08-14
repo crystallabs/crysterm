@@ -52,10 +52,10 @@ describe "BUGS-F2 16: ComboBox options= refreshes the open drop-down" do
     cb = Crysterm::Widget::ComboBox.new parent: s, top: 3, left: 5, width: 16, height: 1,
       options: ["Apple", "Banana"]
     cb.focus
-    s.render
+    s.update
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     cb.options = ["Cherry", "Date", "Elder"]
 
@@ -73,10 +73,10 @@ describe "BUGS-F2 17: DateEdit calendar popup placement" do
     de = Crysterm::Widget::DateEdit.new parent: s, top: 11, left: 5, width: 12, height: 1,
       date: Time.utc(2024, 6, 15)
     de.focus
-    s.render
+    s.update
     de.show_popup
     pop = de.popup_widget.not_nil!
-    s.render
+    s.update
 
     pop.atop.should be < de.atop                    # opened above, not below
     pop.atop.should be >= 0                         # not clipped at the top
@@ -88,10 +88,10 @@ describe "BUGS-F2 17: DateEdit calendar popup placement" do
     de = Crysterm::Widget::DateEdit.new parent: s, top: 3, left: 5, width: 12, height: 1,
       date: Time.utc(2024, 6, 15)
     de.focus
-    s.render
+    s.update
     de.show_popup
     pop = de.popup_widget.not_nil!
-    s.render
+    s.update
 
     pop.atop.should eq de.atop + de.aheight
   end
@@ -151,11 +151,11 @@ describe "BUGS-F2 21: per-line attr cache refreshes on a single-line base-style 
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, scrollable: true, scrollbar: false,
       width: 10, height: 3, content: "hi"
-    s.render
+    s.update
     before = box._clines.attr.not_nil![0]
 
     box.style.fg = "#ff0000"
-    # Reparse directly (a full `s.render` would re-run the CSS cascade and replace
+    # Reparse directly (a full `s.update` would re-run the CSS cascade and replace
     # `style` wholesale, dropping the inline fg). Even though the widget is
     # single-line and unscrolled, the cache-hit path must refresh the packed attr —
     # leaving it stale bleeds the old color into later appended/scrolled
@@ -200,7 +200,7 @@ describe "BUGS-F2 29: ItemView page navigation counts items, not rows, when spac
     spaced = Widget::List.new parent: s, top: 0, left: 30, width: 20, height: 20,
       items: (0...60).map(&.to_s)
     spaced.item_spacing = 1
-    s.render
+    s.update
 
     plain.current_index = 0
     spaced.current_index = 0
@@ -220,7 +220,7 @@ describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 6, 15)
     cal.selection_mode = Widget::Calendar::SelectionMode::NoSelection
-    s.render
+    s.update
 
     changed = false
     cal.on(Crysterm::Event::DateChanged) { changed = true }
@@ -236,7 +236,7 @@ describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
     s = headless_screen(80, 24)
     cal = Widget::Calendar.new parent: s, top: 0, left: 0, width: 24, height: 12,
       date: Time.utc(2024, 6, 15)
-    s.render
+    s.update
     before = cal.date
 
     cal.handle_key_press(f2_key('\0', ::Tput::Key::Down))
@@ -253,7 +253,7 @@ describe "BUGS-F2 32: Calendar closes one nav dropdown before opening the other"
       date: Time.utc(2024, 6, 15)
     cal.focus
     # Synchronous: the clicks below are mapped through layout-assigned geometry,
-    # which only exists once a frame has actually run. `render` merely schedules
+    # which only exists once a frame has actually run. `update` merely schedules
     # one, leaving `handle_mouse`'s `coords` nil — and its blanket `rescue`
     # then swallows the click, so no menu ever opens.
     s.repaint
@@ -324,7 +324,7 @@ describe "BUGS-F2 37: SpinBox wheel cancels an active edit first" do
     sb = Crysterm::Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
       minimum: 0, maximum: 100
     sb.focus
-    s.render
+    s.update
 
     sb.handle_key_press(f2_key('5')) # start editing: buffer "5"
     sb.editing?.should be_true
@@ -343,8 +343,8 @@ describe "BUGS-F2 38: ColorDialog wheel only acts over the field/hue" do
     s = headless_screen(80, 24)
     cd = Crysterm::Widget::ColorDialog.new parent: s
     cd.show # the dialog starts hidden; must be laid out for handle_mouse to hit-test
-    s.render
-    cd.render # sets @lpos (the window loop doesn't lay the dialog out on its own)
+    s.update
+    cd.paint # sets @lpos (the window loop doesn't lay the dialog out on its own)
 
     ox = cd.aleft + cd.ileft
     oy = cd.atop + cd.itop
@@ -365,8 +365,8 @@ describe "BUGS-F2 39: BigText auto-width sums per-glyph widths" do
   it "sizes a CJK string by its full-width glyphs, not codepoint count" do
     s = headless_screen(80, 24)
     bt = Crysterm::Widget::BigText.new parent: s, content: "日本語"
-    s.render
-    bt.render # BigText#render (0-arg) is what runs the shrink-to-content width
+    s.update
+    bt.paint # BigText#paint (0-arg) is what runs the shrink-to-content width
 
     # Each CJK glyph is full-width (2x the half-width cell), so 3 graphemes need
     # 6 cell-widths, not the 3 the old codepoint-count formula produced.
@@ -432,7 +432,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
   it "GroupBox#title= re-labels the border" do
     s = headless_screen(80, 24)
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Old", width: 30, height: 8
-    s.render
+    s.update
 
     gb.title = "New"
     gb.title.should eq "New"
@@ -460,7 +460,7 @@ describe "BUGS-F2 42: runtime title= updates the rendered title" do
   it "DockWidget#title= re-labels the title bar" do
     s = headless_screen(80, 24)
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "Old", dock_size: 20
-    s.render
+    s.update
 
     dock.title = "Files"
     dock.title.should eq "Files"

@@ -164,7 +164,7 @@ module Crysterm
       private def after_change : Nil
         refresh_buttons
         emit ::Crysterm::Event::Activated, @titles[current_index]? || ""
-        request_render
+        update!
       end
 
       # Reflects the current position in the button row: Back disabled on the
@@ -177,7 +177,7 @@ module Crysterm
 
         back_button.state = first ? WidgetState::Disabled : WidgetState::Normal
         next_button.set_content(last ? "Finish" : "Next")
-        request_render
+        update!
       end
     end
   end

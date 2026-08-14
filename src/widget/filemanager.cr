@@ -118,7 +118,7 @@ module Crysterm
         @entry_names = ordered.map &.[:name]
         self.items = ordered.map(&.[:text])
         self.current_index = 0
-        request_render
+        update!
 
         emit Crysterm::Event::Refresh
 
@@ -152,7 +152,7 @@ module Crysterm
           @pick_subs.off
           hide if was_hidden
           window.restore_focus unless was_focused
-          request_render
+          update!
         }
 
         @pick_subs.on(self, Crysterm::Event::FileSelected) do |e|
@@ -171,7 +171,7 @@ module Crysterm
           window.save_focus
           focus
         end
-        request_render
+        update!
       end
 
       # Activating an entry (Enter) navigates into directories and emits

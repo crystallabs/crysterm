@@ -271,7 +271,7 @@ module Crysterm
       # would be relative to `cur`'s *immediate* parent, so it omits the
       # intervening offsets for anything deeper than a direct child.
       if el && (elw = el.window?)
-        elw.render if el.ensure_widget_visible cur
+        elw.update if el.ensure_widget_visible cur
       end
 
       # The scroll above (and the caret placement that follows a focus) ran

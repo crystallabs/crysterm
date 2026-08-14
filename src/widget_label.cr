@@ -121,7 +121,7 @@ module Crysterm
       @label_widget.try do |_label|
         # Only re-render when the label actually moves: fires on every Scroll
         # and Resize, and resize jitter would otherwise trigger no-op renders.
-        request_render if move_label_top(_label, @child_base - itop)
+        update! if move_label_top(_label, @child_base - itop)
       end
     end
 

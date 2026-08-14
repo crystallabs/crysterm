@@ -64,7 +64,7 @@ module Crysterm
         unless v == @scaler
           @scaler = v
           @last = nil
-          request_render
+          update!
         end
         v
       end
@@ -103,7 +103,7 @@ module Crysterm
 
         on(::Crysterm::Event::Hide) { remove }
         on(::Crysterm::Event::Detached) { remove }
-        on(::Crysterm::Event::Show) { @last = nil; request_render }
+        on(::Crysterm::Event::Show) { @last = nil; update! }
         on(::Crysterm::Event::Destroy) { teardown }
       end
 
@@ -122,7 +122,7 @@ module Crysterm
         # Explicit request: the überzug placement is (re)added by the post-render
         # hook, not by the normal dirty/render path, so nothing else schedules
         # the frame that fires it.
-        request_render
+        update!
       end
 
       def clear_image

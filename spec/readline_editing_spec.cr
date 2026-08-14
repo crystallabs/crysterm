@@ -10,7 +10,7 @@ private def editor(value : String, pos : Int32)
   s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
   le = Widget::LineEdit.new parent: s, top: 0, left: 0, width: 40, height: 1
   le.value = value
-  s.render # populate content/cursor geometry so motion keys can resolve
+  s.update # populate content/cursor geometry so motion keys can resolve
   le.cursor_pos = pos
   le.kill_ring = Crysterm::KillRing.new # isolate from the shared default
   le

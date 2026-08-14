@@ -9,7 +9,7 @@ module Crysterm
       #   box (stale after a content change). Recompute the box fresh via
       #   `#coords` so the caret lands at the new position without waiting for a
       #   render.
-      # * `rendered: true` — the post-render pass (`Window#render`, after
+      # * `rendered: true` — the post-render pass (inside `Window#repaint`'s frame, after
       #   `flush_frame`), when `@lpos` was just written by that render and is the
       #   authoritative painted box. Reuse it rather than recomputing.
       #

@@ -301,10 +301,11 @@ and terminal bandwidth live:
 
 ## Screen capture
 
-Any window or single widget can record itself and produce PNG or
-APNG/GIF/MP4/WebM/JPEG via ffmpeg, and a textual `.dump` format,
-including live recording of a running UI at a chosen fps and compositing of
-in-band graphics (sixel/kitty/iterm) into the capture.
+Any window or single widget can record itself and produce a still PNG
+(encoded in-process, no external tools), any other format — APNG, GIF,
+MP4, WebM, JPEG, … — by piping frames to `ffmpeg`, and a textual `.dump`
+format, including live recording of a running UI at a chosen fps and
+compositing of in-band graphics (sixel/kitty/iterm) into the capture.
 
 Setting
 `CRYSTERM_SHOT` / `CRYSTERM_ANIM` / `CRYSTERM_DUMP` makes *any* Crysterm

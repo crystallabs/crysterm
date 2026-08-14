@@ -26,7 +26,7 @@ describe "Mixin::TextEditing caret in the reserved end column" do
     # `full_width - content_width == 12 - 7 == 5`.
     pte.value = "abcdefghijkl"
     pte.focus
-    s.render
+    s.update
 
     pte.content_width.should eq 7
     pte.child_base_x.should eq 5
@@ -47,7 +47,7 @@ describe "Mixin::TextEditing caret in the reserved end column" do
     pte.wrap_content = false
     pte.value = "abc"
     pte.focus
-    s.render
+    s.update
 
     pte.child_base_x.should eq 0
     pte._update_cursor

@@ -13,7 +13,7 @@ include Crysterm
 # its interior, read back after one render.
 
 # Pointer glyph at the center of the dial's interior, computed the same way as
-# `Dial#render` (`with_inner_coords` insets), so it's correct with a themed
+# `Dial#paint` (`with_inner_coords` insets), so it's correct with a themed
 # border/padding too.
 private def center_glyph(s, dial) : Char
   s.repaint

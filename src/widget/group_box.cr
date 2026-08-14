@@ -34,7 +34,7 @@ module Crysterm
       def title=(value : String) : String
         @title = value
         update_label
-        request_render
+        update!
         value
       end
 
@@ -62,7 +62,7 @@ module Crysterm
           # greyed-out children so the contents stay usable, as Qt does.
           restore_disabled_children
         end
-        request_render
+        update!
         value
       end
 
@@ -210,7 +210,7 @@ module Crysterm
         @checked = value
         update_label
         apply_enabled
-        request_render
+        update!
         value
       end
 

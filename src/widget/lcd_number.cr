@@ -98,7 +98,7 @@ module Crysterm
         return v if v == @digit_count
         @digit_count = v
         update_content
-        request_render
+        update!
         v
       end
 
@@ -170,7 +170,7 @@ module Crysterm
       private def show_text(s : String) : Nil
         @text = s
         update_content
-        request_render
+        update!
       end
 
       private def update_content : Nil

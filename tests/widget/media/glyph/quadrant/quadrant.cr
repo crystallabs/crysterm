@@ -17,5 +17,5 @@ Widget::Box.new \
   content: "{center}Media::Unicode::Quadrant  ·  Quadrant 2x2 · 2 colors/cell{/center}", parse_tags: true,
   style: Style.new(fg: "white", bg: "#202830")
 
-s.render
+s.update
 s.exec

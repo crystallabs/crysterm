@@ -22,7 +22,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
         parent: s, top: 0, left: 0, width: 20, height: 2,
         style: Style.new(border: true))
       st.content = (1..50).map { |i| "row #{i}" }.join('\n')
-      s.render
+      s.update
 
       st.child_base.should eq(0)
 
@@ -42,7 +42,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
         parent: s, top: 0, left: 0, width: 20, height: 2,
         style: Style.new(border: true))
       st.content = (1..50).map { |i| "row #{i}" }.join('\n')
-      s.render
+      s.update
 
       # Scroll hard while collapsed (must not push base past content).
       st.scroll 1000
@@ -50,7 +50,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
 
       # Enlarge the viewport so content becomes visible again.
       st.height = 12
-      s.render
+      s.update
 
       # Content is still visible from the top: the base was never pushed off.
       st.child_base.should eq(0)
@@ -75,18 +75,18 @@ describe "BUGS3 scrolling & scrollbar fixes" do
 
       # Grow content until it sticks to the tail.
       20.times { |i| log.add "line #{i}" }
-      s.render
+      s.update
       log.scroll_percent.should be >= 1.0
 
       # Programmatic reset to the top.
       log.reset_scroll
-      s.render
+      s.update
       log.child_base.should eq(0)
 
       # More content arrives: a reset-to-top must be preserved, so the view stays
       # at the top rather than being yanked back to the bottom.
       10.times { |i| log.add "more #{i}" }
-      s.render
+      s.update
 
       log.child_base.should eq(0)
       log.scroll_percent.should be < 1.0
@@ -103,7 +103,7 @@ describe "BUGS3 scrolling & scrollbar fixes" do
         top: 0, left: 0, width: 1, height: 10,
         minimum: 0, maximum: 100)
       bar.tracking = false
-      s.render
+      s.update
 
       bar.value.should eq(0)
 

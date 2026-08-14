@@ -20,7 +20,7 @@ describe "follow_tail (sticky bottom)" do
     s = headless_screen(default_quit_keys: true)
     log = Widget::Log.new parent: s, top: 0, left: 0, width: 20, height: 5
     20.times { |i| log.add "line #{i}" }
-    s.render
+    s.update
     at_bottom?(log).should be_true
   end
 
@@ -28,21 +28,21 @@ describe "follow_tail (sticky bottom)" do
     s = headless_screen(default_quit_keys: true)
     log = Widget::Log.new parent: s, top: 0, left: 0, width: 20, height: 5
     20.times { |i| log.add "line #{i}" }
-    s.render
+    s.update
     at_bottom?(log).should be_true
 
     log.scroll -3 # scroll up to read back
-    s.render
+    s.update
     at_bottom?(log).should be_false
 
     5.times { |i| log.add "more #{i}" } # appends must NOT yank us down
-    s.render
+    s.update
     at_bottom?(log).should be_false
 
     log.scroll_percent = 1.0 # return to the bottom
-    s.render
+    s.update
     3.times { |i| log.add "tail #{i}" }
-    s.render
+    s.update
     at_bottom?(log).should be_true # following again
   end
 
@@ -50,14 +50,14 @@ describe "follow_tail (sticky bottom)" do
     s = headless_screen(default_quit_keys: true)
     log = Widget::Log.new parent: s, top: 0, left: 0, width: 20, height: 5, scroll_on_input: true
     20.times { |i| log.add "line #{i}" }
-    s.render
+    s.update
 
     log.scroll -3
-    s.render
+    s.update
     at_bottom?(log).should be_false # a plain scroll-up still works (no new content)
 
     log.add "fresh"
-    s.render
+    s.update
     at_bottom?(log).should be_true # new content forced us back to the bottom
   end
 
@@ -66,7 +66,7 @@ describe "follow_tail (sticky bottom)" do
     st = Widget::ScrollableText.new parent: s, top: 0, left: 0, width: 20, height: 5
     st.follow_tail = true
     st.content = (1..30).map { |i| "row #{i}" }.join('\n')
-    s.render
+    s.update
     at_bottom?(st).should be_true
   end
 end

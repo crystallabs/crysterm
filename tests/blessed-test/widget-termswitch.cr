@@ -42,7 +42,7 @@ text = ScrollableText.new(
 
 text.focus
 s.on(Event::KeyPress) { |e| quit.call s, e }
-s.render
+s.update
 
 # Show the default terminal briefly, then switch — one call handles teardown,
 # new screen, and reparenting.
@@ -52,5 +52,5 @@ s = s.switch_terminal "vt100"
 btext.content = "Terminal: vt100 (widgets reparented onto the new screen)"
 text.focus
 s.on(Event::KeyPress) { |e| quit.call s, e }
-s.render
+s.update
 s.exec

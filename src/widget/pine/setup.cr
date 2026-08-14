@@ -71,7 +71,7 @@ module Crysterm
           o.enabled = !o.enabled?
           set_item current_index, format_row(o, current_index)
           o.callback.try &.call(o.enabled?)
-          request_render
+          update!
         end
 
         # Formats one option into a `[X]`/`[ ]`-prefixed row.

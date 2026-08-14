@@ -8,7 +8,7 @@ include Crysterm
 #     as `def set_content(e)`, whose unrestricted 1-arg signature SHADOWED
 #     `Widget#set_content(content = "", ...)`. So `log.content = "x"` (and any
 #     1-arg `set_content`) dispatched to the handler — which only calls
-#     `request_render` — and never stored the content. The handler is renamed to
+#     `update!` — and never stored the content. The handler is renamed to
 #     `handle_set_content` so the content API is no longer shadowed.
 #
 #  Finding 31 (src/widget/color_dialog.cr): the custom window-move drag wrote
@@ -28,7 +28,7 @@ describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" 
     log = Crysterm::Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 5
 
     log.content = "hello world"
-    # A shadowed setter dispatches to the ContentChanged handler (request_render
+    # A shadowed setter dispatches to the ContentChanged handler (update!
     # only), leaving @content empty.
     log.content.should eq "hello world"
   end

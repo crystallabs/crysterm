@@ -21,7 +21,7 @@ describe "TimeEdit#section_at off-field clicks" do
     # Width 20 leaves trailing space after the 8-column "HH:MM:SS" text.
     te = Crysterm::Widget::TimeEdit.new parent: s, top: 0, left: 0, width: 20, height: 1,
       time: Time.utc(2020, 1, 1, 10, 20, 30)
-    s.render
+    s.update
 
     # Opens on the hour section (highlighted reverse).
     te.content.should eq "{reverse}10{/reverse}:20:30"

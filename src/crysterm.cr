@@ -86,6 +86,7 @@ require "./control/completer"
 require "./layout"
 require "./layout/**"
 require "./widgets"
+require "./events"
 
 # Reactive state (signals + bindings). Must follow the widgets: `bind` references
 # `Widget`/`Window`.

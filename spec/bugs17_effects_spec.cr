@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs for two effect-area bugs:
 #
-#   * B17-24 — `Marquee#text=` rebuilt `@chars` but never called `mark_dirty`,
+#   * B17-24 — `Marquee#text=` rebuilt `@chars` but never called `update`,
 #     so a reassignment on a static (non-running) marquee was never reflected.
 #   * B17-38 — effect color math added an Int32 term on the LEFT of an Int64
 #     `@frame` product. Crystal mixed-width arithmetic returns the LEFT operand's
@@ -12,7 +12,7 @@ include Crysterm
 #     raised `OverflowError` and killed the animation/render fiber. The wide
 #     Int64 operand must come first, narrowing only the post-`% 360` result.
 #
-# Everything is driven headlessly over in-memory IOs; `#step`/`#render` are
+# Everything is driven headlessly over in-memory IOs; `#step`/`#paint` are
 # synchronous so no animation fiber is needed.
 
 # A frame value large enough that `frame * speed` blows past Int32::MAX for

@@ -222,7 +222,7 @@ describe "BUGS-F1 #42 swapping animation: to a missing @keyframes stops the old 
 
     begin
       # Start a valid, looping animation via a real render (so the driving
-      # `FrameClock`'s `request_render` works). One `repaint` is enough; the
+      # `FrameClock`'s `update!` works). One `repaint` is enough; the
       # clock then ticks on its own during the sleeps below.
       screen.stylesheet = "@keyframes good { from { opacity: 0.2; } to { opacity: 1.0; } } .a { animation: good 0.05s linear infinite; }"
       box.add_css_class "a"

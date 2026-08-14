@@ -62,7 +62,7 @@ module Crysterm
           @show_values = value
           bump_data_version
           # Rebuilds the content and schedules a frame (mirrors `values=`).
-          mark_dirty
+          update
           value
         end
 
@@ -91,7 +91,7 @@ module Crysterm
         def values=(vals : Array)
           @values = vals.map(&.to_f)
           bump_data_version
-          mark_dirty
+          update
         end
 
         private def bar_color(i : Int32) : String?

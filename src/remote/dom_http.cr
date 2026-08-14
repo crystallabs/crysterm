@@ -90,7 +90,7 @@ module Crysterm
     # shutdown unwinds cleanly (no `exit`).
     def run : Nil
       start
-      @window.render
+      @window.update
       @window.start_input
       # `receive?` returns nil when `quit` closes the channel — either way we fall
       # through and unwind cleanly.
@@ -111,7 +111,7 @@ module Crysterm
     # Replaces the whole layout from new HTML (hot-reload): clears the top-level
     # widgets, rebuilds from `html`, re-wires events, and repaints.
     #
-    # Mutates directly and rings `render` (rather than marshalling via `#on_ui`):
+    # Mutates directly and rings `update` (rather than marshalling via `#on_ui`):
     # the fswatch callback runs outside the render fiber, so a blocking
     # cross-fiber `receive` here would deadlock.
     def reload_layout(html : String) : Nil
@@ -129,7 +129,7 @@ module Crysterm
       # never wipes the page's CSS.
       DOM.load html, @window, replace_styles: true
       rewire
-      @window.render
+      @window.update
     end
 
     # ---- event wiring -------------------------------------------------------
@@ -380,7 +380,7 @@ module Crysterm
           nil
         end
         on_ui { rewire } # re-wire on the render fiber, like every other mutation
-        @window.render
+        @window.update
         n
       when "append"
         html = string_param params, "html"
@@ -402,7 +402,7 @@ module Crysterm
             n
           end
         end
-        @window.render
+        @window.update
         built
       when "subscribe"
         event = string_param params, "event"
@@ -440,7 +440,7 @@ module Crysterm
       when "snapshot"
         on_ui { @window.to_layout_html }
       when "render"
-        @window.render
+        @window.update
         nil
       when "quit"
         spawn { quit }
@@ -465,7 +465,7 @@ module Crysterm
         # write, so `:checked`/`[value]`-style selectors and damage tracking stay
         # correct.
         widget.invalidate_css
-        widget.mark_dirty
+        widget.update
       end
     end
 
@@ -488,7 +488,7 @@ module Crysterm
         count = matches.size
         nil
       end
-      @window.render
+      @window.update
       count
     end
 

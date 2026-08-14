@@ -72,7 +72,7 @@ describe "BUGS10 16: ScrollBar pointer mapping uses painted coords" do
 end
 
 describe "BUGS10 16 follow-up: clipped ScrollBar seeks over the painted track" do
-  # `ScrollBar#render` paints the whole track compressed into the clipped rect
+  # `ScrollBar#paint` paints the whole track compressed into the clipped rect
   # (`with_inner_coords` works from the border-adjusted `@lpos`), so the seek
   # math must use that same painted span — the layout-size span (`aheight -
   # ivertical`) made clicks on a clipped bar land proportionally short.

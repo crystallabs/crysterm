@@ -27,17 +27,17 @@ s.on(Event::KeyPress) do |e|
   end
 end
 
-s.render
+s.update
 
 b.insert_bottom "{yellow-fg}line{/yellow-fg}{|}2"
 b.insert_top "{yellow-fg}line{/yellow-fg}{|}0"
 
-s.render
+s.update
 
 sleep 2.seconds
 
 b.delete_top
 
-s.render
+s.update
 
 s.exec

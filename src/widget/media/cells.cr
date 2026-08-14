@@ -7,7 +7,7 @@ module Crysterm
     # per pixel; `Media::Glyph`, sub-cell Unicode glyphs).
     #
     # Hoists everything those two share: decoding (via `Media::Base#source`),
-    # load/animation wiring, and the resize-aware `#render` skeleton — sample
+    # load/animation wiring, and the resize-aware `#paint` skeleton — sample
     # the source (or current animation frame) to the content box, cache it per
     # size, and iterate the cells. Subclasses provide only the sampling
     # resolution (`#compose`) and the per-cell painting (`#draw_sample`).
@@ -89,13 +89,13 @@ module Crysterm
         # single-frame source whose `frames` is non-nil anyway — e.g. a 1-frame
         # APNG, unlike a GIF, which leaves `frames` nil below 2 frames — must be
         # treated as a still: `Media::Base#play` bails on a single frame (never
-        # building `@src_frames`), so an errant `@animated` would leave `#render`'s
+        # building `@src_frames`), so an errant `@animated` would leave `#paint`'s
         # animation branch with no frames and nothing drawn. Mirror `#play`'s `> 1`
         # guard so such a source takes the still path.
         fr = png.frames
         # A live *streaming* video needs `@animated` true even though its `source`
         # only exposes a 1-frame vehicle: `Media::Base#play` plays whenever
-        # `@stream` is set, and `#render`'s animation branch reads the per-tick
+        # `@stream` is set, and `#paint`'s animation branch reads the per-tick
         # `@src_frames` slot the stream fills. Without this the video stays static
         # with its ffmpeg subprocess left unread.
         @animated = ((!fr.nil? && fr.size > 1) || !@stream.nil?) && animate?
@@ -119,7 +119,7 @@ module Crysterm
       end
 
       # Streaming reuses frame index 0 with new content each tick; drop its cached
-      # sample so `#render` re-samples the fresh bitmap instead of the stale one.
+      # sample so `#paint` re-samples the fresh bitmap instead of the stale one.
       protected def invalidate_frame(idx : Int32)
         @frame_cache.delete idx
         clear_frame_derived idx
@@ -205,7 +205,7 @@ module Crysterm
         end
       end
 
-      def render(with_children = true)
+      def paint(with_children = true)
         coords = base_render with_children
         return unless coords
 

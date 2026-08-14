@@ -87,7 +87,7 @@ class X
       when ::Tput::Key::Down  then img.top = Math.min(s.aheight - img.aheight, img.atop + 1)
       end
 
-      s.render
+      s.update
     end
 
     # `s.exec` issues the initial render; the image then stays painted on top

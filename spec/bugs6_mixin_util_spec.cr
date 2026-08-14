@@ -44,7 +44,7 @@ private def bugs6_widget(vi_keys = false)
   w = BugsInteractiveBox.new(
     parent: s, content: bugs6_long_content,
     keys: true, vi_keys: vi_keys, top: 0, left: 0, width: 20, height: 10)
-  s.render
+  s.update
   {s, w}
 end
 

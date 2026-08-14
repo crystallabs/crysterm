@@ -183,7 +183,7 @@ module Crysterm
         # the old length, turning the line into a full-area slab of glyphs.
         self.width = old_height
         self.height = old_width
-        request_render
+        update!
         @orientation
       end
 

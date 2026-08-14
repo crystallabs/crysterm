@@ -5,7 +5,7 @@ include Crysterm
 # BUGS15 #85 regression: content-sized Table/ListTable must not feed their own
 # self-pinned width back into `compute_column_widths`.
 #
-# `#rows=`/`#render` pin `@width = row_width + ihorizontal (+ scrollbar reserve)`
+# `#rows=`/`#paint` pin `@width = row_width + ihorizontal (+ scrollbar reserve)`
 # so the box always fits every column. But `compute_column_widths` takes its
 # slack-distribution branch whenever `@width` is a numeric `Int32`, so once
 # pinned, a content-sized table (a) can never shrink when its data gets

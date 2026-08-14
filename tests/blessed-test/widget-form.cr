@@ -100,7 +100,7 @@ class X
     form.on(Crysterm::Event::FormSubmitted) do |e|
       lines = e.data.map { |f| "#{f.name}: #{f.value}" }
       output.content = "Submitted:\n" + lines.join("\n")
-      s.render
+      s.update
     end
 
     s.on(Crysterm::Event::KeyPress) do |e|

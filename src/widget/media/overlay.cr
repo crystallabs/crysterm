@@ -54,7 +54,7 @@ module Crysterm
         # Explicit request: an external-overlay backend is painted out-of-band
         # by its `#redraw_image` hook (which runs post-render), not by the
         # normal dirty/render path, so nothing else schedules the frame.
-        request_render
+        update!
       end
 
       # Removes the currently displayed image, clearing its overlay from window.

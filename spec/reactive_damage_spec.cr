@@ -22,9 +22,9 @@ include Crysterm
 # through a tracked setter (`content=`, geometry, the `set_content` behind
 # `bind_items`' row patches) mark themselves and were always fine.
 #
-# The fix routes all three sites through `Widget#request_render`
-# (`damage_mark_dirty` + `update`), matching what `reactive_property` does
-# (`mark_dirty` + `update`).
+# The fix routes all three sites through `Widget#update!`
+# (`damage_mark_dirty` + a window `update`), matching what `reactive_property`
+# does (widget `update` + window `update`).
 
 private def rx_screen(damage : Bool)
   Crysterm::Window.new(

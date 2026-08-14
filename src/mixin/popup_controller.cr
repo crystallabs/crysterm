@@ -157,7 +157,7 @@ module Crysterm
       private def move_popup(&block : PopupT ->) : Nil
         return unless pop = @popup
         block.call pop
-        pop.request_render
+        pop.update!
       end
 
       # Stops the keypress: accepts it (so it doesn't bubble to ancestors) and
@@ -199,7 +199,7 @@ module Crysterm
           }) { close }
         s.open
         @dismiss = s
-        widget.request_render
+        widget.update!
       end
 
       # Re-populates and re-places an already-created popup.
@@ -207,7 +207,7 @@ module Crysterm
         return unless widget = @widget
         if pop = @popup
           populate pop, widget
-          widget.request_render
+          widget.update!
         end
       end
 
@@ -224,7 +224,7 @@ module Crysterm
         @popup.try &.hide
         @dismiss.try &.close
         @dismiss = nil
-        @widget.try &.request_render
+        @widget.try &.update!
       end
 
       # Commits the highlighted row (Enter/Tab) via the includer's
@@ -253,9 +253,9 @@ module Crysterm
           # so both behave identically.
           pop.on(Event::Mouse) do |e|
             if e.action.wheel_down?
-              pop.wheel_scroll 1; e.accept; pop.request_render
+              pop.wheel_scroll 1; e.accept; pop.update!
             elsif e.action.wheel_up?
-              pop.wheel_scroll -1; e.accept; pop.request_render
+              pop.wheel_scroll -1; e.accept; pop.update!
             end
           end
           widget.window.append pop

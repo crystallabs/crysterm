@@ -39,14 +39,14 @@ module Crysterm
             page = visible_content_rows
             half = Math.max(page // 2, 1)
             case intent
-            when .backward?      then scroll(-1); request_render
-            when .forward?       then scroll(1); request_render
+            when .backward?      then scroll(-1); update!
+            when .forward?       then scroll(1); update!
             when .half_backward? then page_scroll(-half, -1)
             when .half_forward?  then page_scroll(half, 1)
             when .page_backward? then page_scroll(-page, -1)
             when .page_forward?  then page_scroll(page, 1)
-            when .first?         then scroll_to 0; request_render
-            when .last?          then scroll_to scroll_height; request_render
+            when .first?         then scroll_to 0; update!
+            when .last?          then scroll_to scroll_height; update!
             end
             # Consume the handled key — don't also drive an ancestor.
             e.accept
@@ -66,7 +66,7 @@ module Crysterm
       # to zero (a viewport only a line or two tall).
       private def page_scroll(offs : Int32, dir : Int32) : Nil
         scroll(offs == 0 ? dir : offs)
-        request_render
+        update!
       end
     end
   end

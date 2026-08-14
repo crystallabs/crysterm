@@ -93,21 +93,21 @@ describe Crysterm::Widget::Chat::Transcript do
     t = Transcript.new parent: s, top: 0, left: 0, width: 30, height: 5
 
     20.times { |i| t.append :prose, "line #{i}" }
-    s.render
+    s.update
     t.scroll_percent.should be >= 1.0 # following the tail
 
     t.scroll -3 # the user scrolls up to read back
-    s.render
+    s.update
     (t.scroll_percent < 1.0).should be_true
 
     5.times { |i| t.append :prose, "more #{i}" } # must NOT yank the view down
-    s.render
+    s.update
     (t.scroll_percent < 1.0).should be_true
 
     t.scroll_percent = 1.0 # return to the bottom
-    s.render
+    s.update
     3.times { |i| t.append :prose, "tail #{i}" }
-    s.render
+    s.update
     t.scroll_percent.should be >= 1.0 # following again
   end
 
@@ -241,7 +241,7 @@ describe Crysterm::Widget::Chat::Transcript do
 
     body = (1..15).map { |i| "row #{i}" }.join('\n')
     e = t.append :tool_result, body
-    s.render
+    s.update
 
     # The collapse marker advertises the key.
     t.lines.join('\n').should contain "(Ctrl+O)"
@@ -255,14 +255,14 @@ describe Crysterm::Widget::Chat::Transcript do
 
     click.call 0 # header line -> expand
     e.collapsed.should be_false
-    s.render
+    s.update
 
     click.call 3 # a body line -> no toggle
     e.collapsed.should be_false
 
     click.call 0 # header again -> collapse
     e.collapsed.should be_true
-    s.render
+    s.update
 
     # Ctrl+O toggles the most recent collapsible entry, as before.
     t.handle_chat_key_press Crysterm::Event::KeyPress.new('\u{f}', ::Tput::Key::CtrlO)
@@ -365,7 +365,7 @@ describe Crysterm::Widget::Chat::Transcript do
     t.lines.size.should eq 2 # header + marker
 
     long = t.append :tool_result, (1..15).map { |i| "row #{i}" }.join('\n')
-    s.render
+    s.update
 
     ox, oy = t.painted_content_origin
     s.dispatch_mouse ::Tput::Mouse::Event.new(

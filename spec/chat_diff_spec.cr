@@ -170,7 +170,7 @@ describe Crysterm::Widget::Chat::Dialogs do
     s = headless_screen 80, 24
     answer = nil.as(Bool?)
     q = ChatDialogs.confirm(s, "Proceed?") { |a| answer = a }
-    s.render
+    s.update
 
     e = Crysterm::Event::KeyPress.new 'y'
     s.emit e
@@ -192,7 +192,7 @@ describe Crysterm::Widget::Chat::Dialogs do
     s = headless_screen 80, 24
     answer = nil.as(Bool?)
     q = ChatDialogs.confirm_diff(s, "Apply this edit?", MULTI_HUNK, context: 1) { |a| answer = a }
-    s.render
+    s.update
 
     q.content.should contain "Apply this edit?"
     q.content.should contain "{green-fg}+  VERSION = \"0.2\"{/green-fg}"
@@ -206,7 +206,7 @@ describe Crysterm::Widget::Chat::Dialogs do
     s = headless_screen 80, 24
     picked = :unset.as(Symbol | Int32?)
     ChatDialogs.choose(s, "Allow?", ["Yes", "Yes, always", "No"]) { |idx| picked = idx }
-    s.render
+    s.update
 
     e = Crysterm::Event::KeyPress.new '\0', ::Tput::Key::Escape
     s.emit e
@@ -217,7 +217,7 @@ describe Crysterm::Widget::Chat::Dialogs do
   it "notice renders and dismisses on the next keypress" do
     s = headless_screen 80, 24
     m = ChatDialogs.notice s, "Saved.", Time::Span.zero
-    s.render
+    s.update
 
     e = Crysterm::Event::KeyPress.new 'x'
     s.emit e

@@ -137,7 +137,7 @@ end
 
 # B18-17 — the wrap cache key omitted the style inputs baked into the wrapped
 # line text (`tab_size`/`tab_char` TAB expansion, `fill_char` alignment
-# padding), so the documented `mark_dirty`/`update` protocol after a direct
+# padding), so the documented `Widget#update` protocol after a direct
 # style mutation (or a CSS cascade change) never re-expanded tabs or re-padded
 # aligned lines. The cache key folds in the three values.
 describe "BUGS18 17: wrap cache invalidates on tab/fill style changes" do
@@ -173,7 +173,7 @@ end
 # scrolled right, `@child_base_x` stayed past `scroll_width` and every line
 # sliced to "", leaving a blank viewport until a manual horizontal scroll.
 # `clamp_child_base_to_content` adds a change-guarded horizontal clamp
-# (+ mark_dirty) for this.
+# (+ update) for this.
 describe "BUGS18 18: horizontal base reclamps when content narrows" do
   it "pulls child_base_x back into range and repaints non-empty rows" do
     s = headless_screen(80, 24)
@@ -193,7 +193,7 @@ describe "BUGS18 18: horizontal base reclamps when content narrows" do
     w.set_content (1..3).map { |i| "short#{i}" }.join "\n"
     w.child_base_x.should eq 0
     s.repaint
-    s.repaint # healing frame scheduled by the clamp's mark_dirty
+    s.repaint # healing frame scheduled by the clamp's update
     w._clines.lines[0].should eq "short1"
   end
 end

@@ -3,9 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget::Effect::SineScroller` scroll + wave logic, driven headlessly over
-# in-memory IOs. Glyphs are painted into the screen cell buffer in `#render`
+# in-memory IOs. Glyphs are painted into the screen cell buffer in `#paint`
 # (`#step` only advances the frame clock), so these specs run a real
-# synchronous `Window#repaint` and inspect the resulting cells. `#render` reads
+# synchronous `Window#repaint` and inspect the resulting cells. `#paint` reads
 # `@frame`, so frame 0 is the state before the first `#step`.
 
 # The row index (within the scroller) that carries glyph *ch*, or nil if none.

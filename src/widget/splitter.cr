@@ -31,7 +31,7 @@ module Crysterm
         return v if v == @orientation
         @orientation = v
         relayout
-        request_render
+        update!
         v
       end
 
@@ -62,13 +62,13 @@ module Crysterm
         super **box
 
         on(Crysterm::Event::Attached) { relayout }
-        on(Crysterm::Event::Resize) { relayout; request_render }
+        on(Crysterm::Event::Resize) { relayout; update! }
       end
 
       # Relayout on every paint: pane sizes depend on the splitter's resolved
       # span, only known once coordinates are computed. The `Resize`/`Attached`
       # hooks cover the headless/no-render paths.
-      def render(with_children = true)
+      def paint(with_children = true)
         relayout
         refresh_divider_glyphs
         super
@@ -225,7 +225,7 @@ module Crysterm
         # Left-to-right, so each clamp sees the already-settled divider behind it.
         @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
         relayout
-        request_render
+        update!
       end
 
       # --- General divider control ---------------------------------------------
@@ -241,7 +241,7 @@ module Crysterm
         @user_positioned = true
         @positions[i] = clamp_position(i, pos.to_i)
         relayout
-        request_render
+        update!
       end
 
       # --- Internals -----------------------------------------------------------

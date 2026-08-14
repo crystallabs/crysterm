@@ -126,7 +126,7 @@ module Crysterm
 
       # Getter plus setter that rebuilds the content and repaints, only on an
       # actual change. `update_content` (`set_content`) does not itself schedule a
-      # window render, so the trailing `request_render` in `repaint_property` is
+      # window render, so the trailing `update!` in `repaint_property` is
       # required, not redundant.
       repaint_property selection_mode, SelectionMode, SelectionMode::SingleSelection, after: update_content
       repaint_property horizontal_header_format, HorizontalHeaderFormat, HorizontalHeaderFormat::ShortDayNames, after: update_content
@@ -189,7 +189,7 @@ module Crysterm
         self.selected_date = clamp_date(@date)
         set_current_page @shown_year, @shown_month
         update_content
-        request_render
+        update!
       end
 
       def initialize(date : Time? = nil, **box)
@@ -222,7 +222,7 @@ module Crysterm
         show_selected_date
         update_content
         emit Crysterm::Event::DateChanged, @date
-        request_render
+        update!
         @date
       end
 
@@ -259,7 +259,7 @@ module Crysterm
         @shown_month = m
         update_content
         emit Crysterm::Event::CurrentPageChanged, y, m
-        request_render
+        update!
       end
 
       def show_next_month : Nil
@@ -500,18 +500,18 @@ module Crysterm
           return
         end
         e.accept
-        request_render
+        update!
       end
 
       private def handle_grid_mouse(e, grid_row : Int32, col : Int32) : Nil
         if e.action.wheel_up? || e.action.wheel_down?
           shift_page_month(e.action.wheel_up? ? -1 : 1)
           e.accept
-          request_render
+          update!
         elsif e.action.down? && !selection_mode.no_selection? && (d = day_at(grid_row, col))
           activate_day d
           e.accept
-          request_render
+          update!
         end
       end
 
@@ -676,7 +676,7 @@ module Crysterm
           return
         end
         e.accept
-        request_render
+        update!
       rescue
         # `Time.local` unavailable in some headless contexts (see `Mixin::SectionedField.default_today`).
       end

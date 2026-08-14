@@ -255,7 +255,7 @@ module Crysterm
         @standard_colors.each do |name|
           sw = Box.new parent: self, top: PAL_Y, left: x, width: COLOR_W, height: 1,
             align: :center, style: Style.new(bg: name)
-          sw.on(Crysterm::Event::Click) { self.current_color = name; request_render }
+          sw.on(Crysterm::Event::Click) { self.current_color = name; update! }
           @palette_swatches << sw
           x += COLOR_W
         end
@@ -279,7 +279,7 @@ module Crysterm
             paint_swatch slot, c
           end
           slot.on(Crysterm::Event::Click) do
-            @custom_colors[i]?.try { |col| self.current_color = col; request_render }
+            @custom_colors[i]?.try { |col| self.current_color = col; update! }
           end
           @custom_slots << slot
           cx += COLOR_W
@@ -318,7 +318,7 @@ module Crysterm
             le.value = cur.clamp(min, max).to_s
             apply.call
             e.accept
-            request_render
+            update!
           end
         end
         le
@@ -383,7 +383,7 @@ module Crysterm
           paint_swatch slot, hex
         end
         @custom_index = (@custom_index + 1) % @custom_colors.size
-        request_render
+        update!
       end
 
       # Pushes the current color into every editor (RGB/HSV/HSL/Hex) + the preview.
@@ -408,7 +408,7 @@ module Crysterm
         sync_field @hexbox, " #{hex}"
         mark_palette_selection r, g, b
         @syncing = false
-        request_render
+        update!
       end
 
       # Pushes *value* into editor field *le*, never clobbering a focused field
@@ -473,7 +473,7 @@ module Crysterm
         cb = @callback
         @callback = nil
         cb.try &.call color
-        request_render
+        update!
       end
 
       # ------------------------------------------------------------- input
@@ -546,7 +546,7 @@ module Crysterm
             e.accept
           end
         end
-        request_render if e.accepted?
+        update! if e.accepted?
       end
 
       # ----------------------------------------------------- window move
@@ -564,7 +564,7 @@ module Crysterm
             # window-level pointer capture are dialog-specific.
             drag_move_to e.x, e.y, @move_dx, @move_dy
             e.accept
-            request_render
+            update!
           elsif e.action.up?
             end_move
           end
@@ -594,7 +594,7 @@ module Crysterm
           e.accept
           end_eyedropper e.x, e.y
         end
-        request_render
+        update!
       end
 
       private def end_eyedropper(x : Int32, y : Int32) : Nil
@@ -608,7 +608,7 @@ module Crysterm
           self.current_color = hex
           store_custom
         end
-        request_render
+        update!
       end
 
       # The rendered color at window cell *x*,*y* as `"#rrggbb"` — its
@@ -628,7 +628,7 @@ module Crysterm
 
       # ----------------------------------------------------------- drawing
 
-      def render(with_children = true)
+      def paint(with_children = true)
         ret = super
         return ret unless ret && window?
         # Style flags are invariant across every cell of the field and hue bar

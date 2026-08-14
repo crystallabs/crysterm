@@ -67,7 +67,7 @@ module Crysterm
       begin
         w.tput.resume
         w.realloc
-        w.render
+        w.update
       rescue
       end
     end

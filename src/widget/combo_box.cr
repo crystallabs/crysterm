@@ -75,7 +75,7 @@ module Crysterm
         # `#ivertical` and re-decides below-vs-above. Runs every render (not
         # only at open) to catch a themed border or relayout that moved the
         # combo. Falls back to a height-only refit if no owning combo.
-        def render(with_children = true)
+        def paint(with_children = true)
           if c = combo
             c.place_popup self
           else
@@ -183,11 +183,11 @@ module Crysterm
           if e.action.wheel_down?
             @open ? @popup.try(&.wheel_scroll(1)) : cycle(1)
             e.accept
-            request_render
+            update!
           elsif e.action.wheel_up?
             @open ? @popup.try(&.wheel_scroll(-1)) : cycle(-1)
             e.accept
-            request_render
+            update!
           end
         end
 
@@ -219,7 +219,7 @@ module Crysterm
         o >= 32 && o != 127
       end
 
-      # The arrow baked into the current content, so `#render` can notice a
+      # The arrow baked into the current content, so `#paint` can notice a
       # restyle and refresh.
       @_arrow : Char? = nil
 
@@ -237,7 +237,7 @@ module Crysterm
 
       # Refreshes the content when the resolved arrow changed out from under it;
       # a no-op on the steady-state frame.
-      def render(with_children = true)
+      def paint(with_children = true)
         update_content if @_arrow != dropdown_arrow
         super
       end
@@ -393,7 +393,7 @@ module Crysterm
         refilter
         refresh_popup
         update_content
-        request_render
+        update!
         emit Crysterm::Event::CurrentChanged, @selected if was != current_state
       end
 
@@ -482,7 +482,7 @@ module Crysterm
       # `Event::CurrentChanged` but not the user-activation `Event::Activated`.
       def reset
         set_value @options.first? || "", 0
-        request_render
+        update!
       end
 
       # Cycles the selection by *delta* without opening the popup (Qt changes the
@@ -499,7 +499,7 @@ module Crysterm
         # later duplicate.
         set_value @options[i], i
         emit Crysterm::Event::Activated, @value
-        request_render
+        update!
       end
 
       private def ensure_popup : Popup
@@ -630,7 +630,7 @@ module Crysterm
         show_popup unless @open
         @popup.try { |p| yield p }
         e.accept
-        request_render
+        update!
       end
 
       # Key handling for an editable combo: the box keeps focus and drives the
@@ -668,7 +668,7 @@ module Crysterm
             refilter
             refresh_popup
             update_content
-            request_render
+            update!
             e.accept
           end
         elsif ch && !k && printable?(ch)
@@ -677,7 +677,7 @@ module Crysterm
           show_popup unless @open
           refresh_popup
           update_content
-          request_render
+          update!
           e.accept
         end
       end

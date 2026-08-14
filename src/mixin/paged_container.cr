@@ -85,7 +85,7 @@ module Crysterm
         end
         after_show_index index
         emit ::Crysterm::Event::CurrentChanged, @current_index
-        request_render
+        update!
       end
 
       # Drops the selection back to the `-1` sentinel and announces it. For a

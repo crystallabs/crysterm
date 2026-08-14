@@ -20,10 +20,10 @@ describe "ComboBox popup vertical placement" do
     s = headless_screen(80, 14)
     cb = cbf_combo s, top: 11
     cb.focus
-    s.render
+    s.update
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     pop.atop.should be < cb.atop                    # opened above, not below
     pop.atop.should be >= 0                         # not clipped at the top
@@ -34,10 +34,10 @@ describe "ComboBox popup vertical placement" do
     s = headless_screen(80, 24)
     cb = cbf_combo s, top: 5
     cb.focus
-    s.render
+    s.update
     cb.show_popup
     pop = cb.popup_widget.not_nil!
-    s.render
+    s.update
 
     pop.atop.should eq cb.atop + cb.aheight
   end

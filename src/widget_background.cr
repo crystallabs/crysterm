@@ -40,7 +40,7 @@ module Crysterm
         # Either flip changes what the child pass paints, invisibly to the tracked
         # geometry setters — flag damage so the optimized render repaints the area
         # (and, on re-inclusion, renders this subtree again).
-        mark_dirty
+        update
       end
       @layout_excluded = value
     end
@@ -64,7 +64,7 @@ module Crysterm
         # layer exists actually takes effect. `Media#fit=` only drops the sample
         # cache when the value genuinely changed, so an unchanged fit is cheap.
         bg.fit = background_fit
-        bg.render
+        bg.paint
       elsif bg = @background_media
         bg.destroy # fires Event::Destroy → the backend erases its image
         @background_media = nil

@@ -322,7 +322,7 @@ module Crysterm
         @{{ axis[:base].id }} = windowed_base({{ axis[:coord].id }}, @{{ axis[:base].id }}, margin, visible, {{ axis[:extent].id }})
 
         return false if @{{ axis[:base].id }} == base
-        mark_dirty
+        update
         {% if axis[:orientation] %}
           emit Crysterm::Event::Scroll, @{{ axis[:base].id }} - base, {{ axis[:orientation].id }}
         {% else %}
@@ -484,7 +484,7 @@ module Crysterm
       @child_base_x = (base + offset).clamp(0, Math.max(0, scroll_width - visible))
       return if @child_base_x == base
 
-      mark_dirty
+      update
       emit Crysterm::Event::Scroll, @child_base_x - base, Tput::Orientation::Horizontal
     end
 
@@ -520,7 +520,7 @@ module Crysterm
       # (a reset-to-top must stay at the top, per the sticky-bottom contract).
       # Zeroing it would instead make `0 >= 0` true and snap the view to the
       # bottom.
-      mark_dirty
+      update
       emit Crysterm::Event::Scroll, -prev
     end
 
@@ -601,7 +601,7 @@ module Crysterm
       return unless window?
 
       # A scroll shifts the whole viewport, so the subtree must be repainted.
-      mark_dirty
+      update
 
       # visible == content lines actually visible (e.g. height=4 with border ==
       # 2 visible lines). A shown horizontal bar reserves the bottom row.
@@ -736,7 +736,7 @@ module Crysterm
       # base back into range after content narrows. Unlike `@child_base` (applied
       # at paint time), `@child_base_x` is baked into `@_clines` by `_hslice`
       # during the wrap, and `process_content` records `@_clines.base_x` BEFORE
-      # emitting `ContentParsed` — so a changed base needs `mark_dirty` to
+      # emitting `ContentParsed` — so a changed base needs `update` to
       # schedule the frame whose cache-key mismatch (`base_x`) re-wraps at the
       # clamped offset. The change guard makes that converge in one extra frame
       # instead of looping. The `wrap_content?` guard is load-bearing: ListTable's
@@ -746,7 +746,7 @@ module Crysterm
         new_x = Math.min(@child_base_x, Math.max(0, scroll_width - content_width))
         if new_x != @child_base_x
           @child_base_x = new_x
-          mark_dirty
+          update
         end
       end
     end

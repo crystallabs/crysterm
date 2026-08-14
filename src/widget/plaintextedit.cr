@@ -91,7 +91,7 @@ module Crysterm
           # view's caret (own edits are skipped — the mixin moves the caret
           # itself); the display re-syncs on the next render via `#value=`.
           follow_document_change(e.kind, e.position, e.chars_removed, e.chars_added)
-          request_render if window?
+          update! if window?
         end
       end
 
@@ -109,7 +109,7 @@ module Crysterm
         sync_display
       end
 
-      # Once-per-frame redisplay (from `#render`): clamps the caret via
+      # Once-per-frame redisplay (from `#paint`): clamps the caret via
       # `DocumentBuffer#refresh_value`, then re-syncs `set_content` if it changed.
       def refresh_value : Nil
         super

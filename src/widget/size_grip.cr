@@ -33,7 +33,7 @@ module Crysterm
       # widget needs no sub-control), then the `Glyphs` registry at the
       # effective tier; assigning a `String` pins it. A wide or multi-codepoint
       # grapheme (`"⚠️"`) is kept whole — the grip is a single-placement site,
-      # so `#render` grows the grip to the glyph's measured width.
+      # so `#paint` grows the grip to the glyph's measured width.
       setter glyph : String? = nil
 
       # :ditto:
@@ -45,7 +45,7 @@ module Crysterm
       # after construction (a stylesheet's `glyph`, `Glyphs.set`, a tier switch),
       # and a wide upgrade must reserve its columns. `set_content`/`width=` both
       # no-op while unchanged, so an unstyled `◢` grip stays byte-identical.
-      def render(with_children = true)
+      def paint(with_children = true)
         g = glyph
         # Reserve the glyph's measured width: grow (never shrink) so a 2-column
         # emoji isn't clipped by a `width: 1` grip. `◢` measures 1 → no change.
@@ -98,7 +98,7 @@ module Crysterm
                 t.width = Math.max(@min_drag_width, e.x - t.aleft + 1 + edge_x)
                 t.height = Math.max(@min_drag_height, e.y - t.atop + 1 + edge_y)
               end
-              t.request_render
+              t.update!
             rescue
               # Target not laid out yet.
             end

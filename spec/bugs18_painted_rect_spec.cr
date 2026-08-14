@@ -189,7 +189,7 @@ describe "BUGS18 B18-104: SectionedField click mapping under a moved painted rec
       overflow: Crysterm::Overflow::MoveWidget
     te = Widget::TimeEdit.new parent: box, top: 0, left: 0, width: 8, height: 1,
       time: Time.utc(2020, 1, 1, 10, 20, 30)
-    s.repaint # synchronous frame; `#render` only rings the (async) doorbell
+    s.repaint # synchronous frame; `#update` only rings the (async) doorbell
 
     lp = te.lpos.not_nil!
     lp.xi.should eq 60
@@ -225,7 +225,7 @@ describe "BUGS18 B18-48: SectionedField.build_time" do
     s = headless_screen(80, 24)
     te = Widget::TimeEdit.new parent: s, top: 0, left: 0, width: 8, height: 1,
       time: Time.utc(2020, 1, 1, 10, 20, 30)
-    s.render
+    s.update
     te.focus
 
     te.emit Crysterm::Event::KeyPress, Crysterm::Event::KeyPress.new('\0', Tput::Key::Up)

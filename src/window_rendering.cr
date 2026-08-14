@@ -22,14 +22,14 @@ module Crysterm
   #
   # NOTE: damage tracking observes mutations made through the tracked
   # setters (`content=`, geometry/size setters, `show`/`hide`, `scroll`, child
-  # add/remove), `Widget#mark_dirty`/`#request_render`, and — via the
+  # add/remove), `Widget#update`/`#update!`, and — via the
   # per-frame `Style#attr_revision` sweep — in-place mutation of a style's
   # attribute fields (`widget.style.bg = ...`: fg/bg/SGR flags/visible). An
   # in-place change to a *non*-attribute style field (border, padding, …) is
-  # still not observed; call `widget.mark_dirty` after one (or use `#restyle`,
+  # still not observed; call `widget.update` after one (or use `#restyle`,
   # which does). Note the sweep repaints on the next frame — something must
   # still schedule one (a timer/`every` animation does; a lone in-place write
-  # from idle code should use `#restyle`/`mark_dirty`, which also ring the
+  # from idle code should use `#restyle`/`update`, which also ring the
   # render doorbell).
   @[Flags]
   enum OptimizationFlag
@@ -126,7 +126,7 @@ module Crysterm
     end
 
     # Internal primitive behind `#update`: rings the render fiber's coalescing
-    # doorbell. Public API is `#update` (or its historical alias `#render`).
+    # doorbell. Public API is `#update` (`#render` is its deprecated alias).
     protected def schedule_render : Nil
       ring @render_wakeup
     end
@@ -152,7 +152,7 @@ module Crysterm
     # the FPS cap forever on an idle UI. Anything a layout writes is painted by
     # the frame that wrote it, so there is nothing to schedule.
     #
-    # `#update` / `#render` / `Widget#request_render` stay unconditional: an
+    # `#update` / `Widget#update!` stay unconditional: an
     # explicit request from a `PreRender`/`Rendered` handler is a deliberate
     # ask for another frame, and must still be honored.
     #
@@ -508,7 +508,7 @@ module Crysterm
           # good. A detached widget has nothing to paint anyway.
           next unless el.window?
           el.compositing = true
-          el.render
+          el.paint
           el.compositing = false
         end
       end
@@ -583,13 +583,8 @@ module Crysterm
       Docking.dock @lines, @_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
     end
 
-    # Requests a coalesced render — historical alias of `#update`.
-    def render
-      update
-    end
-
     # Drives an animation from its own fiber: repeatedly invoke *block*,
-    # `render`, then sleep *interval*, until the program exits.
+    # `update`, then sleep *interval*, until the program exits.
     #
     # Collapses the usual boilerplate —
     #
@@ -597,7 +592,7 @@ module Crysterm
     # spawn do
     #   loop do
     #     # ...mutate widgets...
-    #     screen.render
+    #     screen.update
     #     sleep 0.1.seconds
     #   end
     # end
@@ -612,7 +607,7 @@ module Crysterm
     def every(interval : Time::Span, &block : ->) : FrameClock
       FrameClock.new(interval) do
         block.call
-        render
+        update
       end.start
     end
 
@@ -627,7 +622,7 @@ module Crysterm
       FrameClock.new(span, immediate: false) do |clock|
         clock.stop
         block.call
-        render
+        update
       end.start
     end
 

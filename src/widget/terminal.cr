@@ -112,11 +112,6 @@ module Crysterm
       # then whether to spawn a PTY (no handler) or run externally-driven (with
       # one); once bootstrapped the choice is fixed, so a later install would be
       # silently ignored. Raises if the widget has already bootstrapped.
-      @[Deprecated("Renamed to `#input_handler`: this sets a single overwritable slot, which the `on_*` prefix (the multicast-subscription convention) misrepresented.")]
-      def on_input(&block : String ->) : Nil
-        input_handler(&block)
-      end
-
       def input_handler(&block : String ->) : Nil
         raise "Widget::Terminal#input_handler must be set before the terminal bootstraps (first render)" if @bootstrapped
         @handler = block
@@ -141,7 +136,7 @@ module Crysterm
           # stream prefix (the part that seeds the initial screen state).
           pending.write(bytes) if pending.size + bytes.size <= PENDING_WRITES_CAP
         end
-        request_render
+        update!
       end
 
       # Pre-bootstrap `#write` data awaiting the emulator (see `#write`).
@@ -165,7 +160,7 @@ module Crysterm
 
         @dattr = style_to_attr style
         em = TerminalEmulator.new cols, rows, @dattr
-        em.on_refresh = -> { request_render; nil }
+        em.on_refresh = -> { update!; nil }
         em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::ContentChanged; nil }
         @emulator = em
 
@@ -253,8 +248,8 @@ module Crysterm
         if em = @emulator
           page = Math.max(1, term_rows - 1)
           case data
-          when "\e[5;2~" then scroll(-page); e.accept; request_render; return
-          when "\e[6;2~" then scroll(page); e.accept; request_render; return
+          when "\e[5;2~" then scroll(-page); e.accept; update!; return
+          when "\e[6;2~" then scroll(page); e.accept; update!; return
           end
           # Any real keystroke snaps the view back to the live bottom (xterm UX).
           em.reset_scroll if em.ydisp != em.ybase
@@ -263,7 +258,7 @@ module Crysterm
         return unless forward_to_child data
 
         e.accept
-        request_render
+        update!
       end
 
       # Forwards pasted text (routed here by the window while focused) to the
@@ -283,7 +278,7 @@ module Crysterm
         # Like a keystroke, input snaps the view back to the live bottom.
         @emulator.try { |em| em.reset_scroll if em.ydisp != em.ybase }
         e.accept
-        request_render
+        update!
       end
 
       # Sends a focus/blur report (`ESC[I` / `ESC[O`) to the child when it has
@@ -332,7 +327,7 @@ module Crysterm
         report = encode_mouse em, e, col, row
         forward_to_child report
         e.accept
-        request_render
+        update!
       end
 
       # Whether the child's active mouse-tracking mode wants this event. xterm's
@@ -374,7 +369,7 @@ module Crysterm
 
       # Sends input to the child (PTY, or the external handler as a String).
       # Returns `false` when there is no sink at all, so callers that must not
-      # consume the event (`e.accept`/`request_render`) when the data went
+      # consume the event (`e.accept`/`update!`) when the data went
       # nowhere can bail out; callers that don't care ignore the result.
       private def forward_to_child(data : Bytes | String) : Bool
         if handler = @handler
@@ -389,7 +384,7 @@ module Crysterm
 
       # Renders via the base implementation, then overlays the emulator grid and
       # cursor onto the inner area.
-      def render(with_children = true)
+      def paint(with_children = true)
         coords = super
         return coords unless coords
 

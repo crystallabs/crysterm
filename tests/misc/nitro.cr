@@ -7,7 +7,7 @@
 #   cracktro.cr  ~1200 widgets (one Box per cell) + effect widgets. A stress
 #                test: the compositor places and paints every widget each frame.
 #
-#   quicktro.cr  ONE widget whose `#render` writes finished cells straight into
+#   quicktro.cr  ONE widget whose `#paint` writes finished cells straight into
 #                the buffer with `fill_region`. Still goes through the window's
 #                `repaint` (compositor clear → the one widget paints → draw →
 #                flush), so it stays capturable by the standard `.png`/`.apng`
@@ -220,7 +220,7 @@ if shot || dump_dest || anim
     # has no `repaint`, so it emits the event itself after painting each frame.
     clock = FrameClock.new(0.07.seconds) do
       fr += 1
-      # Keep the overlay alive in the recording: time the paint as `render` and
+      # Keep the overlay alive in the recording: time the paint as `update` and
       # the frame cadence as `fps` (there is no terminal draw/flush to time here).
       t0 = Time.instant
       paint.call fr

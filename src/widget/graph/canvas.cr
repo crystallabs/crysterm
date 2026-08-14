@@ -103,12 +103,12 @@ module Crysterm
         # Requests a repaint + redraw (the paint callback re-runs next frame).
         def refresh : Nil
           @paint_dirty = true
-          request_render
+          update!
         end
 
         # Marks the painted content stale so the next render re-runs the paint
         # callback, *without* itself scheduling a render. For a container that
-        # owns this Canvas and issues its own `request_render`: it only needs the
+        # owns this Canvas and issues its own `update!`: it only needs the
         # Canvas to repaint on that same frame.
         def invalidate_paint : Nil
           @paint_dirty = true

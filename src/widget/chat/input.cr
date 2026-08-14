@@ -137,7 +137,7 @@ module Crysterm
           emit Crysterm::Event::Submitted, text
         end
 
-        def render(with_children = true)
+        def paint(with_children = true)
           sync_height if auto_grow?
           ret = super
           paint_prompt if ret
@@ -161,7 +161,7 @@ module Crysterm
           end
           ensure_cursor_visible
           emit Crysterm::Event::TextChanged, value if text_change_observed?
-          request_render
+          update!
         end
 
         # Whether no newline precedes the caret (caret on the buffer's first

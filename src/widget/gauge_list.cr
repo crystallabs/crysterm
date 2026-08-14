@@ -82,7 +82,7 @@ module Crysterm
         @minimum, @maximum = nm
         @gauge_items.each { |g| g.value = g.value.clamp(@minimum, @maximum) }
         @version &+= 1
-        request_render
+        update!
       end
 
       # Columns reserved for the label column (`nil` = auto from the labels).
@@ -125,7 +125,7 @@ module Crysterm
         item.owner = self
         @gauge_items << item
         @version &+= 1
-        request_render
+        update!
         item
       end
 
@@ -158,7 +158,7 @@ module Crysterm
         return unless 0 <= index < @gauge_items.size
         @gauge_items.delete_at index
         @version &+= 1
-        request_render
+        update!
       end
 
       # Removes the first gauge row labeled *label* (no-op when none matches).
@@ -166,20 +166,20 @@ module Crysterm
         if item = @gauge_items.find { |i| i.label == label }
           @gauge_items.delete item
           @version &+= 1
-          request_render
+          update!
         end
       end
 
       # Registers a direct `Item#value=` mutation with the content cache.
       protected def item_changed : Nil
         @version &+= 1
-        request_render
+        update!
       end
 
       def clear : Nil
         @gauge_items.clear
         @version &+= 1
-        request_render
+        update!
       end
 
       # Snapshot of every input `build_content` reads; rebuilding the tagged
@@ -196,7 +196,7 @@ module Crysterm
       # `Item#row_cache` can be reused instead of rebuilt.
       @row_list_key : Tuple(Int32, Int32, Float64, Float64, Bool, {String?, Glyphs::Tier, UInt64})? = nil
 
-      def render(with_children = true)
+      def paint(with_children = true)
         key = {awidth, aheight, ihorizontal, ivertical, @label_width, @minimum, @maximum, @version,
                glyph_key(style)}
         if key != @content_key

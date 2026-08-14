@@ -71,10 +71,10 @@ module Crysterm
       @css_animation_keyframes = nil
 
       # Stop the driving `FrameClock` when the widget is hidden or detached, or
-      # its fiber keeps ticking `apply_keyframe` + `request_render` forever: a
+      # its fiber keeps ticking `apply_keyframe` + `update!` forever: a
       # hidden widget is skipped by packing layouts (its `coords` is nil, so
       # `_render` never reaches `ensure_css_animation` to notice), and a
-      # detached-but-alive widget's `request_render` no-ops while the clock still
+      # detached-but-alive widget's `update!` no-ops while the clock still
       # burns CPU. The stop leaves `@css_animation_finished` false, so the resume
       # branch in `ensure_css_animation` restarts the animation on the first
       # render after `show`/re-attach. `Event::Hide` also propagates to
@@ -138,7 +138,7 @@ module Crysterm
         else
           apply_keyframe stops, style, spec.easing.apply(keyframe_cycle_frac(cycles, alt))
         end
-        request_render
+        update!
       end
       @css_animation = anim
       @css_animation_spec = spec

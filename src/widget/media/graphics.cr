@@ -96,7 +96,7 @@ module Crysterm
         unless v == dither
           store_dither v
           reset_sample_cache
-          request_render
+          update!
         end
         v
       end
@@ -234,7 +234,7 @@ module Crysterm
       def load(file : String)
         reset_source_state file
         reset_graphic_source_state
-        request_render
+        update!
       end
 
       # Clears the loaded image, erasing its graphic from the window.

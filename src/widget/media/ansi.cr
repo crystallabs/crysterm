@@ -42,7 +42,7 @@ module Crysterm
           @color_mode = mode
           clear_frame_derived # dithered planes were computed for the old palette
           @quant_cache = nil  # ascii-foreground nearest-palette cache
-          request_render
+          update!
         end
         mode
       end
@@ -58,7 +58,7 @@ module Crysterm
         unless new_dither == @dither
           @dither = new_dither
           clear_frame_derived
-          request_render
+          update!
         end
         new_dither
       end
@@ -100,7 +100,7 @@ module Crysterm
       end
 
       # Size the widget to a native-scaled render when no explicit size was given;
-      # `#render` then (re)samples to the actual box.
+      # `#paint` then (re)samples to the actual box.
       protected def on_loaded(png : PNGGIF::PNG)
         # Only auto-size an axis the caller left unset; any non-nil size,
         # including a String like "50%", is explicit and must be honored.

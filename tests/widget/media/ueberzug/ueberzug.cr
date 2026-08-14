@@ -37,5 +37,5 @@ if secs = ENV["DEMO_SECONDS"]?
   end
 end
 
-s.render
+s.update
 s.exec

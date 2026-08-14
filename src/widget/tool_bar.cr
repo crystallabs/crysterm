@@ -80,7 +80,7 @@ module Crysterm
         # from elsewhere must re-light its button.
         watch_action(action) do |_e|
           refresh
-          request_render
+          update!
           nil
         end
         action.tool_tip.try { |t| item.tool_tip = t }
@@ -217,7 +217,7 @@ module Crysterm
           # A disabled action falls through to here: consumed, nothing fired,
           # focus stays on the bar.
           e.accept
-          request_render
+          update!
           return
         end
         super

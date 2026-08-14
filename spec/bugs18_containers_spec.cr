@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs for the BUGS18 containers batch:
 #
-# * B18-53 — `BigText#render` sized an unset dimension to the bare glyph
+# * B18-53 — `BigText#paint` sized an unset dimension to the bare glyph
 #   extent, omitting `ihorizontal`/`ivertical`: a bordered/padded
 #   shrink-sized `BigText` clipped its last glyph and the bottom rows of
 #   every glyph.

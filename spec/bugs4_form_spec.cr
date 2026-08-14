@@ -18,7 +18,7 @@ describe "BUGS4 Form focus wrap-around (fix #1)" do
     fields = (0...5).map do |i|
       Crysterm::Widget::Box.new(parent: form, keys: true, top: i, left: 0, width: 5, height: 1)
     end
-    s.render
+    s.update
 
     list = form.focusable
     list.size.should eq 5
@@ -36,7 +36,7 @@ describe "BUGS4 Form focus wrap-around (fix #1)" do
     fields = (0...5).map do |i|
       Crysterm::Widget::Box.new(parent: form, keys: true, top: i, left: 0, width: 5, height: 1)
     end
-    s.render
+    s.update
 
     form.reset_selected
     form.next_focusable.should eq fields.first
@@ -48,7 +48,7 @@ describe "BUGS4 Form focus wrap-around (fix #1)" do
     fields = (0...4).map do |i|
       Crysterm::Widget::Box.new(parent: form, keys: true, top: i, left: 0, width: 5, height: 1)
     end
-    s.render
+    s.update
 
     form.focus_last
     form.current_field.should eq fields.last
