@@ -299,32 +299,51 @@ These are half-open ranges (`xi` inclusive, `xl` exclusive). A widget at
 `left: 10, width: 50` therefore has `xi = 10` and `xl = 60` (i.e. columns
 `10...60`). Because every widget is a rectangle, these four numbers are enough
 to place and size any of them; they are stored on the widget's
-`lpos` (last pos) after a render (see [§4.10](#410-last-rendered-position-and-the-get-flag)).
+`lpos` (last pos) after a render (see [§4.10](#410-last-rendered-position-and-the-rendered-flag)).
 
-### 4.2 Four views of a widget's geometry
+### 4.2 Three views of a widget's geometry
 
-Crysterm exposes four related "views" of a widget's geometry, each with a
-consistent set of accessors:
+Crysterm exposes three related "views" of a widget's geometry, plus the
+decoration thicknesses, each with a consistent prefix:
 
-| Spec (as you set it) | Absolute (vs. screen) | Relative (vs. parent) | Inner offset (decoration) |
-|----------------------|-----------------------|-----------------------|---------------------------|
-| `left` / `left=`     | `aleft`               | `rleft`               | `ileft`                   |
-| `top` / `top=`       | `atop`                | `rtop`                | `itop`                    |
-| `right` / `right=`   | `aright`              | `rright`              | `iright`                  |
-| `bottom` / `bottom=` | `abottom`             | `rbottom`             | `ibottom`                 |
-| `width` / `width=`   | `awidth`              | —                     | `iwidth`                  |
-| `height` / `height=` | `aheight`             | —                     | `iheight`                 |
+| Spec (as you set it) | Relative, resolved (vs. parent) | Absolute, resolved (vs. window) | Inner offset (decoration) |
+|----------------------|---------------------------------|---------------------------------|---------------------------|
+| `left` / `left=`     | `rleft`                         | `aleft`                         | `ileft`                   |
+| `top` / `top=`       | `rtop`                          | `atop`                          | `itop`                    |
+| `right` / `right=`   | `rright`                        | `aright`                        | `iright`                  |
+| `bottom` / `bottom=` | `rbottom`                       | `abottom`                       | `ibottom`                 |
+| `width` / `width=`   | —                               | `awidth`                        | `ihorizontal`             |
+| `height` / `height=` | —                               | `aheight`                       | `ivertical`               |
 
 - **Spec** methods (`left`, `top`, `width`, …) return *exactly what you set* —
-  the raw user value, which may be an integer, a string such as `"50%+2"`, or a
-  keyword such as `"center"`. They do not compute anything.
+  the raw user value, which may be an integer, a `Dim`, a string such as
+  `"50%+2"`, or `nil`. They do not compute anything.
+- **Relative** methods (`rleft`, …) return computed integers in the *spec
+  space*: each is the value its bare setter would need to reproduce the
+  current placement, so `w.left = w.rleft` is a no-op. See
+  [§4.4](#44-relative-position).
 - **Absolute** methods (`aleft`, `awidth`, …) return computed integers measured
-  from the screen corner.
-- **Relative** methods (`rleft`, …) return computed integers measured from the
-  parent widget's corner (or the screen, for a top-level widget).
-- **Inner** methods (`ileft`, `iwidth`, …) return the *amount* of decoration on
-  the inside (or summed across two sides), that is, they are not a position. See
-  [§4.7](#47-inner-content-offsets).
+  from the window's top-left corner.
+- **Inner** methods (`ileft`, `ihorizontal`, …) return the *amount* of
+  decoration on the inside (or summed across the two sides of an axis) — a
+  thickness, not a position. See [§4.7](#47-inner-content-offsets).
+
+The prefix rule in one line: **bare = your spec, `r*` = relative resolved
+(round-trips through the bare setter), `a*` = absolute resolved.**
+
+On top of the scalar accessors sit the Qt-named value-object forms:
+
+- `x` / `y` / `pos : Point` — aliases of `rleft`/`rtop` (Qt's `x()`, `y()`,
+  `pos()`); `pos=`/`move` write back.
+- `size : Size` — `(awidth, aheight)` bundled; `width_cells`/`height_cells`
+  are discoverable aliases of `awidth`/`aheight`; `resize`/`size=` write back.
+- `geometry : Rectangle` — the live parent-relative rectangle,
+  `geometry.top_left == pos` (Qt's `geometry()`); `geometry=`/`set_geometry`
+  write back, so `w.geometry = w.geometry` is a no-op. `rect` is the same box
+  in the widget's own coordinates, `(0, 0, awidth, aheight)`.
+- `absolute_geometry : Rectangle?` — the **last-rendered** box in absolute
+  window coordinates (nil before the first render), after clipping/scroll;
+  the value-type view of `rendered_geometry` ([§4.10](#410-last-rendered-position-and-the-rendered-flag)).
 
 ### 4.3 Specifying position and size
 
@@ -338,74 +357,104 @@ A position or size value can be:
   - `"50%"` — 50% of the parent.
   - `"50%+5"` / `"100%-1"` — a percentage plus or minus a fixed offset.
   - Fractional percentages such as `"33.5%"` are accepted as well.
+  - Viewport units — `"50vw"`, `"50vh"`, `"50vmin"`, `"50vmax"` — resolve
+    against the *window* size regardless of nesting depth, like their CSS
+    namesakes.
 - **`"half"`** — shorthand for `"50%"` (half of the parent, *without*
   centering).
 - **`"center"`** — for `left`/`top`: position the widget at 50% of the parent
   and then shift it back by half the widget's own size, so it ends up centered.
   Concretely the position is computed as the 50% point *minus* `awidth // 2`
   (or `aheight // 2`). For this to center correctly the widget needs a defined
-  size; for auto-sized/resizable widgets the centering is reapplied against the
-  final (shrunken) size.
+  size; for auto-sized/`shrink_to_fit` widgets the centering is reapplied
+  against the final (shrunken) size. (The constructor shorthands `center:`,
+  `center_x:`, `center_y:` and `fill:` expand to these specs for you.)
+- **A `Dim`** — the value type every string/symbol form parses into:
+  `Dim.cells(10)`, `Dim.percent(50)`, `Dim.percent(50, -2)` (percent plus
+  offset), `Dim.center(offset = 0)`, `Dim.vw(50)`/`.vh`/`.vmin`/`.vmax`.
+  Strings and symbols are parsed to a `Dim` **once, at assignment** (by
+  `Dim.from`/`Dim.parse`), so a malformed expression raises `ArgumentError`
+  right at the setter instead of silently resolving to 0 every frame.
 
-Percentages are taken against the parent's *whole* corresponding dimension, not
-the space left over after decorations or after the widget's own offset. Two
-consequences worth remembering:
+What a percentage is measured against differs by kind, matching CSS:
 
-- `top: 10, height: "100%"` makes the widget extend 10 rows past the bottom,
-  because `"100%"` is the full parent height, independent of `top`. Use
-  `height: "100%-10"`.
-- A child with `height: "100%"` inside a bordered parent is two rows too tall
-  (one for each of the parent's top and bottom border rows), because the
-  percentage ignores the parent's decorations. Use `height: "100%-2"`.
-
-The percentage/offset parsing is performed by `Widget.dimension`.
+- A percentage **size** (`width: "50%"`) resolves against the parent's
+  **content area** — the space inside its border and padding. So
+  `height: "100%"` inside a bordered parent fits *exactly*; there is no need
+  for the Blessed-style `"100%-2"` dance (which now produces a child two rows
+  short).
+- A percentage **position** (`left: "50%"`) resolves against the parent's
+  **whole** dimension, and a near-anchored child is then placed relative to
+  the content origin — `left: 0` sits just inside the border.
+- The percentage is independent of the widget's own offset:
+  `top: 10, height: "100%"` extends 10 rows past the bottom. Use
+  `height: "100%-10"`, or leave `height: nil` (which subtracts the offsets;
+  see [§4.6](#46-size)).
 
 ### 4.4 Relative position
 
-`rleft`, `rtop`, `rright`, and `rbottom` are **computed** offsets relative to
-the parent (or the screen, for a top-level widget). They are simple differences
-of absolute coordinates:
+`rleft`, `rtop`, `rright`, and `rbottom` are **computed** offsets in the *spec
+space*: each returns the `Int32` its bare setter (`left=`/`top=`/…) would need
+to reproduce the current resolved placement. That gives the prefix convention
+its round-trip law:
 
-```
-rleft   = self.aleft   - parent.aleft
-rtop    = self.atop    - parent.atop
-rright  = self.aright  - parent.aright
-rbottom = self.abottom - parent.abottom
+```crystal
+w.left = w.rleft        # no-op
+w.move w.pos            # no-op
+w.geometry = w.geometry # no-op; geometry.top_left == pos
 ```
 
-(`left`/`top`/`right`/`bottom`, by contrast, return your raw values, as mentioned.
-See [§4.2](#42-four-views-of-a-widgets-geometry).)
+Concretely they are offsets from the parent's *content* origin (inside its
+border and padding) — exactly what the spec setters consume — with the
+widget's own margin shift compensated on the near edges. `x`/`y`/`pos` are the
+Qt-named aliases of `rleft`/`rtop`.
+
+Two caveats, shared with Qt's imperative setters: writing a resolved value
+back (`w.left = w.rleft`, `w.geometry = w.geometry`) keeps the position but
+**pins** it — a percent/`center` spec becomes plain cells (reactivity to
+parent resizes is dropped), and a far-anchored (`right:`/`bottom:`-only)
+widget becomes near-anchored. The declarative specs remain the reactive path.
 
 ### 4.5 Absolute position
 
 `aleft`, `atop`, `aright`, and `abottom` return computed integer coordinates
-measured from the screen corner.
-All of these getters take an optional `get` flag (default `false`) described in
-[§4.10](#410-last-rendered-position-and-the-get-flag). They return values that
-respect the widget's desired `left/top/right/bottom` and are offset from the
-parent by the parent's inner (decoration) thickness.
+measured from the window's top-left corner. All of these getters take an
+optional `rendered` flag (default `false`) described in
+[§4.10](#410-last-rendered-position-and-the-rendered-flag). They return values
+that respect the widget's `left/top/right/bottom` specs and are offset from
+the parent by the parent's inner (decoration) thickness.
 
-They are also setters. The corresponding setters accept the same flexible
-forms as the Spec setters; in particular `aleft=` and `atop=` also accept
-`"center"` and percentage strings, which are resolved against the screen's
-dimensions before being stored.
+They are getters only — to change a position, write the specs (`left=`, …,
+`move`, `set_geometry`). For the last-*rendered* absolute box (after
+clipping/scroll) as a value object, see `absolute_geometry`
+([§4.2](#42-three-views-of-a-widgets-geometry)).
 
 ### 4.6 Size
 
-`awidth` and `aheight` resolve the widget's size:
+`awidth` and `aheight` resolve the widget's size in cells (`width_cells`/
+`height_cells` are their discoverable aliases, and `size : Size` the bundle):
 
 - If `width`/`height` is an **integer**, it is returned as-is.
-- If it is a **string**, it is treated as a percentage of the parent (with
-  `"half"` mapped to `"50%"`) and resolved to an integer.
+- If it is a **`Dim`/string percentage**, it resolves against the parent's
+  *content area* (with `"half"` mapped to `"50%"`).
 - If it is **`nil`**, the size is computed as the largest space that fits,
-  taking into account the parent's size, the parent's inner decoration
-  thickness, and the widget's own `left/top/right/bottom`.
+  taking into account the parent's content area and the widget's own
+  `left/top/right/bottom` offsets (and, under a layout engine, whatever the
+  engine assigned — see [§4.11](#411-layouts)).
 
-A `nil` size is therefore very different from `"100%"`. `"100%"` is a direct
-percentage of the parent and ignores decorations and offsets, whereas `nil`
-yields the largest size that actually fits *after* accounting for them. (When
-`left`/`top` is `"center"`, a `nil`-sized widget is first sized to 50% of the
-parent and then centered.)
+`nil` differs from `"100%"` only in respecting the widget's own offsets: both
+fill the parent's content area, but a `nil` size subtracts `left`/`top` (and
+the widget's own margins) so the widget still fits, whereas `"100%"` keeps
+its full extent regardless. (When `left`/`top` is `"center"`, a `nil`-sized
+widget is first sized to 50% of the parent and then centered.)
+
+The resolved size is clamped to the CSS-style **min/max constraints**
+`min_width`/`max_width`/`min_height`/`max_height` (cells or percentages;
+`min` wins a min>max conflict, per CSS; `minimum_size`/`maximum_size` are the
+Qt-named `Size` bundles). And `box_sizing` selects which box a declared size
+measures: the default `BorderBox` counts the whole on-screen extent (border
+included — what TUI code expects), `ContentBox` opts into the CSS/Qt reading
+where the frame is added *around* the declared content size.
 
 ### 4.7 Inner content offsets
 
@@ -427,18 +476,31 @@ In Crysterm a border can be more than one cell thick and can differ per side, so
 the per-side `i` value is `border.<side> + padding.<side>` for whatever those
 values are — there is no fixed "0 or 1" border assumption.
 
-### 4.8 Resizable widgets
+### 4.8 Shrink-to-fit widgets and size hints
 
-Setting `resizable = true` makes a widget render in the *minimal box* needed to
-hold its content and children (it can grow from there). When a widget is
-resizable, `_get_coords` calls `_minimal_rectangle`, which computes the bounding
-box from the content and the children's own coordinates. Children anchored to
-the right or bottom are handled specially so they don't inflate the parent's
-computed size.
+Setting `shrink_to_fit = true` makes a widget render in the *minimal box*
+needed to hold its content and children (it can grow from there) — roughly
+CSS `width: fit-content`. Only the axes left unset (`nil` `width`/`height`)
+shrink; the bounding box is computed from the content and the children's own
+coordinates, with right/bottom-anchored children handled specially so they
+don't inflate the parent's computed size.
 
-Minimal-size calculation is based on *actual content*; there is currently no way
-to specify a programmer-defined minimum or maximum size, nor to grow/shrink
-disproportionately on resize.
+For a programmer-defined floor/ceiling, use the `min_width`/`max_width`/
+`min_height`/`max_height` constraints ([§4.6](#46-size)). Related Qt-shaped
+accessors:
+
+- `size_hint : Size` — the widget's natural size (content extent plus frame
+  insets; item views count their items). Virtual — a widget with a better
+  notion overrides it.
+- `minimum_size_hint : Size` — the smallest sensibly paintable size (the
+  frame insets alone, in the base class). Advisory; the *enforced* floor is
+  `min_width`/`min_height`.
+- `adjust_size` — one-shot `resize(size_hint)`, bounded by the parent's
+  content area (Qt's `adjustSize()`).
+
+`shrink_to_fit` is self-sizing *outside* any layout engine. For a widget
+arranged by one, the equivalent knob is a `Preferred` `size_policy` axis,
+which sizes the slot to `size_hint` — see [§4.11](#411-layouts).
 
 ### 4.9 Overflow and clipping
 
@@ -461,25 +523,26 @@ position code walks up to the nearest clipping ancestor and intersects against
 it, setting per-side `no_left` / `no_top` / `no_right` / `no_bottom` flags on
 the result for the parts that fall outside.
 
-### 4.10 Last rendered position, and the `get` flag
+### 4.10 Last rendered position, and the `rendered` flag
 
 When a widget is rendered, its absolute coordinates are stored in `lpos`
-("last position"), an `LPos` object carrying `xi/xl/yi/yl` plus lazily-computed
-cached copies of the `a*` and `i*` values and a `renders` counter. Because the
-parent is always rendered before its children, a child can rely on the parent's
-`lpos` being current.
+("last position", also exposed as `rendered_geometry`), a `RenderedGeometry`
+object carrying `xi/xl/yi/yl` plus lazily-computed cached copies of the `a*`
+and `i*` values and a `renders` counter. Because the parent is always rendered
+before its children, a child can rely on the parent's `lpos` being current.
+The same object is reused every frame — read it, don't retain it; for a
+value-type snapshot use `absolute_geometry : Rectangle?`
+([§4.2](#42-three-views-of-a-widgets-geometry)).
 
-This is why the position getters take a `get` flag:
+This is why the position getters take a `rendered` flag:
 
-- `get == false` (the default for ordinary position queries) computes against
-  the live parent widget.
-- `get == true` uses the parent's `lpos` instead of recomputing it. If the
-  parent's cached `a*` values are not yet filled in, they are computed once from
-  the screen dimensions and the stored `xi/xl/yi/yl`, then reused. This is more
-  accurate during rendering because it reflects effects like content shrinkage
-  that a fresh recomputation might miss.
-
-`LPos` is currently a class (heap object); it could *almost* be a struct.
+- `rendered == false` (the default for ordinary position queries) computes
+  against the live parent widget.
+- `rendered == true` resolves against the parent's `lpos` instead of
+  recomputing it. If the parent's cached `a*` values are not yet filled in,
+  they are computed once from the stored `xi/xl/yi/yl`, then reused. This is
+  more accurate during rendering because it reflects effects like content
+  shrinkage that a fresh recomputation might miss.
 
 ### 4.11 Layouts
 
@@ -490,7 +553,7 @@ padding; the layout only positions the children inside it:
 
 ```crystal
 box = Widget::Box.new parent: window, width: 40, height: 10,
-  layout: Layout::HBox.new(gap: 1)
+  layout: Layout::HBox.new(spacing: 1)
 Widget::Box.new parent: box, width: 8   # fixed
 Widget::Box.new parent: box             # flexes to fill the rest
 ```
@@ -542,6 +605,61 @@ its space open so its neighbours don't shift (Qt's
 `Grid` cells — always keep a hidden child's index, since their children are
 identified by position.
 
+**Filling a box the Qt way.** `Layout::Box` (HBox/VBox) carries Qt's
+`QBoxLayout` surface: `add_widget w, stretch: 2, align: :end`,
+`insert_widget`, `add_spacing(5)` (a fixed inert gap), `add_stretch(2)` (a
+growing one), `set_stretch w, n` and `set_alignment w, :center`. Leftover
+main-axis space goes to the flexing children in proportion to their `stretch`
+factor (default 1); when nothing flexes, `justify` (`Start`/`Center`/`End`/
+`SpaceBetween`/`SpaceAround`) distributes it; `align` (`Stretch`/`Start`/
+`Center`/`End`) places children on the cross axis. `orientation` is writable
+at runtime (Qt's `setDirection`).
+
+#### Your specs stay yours: the layout-geometry channel
+
+An engine never writes a child's `left`/`top`/`width`/`height` specs. Its
+assignments travel through a separate per-widget *layout-geometry* channel
+that resolution prefers while the child is managed. Consequences you can rely
+on:
+
+- `w.width` always reads what *you* set — `"50%"` stays `"50%"` at any point
+  in any frame, and re-resolves against the live container every frame.
+- **Reclaiming is exact**: set any non-nil spec (`child.width = 20` — even
+  the very value the engine last assigned) and that axis is yours again from
+  the next frame; a `nil` spec hands it back to the engine.
+- A stable layout emits **no** `Move`/`Resize` events after its first frame
+  (assignments are change-guarded).
+- Removing the layout (`box.layout = nil`) or reparenting the child clears
+  the channel — geometry reverts to the child's own specs, nothing sticks.
+
+#### Size policy and hints
+
+`Widget#size_policy` (Qt's `QSizePolicy`, deliberately smaller) overrides the
+spec-derived behavior per axis. It is a pair of per-axis policies —
+`SizePolicy.new(horizontal, vertical)`, or `set_size_policy h, v`; symbols
+autocast:
+
+- `Auto` (default) — derive from the spec: an explicit size acts as `Fixed`,
+  a `nil` spec as `Expanding`. Exactly the behavior described above, so
+  programs that never touch `size_policy` are unaffected.
+- `Fixed` — the widget's own resolved size is authoritative; the engine never
+  grows or shrinks that axis.
+- `Preferred` — `size_hint` ([§4.8](#48-shrink-to-fit-widgets-and-size-hints))
+  is the ideal: the engine assigns it, may shrink it when space runs short,
+  but never grows it.
+- `Expanding` — take a stretch-weighted share of the leftover space, even
+  over an explicit size spec.
+
+```crystal
+row = Widget::Box.new parent: window, height: 1, layout: Layout::HBox.new
+label = Widget::Box.new parent: row, content: "Name:"
+label.size_policy = Widget::SizePolicy.new(:preferred, :auto) # width = its text
+Widget::LineEdit.new parent: row                              # takes the rest
+```
+
+Today `Layout::Box` consumes the policy; the other engines arrange as if
+every axis were `Auto`.
+
 Note that a layout assigns a child's position and size **during a frame**. Before
 the first render that arranges it, a layout-managed child has no resolved
 geometry — so code that must *read* that geometry (or focus a text field, so its
@@ -553,7 +671,9 @@ The table widgets (`Widget::Table`, `Widget::ListTable`) instead mix in the
 content rather than arranging child widgets.
 
 Adding a new arrangement strategy is small: subclass `Crysterm::Layout` (or
-`Layout::Flow` for a row-wrapping engine) and implement `#place`.
+`Layout::Flow` for a row-wrapping engine) and implement `#arrange` — place
+each child via `place_child`/`place_and_render`, which write through the
+layout-geometry channel described above.
 
 ---
 
@@ -641,8 +761,8 @@ frame title in other toolkits. In Crysterm a label can be attached to *any*
 widget, and it sits on the widget's first row, aligned left or right.
 
 When you supply a label as text, Crysterm internally creates a `Widget::Box` to
-hold it and stores it in the widget's `_label` property; you can then manipulate
-that box afterward. The label subscribes to events on its parent (e.g.
+hold it and stores it in the widget's `label_widget` property; you can then
+manipulate that box afterward. The label subscribes to events on its parent (e.g.
 `Event::Resize`, `Event::Scroll`) so it can reposition and redraw itself as the
 parent changes — for example, a right-aligned label travels as the widget is
 resized.
@@ -669,7 +789,23 @@ selected from the widget's state-specific styles (see below). Setting `fg`,
 
 Because `style` may be a *reference* into the widget's state styles, editing the
 object you get back edits the definition of whatever state is currently active —
-keep that in mind when mutating a style in place.
+keep that in mind when mutating a style in place. (In-place mutation is fully
+supported: damage tracking observes it, so `w.style.fg = ...` per frame is the
+sanctioned animation idiom, no manual repaint call needed.)
+
+Note that `style=` writes the *inline* override while the `style` reader
+returns the *resolved* style, so they are not a strict property pair —
+`inline_style`/`inline_style=` are the honest spellings of the override half.
+In one situation the reader hands out a transient object instead of the
+persistent style: a focused/selected widget with no theme and no colors of its
+own renders through a throwaway reverse-video copy. That copy is frozen —
+writing an attribute to it raises `Style::FrozenError` instead of silently
+vanishing — and the persistent write paths are `restyle { }`, `state_style`,
+or `inline_style=`:
+
+```crystal
+w.restyle &.bg = "red"   # mutate the persistent state style + repaint
+```
 
 ### 6.2 Widget states and `Styles`
 
@@ -1148,12 +1284,13 @@ Any Crysterm app accepts these out of the box: `crystal tests/hellos/hello.cr --
 
 - In Blessed the user-set values live in `widget.position.*` and `left`/`top`/…
   read from there. In Crysterm the Spec getters `left`/`top`/`right`/`bottom`
-  *are* the raw user values, the absolute values are `aleft`/`atop`/…, and the
-  relative values are `rleft`/`rtop`/… (computed as the difference of absolute
-  positions). The accessor table in [§4.2](#42-four-views-of-a-widgets-geometry)
-  is the streamlined Crysterm interface.
-- Blessed's "shrink" option is called **`resizable`** in Crysterm, reflecting
-  that it can grow as well as shrink.
+  *are* the raw user values, the absolute resolved values are `aleft`/`atop`/…,
+  and the relative resolved values are `rleft`/`rtop`/… (in the spec space, so
+  `w.left = w.rleft` is a no-op). The accessor table in
+  [§4.2](#42-three-views-of-a-widgets-geometry) is the streamlined Crysterm
+  interface.
+- Blessed's "shrink" option is called **`shrink_to_fit`** in Crysterm,
+  reflecting that it sizes to content (and can grow as well as shrink).
 
 **Decorations**
 
@@ -1172,8 +1309,8 @@ Any Crysterm app accepts these out of the box: `crystal tests/hellos/hello.cr --
   depth, adjustable `alpha`, and a light direction that follows the enabled
   sides.
 - Blessed creates a "label" on a widget as an internal text box. Crysterm does
-  the same with a generic `Widget::Box` (stored in `_label`) but, in principle,
-  allows any widget to serve as a label.
+  the same with a generic `Widget::Box` (stored in `label_widget`) but, in
+  principle, allows any widget to serve as a label.
 
 **Styling**
 

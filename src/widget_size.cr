@@ -28,7 +28,9 @@ module Crysterm
     #
     # NOTE This has nothing to do with the *user* being able to resize the widget
     # (Qt's size policies, CSS `resize:`) — for a draggable resize handle see
-    # `Widget::SizeGrip`.
+    # `Widget::SizeGrip`. And it is self-sizing *outside* any layout engine:
+    # for a widget arranged by one, the equivalent knob is a `Preferred`
+    # `#size_policy` axis, which sizes the slot to `#size_hint`.
     property? shrink_to_fit = false
 
     # `width=`/`height=`: change-guarded setters that normalize through
@@ -45,6 +47,51 @@ module Crysterm
         emit ::Crysterm::Event::Resize
       end
     {% end %}
+
+    # Per-axis sizing policy, consumed by the layout engine arranging this
+    # widget — Qt's `QSizePolicy`, deliberately smaller (no `Minimum`/
+    # `Maximum`/`Ignored`, and the main-axis stretch factor stays on
+    # `Layout::Box::Hint#stretch`, as Qt also allows via
+    # `addWidget(w, stretch)`). See `Policy` for the vocabulary. Today
+    # `Layout::Box` consumes it; the other engines arrange as if every axis
+    # were `Auto`.
+    record SizePolicy, horizontal : Policy = Policy::Auto, vertical : Policy = Policy::Auto do
+      # How a layout engine sizes one axis of a widget it arranges.
+      enum Policy
+        # Derive from the size spec: an explicit `width`/`height` acts as
+        # `Fixed`, an unset (`nil`) one as `Expanding`. The default — and
+        # exactly the pre-policy behavior, so a program that never touches
+        # `size_policy` arranges bit-identically.
+        Auto
+        # The widget's own resolved size (`awidth`/`aheight`) is
+        # authoritative; the engine never grows or shrinks this axis.
+        Fixed
+        # `Widget#size_hint` is the ideal: the engine assigns the hint on
+        # this axis, may shrink it when space runs short, but never grows it
+        # — a label that sizes to its text inside an `HBox` with no explicit
+        # `width`.
+        Preferred
+        # Take a stretch-weighted share of the leftover space (an unset
+        # spec's behavior today), even over an explicit size spec.
+        Expanding
+      end
+    end
+
+    # This widget's per-axis `SizePolicy`. `Auto`/`Auto` by default — the
+    # size specs rule, exactly as before the policy existed. Symbols
+    # autocast: `w.size_policy = Widget::SizePolicy.new(:preferred, :auto)`.
+    getter size_policy : SizePolicy = SizePolicy.new
+
+    # Change-guarded like `width=`: a policy flip changes what the parent's
+    # engine does with this widget's slot, so it invalidates and announces
+    # the (potential) size change the same way a size-spec write does.
+    change_guarded_setter size_policy, Resize, SizePolicy
+
+    # Sets both axes of `#size_policy` in one call — Qt's
+    # `QWidget::setSizePolicy(horizontal, vertical)`.
+    def set_size_policy(horizontal : SizePolicy::Policy, vertical : SizePolicy::Policy) : Nil
+      self.size_policy = SizePolicy.new horizontal, vertical
+    end
 
     # Which box a declared `#width`/`#height` measures — CSS `box-sizing`.
     enum BoxSizing
@@ -387,6 +434,35 @@ module Crysterm
     # window it ultimately lands.
     def rect : Rectangle
       Rectangle.new 0, 0, awidth, aheight
+    end
+
+    # The widget's natural size, derived from its content — Qt's
+    # `QWidget::sizeHint()`: the processed content's extent (an item view
+    # counts its item rows instead of text lines) plus the frame insets.
+    # Virtual — a widget with a better notion of its natural size overrides
+    # it (`Spacer` reports its declared fixed size). Consumed by
+    # `#adjust_size` and, under `Layout::Box`, by a
+    # `SizePolicy::Policy::Preferred` axis; unlike Qt it plays no other role
+    # in sizing — the size *specs* do that.
+    def size_hint : Size
+      Size.new @_clines.max_width + ihorizontal,
+        (item_view? ? item_box_count : @_clines.size) + ivertical
+    end
+
+    # The smallest size this widget can sensibly paint at — Qt's
+    # `QWidget::minimumSizeHint()`. Base answer: the frame insets alone, the
+    # smallest box that still draws its border and padding around a 0×0
+    # content area. Advisory (virtual, like `#size_hint`); the *enforced*
+    # floor is the `#min_width`/`#min_height` constraint pair.
+    def minimum_size_hint : Size
+      Size.new ihorizontal, ivertical
+    end
+
+    # Resizes to `#size_hint`, bounded by the parent's content area — Qt's
+    # `QWidget::adjustSize()`. An imperative one-shot: the resolved cells are
+    # written through `#resize` into the `width`/`height` specs.
+    def adjust_size : Nil
+      resize size_hint.bounded_to(Size.new constraint_base_width, constraint_base_height)
     end
 
     # Whether the x axis shrinks to its content: no explicit width, and at least

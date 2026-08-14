@@ -11,6 +11,11 @@ module Crysterm
     #   share the leftover space in proportion to their `stretch` factor (default
     #   1, i.e. equal shares). Set a per-child factor with
     #   `layout_hint: Layout::Box::Hint.new(stretch: 2)`.
+    # * **`Widget#size_policy`** overrides that spec-derived split per axis:
+    #   `Expanding` joins the flex share even over an explicit size,
+    #   `Fixed` keeps the child's resolved size, and `Preferred` sizes the
+    #   axis to `Widget#size_hint` (a label that sizes to its text with no
+    #   explicit `width`). The default `Auto` derives from the spec as above.
     # * **`justify`** distributes leftover space along the main axis when no
     #   children grow (Start/Center/End/SpaceBetween/SpaceAround).
     # * **`align`** sets cross-axis placement: `Stretch` (default) fills the
@@ -222,16 +227,26 @@ module Crysterm
             # `Int64` since the *sum* over many children can still overflow.
             grow += stretch_of el
           else
-            # The child's main size is its own spec this frame — quietly drop
-            # any stale layout assignment from a frame it was still flex, or
+            # The child's main size is its own spec this frame — or, under a
+            # `Preferred` policy, its size hint — so quietly drop any stale
+            # layout assignment from a frame it was still flex first, or
             # `a_main_size` reads that instead of the spec.
             clear_layout_main el
-            # Clamp a fixed child's own resolved size against the main extent
-            # before accumulating: an unclamped `Int32::MAX`-ish size (a
-            # child's own `awidth`/`aheight` isn't bounded by the parent)
-            # overflows checked `Int32` the moment a second child's size is
-            # added.
-            ms = clamped_size a_main_size(el), main
+            ms =
+              if main_policy(el).preferred?
+                # `Preferred`: the hint is the ideal — never grown by the
+                # engine, shrunk (via the extent clamp) when space runs
+                # short. Assigned back through the layout channel in
+                # `#place`, unlike a fixed child's spec-resolved size.
+                clamped_size main_hint(el), main
+              else
+                # Clamp a fixed child's own resolved size against the main
+                # extent before accumulating: an unclamped `Int32::MAX`-ish
+                # size (a child's own `awidth`/`aheight` isn't bounded by
+                # the parent) overflows checked `Int32` the moment a second
+                # child's size is added.
+                clamped_size a_main_size(el), main
+              end
             @measured[el] = ms
             fixed += ms
           end
@@ -285,7 +300,12 @@ module Crysterm
         align = align_of el
         cross_w : Int32? = nil
         if align.stretch?
-          if cross_flex? el
+          if cross_policy(el).preferred?
+            # `Preferred` cross axis: assigned its size hint — never grown
+            # to fill the slot, shrunk (via the clamp) when the interior or
+            # the child's margins leave less room.
+            cross_w = clamped_size cross_hint(el), margin_box(cross, cross_margin(el))
+          elsif cross_flex? el
             # Fill the interior *minus* the child's cross-axis margins: the
             # assigned size is fixed and the render shift pushes it out by the
             # near margin, so a full-extent size would clip by `near + far`.
@@ -304,8 +324,15 @@ module Crysterm
           # border box: the render shift pushes the border box out by the near
           # margin, so an offset computed from `cross - cs` alone would overflow
           # the far edge and mis-center.
-          cs = a_cross_size el
           cm = cross_margin el
+          if cross_policy(el).preferred?
+            # A `Preferred` child is sized to its hint here too — assigned
+            # below, then positioned per the alignment like any own size.
+            cs = clamped_size cross_hint(el), margin_box(cross, cm)
+            cross_w = cs
+          else
+            cs = a_cross_size el
+          end
           off = case align
                 when .center? then (cross - cs - cm) // 2
                 when .end?    then cross - cs - cm
@@ -314,12 +341,16 @@ module Crysterm
           cross_pos = (off < 0 ? 0 : off)
         end
 
-        # Main axis: explicit size wins; otherwise a stretch-weighted share.
-        # `main_w` is the Int32 main size to write for a flex child, or `nil` to
-        # keep the child's fixed size.
+        # Main axis: a measured (non-flex) child keeps its measure; the rest
+        # get a stretch-weighted share. `main_w` is the Int32 main size to
+        # write — the flex share, or a `Preferred` child's measured hint (the
+        # engine's decision, so it must be assigned) — or `nil` to leave a
+        # fixed child to its own spec.
         main_pos = @cursor
         main_w : Int32? = nil
-        unless @measured.has_key?(el)
+        if ms = @measured[el]?
+          main_w = ms if main_policy(el).preferred?
+        else
           # Cumulative rounding: each child's size is the difference of
           # successive cumulative floors, which sums to exactly `@avail`.
           # Rounding each share independently would floor every child and
@@ -361,13 +392,12 @@ module Crysterm
           if main_w
             clamped_size a_main_size(el), main
           else
-            # Defensive-only: `main_w` is nil exactly when `@measured.has_key?(el)`
-            # is true — the `unless @measured.has_key?(el)` block above is the
-            # only place that sets `main_w`, so reaching here with `main_w` nil
-            # means `el` was already in `@measured` (populated for every fixed
-            # child during the earlier measure pass). A vacant child returned
-            # above before either path, so `@measured[el]?` never actually
-            # misses here and the `clamped_size` fallback never fires.
+            # Defensive-only: `main_w` is nil exactly for a measured non-
+            # `Preferred` child (`@measured` is populated for every non-flex
+            # child during the earlier measure pass, and a vacant child
+            # returned above before either path) — so `@measured[el]?` never
+            # actually misses here and the `clamped_size` fallback never
+            # fires.
             @measured[el]? || clamped_size(a_main_size(el), main)
           end
 
@@ -437,18 +467,29 @@ module Crysterm
       # The child's total margin (near + far) along the main / cross axis.
       axis_pair main_margin, cross_margin, el.mhorizontal, el.mvertical, Int32
 
-      # Whether the child's main-axis size is decided by this layout: its spec
-      # is unset (`nil`). Exact by construction — this layout never writes the
+      # Whether the child's main-axis size gets a grow share from this layout
+      # — policy first: `Expanding` grows even over an explicit spec,
+      # `Fixed`/`Preferred` never grow, and the default `Auto` derives the
+      # answer from the spec — unset (`nil`) means this layout decides.
+      # The spec test is exact by construction — this layout never writes the
       # specs, so a non-nil spec is always the user's, and setting one
       # (`child.width = 20`) reclaims the axis with no bookkeeping.
       private def main_flex?(el : Widget) : Bool
-        main_size(el).nil?
+        case main_policy el
+        in .auto?               then main_size(el).nil?
+        in .expanding?          then true
+        in .fixed?, .preferred? then false
+        end
       end
 
-      # Whether the child's cross-axis size is decided (stretched) by this
-      # layout; same spec-nil test as `main_flex?`.
+      # Whether the child's cross-axis size is stretched to fill by this
+      # layout; same policy-then-spec derivation as `main_flex?`.
       private def cross_flex?(el : Widget) : Bool
-        cross_size(el).nil?
+        case cross_policy el
+        in .auto?               then cross_size(el).nil?
+        in .expanding?          then true
+        in .fixed?, .preferred? then false
+        end
       end
 
       # Quietly drops the child's layout-assigned main / cross size — before
@@ -479,6 +520,13 @@ module Crysterm
 
       # The child's resolved (`a*`) main / cross size in cells.
       axis_pair a_main_size, a_cross_size, el.awidth, el.aheight, Int32
+
+      # The child's `Widget#size_policy` on the main / cross axis.
+      axis_pair main_policy, cross_policy, el.size_policy.horizontal, el.size_policy.vertical, Widget::SizePolicy::Policy
+
+      # The child's `Widget#size_hint` extent on the main / cross axis — the
+      # size a `Preferred` axis is assigned.
+      axis_pair main_hint, cross_hint, el.size_hint.width, el.size_hint.height, Int32
     end
   end
 end

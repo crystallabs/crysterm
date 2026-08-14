@@ -212,12 +212,52 @@ module Crysterm
     # several times), so compare for equality — don't count increments.
     getter attr_revision : Int64 = 0_i64
 
+    # Raised on an attribute write to a frozen render-derived `Style` copy
+    # (see `Style#freeze!`): the write would land on a transient object and be
+    # silently lost. Write via `Widget#restyle`/`#state_style` (the persistent
+    # per-state style) or `#inline_style=` instead.
+    class FrozenError < Exception
+      def initialize
+        super "Can't mutate the transient highlight copy Widget#style returns for a focused/selected widget at the unstyled floor; write via #restyle / #state_style (or #inline_style=)"
+      end
+    end
+
+    # Whether this style is a frozen render-derived copy (see `#freeze!`).
+    getter? frozen : Bool = false
+
+    # A `#dup` starts life mutable regardless of the source (the established
+    # dup-then-mutate convention must keep working on a frozen copy).
+    protected setter frozen : Bool
+
+    # Marks this style as a frozen render-derived copy: the attribute setters
+    # (`fg`/`bg`, the SGR booleans, `visible`) raise `FrozenError` instead of
+    # accepting a write that would be silently lost when the copy is next
+    # re-derived. Applied to the transient focus/selection reverse-video
+    # fallback copies that `Widget#style` can return at the unstyled floor —
+    # the one object where the natural `w.style.bg = "red"` spelling used to
+    # intermittently vanish. A tripwire, not full immutability: only the
+    # attribute setters (the fields programmatic styling animates — exactly
+    # `attr_revision`'s set) are guarded.
+    def freeze! : self
+      @frozen = true
+      self
+    end
+
+    # The frozen-copy tripwire, run by the attribute setters below.
+    # `AlwaysInline` so the (default, unfrozen) case folds to one flag test in
+    # the hot animation path (`style.bg = …` per frame).
+    @[AlwaysInline]
+    private def frozen_write_check : Nil
+      raise FrozenError.new if @frozen
+    end
+
     # Re-wrap the `property?`-generated boolean setters so each explicit
     # assignment is recorded, making `bold = false` distinguishable from the
     # default `false` — and `attr_revision` advanced (every field here is in
     # `style_to_attr`'s read set).
     {% for attr in %w[bold italic underline blink reverse strike visible] %}
       def {{ attr.id }}=(value : Bool) : Bool
+        frozen_write_check
         @specified_mask |= SPEC_{{ attr.upcase.id }}
         @attr_revision &+= 1
         @{{ attr.id }} = value
@@ -234,6 +274,7 @@ module Crysterm
     {% for color in %w[fg bg] %}
       {% for type in %w[Int String Nil] %}
         def {{ color.id }}=(color : {{ type.id }})
+          frozen_write_check
           @attr_revision &+= 1
           super
         end
@@ -247,6 +288,10 @@ module Crysterm
     # they stay shared.
     def dup
       copy = super
+      # A copy starts mutable even when the source is a frozen render-derived
+      # copy — dup-then-mutate (`style.dup.tap(&.underline = true)`) is the
+      # sanctioned way to derive from one.
+      copy.frozen = false
       @border.try { |border| copy.border = border.dup }
       # The boxes are lazy (nil until first set/read) and read through the ivar,
       # so a style that never touched one costs no dup here. Most widgets set no

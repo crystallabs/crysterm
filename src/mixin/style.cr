@@ -13,8 +13,12 @@ module Crysterm
     #   state and frame (memoized per frame; adds the unstyled-floor
     #   reverse-video/border fallbacks via transient copies).
     # - `#state_style` is what programmatic *writes* use: the persistent backing
-    #   `Style` for the current state, with no transient fallback copies — a
-    #   write through `#style` could land on a throwaway dup and be lost.
+    #   `Style` for the current state, with no transient fallback copies. A
+    #   write through `#style` is fine while it returns that same persistent
+    #   object (the common case — in-place mutation is tracked by damage via
+    #   `Style#attr_revision`); the one case where it doesn't — the transient
+    #   focus/selection highlight copy at the unstyled floor — is *frozen*, so
+    #   the write raises `Style::FrozenError` instead of silently vanishing.
     #
     # So: configure with `inline_style`/stylesheets, paint from `#style`,
     # persist runtime flips (e.g. `visible` from `hide`/`show`) via
@@ -164,8 +168,8 @@ module Crysterm
       # Persistent per-state fields — notably `visible` (toggled by `#hide`/
       # `#show`) — MUST be read/written through here, never via `#style`: at the
       # floor, `#style` layers reverse-video on `:focused`/`:selected` via a
-      # transient `#dup`, so a write through it would be lost (a focused `Button`
-      # could never be hidden).
+      # transient (frozen) copy, so a write through it would raise
+      # `Style::FrozenError` (a focused `Button` could never be hidden).
       def state_style : ::Crysterm::Style
         unless @css_styled
           @style.try { |style| return style }
@@ -442,7 +446,13 @@ module Crysterm
         ::Crysterm::Style.memo_derive(st, src, copy, fp) do |s|
           c = s.dup
           c.reverse = true
-          c
+          # This copy is what `#style` hands out while the state lasts, but it
+          # is transient (re-derived on any state/style change), so an
+          # attribute write to it would be silently lost — freeze it so the
+          # write raises toward the persistent paths (`restyle`/`state_style`)
+          # instead. The one `#style` result that isn't the persistent style
+          # itself.
+          c.freeze!
         end
       end
     end

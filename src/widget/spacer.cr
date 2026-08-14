@@ -56,6 +56,14 @@ module Crysterm
       def wants_mouse?
         false
       end
+
+      # A fixed spacer's natural size is its declared size; a stretch spacer
+      # has none (0×0) — it exists to absorb leftover space, not to claim any.
+      def size_hint : Size
+        w = @width
+        h = @height
+        Size.new (w.is_a?(Int32) ? w : 0), (h.is_a?(Int32) ? h : 0)
+      end
     end
   end
 end
