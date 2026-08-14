@@ -549,10 +549,28 @@ module WidgetExamples
 
   # ---- capture / build ------------------------------------------------------
 
-  # Default concurrency. Each job is a full `crystal` compile (RAM heavy), so
-  # stay under the core count; override with `--jobs`.
+  # Default concurrency. Each job is a full `crystal` compile — RAM heavy
+  # (~8 GB peak on this codebase) — so cap by physical RAM as well as cores:
+  # cores alone let a 10-core/32 GB machine run 8 compiles at once, committing
+  # ~70 GB and grinding the whole box into swap. Override with `--jobs`.
   def self.default_jobs : Int32
-    Math.max(1, Math.min(8, System.cpu_count.to_i - 1))
+    by_cores = Math.min(8, System.cpu_count.to_i - 1)
+    # One job per ~12 GB of physical RAM (compile peak + headroom).
+    by_ram = physical_memory.try { |b| (b // 12_000_000_000).to_i } || by_cores
+    Math.max(1, Math.min(by_cores, by_ram))
+  end
+
+  # Physical RAM in bytes, or `nil` when it can't be determined.
+  def self.physical_memory : Int64?
+    {% if flag?(:darwin) %}
+      `sysctl -n hw.memsize`.strip.to_i64?
+    {% else %}
+      File.read_lines("/proc/meminfo")
+        .find(&.starts_with?("MemTotal:"))
+        .try { |l| l.split[1]?.try &.to_i64?.try &.*(1024) }
+    {% end %}
+  rescue
+    nil
   end
 
   # Run *work* over *items* with at most *jobs* fibers in flight. Each fiber's

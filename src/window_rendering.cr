@@ -126,7 +126,7 @@ module Crysterm
     end
 
     # Internal primitive behind `#update`: rings the render fiber's coalescing
-    # doorbell. Public API is `#update` (`#render` is its deprecated alias).
+    # doorbell. Public API is `#update`.
     protected def schedule_render : Nil
       ring @render_wakeup
     end
@@ -407,7 +407,7 @@ module Crysterm
       value = Light.from value
       return value if @light == value
       @light = value
-      render if @renders > 0
+      update if @renders > 0
       value
     end
 
@@ -423,7 +423,7 @@ module Crysterm
     def dock_contrast=(value : DockContrast) : DockContrast
       return value if @dock_contrast == value
       @dock_contrast = value
-      render if @renders > 0
+      update if @renders > 0
       value
     end
 
