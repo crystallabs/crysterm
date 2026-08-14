@@ -575,10 +575,17 @@ module Crysterm
         # context regardless of its content, unless we call get_coords without
         # the scrollable calculation. See: test/widget-shrink-fail-2
         scrollb_lpos = (@_scrollb_lpos ||= RenderedGeometry.new)
+        # `el.atop - atop` (offset from this widget's own absolute origin), NOT
+        # `el.rtop`: `rtop` is spec-space (excludes this widget's top inset and
+        # the child's margin shift), while the scroll extent here measures
+        # where the child actually sits below our origin — the historical
+        # inset-included offset, kept bit-identical. Whether the extent
+        # *should* exclude the inset is an open question for the size-policy
+        # pass (see plans/SIZE-POLICY-PLAN.md §2.1).
         el_bottom = if el.window? && (lpos = el.coords(false, true, into: scrollb_lpos))
-                      el.rtop + (lpos.yl - lpos.yi)
+                      (el.atop - atop) + (lpos.yl - lpos.yi)
                     else
-                      el.rtop + el.aheight
+                      (el.atop - atop) + el.aheight
                     end
         Math.max current, el_bottom
       end

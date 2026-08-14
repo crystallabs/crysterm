@@ -26,7 +26,7 @@ w=80 h=24
 | color=Red   volume=40   count=3   angle=90                 Tab: focus │ q: quit|
 +--------------------------------------------------------------------------------+
 attrs:
-y0: 0-17:#cdd6f4/def 18-79:#cdd6f4/#424453
+y0: 0-0:#cdd6f4/def 1-1:#cdd6f4/def+u 2-6:#cdd6f4/def 7-7:#cdd6f4/def+u 8-12:#cdd6f4/def 13-13:#cdd6f4/def+u 14-17:#cdd6f4/def 18-79:#cdd6f4/#424453
 y1: 0-19:#cdd6f4/def 20-79:#cdd6f4/#424453
 y2: 0-0:#101010/#89b4fa 1-1:#7f7f7f/#89b4fa 2-13:#101010/#89b4fa 17-17:#7f7f7f/def 29-29:#7f7f7f/def 41-41:#7f7f7f/def 54-54:#7f7f7f/def 67-67:#7f7f7f/def
 y4: 1-2:#585b70/def 14-39:#585b70/def 40-73:#101010/#89b4fa 74-78:#585b70/def

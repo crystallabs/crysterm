@@ -382,26 +382,48 @@ module Crysterm
       set_geometry @left, @top, width, height
     end
 
-    # This widget's last-rendered box in absolute window coordinates ↔ Qt's
-    # `QWidget::geometry()`. `nil` before the widget has a rendered position
-    # (see `#lpos`).
-    def geometry : Rectangle?
-      lp = @lpos || return
-      Rectangle.of_edges lp.xi, lp.yi, lp.xl, lp.yl
+    # This widget's live rectangle in parent-relative *spec space* ↔ Qt's
+    # `QWidget::geometry()`: `(x, y)` is `(#rleft, #rtop)` — what `left=`/
+    # `top=` would take to reproduce the placement — and the size is what
+    # `width=`/`height=` would take (`awidth`/`aheight`, less the frame
+    # insets under `ContentBox` box-sizing, whose specs measure the content
+    # area). So `w.geometry = w.geometry` is a no-op and Qt's
+    # `geometry.top_left == pos` invariant holds by construction.
+    #
+    # Derived from the live resolution, not the last frame — for the
+    # last-rendered box in absolute window coordinates see
+    # `#absolute_geometry`. Like `#x`/`#awidth`, reading resolves against the
+    # parent chain, so the widget must be attached (a parent or window).
+    def geometry : Rectangle
+      Rectangle.new rleft, rtop,
+        awidth - box_sizing_pad_width, aheight - box_sizing_pad_height
     end
 
     # `Rectangle` property-idiom setter, delegating straight to `#set_geometry`
     # — Qt's `geometry WRITE setGeometry`. `#set_geometry` itself stays the
     # canonical coalescing primitive; this is the Crystal property spelling.
+    #
+    # NOTE Writes resolved `Int32` specs: a percent/`center` spec is pinned to
+    # cells and a far-anchored (`right:`/`bottom:`) widget becomes
+    # near-anchored — position preserved, reactivity dropped, the usual
+    # imperative-setter trade (Qt's `setGeometry` does the same).
     def geometry=(r : Rectangle) : Nil
       set_geometry r
+    end
+
+    # This widget's last-rendered box in absolute window coordinates, as a
+    # `Rectangle` — the value-type view of `#rendered_geometry`/`#lpos`, after
+    # clipping/scroll. `nil` before the widget has a rendered position.
+    def absolute_geometry : Rectangle?
+      lp = @lpos || return
+      Rectangle.of_edges lp.xi, lp.yi, lp.xl, lp.yl
     end
 
     # Alias of `#geometry` ↔ Qt's `QWidget::frameGeometry()`. A terminal
     # widget has no external window-manager frame the way a decorated
     # top-level Qt window does, so its frame and client geometry always
     # coincide — the two are identical here.
-    def frame_geometry : Rectangle?
+    def frame_geometry : Rectangle
       geometry
     end
 

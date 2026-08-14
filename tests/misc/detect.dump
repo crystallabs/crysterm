@@ -22,7 +22,7 @@ w=80 h=24
 |  │ Truecolor: true      Unicode: true      Colors: 16777216      Cell: n/a  │  |
 |  │ Best graphics: None      Auto-picked painter backend: Glyph              │  |
 |  │                                                                          │  |
-|  │  Overridable via 69 config settings — --media-backend=…, --dump-config   │  |
+|  │  Overridable via 71 config settings — --media-backend=…, --dump-config   │  |
 |  └──────────────────────────────────────────────────────────────────────────┘  |
 +--------------------------------------------------------------------------------+
 attrs:

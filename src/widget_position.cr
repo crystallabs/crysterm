@@ -50,12 +50,37 @@ module Crysterm
     # Computed relative position on window
     #
 
-    # `rleft`/`rtop`/`rright`/`rbottom`: computed relative position, mechanically
-    # identical across the four sides modulo which `a*` getter they call.
-    {% for side in %w(left top right bottom) %}
-      # Returns computed relative {{ side.id }}
-      def r{{ side.id }}
-        (a{{ side.id }} || 0) - (parent_or_window.a{{ side.id }} || 0)
+    # `rleft`/`rtop`/`rright`/`rbottom`: computed relative position, in the
+    # *spec space* — each returns the `Int32` its bare setter (`left=`/`top=`/
+    # `right=`/`bottom=`) would need to reproduce the current resolved
+    # placement, so `w.left = w.rleft` is a no-op. That makes the prefix
+    # convention a law: bare = the user's spec, `r*` = relative resolved
+    # (round-trips through the bare setter), `a*` = absolute resolved.
+    #
+    # Offsets are from the parent's *content* origin (inside border/padding),
+    # exactly what the spec setters consume. The near edges also compensate
+    # the widget's own margin shift (which resolution re-applies on assign);
+    # the far-edge resolution never applies one, so `rright`/`rbottom` don't
+    # either. Assigning `rleft` back to a far-anchored (`right:`-only) widget
+    # preserves the position but pins the near edge — the documented imperative-
+    # setter trade, same as `#geometry=`.
+    {% for axis in [
+                     {near: "left", far: "right"},
+                     {near: "top", far: "bottom"},
+                   ] %}
+      # Returns computed relative {{ axis[:near].id }} (spec space — the value
+      # `{{ axis[:near].id }}=` would take to keep the widget in place).
+      def r{{ axis[:near].id }} : Int32
+        p = parent_or_window
+        m = (mg = style.margin).any? ? mg.{{ axis[:near].id }} : 0
+        a{{ axis[:near].id }} - p.a{{ axis[:near].id }} - p.i{{ axis[:near].id }} - m
+      end
+
+      # Returns computed relative {{ axis[:far].id }} (spec space — the value
+      # `{{ axis[:far].id }}=` would take to keep the widget in place).
+      def r{{ axis[:far].id }} : Int32
+        p = parent_or_window
+        a{{ axis[:far].id }} - p.a{{ axis[:far].id }} - p.i{{ axis[:far].id }}
       end
     {% end %}
 
