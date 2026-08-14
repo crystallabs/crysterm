@@ -130,20 +130,20 @@ describe "BUGS16 B16-43: MainWindow#relayout skips hidden menu/status bars" do
   end
 end
 
-# BUGS16 B16-44: ProgressBar#on_keypress stepped the value on its handled keys
+# BUGS16 B16-44: ProgressBar#handle_key_press stepped the value on its handled keys
 # but never called `e.accept`, so the same keystroke also bubbled to and
 # double-acted on an ancestor handler.
-describe "BUGS16 B16-44: ProgressBar#on_keypress accepts its handled keys" do
+describe "BUGS16 B16-44: ProgressBar#handle_key_press accepts its handled keys" do
   it "accepts Left/Down/'h'/'j' after stepping down" do
     pb = Widget::ProgressBar.new value: 50, minimum: 0, maximum: 100, single_step: 5
 
     e = Crysterm::Event::KeyPress.new '\0', Tput::Key::Left
-    pb.on_keypress e
+    pb.handle_key_press e
     pb.value.should eq 45
     e.accepted?.should be_true
 
     e = Crysterm::Event::KeyPress.new 'j'
-    pb.on_keypress e
+    pb.handle_key_press e
     pb.value.should eq 40
     e.accepted?.should be_true
   end
@@ -152,12 +152,12 @@ describe "BUGS16 B16-44: ProgressBar#on_keypress accepts its handled keys" do
     pb = Widget::ProgressBar.new value: 50, minimum: 0, maximum: 100, single_step: 5
 
     e = Crysterm::Event::KeyPress.new '\0', Tput::Key::Right
-    pb.on_keypress e
+    pb.handle_key_press e
     pb.value.should eq 55
     e.accepted?.should be_true
 
     e = Crysterm::Event::KeyPress.new 'k'
-    pb.on_keypress e
+    pb.handle_key_press e
     pb.value.should eq 60
     e.accepted?.should be_true
   end
@@ -166,7 +166,7 @@ describe "BUGS16 B16-44: ProgressBar#on_keypress accepts its handled keys" do
     pb = Widget::ProgressBar.new value: 0, minimum: 0, maximum: 100, single_step: 5
 
     e = Crysterm::Event::KeyPress.new 'h' # already at minimum: value doesn't move
-    pb.on_keypress e
+    pb.handle_key_press e
     pb.value.should eq 0
     e.accepted?.should be_true
   end
@@ -175,7 +175,7 @@ describe "BUGS16 B16-44: ProgressBar#on_keypress accepts its handled keys" do
     pb = Widget::ProgressBar.new value: 50, minimum: 0, maximum: 100, single_step: 5
 
     e = Crysterm::Event::KeyPress.new 'x'
-    pb.on_keypress e
+    pb.handle_key_press e
     pb.value.should eq 50
     e.accepted?.should be_false
   end

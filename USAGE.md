@@ -198,6 +198,36 @@ Key-press events are also available as specific subclasses — for instance
 `Event::KeyPress::CtrlQ` — generated from the `Tput::Key` enum, so you can
 listen for exactly one key instead of filtering inside a broader handler.
 
+#### Subscribing, disconnecting, and overriding
+
+Three naming conventions divide the event surface, one per job:
+
+- **`on(Event::X) { }` and the `on_<event>` sugar** (`button.on_clicked { }`,
+  `edit.on_text_changed { |s| }`) **subscribe**: every registered block fires,
+  and each call returns an `EventHandler::Subscription` — a self-contained
+  handle whose `#off` disconnects exactly that handler:
+
+  ```crystal
+  sub = button.on_clicked { save }
+  sub.off # disconnected; idempotent, safe to call twice
+  ```
+
+  For several handlers torn down together, collect them in a
+  `Crysterm::Subscriptions` bag (`subs.on(target, Event::X) { }` … `subs.off`);
+  `subs.auto_dispose(widget) { }` ties the teardown to the widget's
+  `Event::Destroy`.
+
+- **`handle_<event>`** (`handle_key_press`, `handle_click`, …) is the
+  **overridable slot** — the method the framework wires up and calls, Qt's
+  `keyPressEvent()` analogue. Subclass and override these to change behavior
+  (usually calling `super` for the parts you keep); never call them to
+  subscribe.
+
+- **`<name>_handler`** (`clock.stop_handler { }`, `menu.navigate_handler { }`)
+  sets a **single overwritable callback** — one slot, where a second
+  assignment replaces the first. The `on_*` spellings of these are deprecated:
+  they looked like subscriptions but silently dropped the previous handler.
+
 ### 3.3 The single-threaded render model
 
 Crysterm renders on **one fiber**, in the style of a GUI toolkit's main thread.

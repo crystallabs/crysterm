@@ -93,9 +93,9 @@ describe "A4-64 Event::EditingFinished" do
       finished = 0
       sb.on(Event::EditingFinished) { finished += 1 }
 
-      sb.on_keypress kp('4')
-      sb.on_keypress kp('2')
-      sb.on_keypress enter_key
+      sb.handle_key_press kp('4')
+      sb.handle_key_press kp('2')
+      sb.handle_key_press enter_key
 
       finished.should eq 1
       sb.value.should eq 42
@@ -111,8 +111,8 @@ describe "A4-64 Event::EditingFinished" do
       sb.on(Event::EditingFinished) { finished += 1 }
 
       sb.focus
-      sb.on_keypress kp('4') # half-typed entry...
-      other.focus            # ...abandoned by focus loss
+      sb.handle_key_press kp('4') # half-typed entry...
+      other.focus                 # ...abandoned by focus loss
 
       finished.should eq 1
       sb.value.should eq 10 # the half-typed 4 was discarded, not committed
@@ -127,8 +127,8 @@ describe "A4-64 Event::EditingFinished" do
       finished = 0
       sb.on(Event::EditingFinished) { finished += 1 }
 
-      sb.on_keypress kp('4')
-      sb.on_keypress kp(key: Tput::Key::Escape)
+      sb.handle_key_press kp('4')
+      sb.handle_key_press kp(key: Tput::Key::Escape)
 
       finished.should eq 0
       sb.value.should eq 10
@@ -142,8 +142,8 @@ describe "A4-64 Event::EditingFinished" do
       finished = 0
       sb.on(Event::EditingFinished) { finished += 1 }
 
-      sb.on_keypress kp('4')
-      sb.on_keypress kp(key: Tput::Key::Up) # discards the buffer, then steps
+      sb.handle_key_press kp('4')
+      sb.handle_key_press kp(key: Tput::Key::Up) # discards the buffer, then steps
 
       finished.should eq 0
       sb.value.should eq 11
@@ -157,10 +157,10 @@ describe "A4-64 Event::EditingFinished" do
       finished = 0
       d.on(Event::EditingFinished) { finished += 1 }
 
-      d.on_keypress kp('2')
-      d.on_keypress kp('.')
-      d.on_keypress kp('5')
-      d.on_keypress enter_key
+      d.handle_key_press kp('2')
+      d.handle_key_press kp('.')
+      d.handle_key_press kp('5')
+      d.handle_key_press enter_key
 
       finished.should eq 1
       d.value.should eq 2.5
@@ -186,8 +186,8 @@ describe "A4-65 AbstractSpinBox#clear" do
     s = headless_screen(80, 24)
     sb = Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 42
     sb.clear
-    sb.on_keypress kp('7')
-    sb.on_keypress kp('\r', Tput::Key::Enter)
+    sb.handle_key_press kp('7')
+    sb.handle_key_press kp('\r', Tput::Key::Enter)
     sb.value.should eq 7
     sb.text.should eq "7"
   end
@@ -196,7 +196,7 @@ describe "A4-65 AbstractSpinBox#clear" do
     s = headless_screen(80, 24)
     sb = Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 42
     sb.clear
-    sb.on_keypress kp('\r', Tput::Key::Enter)
+    sb.handle_key_press kp('\r', Tput::Key::Enter)
     sb.editing?.should be_false
     sb.text.should eq "42"
     sb.value.should eq 42
@@ -206,7 +206,7 @@ describe "A4-65 AbstractSpinBox#clear" do
     s = headless_screen(80, 24)
     sb = Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 42
     sb.clear
-    sb.on_keypress kp(key: Tput::Key::Escape)
+    sb.handle_key_press kp(key: Tput::Key::Escape)
     sb.editing?.should be_false
     sb.text.should eq "42"
     sb.value.should eq 42
@@ -215,7 +215,7 @@ describe "A4-65 AbstractSpinBox#clear" do
   it "clear mid-edit blanks the in-progress buffer" do
     s = headless_screen(80, 24)
     sb = Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 42
-    sb.on_keypress kp('9')
+    sb.handle_key_press kp('9')
     sb.text.should eq "9"
     sb.clear
     sb.text.should eq ""

@@ -9,7 +9,7 @@ include Crysterm
 #           the RENDERED position (`lpos.yi + itop - lpos.base`), not layout
 #           `atop`, so a popup anchored at the shell cursor lands on the
 #           *visible* cursor inside a scrolled/clipped container (the same
-#           mapping as Terminal#draw / the B17-34 on_mouse fix).
+#           mapping as Terminal#draw / the B17-34 handle_mouse fix).
 #   B18-40  MenuBar#open / ToolButton#show_menu — pop-up menus must anchor on
 #           the owner's painted rect (`Widget#painted_rect`), not layout
 #           coords, inside a scrolled container (sibling of fixed B16-31).

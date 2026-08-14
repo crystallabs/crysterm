@@ -39,10 +39,10 @@ module Crysterm
         # Installed unconditionally and gated on `keys?` per press, so a
         # runtime `keys = true/false` takes effect (a construction-time-only
         # install would make later assignment a silent no-op).
-        on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
+        on ::Crysterm::Event::KeyPress, ->handle_key_press(::Crysterm::Event::KeyPress)
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         return unless keys?
         visible = visible_content_rows
         half = Math.max visible // 2, 1

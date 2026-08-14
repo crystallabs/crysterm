@@ -28,7 +28,7 @@ module Crysterm
       # indexes move whenever the document above them changes, anchors do not.
       @signature = [] of {Int32, String}
 
-      @ev_contents_change : Crysterm::Event::ContentsChanged::Wrapper?
+      @ev_contents_change : ::EventHandler::Subscription?
 
       getter document : TextDocument?
 
@@ -40,8 +40,8 @@ module Crysterm
       # Attaches to *doc* (detaching from any previous one) and rebuilds.
       # `nil` detaches and empties the view.
       def document=(doc : TextDocument?) : TextDocument?
-        if old = @document
-          @ev_contents_change.try { |w| old.off(Crysterm::Event::ContentsChanged, w) }
+        if @document
+          @ev_contents_change.try &.off
           @ev_contents_change = nil
         end
         @document = doc

@@ -35,7 +35,7 @@ module Crysterm
     getter? running = false
 
     # Whether the loop ended by reaching its `duration` (vs. being cancelled by
-    # `#stop`). Always false for a ticker. Read it from an `#on_stop` callback to
+    # `#stop`). Always false for a ticker. Read it from an `#stop_handler` callback to
     # tell a finished tween from a cancelled one.
     getter? completed = false
 
@@ -52,7 +52,7 @@ module Crysterm
     @easing : Easing
     @immediate : Bool = true
     @on_tick : FrameClock ->
-    @on_stop : (->)?
+    @stop_handler : (->)?
 
     # Seconds elapsed since *start_at* (a `Time.instant` reading), driving progress
     # from real wall-clock time rather than a fixed per-tick step — `FrameClock`
@@ -89,8 +89,14 @@ module Crysterm
     # Registers a callback fired once when the loop ends, for any reason (a
     # tween completing, `#stop`, or the fiber unwinding). Use `#completed?`
     # inside it to distinguish completion from cancellation.
-    def on_stop(&@on_stop : ->) : self
+    def stop_handler(&@stop_handler : ->) : self
       self
+    end
+
+    # :ditto:
+    @[Deprecated("Renamed to `#stop_handler`: this sets a single overwritable slot, which the `on_*` prefix (the multicast-subscription convention, cf. `Timer#on_tick`) misrepresented.")]
+    def on_stop(&block : ->) : self
+      stop_handler(&block)
     end
 
     # Starts the loop fiber. No-op if already running. Returns self for chaining.
@@ -103,12 +109,12 @@ module Crysterm
       if @duration && Config.render_reduced_motion
         # Bump the generation even on this fiber-less path: a previous run's fiber
         # that was `#stop`ped but hasn't observed it yet still holds the old
-        # generation, and would otherwise match on waking and fire `on_stop` twice.
+        # generation, and would otherwise match on waking and fire `stop_handler` twice.
         @generation += 1
         @completed = true
         @value = 1.0
         @on_tick.call self
-        @on_stop.try &.call
+        @stop_handler.try &.call
         return self
       end
 
@@ -175,13 +181,13 @@ module Crysterm
         # Only finalize if this fiber is still the current run: a superseded
         # fiber (a newer `#start` bumped `@generation`) must not clear the new
         # run's state. Inside an `ensure` so the fiber unwinding (anything the
-        # tick isolation above doesn't cover) cannot skip it — the `#on_stop`
+        # tick isolation above doesn't cover) cannot skip it — the `#stop_handler`
         # contract promises firing for *any* end of the loop, and a skipped
         # finalize leaves `@running` stuck `true` (`#start` no-ops forever)
         # with the stop callback lost.
         if @generation == gen
           @running = false
-          @on_stop.try &.call
+          @stop_handler.try &.call
         end
       end
       @fiber = f
@@ -191,7 +197,7 @@ module Crysterm
     end
 
     # Cancels the loop. The fiber exits on its next check (does not interrupt a
-    # tick/sleep in progress), then fires `#on_stop` with `#completed?` false.
+    # tick/sleep in progress), then fires `#stop_handler` with `#completed?` false.
     def stop : Nil
       @running = false
     end

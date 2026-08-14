@@ -200,10 +200,10 @@ module Crysterm
       @__done : Proc(String?, Nil)?
       @__listener : Proc(Crysterm::Event::KeyPress, Nil)?
 
-      @ev_read_input_on_focus : Crysterm::Event::FocusIn::Wrapper?
-      @ev_enter : Crysterm::Event::KeyPress::Wrapper?
-      @ev_reading : Crysterm::Event::KeyPress::Wrapper?
-      @ev_done_blur : Crysterm::Event::FocusOut::Wrapper?
+      @ev_read_input_on_focus : ::EventHandler::Subscription?
+      @ev_enter : ::EventHandler::Subscription?
+      @ev_reading : ::EventHandler::Subscription?
+      @ev_done_blur : ::EventHandler::Subscription?
 
       # Wires the cursor-following handlers and the optional Enter-to-read
       # accelerator. Call from `initialize` after `super`. `install_enter` installs

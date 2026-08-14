@@ -186,7 +186,7 @@ module Crysterm
         # fully deactivates, handing focus back to the central area. Called
         # after the closes above, so the owner sees the final state (and any
         # focus already rewound out of the hidden menus).
-        root_menu.on_chain_activated.try &.call
+        root_menu.chain_activated_handler.try &.call
       end
 
       # When this menu is a submenu, closes it via its parent and accepts *e*,

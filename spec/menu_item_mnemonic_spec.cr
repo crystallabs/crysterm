@@ -85,11 +85,11 @@ describe "Menu entry & mnemonics" do
     _s, bar, menu, _central, _f, wrap = item_bar
     bar.open 0
 
-    menu.on_keypress kp('w')
+    menu.handle_key_press kp('w')
     wrap.checked?.should be_true
     bar.open_index.should eq 0
 
-    menu.on_keypress kp('w')
+    menu.handle_key_press kp('w')
     wrap.checked?.should be_false
   end
 
@@ -97,7 +97,7 @@ describe "Menu entry & mnemonics" do
     _s, bar, menu, _central, _f, _wrap = item_bar
     bar.open 0
 
-    menu.on_keypress kp('r')
+    menu.handle_key_press kp('r')
     child = menu.@submenu_open
     child.nil?.should be_false
     child.try(&.@show_highlight).should be_true
@@ -108,9 +108,9 @@ describe "Menu entry & mnemonics" do
     _s, bar, menu, _central, _f, _wrap = item_bar
     bar.open 0
 
-    menu.on_keypress kp('d') # "&Disabled" is disabled
+    menu.handle_key_press kp('d') # "&Disabled" is disabled
     bar.open_index.should eq 0
-    menu.on_keypress kp('z') # no such mnemonic
+    menu.handle_key_press kp('z') # no such mnemonic
     bar.open_index.should eq 0
   end
 end

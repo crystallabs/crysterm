@@ -197,7 +197,7 @@ module Crysterm
       # activate-and-dismiss and the Windows F6-toolbar convention. Keyboard
       # only: mouse clicks and global accelerators fire the same actions
       # through `#trigger`/`Action#install_shortcut` and never move focus.
-      def on_keypress(e)
+      def handle_key_press(e)
         space = e.char == ' '
         if space || e.key == ::Tput::Key::Enter
           act = @item_boxes[current_index]?.try { |box| @item_actions[box]? }

@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def press(widget, char : Char)
-  widget.on_keypress Crysterm::Event::KeyPress.new(char, nil)
+  widget.handle_key_press Crysterm::Event::KeyPress.new(char, nil)
 end
 
 describe "Pine::KeyPrompt" do

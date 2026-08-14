@@ -111,7 +111,7 @@ module Crysterm
       # down for every window sharing the screen. Delivered only to the active
       # window, siblings would keep stale-sized cell buffers forever and
       # `#activate` would composite them truncated. Broadcast instead: each
-      # window debounces on its own resize loop, and `Window#on_resize`
+      # window debounces on its own resize loop, and `Window#handle_resize`
       # already restricts the repaint to the device-active window.
       if e.resize
         @windows.each { |w| w.handle_input e if w.screen.same? screen }

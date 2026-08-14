@@ -330,14 +330,15 @@ module Crysterm
       end
 
       # Subscribes *block* to the value-change signal (Qt-style block-signal
-      # sugar, mirroring `AbstractButton#on_click`/`ComboBox#on_current_index_change`).
-      # Routes to whichever event this instantiation actually emits —
-      # `Event::ValueChanged` (`Int32`) by default, `Event::DoubleValueChanged`
-      # (`Float64`) for a `Float64` includer such as `DoubleSpinBox` (which
-      # overrides `#emit_value_change` accordingly) — mirroring
-      # `#emit_value_change`'s own per-instantiation routing so the block
-      # always receives *T*, never a mismatched payload type.
-      def on_value_change(&block : T ->) : Nil
+      # sugar, mirroring `AbstractButton#on_clicked`/
+      # `ComboBox#on_current_index_changed`); returns the `Subscription` so the
+      # caller can disconnect. Routes to whichever event this instantiation
+      # actually emits — `Event::ValueChanged` (`Int32`) by default,
+      # `Event::DoubleValueChanged` (`Float64`) for a `Float64` includer such
+      # as `DoubleSpinBox` (which overrides `#emit_value_change` accordingly)
+      # — mirroring `#emit_value_change`'s own per-instantiation routing so
+      # the block always receives *T*, never a mismatched payload type.
+      def on_value_changed(&block : T ->) : ::EventHandler::Subscription
         # Rebind to a plain local first: a nested block closing directly over
         # the `&block`-declared parameter, inside a top-level `{% if %}` that
         # spans the whole method body, trips a Crystal macro-expansion bug
@@ -348,6 +349,12 @@ module Crysterm
         {% else %}
           on(::Crysterm::Event::ValueChanged) { |e| blk.call e.value }
         {% end %}
+      end
+
+      # :ditto: — present-tense spelling, kept as an alias of the
+      # past-tense canonical (sugar names mirror their event names).
+      def on_value_change(&block : T ->) : ::EventHandler::Subscription
+        on_value_changed(&block)
       end
     end
 

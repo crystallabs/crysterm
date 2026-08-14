@@ -127,7 +127,7 @@ module Crysterm
         property hold : Int32
 
         # Whether to restart the whole spray once the area is full and held. When
-        # `false`, the effect stops after one fill and runs `#on_complete`.
+        # `false`, the effect stops after one fill and runs `#complete_handler`.
         property? repeat : Bool
 
         # Default spark colors; also the fallback if an empty list is assigned.
@@ -160,11 +160,16 @@ module Crysterm
         property color : Proc(Int32, Int32, Phase, Int32)?
 
         # Run once, after a non-looping spray has filled the area.
-        property on_complete : Proc(Nil)?
+        property complete_handler : Proc(Nil)?
 
-        # Block form of `#on_complete=`: `spray.on_complete { ... }`.
+        # Block form of `#complete_handler=`: `spray.complete_handler { ... }`.
+        @[Deprecated("Renamed to `#complete_handler` — a single overwritable slot, not an `on_*` multicast subscription.")]
         def on_complete(&block : ->) : Nil
-          @on_complete = block
+          complete_handler(&block)
+        end
+
+        def complete_handler(&block : ->) : Nil
+          @complete_handler = block
         end
 
         # Per-area state, (re)built lazily whenever the area's size changes.
@@ -194,7 +199,7 @@ module Crysterm
           @repeat = true,
           spark_colors = DEFAULT_SPARK_COLORS,
           @color = nil,
-          @on_complete = nil,
+          @complete_handler = nil,
           **box,
         )
           self.grow = grow # reject empty in favour of the default
@@ -374,13 +379,13 @@ module Crysterm
         end
 
         # A non-looping spray finishes once it has filled the area, at which point
-        # the animation loop stops and runs `#on_complete`.
+        # the animation loop stops and runs `#complete_handler`.
         protected def done? : Bool
           @done
         end
 
         protected def on_done
-          @on_complete.try &.call
+          @complete_handler.try &.call
         end
 
         # Restart the spray from an empty area on the next frame.

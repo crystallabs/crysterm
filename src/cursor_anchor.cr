@@ -59,7 +59,7 @@ module Crysterm
   # scroll base — plus `itop`; columns via `aleft + ileft`, which matches the
   # painted origin because horizontal clipping carries no base) plus the
   # emulator's cursor cell. This mirrors `Terminal#draw`'s cursor painting and
-  # `Terminal#on_mouse`'s row mapping, so a popup at `relative(1, 0)` of this
+  # `Terminal#handle_mouse`'s row mapping, so a popup at `relative(1, 0)` of this
   # anchor lands one row below the shell's *visible* cursor, inside the
   # terminal widget.
   #

@@ -8,7 +8,7 @@ module Crysterm
     # Radio button element, modeled after Qt's `QRadioButton`.
     #
     # Marker rendering and input wiring come from `Mixin::CheckMarker`; this
-    # class adds group exclusivity (`#on_statechanged`) and the check-only `#toggle`.
+    # class adds group exclusivity (`#handle_state_changed`) and the check-only `#toggle`.
     #
     # <!-- widget-examples:capture v1 -->
     # ![RadioButton screenshot](../../tests/widget/radiobutton/radiobutton.5s.apng)
@@ -66,7 +66,7 @@ module Crysterm
         super false
       end
 
-      def on_statechanged(e)
+      def handle_state_changed(e)
         # Only a transition *into* checked drives exclusivity; ignore uncheck and
         # partial transitions the merged `StateChanged` now also reports.
         return unless e.state.checked?

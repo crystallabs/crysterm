@@ -66,7 +66,7 @@ describe Crysterm::Widget::ToolButton do
       pressed.should be_true # default mode still presses
 
       ev = Crysterm::Event::KeyPress.new('\0', Tput::Key::Down)
-      tb.on_keypress ev
+      tb.handle_key_press ev
       ev.accepted?.should be_true # Down was consumed to summon the menu
       m.visible?.should be_true   # ...and the menu is shown
     end

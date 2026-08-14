@@ -231,11 +231,11 @@ module Crysterm
 
           @collapse_threshold = collapse_threshold
 
-          on ::Crysterm::Event::ContentChanged, ->on_content_changed(::Crysterm::Event::ContentChanged)
+          on ::Crysterm::Event::ContentChanged, ->handle_content_changed(::Crysterm::Event::ContentChanged)
           if @keys
-            on ::Crysterm::Event::KeyPress, ->on_chat_keypress(::Crysterm::Event::KeyPress)
+            on ::Crysterm::Event::KeyPress, ->handle_chat_key_press(::Crysterm::Event::KeyPress)
           end
-          on ::Crysterm::Event::Mouse, ->on_chat_mouse(::Crysterm::Event::Mouse)
+          on ::Crysterm::Event::Mouse, ->handle_chat_mouse(::Crysterm::Event::Mouse)
         end
 
         # Appends *entry* to the transcript, renders it, and (when the view is
@@ -445,14 +445,14 @@ module Crysterm
 
         # `Ctrl+O` toggles the most recent visible collapsible entry
         # (mirroring the Claude CLI's expand/collapse key).
-        def on_chat_keypress(e : ::Crysterm::Event::KeyPress)
+        def handle_chat_key_press(e : ::Crysterm::Event::KeyPress)
           return unless e.key == ::Tput::Key::CtrlO
           e.accept unless toggle_recent.nil?
         end
 
         # A left click on a collapsible entry's header line (or on its
         # `… +N lines` marker) toggles it.
-        def on_chat_mouse(e : ::Crysterm::Event::Mouse)
+        def handle_chat_mouse(e : ::Crysterm::Event::Mouse)
           return unless e.action.down? && e.button.left?
           row = @child_base + e.local_y
           rtof = @_clines.rtof
@@ -468,7 +468,7 @@ module Crysterm
           e.accept
         end
 
-        def on_content_changed(e)
+        def handle_content_changed(e)
           request_render
         end
 

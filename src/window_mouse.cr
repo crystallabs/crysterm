@@ -45,7 +45,7 @@ module Crysterm
     # (press/release/motion): hit-testing still returns it (so click-to-focus is
     # suppressed and a scrollable ancestor can still take the wheel), but it never
     # sees `Event::Mouse`/`Event::Click`, mirroring the keyboard path (a disabled
-    # widget can't hold focus, so never gets `on_keypress`).
+    # widget can't hold focus, so never gets `handle_key_press`).
     private def disabled_interaction?(w : Widget, ev : ::Tput::Mouse::Event) : Bool
       w.disabled? && (ev.action.down? || ev.action.up? || ev.action.move?)
     end

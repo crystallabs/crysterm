@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression spec for `Widget::Terminal#on_mouse` mouse-mode gating.
+# Regression spec for `Widget::Terminal#handle_mouse` mouse-mode gating.
 #
 # A child enables mouse reporting via an xterm DECSET mode, and the widget must
 # forward only the event kinds that mode asked for. Modes are progressive: X10
@@ -15,7 +15,7 @@ private def mouse(action : ::Tput::Mouse::Action, button : ::Tput::Mouse::Button
   Crysterm::Event::Mouse.new(::Tput::Mouse::Event.new(action, button, x, y))
 end
 
-describe "Widget::Terminal#on_mouse (tracking-mode gating)" do
+describe "Widget::Terminal#handle_mouse (tracking-mode gating)" do
   it "drops motion in normal mode but forwards presses, and honours button-event motion" do
     captured = [] of String
     s = headless_screen(80, 24, default_quit_keys: true)
@@ -30,20 +30,20 @@ describe "Widget::Terminal#on_mouse (tracking-mode gating)" do
     # ── normal tracking (1000): motion not forwarded ──
     term.write "\e[?1000h"
     captured.clear
-    term.on_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, 2, 1)
+    term.handle_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, 2, 1)
     captured.should be_empty
 
     # Button press is forwarded.
-    term.on_mouse mouse(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, 2, 1)
+    term.handle_mouse mouse(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, 2, 1)
     captured.size.should eq 1
 
     # ── button-event tracking (1002): motion only while a button is held ──
     term.write "\e[?1002h"
     captured.clear
-    term.on_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, 3, 1)
+    term.handle_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None, 3, 1)
     captured.should be_empty # free hover: still dropped
 
-    term.on_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 3, 1)
+    term.handle_mouse mouse(::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::Left, 3, 1)
     captured.size.should eq 1 # drag motion: forwarded
   ensure
     term.try &.kill

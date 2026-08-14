@@ -9,7 +9,7 @@ include Crysterm
 #     End were never bound at all. A `keys: true, vi_keys: false` widget (e.g.
 #     PlainTextEdit) therefore had no half/full-page scroll and no jump keys.
 #     Paging + PageUp/PageDown + Home/End must be bound unconditionally
-#     (matching ScrollableBox#on_keypress); only k/j/g/G stay vi_keys-gated.
+#     (matching ScrollableBox#handle_key_press); only k/j/g/G stay vi_keys-gated.
 #
 #  BUG 2 (src/unicode.cr): `display_width`'s ASCII fast path
 #     used `ascii_only?`, which is true for C0 controls (TAB/CR/ESC) and DEL —

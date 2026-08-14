@@ -6,7 +6,7 @@ module Crysterm
     # Provides the in-progress edit buffer (`@editing`), the displayed `#text`,
     # `#editing?`, `#update_content`, commit/cancel, the mouse-wheel and blur
     # wiring, `#prefix`/`#suffix`/`#editable?`, the `on_value_changed` hook, and
-    # the whole `#on_keypress` dispatch (digit/sign entry, Enter/Escape/Backspace,
+    # the whole `#handle_key_press` dispatch (digit/sign entry, Enter/Escape/Backspace,
     # Up/Down/`+`/`k`/`j`, PageUp/PageDown, Home/End).
     #
     # The including widget must provide:
@@ -104,7 +104,7 @@ module Crysterm
           # Qt's `QAbstractSpinBox` emits `editingFinished` on *every*
           # focus-out (stepping counts as editing too), not only when a typed
           # entry was open — mirrored here. The other emission point
-          # is the Enter commit in `#on_keypress`; the in-place discards
+          # is the Enter commit in `#handle_key_press`; the in-place discards
           # (Escape, step/wheel) stay silent, as in Qt.
           emit ::Crysterm::Event::EditingFinished
         end
@@ -182,7 +182,7 @@ module Crysterm
         request_render
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         k = e.key
         ch = e.char
 

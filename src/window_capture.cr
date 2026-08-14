@@ -188,7 +188,7 @@ module Crysterm
       # Buffered: the sampler must never block handing off its "done", whether
       # or not this fiber is already waiting for it.
       done = Channel(Nil).new 1
-      clock.on_stop do
+      clock.stop_handler do
         while written < total
           input.write last
           written += 1

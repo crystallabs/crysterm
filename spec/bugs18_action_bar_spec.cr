@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs for the BUGS18 ActionBar findings (shared by ListBar,
 # MenuBar and ToolBar via `Mixin::ActionBar`):
-#   B18-39/B18-100 — `#on_keypress` never accepted its handled keys, so vi 'q'
+#   B18-39/B18-100 — `#handle_key_press` never accepted its handled keys, so vi 'q'
 #                    also hit the app's default quit keys and Enter/Escape
 #                    double-acted on window-level accelerators
 #   B18-45  — negative indices slipped past `#remove_item`/`#select_item`/
@@ -14,10 +14,10 @@ include Crysterm
 #   B18-103 — `#items=` re-add kept stale auto-generated `N:` prefixes
 #   B18-107 — `#activate_item` ran the callback without emitting `ItemActivated`
 
-# Dispatch a KeyPress to a widget's own `on_keypress`, returning the event.
+# Dispatch a KeyPress to a widget's own `handle_key_press`, returning the event.
 private def press(w, char : Char = '\0', key : Tput::Key? = nil)
   e = kp(char, key)
-  w.on_keypress e
+  w.handle_key_press e
   e
 end
 
@@ -29,7 +29,7 @@ private def emit_kp(w, char : Char = '\0', key : Tput::Key? = nil)
   e
 end
 
-describe "BUGS18 B18-39/B18-100 ActionBar#on_keypress accepts handled keys" do
+describe "BUGS18 B18-39/B18-100 ActionBar#handle_key_press accepts handled keys" do
   it "accepts arrows, vi h/l, Enter/vi k and Escape/vi q" do
     s = headless_screen(80, 24)
     bar = Crysterm::Widget::ListBar.new parent: s, keys: true, vi_keys: true

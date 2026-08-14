@@ -46,7 +46,7 @@ module Crysterm
       # never takes a modal grab.
       #
       # Accepting emits no event of its own — the input's `TextChanged` fires
-      # from the edit — but `#on_accept` observes the chosen `Item` (e.g. to
+      # from the edit — but `#accept_handler` observes the chosen `Item` (e.g. to
       # switch the input into bash mode on a `!` completion).
       class Autocomplete
         # The trigger→candidates table consulted on every keystroke.
@@ -78,15 +78,20 @@ module Crysterm
         )
 
         @context : Context?
-        @on_accept : Proc(::Crysterm::Chat::Completion::Item, Nil)?
+        @accept_handler : Proc(::Crysterm::Chat::Completion::Item, Nil)?
 
         def initialize(@registry = ::Crysterm::Chat::Completion::Registry.new)
         end
 
         # Subscribes *block* to completion acceptance; it receives the chosen
         # `Item` after the token has been replaced in the buffer.
+        @[Deprecated("Renamed to `#accept_handler` — a single overwritable slot, not an `on_*` multicast subscription.")]
         def on_accept(&block : ::Crysterm::Chat::Completion::Item ->) : Nil
-          @on_accept = block
+          accept_handler(&block)
+        end
+
+        def accept_handler(&block : ::Crysterm::Chat::Completion::Item ->) : Nil
+          @accept_handler = block
         end
 
         private def detach_reset : Nil
@@ -116,7 +121,7 @@ module Crysterm
           # Retyping over the committed text is a real edit that should
           # reopen, so don't let `#close`'s recorded value suppress it.
           @last_filter_value = nil
-          item.try { |it| @on_accept.try &.call it }
+          item.try { |it| @accept_handler.try &.call it }
         end
 
         # The token under the caret, when its first character is a registered

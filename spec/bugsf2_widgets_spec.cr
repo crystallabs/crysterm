@@ -204,8 +204,8 @@ describe "BUGS-F2 29: ItemView page navigation counts items, not rows, when spac
 
     plain.current_index = 0
     spaced.current_index = 0
-    plain.on_keypress(f2_key('\0', ::Tput::Key::PageDown))
-    spaced.on_keypress(f2_key('\0', ::Tput::Key::PageDown))
+    plain.handle_key_press(f2_key('\0', ::Tput::Key::PageDown))
+    spaced.handle_key_press(f2_key('\0', ::Tput::Key::PageDown))
 
     # A page of rows holds only half as many items when every item has a 1-row gap.
     spaced.current_index.should be > 0
@@ -226,7 +226,7 @@ describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
     cal.on(Crysterm::Event::DateChanged) { changed = true }
     before = cal.date
 
-    cal.on_keypress(f2_key('\0', ::Tput::Key::Down))
+    cal.handle_key_press(f2_key('\0', ::Tput::Key::Down))
 
     cal.date.should eq before
     changed.should be_false
@@ -239,7 +239,7 @@ describe "BUGS-F2 31: Calendar NoSelection ignores selection-moving keys" do
     s.render
     before = cal.date
 
-    cal.on_keypress(f2_key('\0', ::Tput::Key::Down))
+    cal.handle_key_press(f2_key('\0', ::Tput::Key::Down))
 
     cal.date.should_not eq before
   end
@@ -326,7 +326,7 @@ describe "BUGS-F2 37: SpinBox wheel cancels an active edit first" do
     sb.focus
     s.render
 
-    sb.on_keypress(f2_key('5')) # start editing: buffer "5"
+    sb.handle_key_press(f2_key('5')) # start editing: buffer "5"
     sb.editing?.should be_true
 
     sb.emit Crysterm::Event::Mouse, f2_mouse(::Tput::Mouse::Action::WheelUp, sb.aleft, sb.atop, ::Tput::Mouse::Button::None).mouse
@@ -342,7 +342,7 @@ describe "BUGS-F2 38: ColorDialog wheel only acts over the field/hue" do
   it "ignores a wheel on empty dialog chrome but nudges value over the field" do
     s = headless_screen(80, 24)
     cd = Crysterm::Widget::ColorDialog.new parent: s
-    cd.show # the dialog starts hidden; must be laid out for on_mouse to hit-test
+    cd.show # the dialog starts hidden; must be laid out for handle_mouse to hit-test
     s.render
     cd.render # sets @lpos (the window loop doesn't lay the dialog out on its own)
 

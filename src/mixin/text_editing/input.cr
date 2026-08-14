@@ -34,7 +34,7 @@ module Crysterm
         @input_on_focus = value
 
         # Always remove any current handler
-        @ev_read_input_on_focus.try { |w| off Crysterm::Event::FocusIn, w }
+        @ev_read_input_on_focus.try &.off
 
         # Then add the new one if asked
         if value
@@ -347,10 +347,17 @@ module Crysterm
       end
 
       # Subscribes *block* to text changes — the block spelling of
-      # `on(Event::TextChanged) { |e| ... }`, mirroring `AbstractButton#on_click`.
-      # The block receives the new text.
-      def on_text_change(&block : String ->) : Nil
+      # `on(Event::TextChanged) { |e| ... }`, mirroring
+      # `AbstractButton#on_clicked`; returns the `Subscription` so the caller
+      # can disconnect. The block receives the new text.
+      def on_text_changed(&block : String ->) : ::EventHandler::Subscription
         on(::Crysterm::Event::TextChanged) { |e| block.call e.value }
+      end
+
+      # :ditto: — present-tense spelling, kept as an alias of the past-tense
+      # canonical (sugar names mirror their event names).
+      def on_text_change(&block : String ->) : ::EventHandler::Subscription
+        on_text_changed(&block)
       end
 
       protected def _read_input
@@ -370,7 +377,7 @@ module Crysterm
         # Define _done_default
         @__listener = ->_listener(Crysterm::Event::KeyPress)
 
-        # @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
+        # @ev_reading.try &.off
 
         @ev_reading = on(Crysterm::Event::KeyPress) do |e|
           @__listener.try &.call e
@@ -418,14 +425,14 @@ module Crysterm
         # whose hide/teardown lives in the callback.
         callback = @_callback
 
-        @ev_reading.try { |w| off Crysterm::Event::KeyPress, w }
+        @ev_reading.try &.off
         @ev_reading = nil
         @_reading = false
 
         @_callback = nil
         @_done = nil
         @__listener = nil
-        @ev_done_blur.try { |w| off Crysterm::Event::FocusOut, w }
+        @ev_done_blur.try &.off
         @ev_done_blur = nil
         @__done = nil
 

@@ -9,7 +9,7 @@ private def ptv_long_text
 end
 
 private def press(view, key : Tput::Key)
-  view.on_keypress Crysterm::Event::KeyPress.new('\0', key)
+  view.handle_key_press Crysterm::Event::KeyPress.new('\0', key)
 end
 
 describe "Pine::TextView" do

@@ -535,7 +535,7 @@ module Crysterm
       # Selects (in `SingleSelection`) and activates day *d* of the shown month.
       # Callers must gate on `!selection_mode.no_selection?` — a display-only
       # calendar must not emit `Event::DateActivated` any more than it selects,
-      # matching the keyboard path's early return in `#on_keypress`.
+      # matching the keyboard path's early return in `#handle_key_press`.
       private def activate_day(d : Int32) : Nil
         t = local_date(@shown_year, @shown_month, d)
         self.selected_date = t
@@ -647,7 +647,7 @@ module Crysterm
 
       # ── Keyboard ──────────────────────────────────────────────────────────
 
-      def on_keypress(e)
+      def handle_key_press(e)
         # A display-only calendar (`SelectionMode::NoSelection`) must not move a
         # selection or emit `Event::DateActivated`/`DateChanged` from the keyboard —
         # matching `activate_day` (mouse) and `render_day` (marker), which already

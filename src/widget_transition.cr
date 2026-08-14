@@ -174,7 +174,7 @@ module Crysterm
         request_render
       end
       if od = on_done
-        anim.on_stop { od.call if anim.completed? }
+        anim.stop_handler { od.call if anim.completed? }
       end
       store.try &.call(anim)
       anim.start

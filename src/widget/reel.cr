@@ -93,7 +93,7 @@ module Crysterm
         super **box
 
         if @keys
-          on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
+          on ::Crysterm::Event::KeyPress, ->handle_key_press(::Crysterm::Event::KeyPress)
         end
       end
 
@@ -243,7 +243,7 @@ module Crysterm
         super
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         case nav_intent(e)
         when .backward? then focus_previous
         when .forward?  then focus_next

@@ -95,14 +95,14 @@ module Crysterm
         true
       end
 
-      # Whether `#on_keypress`'s Up/Down (and Page/Home/End) stepping runs
+      # Whether `#handle_key_press`'s Up/Down (and Page/Home/End) stepping runs
       # inverted (`Mixin::RangedValue#ranged_step_key`'s *invert*).
       protected def step_key_inverted? : Bool
         false
       end
 
       # Arrow/Page/Home/End stepping.
-      def on_keypress(e)
+      def handle_key_press(e)
         ranged_step_key e, invert: step_key_inverted?
       end
 

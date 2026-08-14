@@ -9,11 +9,11 @@ include Crysterm
 # activates and closes as before.
 
 private def press(w, key : Tput::Key)
-  w.on_keypress Crysterm::Event::KeyPress.new('\0', key)
+  w.handle_key_press Crysterm::Event::KeyPress.new('\0', key)
 end
 
 private def press_char(w, c : Char)
-  w.on_keypress Crysterm::Event::KeyPress.new(c)
+  w.handle_key_press Crysterm::Event::KeyPress.new(c)
 end
 
 private def checkable_menu(s)

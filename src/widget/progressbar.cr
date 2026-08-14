@@ -288,7 +288,7 @@ module Crysterm
         request_render
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         k = e.key
         ch = e.char
         # Keys don't conflict, so support both regardless of orientation.

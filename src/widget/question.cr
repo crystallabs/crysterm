@@ -33,8 +33,8 @@ module Crysterm
 
       # The OK/Cancel `Pressed` handles, so `#destroy` can run the same
       # `teardown_ok_cancel` the normal `finish` path does.
-      @ev_ok : ::EventHandler::Wrapper(::Proc(::Crysterm::Event::Clicked, ::Nil))? = nil
-      @ev_cancel : ::EventHandler::Wrapper(::Proc(::Crysterm::Event::Clicked, ::Nil))? = nil
+      @ev_ok : ::EventHandler::Subscription? = nil
+      @ev_cancel : ::EventHandler::Subscription? = nil
 
       # The outstanding answer callbacks. Nil whenever no `ask`/`ask_choices` is
       # pending; `finish` nils its own before invoking it (idempotence latch),

@@ -10,10 +10,10 @@ include Crysterm
 #   30 — Mixin::Interactive scroll handler never `accept`ed handled keys
 #   43 — Pine::OptionList inline editing neither accepted nor stopped its keys
 
-# Dispatch a KeyPress to a widget's own `on_keypress`, returning the event.
+# Dispatch a KeyPress to a widget's own `handle_key_press`, returning the event.
 private def press(w, char : Char = '\0', key : Tput::Key? = nil)
   e = kp(char, key)
-  w.on_keypress e
+  w.handle_key_press e
   e
 end
 
@@ -102,12 +102,12 @@ describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
     s.repaint
 
     # One direct invocation of the override = the intended per-key delta.
-    view.on_keypress kp(key: Tput::Key::Down)
+    view.handle_key_press kp(key: Tput::Key::Down)
     single = view.scroll_position
     single.should be > 0
 
     # Emitting through the registered handler(s) must move the SAME amount — the
-    # old duplicate registration ran `on_keypress` twice, moving twice as far.
+    # old duplicate registration ran `handle_key_press` twice, moving twice as far.
     view.reset_scroll
     view.scroll_position.should eq 0
     e = emit_kp(view, key: Tput::Key::Down)
@@ -122,7 +122,7 @@ describe "BUGS-F2 #9 Pine::TextView / MessageView single key handler" do
       parent: s, top: 0, left: 0, width: 40, height: 10, body: body)
     s.repaint
 
-    view.on_keypress kp(key: Tput::Key::Down)
+    view.handle_key_press kp(key: Tput::Key::Down)
     single = view.scroll_position
     single.should be > 0
 

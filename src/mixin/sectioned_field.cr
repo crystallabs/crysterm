@@ -118,7 +118,7 @@ module Crysterm
 
       # Handles the shared section keys: Left/Right move the cursor, Up/Down step
       # the active section. Returns whether the key was consumed, so the including
-      # `on_keypress` can layer its own extra keys.
+      # `handle_key_press` can layer its own extra keys.
       private def handle_section_key(e : ::Crysterm::Event::KeyPress) : Bool
         case e.key
         when ::Tput::Key::Left  then move_section -1

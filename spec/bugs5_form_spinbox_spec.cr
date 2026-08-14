@@ -22,8 +22,8 @@ private def keypress(ch : Char, key : Tput::Key? = nil)
 end
 
 private def type_and_commit(w, text : String)
-  text.each_char { |c| w.on_keypress keypress(c) }
-  w.on_keypress(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
+  text.each_char { |c| w.handle_key_press keypress(c) }
+  w.handle_key_press(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
 end
 
 describe "BUGS5 Form focus (bug 1, already fixed) — 2-field edge case" do

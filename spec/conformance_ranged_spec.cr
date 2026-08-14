@@ -103,7 +103,7 @@ describe "Ranged widget conformance (B8)" do
     set_value: ->(w : Crysterm::Widget, v : Int32) { w.as(Crysterm::Widget::Slider).value = v; nil },
     minimum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::Slider).minimum },
     maximum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::Slider).maximum },
-    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::Slider).on_keypress kp(ch, k); nil },
+    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::Slider).handle_key_press kp(ch, k); nil },
     home_end: true,
     wheel: ->(w : Crysterm::Widget, down : Bool) { w.as(Crysterm::Widget::Slider).ranged_wheel wheel_event(down); nil },
   )
@@ -117,7 +117,7 @@ describe "Ranged widget conformance (B8)" do
     set_value: ->(w : Crysterm::Widget, v : Int32) { w.as(Crysterm::Widget::Dial).value = v; nil },
     minimum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::Dial).minimum },
     maximum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::Dial).maximum },
-    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::Dial).on_keypress kp(ch, k); nil },
+    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::Dial).handle_key_press kp(ch, k); nil },
     home_end: true,
     wheel: ->(w : Crysterm::Widget, down : Bool) { w.as(Crysterm::Widget::Dial).ranged_wheel wheel_event(down); nil },
   )
@@ -131,7 +131,7 @@ describe "Ranged widget conformance (B8)" do
     set_value: ->(w : Crysterm::Widget, v : Int32) { w.as(Crysterm::Widget::ScrollBar).value = v; nil },
     minimum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::ScrollBar).minimum },
     maximum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::ScrollBar).maximum },
-    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::ScrollBar).on_keypress kp(ch, k); nil },
+    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::ScrollBar).handle_key_press kp(ch, k); nil },
     home_end: true,
     wheel: ->(w : Crysterm::Widget, down : Bool) { w.as(Crysterm::Widget::ScrollBar).ranged_wheel wheel_event(down), invert: true; nil },
   )
@@ -145,7 +145,7 @@ describe "Ranged widget conformance (B8)" do
     set_value: ->(w : Crysterm::Widget, v : Int32) { w.as(Crysterm::Widget::ProgressBar).value = v; nil },
     minimum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::ProgressBar).minimum },
     maximum: ->(w : Crysterm::Widget) { w.as(Crysterm::Widget::ProgressBar).maximum },
-    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::ProgressBar).on_keypress kp(ch, k); nil },
+    send_key: ->(w : Crysterm::Widget, ch : Char, k : ::Tput::Key?) { w.as(Crysterm::Widget::ProgressBar).handle_key_press kp(ch, k); nil },
     home_end: false, # QProgressBar isn't a QAbstractSlider — no Home/End/PageUp/wheel
     wheel: nil,
   )

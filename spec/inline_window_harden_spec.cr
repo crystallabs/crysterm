@@ -60,7 +60,7 @@ describe "inline Window hardening" do
     win = inline_window(width: 40, height: 6)
     win.render_row_offset = 1000 # absurdly low anchor
 
-    win.on_resize(Crysterm::Event::Resize.new)
+    win.handle_resize(Crysterm::Event::Resize.new)
 
     # Region top + height must stay within the terminal (or pinned to 0 when it
     # can't fit at all).

@@ -168,7 +168,7 @@ module Crysterm
         end
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         visible = visible_content_rows
         # Half/page navigation steps by *items*, not rows: with `item_spacing > 0`
         # a page of `visible` rows holds only `items_per_page` items, so moving by
@@ -219,7 +219,7 @@ module Crysterm
         request_render
       end
 
-      def on_resize(e)
+      def handle_resize(e)
         visible = visible_content_rows
         # Position against the selected item's *content row* (which includes the
         # inter-item gaps), not its bare index, or a spaced, overflowing list

@@ -9,7 +9,7 @@ include Crysterm
 #     `Widget#set_content(content = "", ...)`. So `log.content = "x"` (and any
 #     1-arg `set_content`) dispatched to the handler — which only calls
 #     `request_render` — and never stored the content. The handler is renamed to
-#     `on_set_content` so the content API is no longer shadowed.
+#     `handle_set_content` so the content API is no longer shadowed.
 #
 #  Finding 31 (src/widget/color_dialog.cr): the custom window-move drag wrote
 #     ABSOLUTE pointer coordinates straight into the parent-RELATIVE `left`/`top`,
@@ -47,7 +47,7 @@ describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" 
     # The renamed handler is what ContentChanged is wired to; invoking it directly
     # must not raise and must be a plain (event-arg) method, distinct from the
     # content setter.
-    log.on_set_content(Crysterm::Event::ContentChanged.new).should be_nil
+    log.handle_set_content(Crysterm::Event::ContentChanged.new).should be_nil
   end
 end
 

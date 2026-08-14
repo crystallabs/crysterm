@@ -945,9 +945,9 @@ describe "ListBar auto_command_keys" do
     bar.add_item("one") { fired << 0 }
     bar.add_item("two") { fired << 1 }
     bar.add_item("three") { fired << 2 }
-    bar.on_keypress(keypress('2'))
+    bar.handle_key_press(keypress('2'))
     fired.should eq [1]
-    bar.on_keypress(keypress('3'))
+    bar.handle_key_press(keypress('3'))
     fired.should eq [1, 2]
   end
 end
@@ -1026,10 +1026,10 @@ describe "ComboBox editable" do
     s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true,
       options: ["Apple", "Banana", "Cherry", "Avocado"]
-    cb.on_keypress keypress('a')
-    cb.on_keypress keypress('v')
+    cb.handle_key_press keypress('a')
+    cb.handle_key_press keypress('v')
     cb.open?.should be_true
-    cb.on_keypress(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
+    cb.handle_key_press(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
     cb.current_text.should eq "Avocado"
     cb.open?.should be_false
   end
@@ -1037,8 +1037,8 @@ describe "ComboBox editable" do
   it "commits free text when nothing matches" do
     s = headless_screen(80, 24)
     cb = Crysterm::Widget::ComboBox.new parent: s, editable: true, options: ["X", "Y"]
-    "zzz".each_char { |c| cb.on_keypress keypress(c) }
-    cb.on_keypress(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
+    "zzz".each_char { |c| cb.handle_key_press keypress(c) }
+    cb.handle_key_press(Crysterm::Event::KeyPress.new('\r', Tput::Key::Enter))
     cb.current_text.should eq "zzz"
   end
 end
@@ -1218,13 +1218,13 @@ describe Crysterm::Widget::Tree do
     child = root.add "child"
 
     tree.current_index = 0
-    tree.on_keypress keypress('\0', Tput::Key::Right) # expand
+    tree.handle_key_press keypress('\0', Tput::Key::Right) # expand
     root.expanded?.should be_true
-    tree.on_keypress keypress('\0', Tput::Key::Right) # descend into child
+    tree.handle_key_press keypress('\0', Tput::Key::Right) # descend into child
     tree.selected_node.should be(child)
-    tree.on_keypress keypress('\0', Tput::Key::Left) # leaf -> jump to parent
+    tree.handle_key_press keypress('\0', Tput::Key::Left) # leaf -> jump to parent
     tree.selected_node.should be(root)
-    tree.on_keypress keypress(' ') # space toggles -> collapse
+    tree.handle_key_press keypress(' ') # space toggles -> collapse
     root.expanded?.should be_false
   end
 
@@ -1259,11 +1259,11 @@ describe "SpinBox direct entry" do
   it "types a value and commits it on Enter" do
     s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 5
-    sb.on_keypress keypress('4')
-    sb.on_keypress keypress('2')
+    sb.handle_key_press keypress('4')
+    sb.handle_key_press keypress('2')
     sb.editing?.should be_true
     sb.text.should eq "42"
-    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.handle_key_press keypress('\r', Tput::Key::Enter)
     sb.editing?.should be_false
     sb.value.should eq 42
   end
@@ -1271,12 +1271,12 @@ describe "SpinBox direct entry" do
   it "clamps a typed value above maximum and discards on Escape" do
     s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 50, value: 5
-    "999".each_char { |c| sb.on_keypress keypress(c) }
-    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    "999".each_char { |c| sb.handle_key_press keypress(c) }
+    sb.handle_key_press keypress('\r', Tput::Key::Enter)
     sb.value.should eq 50
 
-    "12".each_char { |c| sb.on_keypress keypress(c) }
-    sb.on_keypress keypress('\u{1b}', Tput::Key::Escape)
+    "12".each_char { |c| sb.handle_key_press keypress(c) }
+    sb.handle_key_press keypress('\u{1b}', Tput::Key::Escape)
     sb.editing?.should be_false
     sb.value.should eq 50 # unchanged
   end
@@ -1284,10 +1284,10 @@ describe "SpinBox direct entry" do
   it "edits the buffer with Backspace" do
     s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, value: 0
-    "45".each_char { |c| sb.on_keypress keypress(c) }
-    sb.on_keypress keypress('\u{8}', Tput::Key::Backspace)
+    "45".each_char { |c| sb.handle_key_press keypress(c) }
+    sb.handle_key_press keypress('\u{8}', Tput::Key::Backspace)
     sb.text.should eq "4"
-    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.handle_key_press keypress('\r', Tput::Key::Enter)
     sb.value.should eq 4
   end
 
@@ -1295,15 +1295,15 @@ describe "SpinBox direct entry" do
     s = headless_screen(80, 24)
     sb = Crysterm::Widget::SpinBox.new parent: s, minimum: -100, maximum: 100, value: 0
     # Type a digit, then backspace it away, leaving an empty (non-nil) buffer.
-    sb.on_keypress keypress('5')
-    sb.on_keypress keypress('\u{8}', Tput::Key::Backspace)
+    sb.handle_key_press keypress('5')
+    sb.handle_key_press keypress('\u{8}', Tput::Key::Backspace)
     sb.editing?.should be_true
     sb.text.should eq ""
     # A leading '-' must still be accepted to start a negative number.
-    sb.on_keypress keypress('-')
-    sb.on_keypress keypress('7')
+    sb.handle_key_press keypress('-')
+    sb.handle_key_press keypress('7')
     sb.text.should eq "-7"
-    sb.on_keypress keypress('\r', Tput::Key::Enter)
+    sb.handle_key_press keypress('\r', Tput::Key::Enter)
     sb.value.should eq -7
   end
 end
@@ -1326,8 +1326,8 @@ describe Crysterm::Widget::DoubleSpinBox do
   it "accepts typed decimals" do
     s = headless_screen(80, 24)
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0, value: 0.0
-    "2.5".each_char { |c| d.on_keypress keypress(c) }
-    d.on_keypress keypress('\r', Tput::Key::Enter)
+    "2.5".each_char { |c| d.handle_key_press keypress(c) }
+    d.handle_key_press keypress('\r', Tput::Key::Enter)
     d.value.should eq 2.5
   end
 
@@ -1405,9 +1405,9 @@ describe Crysterm::Widget::ScrollBar do
     sb.on(Crysterm::Event::ValueChanged) { |e| changes << e.value }
     sb.step_up
     sb.value.should eq 1
-    sb.on_keypress keypress(' ', Tput::Key::End)
+    sb.handle_key_press keypress(' ', Tput::Key::End)
     sb.value.should eq 10
-    sb.on_keypress keypress(' ', Tput::Key::Home)
+    sb.handle_key_press keypress(' ', Tput::Key::Home)
     sb.value.should eq 0
     changes.should eq [1, 10, 0]
   end
@@ -1727,11 +1727,11 @@ describe Crysterm::Widget::Calendar do
     changes = [] of Time
     cal.on(Crysterm::Event::DateChanged) { |e| changes << e.date }
 
-    cal.on_keypress keypress(' ', Tput::Key::Right) # +1 day -> 16
+    cal.handle_key_press keypress(' ', Tput::Key::Right) # +1 day -> 16
     cal.date.day.should eq 16
-    cal.on_keypress keypress(' ', Tput::Key::Down) # +7 days -> 23
+    cal.handle_key_press keypress(' ', Tput::Key::Down) # +7 days -> 23
     cal.date.day.should eq 23
-    cal.on_keypress keypress(' ', Tput::Key::PageDown) # +1 month -> Feb
+    cal.handle_key_press keypress(' ', Tput::Key::PageDown) # +1 month -> Feb
     cal.date.month.should eq 2
     changes.size.should eq 3
   end
@@ -1739,7 +1739,7 @@ describe Crysterm::Widget::Calendar do
   it "clamps the day when stepping into a shorter month" do
     s = headless_screen(80, 24)
     cal = Crysterm::Widget::Calendar.new parent: s, date: Time.local(2024, 1, 31)
-    cal.on_keypress keypress(' ', Tput::Key::PageDown) # Jan 31 -> Feb (29 in 2024)
+    cal.handle_key_press keypress(' ', Tput::Key::PageDown) # Jan 31 -> Feb (29 in 2024)
     cal.date.month.should eq 2
     cal.date.day.should eq 29
   end
@@ -1835,13 +1835,13 @@ describe Crysterm::Widget::DateEdit do
     s = headless_screen(80, 24)
     de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(2024, 1, 15),
       calendar_popup: false
-    de.on_keypress keypress(' ', Tput::Key::Up) # day section by default -> 16
+    de.handle_key_press keypress(' ', Tput::Key::Up) # day section by default -> 16
     de.date.day.should eq 16
-    de.on_keypress keypress(' ', Tput::Key::Left) # -> month section
-    de.on_keypress keypress(' ', Tput::Key::Up)   # +1 month -> Feb
+    de.handle_key_press keypress(' ', Tput::Key::Left) # -> month section
+    de.handle_key_press keypress(' ', Tput::Key::Up)   # +1 month -> Feb
     de.date.month.should eq 2
-    de.on_keypress keypress(' ', Tput::Key::Left) # -> year section
-    de.on_keypress keypress(' ', Tput::Key::Up)   # +1 year -> 2025
+    de.handle_key_press keypress(' ', Tput::Key::Left) # -> year section
+    de.handle_key_press keypress(' ', Tput::Key::Up)   # +1 year -> 2025
     de.date.year.should eq 2025
   end
 end
@@ -1853,10 +1853,10 @@ describe Crysterm::Widget::TimeEdit do
     changes = [] of Time
     te.on(Crysterm::Event::DateChanged) { |e| changes << e.date }
 
-    te.on_keypress keypress(' ', Tput::Key::Up) # hour -> 11
+    te.handle_key_press keypress(' ', Tput::Key::Up) # hour -> 11
     te.time.hour.should eq 11
-    te.on_keypress keypress(' ', Tput::Key::Right) # -> minute section
-    te.on_keypress keypress(' ', Tput::Key::Up)    # minute -> 31
+    te.handle_key_press keypress(' ', Tput::Key::Right) # -> minute section
+    te.handle_key_press keypress(' ', Tput::Key::Up)    # minute -> 31
     te.time.minute.should eq 31
     changes.size.should eq 2
   end
@@ -1864,7 +1864,7 @@ describe Crysterm::Widget::TimeEdit do
   it "wraps the hour at 23 without carrying" do
     s = headless_screen(80, 24)
     te = Crysterm::Widget::TimeEdit.new parent: s, time: Time.local(2024, 1, 15, 23, 0, 0)
-    te.on_keypress keypress(' ', Tput::Key::Up) # 23 -> 0, day unchanged
+    te.handle_key_press keypress(' ', Tput::Key::Up) # 23 -> 0, day unchanged
     te.time.hour.should eq 0
     te.time.day.should eq 15
   end
@@ -1912,12 +1912,12 @@ describe Crysterm::Widget::DateTimeEdit do
     changes = [] of Time
     dt.on(Crysterm::Event::DateChanged) { |e| changes << e.date }
 
-    dt.on_keypress keypress('\0', Tput::Key::Up) # year (default section) -> 2025
+    dt.handle_key_press keypress('\0', Tput::Key::Up) # year (default section) -> 2025
     dt.date_time.year.should eq 2025
 
-    dt.on_keypress keypress('\0', Tput::Key::Right) # -> month
-    dt.on_keypress keypress('\0', Tput::Key::Right) # -> day
-    dt.on_keypress keypress('\0', Tput::Key::Up)    # day 31 wraps within month -> 1
+    dt.handle_key_press keypress('\0', Tput::Key::Right) # -> month
+    dt.handle_key_press keypress('\0', Tput::Key::Right) # -> day
+    dt.handle_key_press keypress('\0', Tput::Key::Up)    # day 31 wraps within month -> 1
     dt.date_time.day.should eq 1
 
     changes.size.should eq 2
@@ -2185,9 +2185,9 @@ describe Crysterm::Widget::MenuBar do
     bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
     bar.add_menu "Help", [Crysterm::Action.new("About")]
     bar.open 0
-    bar.menus[0].on_keypress keypress('\0', Tput::Key::Right) # File -> Edit
+    bar.menus[0].handle_key_press keypress('\0', Tput::Key::Right) # File -> Edit
     bar.open_index.should eq 1
-    bar.menus[1].on_keypress keypress('\0', Tput::Key::Left) # Edit -> File
+    bar.menus[1].handle_key_press keypress('\0', Tput::Key::Left) # Edit -> File
     bar.open_index.should eq 0
   end
 
@@ -2447,11 +2447,11 @@ describe "Horizontal scroll API" do
     s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
-    box.on_keypress keypress(' ', Tput::Key::Right)
+    box.handle_key_press keypress(' ', Tput::Key::Right)
     box.child_base_x.should eq 1
-    box.on_keypress keypress(' ', Tput::Key::Right)
+    box.handle_key_press keypress(' ', Tput::Key::Right)
     box.child_base_x.should eq 2
-    box.on_keypress keypress(' ', Tput::Key::Left)
+    box.handle_key_press keypress(' ', Tput::Key::Left)
     box.child_base_x.should eq 1
   end
 
@@ -2460,9 +2460,9 @@ describe "Horizontal scroll API" do
     box = hbox(s)
     s.repaint
     box.content_width.should eq 10
-    box.on_keypress keypress(' ', Tput::Key::CtrlRight)
+    box.handle_key_press keypress(' ', Tput::Key::CtrlRight)
     box.child_base_x.should eq 10 # advanced a full page, clamped to max (20 - 10)
-    box.on_keypress keypress(' ', Tput::Key::CtrlLeft)
+    box.handle_key_press keypress(' ', Tput::Key::CtrlLeft)
     box.child_base_x.should eq 0
   end
 
@@ -2470,9 +2470,9 @@ describe "Horizontal scroll API" do
     s = headless_screen(80, 24)
     box = hbox(s)
     s.repaint
-    box.on_keypress keypress(' ', Tput::Key::ShiftEnd)
+    box.handle_key_press keypress(' ', Tput::Key::ShiftEnd)
     box.child_base_x.should eq 10 # last column window: width(20) - viewport(10)
-    box.on_keypress keypress(' ', Tput::Key::ShiftHome)
+    box.handle_key_press keypress(' ', Tput::Key::ShiftHome)
     box.child_base_x.should eq 0
   end
 
@@ -2483,9 +2483,9 @@ describe "Horizontal scroll API" do
       horizontal_scrollbar_policy: Crysterm::Widget::ScrollBarPolicy::AsNeeded,
       content: "ABCDEFGHIJKLMNOPQRST"
     s.repaint
-    box.on_keypress keypress('$')
+    box.handle_key_press keypress('$')
     box.child_base_x.should eq 10
-    box.on_keypress keypress('0')
+    box.handle_key_press keypress('0')
     box.child_base_x.should eq 0
   end
 
@@ -2554,15 +2554,15 @@ describe "DateEdit year clamping" do
   it "does not crash when stepping the year past Time's 1..9999 range" do
     s = headless_screen(80, 24)
     de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(1, 1, 1), calendar_popup: false
-    de.on_keypress keypress('\0', Tput::Key::Left) # day -> month
-    de.on_keypress keypress('\0', Tput::Key::Left) # month -> year
-    de.on_keypress keypress('\0', Tput::Key::Down) # year - 1 would be year 0
+    de.handle_key_press keypress('\0', Tput::Key::Left) # day -> month
+    de.handle_key_press keypress('\0', Tput::Key::Left) # month -> year
+    de.handle_key_press keypress('\0', Tput::Key::Down) # year - 1 would be year 0
     de.date.year.should eq 1
 
     de2 = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(9999, 1, 1), calendar_popup: false
-    de2.on_keypress keypress('\0', Tput::Key::Left)
-    de2.on_keypress keypress('\0', Tput::Key::Left)
-    de2.on_keypress keypress('\0', Tput::Key::Up)
+    de2.handle_key_press keypress('\0', Tput::Key::Left)
+    de2.handle_key_press keypress('\0', Tput::Key::Left)
+    de2.handle_key_press keypress('\0', Tput::Key::Up)
     de2.date.year.should eq 9999
   end
 end

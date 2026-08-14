@@ -80,7 +80,7 @@ module Crysterm
           @spinner.hide
 
           if @keys
-            on ::Crysterm::Event::KeyPress, ->on_status_keypress(::Crysterm::Event::KeyPress)
+            on ::Crysterm::Event::KeyPress, ->handle_status_key_press(::Crysterm::Event::KeyPress)
           end
 
           refresh_strip
@@ -147,7 +147,7 @@ module Crysterm
         end
 
         # `Shift+Tab` cycles the permission mode.
-        def on_status_keypress(e : ::Crysterm::Event::KeyPress)
+        def handle_status_key_press(e : ::Crysterm::Event::KeyPress)
           return unless e.key == ::Tput::Key::ShiftTab
           cycle_mode
           e.accept

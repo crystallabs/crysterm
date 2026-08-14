@@ -327,7 +327,7 @@ describe "Menu submenus" do
     m.item_texts[0].includes?("▶").should be_true
 
     m.current_index = 0
-    m.on_keypress(kp key: Tput::Key::Right)
+    m.handle_key_press(kp key: Tput::Key::Right)
     s.repaint
 
     child = s.focused

@@ -219,7 +219,7 @@ describe Crysterm::Widget::Chat::TaskStrip do
     strip = new_strip reg
 
     e = kp key: ::Tput::Key::CtrlK
-    strip.on_keypress e
+    strip.handle_key_press e
     e.accepted?.should be_true
     a.state.cancelled?.should be_true
     b.state.cancelled?.should be_true
@@ -237,7 +237,7 @@ describe Crysterm::Widget::Chat::TaskStrip do
 
     strip.current_index = 1
     e = kp key: ::Tput::Key::Escape
-    strip.on_keypress e
+    strip.handle_key_press e
     e.accepted?.should be_true
     b.state.cancelled?.should be_true
     a.state.running?.should be_true
@@ -261,10 +261,10 @@ describe Crysterm::Widget::Chat::TaskStrip do
 
     strip.visible?.should be_true
     e = kp key: ::Tput::Key::CtrlB
-    strip.on_keypress e
+    strip.handle_key_press e
     e.accepted?.should be_true
     strip.visible?.should be_false
-    strip.on_keypress kp(key: ::Tput::Key::CtrlB)
+    strip.handle_key_press kp(key: ::Tput::Key::CtrlB)
     strip.visible?.should be_true
   end
 

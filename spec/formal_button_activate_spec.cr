@@ -3,7 +3,7 @@ require "./spec_helper"
 # The button family's keyboard-activation
 # wiring lives once in `AbstractButton`. `handle Event::KeyPress` is registered by
 # `AbstractButton#initialize` (not re-declared per subclass, so a subclass can no
-# longer be silently dead to the keyboard), and the single `#on_keypress`
+# longer be silently dead to the keyboard), and the single `#handle_key_press`
 # dispatches to a `#activate` hook: push buttons (`Button`/`ToolButton`) `#press`,
 # the marker controls (`CheckBox`/`RadioButton`, via `Mixin::CheckMarker`)
 # `#toggle`. This pins that a Space/Enter keypress, delivered through the base
@@ -36,7 +36,7 @@ describe "FORMAL-WIDGETS B5.1/B5.4 — family-wide keyboard activation" do
     b.checked?.should be_false
   end
 
-  it "ToolButton activates on Space (#press) through its on_keypress super-chain" do
+  it "ToolButton activates on Space (#press) through its handle_key_press super-chain" do
     s = headless_screen(80, 24)
     tb = Crysterm::Widget::ToolButton.new parent: s, content: "T"
     pressed = 0

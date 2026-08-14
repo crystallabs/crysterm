@@ -31,31 +31,31 @@ describe "ScrollBar vi/extra keys and inverted vertical direction (B0.3)" do
   it "responds to h/j/k/l (which the family gained but ScrollBar had missed)" do
     s = headless_screen(default_quit_keys: true)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 100, value: 50, height: 10
-    sb.on_keypress kp('j') # down → toward the end
+    sb.handle_key_press kp('j') # down → toward the end
     sb.value.should eq 51
-    sb.on_keypress kp('k') # up → toward the start
+    sb.handle_key_press kp('k') # up → toward the start
     sb.value.should eq 50
-    sb.on_keypress kp('h') # left → toward the start
+    sb.handle_key_press kp('h') # left → toward the start
     sb.value.should eq 49
-    sb.on_keypress kp('l') # right → toward the end
+    sb.handle_key_press kp('l') # right → toward the end
     sb.value.should eq 50
   end
 
   it "inverts the vertical arrows (Up decreases, Down increases)" do
     s = headless_screen(default_quit_keys: true)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 100, value: 50, height: 10
-    sb.on_keypress kp('\0', ::Tput::Key::Up)
+    sb.handle_key_press kp('\0', ::Tput::Key::Up)
     sb.value.should eq 49
-    sb.on_keypress kp('\0', ::Tput::Key::Down)
+    sb.handle_key_press kp('\0', ::Tput::Key::Down)
     sb.value.should eq 50
   end
 
   it "leaves Left/Right conventional (Left decreases, Right increases)" do
     s = headless_screen(default_quit_keys: true)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 100, value: 50, height: 10
-    sb.on_keypress kp('\0', ::Tput::Key::Left)
+    sb.handle_key_press kp('\0', ::Tput::Key::Left)
     sb.value.should eq 49
-    sb.on_keypress kp('\0', ::Tput::Key::Right)
+    sb.handle_key_press kp('\0', ::Tput::Key::Right)
     sb.value.should eq 50
   end
 end
@@ -64,9 +64,9 @@ describe "Slider keeps the conventional (non-inverted) direction" do
   it "Up/k increase, Down/j decrease" do
     s = headless_screen(default_quit_keys: true)
     sl = Crysterm::Widget::Slider.new parent: s, minimum: 0, maximum: 100, value: 50, width: 20, height: 1
-    sl.on_keypress kp('\0', ::Tput::Key::Up)
+    sl.handle_key_press kp('\0', ::Tput::Key::Up)
     sl.value.should eq 51
-    sl.on_keypress kp('j')
+    sl.handle_key_press kp('j')
     sl.value.should eq 50
   end
 end

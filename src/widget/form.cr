@@ -80,7 +80,7 @@ module Crysterm
           # `accepts_tab_focus?` override below keeps the container itself out
           # of the Tab ring regardless).
           self.keyable = true
-          on Crysterm::Event::KeyPress, ->on_keypress(Crysterm::Event::KeyPress)
+          on Crysterm::Event::KeyPress, ->handle_key_press(Crysterm::Event::KeyPress)
         end
 
         # Wire `auto_next` handlers eagerly as fields are adopted, not lazily on
@@ -94,7 +94,7 @@ module Crysterm
       # A form is a container, not a field: like a `NoFocus` Qt container,
       # Tab/Shift+Tab never land on the form itself — they go straight to its
       # entries (each registered in the window's focus ring on its own). The
-      # form stays `keyable?` so entry keys still bubble to `#on_keypress`.
+      # form stays `keyable?` so entry keys still bubble to `#handle_key_press`.
       # An explicit `#focus_policy=` assignment still wins, unlike the base
       # default where an unset policy accepts Tab.
       def accepts_tab_focus? : Bool
@@ -323,7 +323,7 @@ module Crysterm
       # and out of the form without trapping focus inside it. Only the vi keys
       # remain form-level, since no window fallback exists for them; they keep
       # the historical wrap-around within the form.
-      def on_keypress(e : Crysterm::Event::KeyPress)
+      def handle_key_press(e : Crysterm::Event::KeyPress)
         return if @children.empty?
         return unless @vi_keys
 

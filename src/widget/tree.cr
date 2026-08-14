@@ -496,7 +496,7 @@ module Crysterm
         super
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         node = selected_node
 
         case

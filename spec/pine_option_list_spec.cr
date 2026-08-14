@@ -20,7 +20,7 @@ private def pol_options
 end
 
 private def press(w, char : Char = '\0', key : Tput::Key? = nil)
-  w.on_keypress Crysterm::Event::KeyPress.new(char, key)
+  w.handle_key_press Crysterm::Event::KeyPress.new(char, key)
 end
 
 describe "Pine::OptionList" do

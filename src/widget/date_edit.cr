@@ -160,7 +160,7 @@ module Crysterm
         # Not laid out yet.
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         if calendar_popup? && (e.key == Tput::Key::Enter || e.key == Tput::Key::Space || e.char == ' ')
           toggle_popup
           e.accept

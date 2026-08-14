@@ -11,11 +11,11 @@ module Crysterm
     property label_widget : Widget?
 
     # Fires on resize, to adjust the label
-    @ev_label_resize : Crysterm::Event::Resize::Wrapper?
+    @ev_label_resize : ::EventHandler::Subscription?
 
     # Fires on scroll, to adjust the label. The label code owns both
     # subscriptions.
-    @ev_label_scroll : Crysterm::Event::Scroll::Wrapper?
+    @ev_label_scroll : ::EventHandler::Subscription?
 
     # Which side of the border a label is anchored to.
     enum LabelSide
@@ -151,8 +151,8 @@ module Crysterm
       # The wrapper ivars are nilable and `off` has no `Nil` overload: a nil
       # wrapper would fall through to the catch-all `off(type)` and wipe *every*
       # Scroll and Resize handler on the widget. Detach only the wrappers we own.
-      @ev_label_scroll.try { |w| off ::Crysterm::Event::Scroll, w }
-      @ev_label_resize.try { |w| off ::Crysterm::Event::Resize, w }
+      @ev_label_scroll.try &.off
+      @ev_label_resize.try &.off
       @label_widget.try &.remove_from_parent
       @ev_label_scroll = nil
       @ev_label_resize = nil

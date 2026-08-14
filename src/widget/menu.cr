@@ -84,15 +84,21 @@ module Crysterm
       # the chain's *root* menu, so a leaf deep in a submenu still moves the
       # owner forward. A `Widget::MenuBar` sets this to switch between its menus
       # with the arrow keys. The public spelling is the block form
-      # `#on_navigate(&block)`; the raw setter is protected.
-      getter on_navigate : Proc(Int32, Nil)?
-      protected setter on_navigate
+      # `#navigate_handler(&block)`; the raw setter is protected.
+      getter navigate_handler : Proc(Int32, Nil)?
+      protected setter navigate_handler
 
       # Sets the horizontal-navigation overflow hook via a block, e.g.
-      # `menu.on_navigate { |dir| switch_relative dir }`. The documented public
-      # API (`#on_navigate=` is protected).
+      # `menu.navigate_handler { |dir| switch_relative dir }`. The documented public
+      # API (`#navigate_handler=` is protected).
+      def navigate_handler(&block : Int32 ->) : Nil
+        @navigate_handler = block
+      end
+
+      # :ditto:
+      @[Deprecated("Renamed to `#navigate_handler`: this sets a single overwritable slot, which the `on_*` prefix (the multicast-subscription convention) misrepresented.")]
       def on_navigate(&block : Int32 ->) : Nil
-        @on_navigate = block
+        navigate_handler(&block)
       end
 
       # Optional hook for a top-level menu's owner, called after the menu chain
@@ -101,19 +107,25 @@ module Crysterm
       # chain's *root* menu, so a leaf fired deep in a submenu still reaches
       # the owner. A `Widget::MenuBar` uses it to fully deactivate: focus
       # returns to the central area rather than resting on the bar with a lit
-      # title. The public spelling is the block form `#on_chain_activated(&block)`;
+      # title. The public spelling is the block form `#chain_activated_handler(&block)`;
       # the raw setter is protected.
-      getter on_chain_activated : Proc(Nil)?
-      protected setter on_chain_activated
+      getter chain_activated_handler : Proc(Nil)?
+      protected setter chain_activated_handler
 
       # Sets the leaf-activation dismissal hook via a block (see the getter).
+      def chain_activated_handler(&block : ->) : Nil
+        @chain_activated_handler = block
+      end
+
+      # :ditto:
+      @[Deprecated("Renamed to `#chain_activated_handler` — see `#navigate_handler`.")]
       def on_chain_activated(&block : ->) : Nil
-        @on_chain_activated = block
+        chain_activated_handler(&block)
       end
 
       # Whether the highlighted row is drawn highlighted. A menu opens with *no*
       # row highlighted (Qt-like): it appears only once the user hovers a row
-      # (`#hover_item`) or presses a selection key (`#on_keypress`), and clears
+      # (`#hover_item`) or presses a selection key (`#handle_key_press`), and clears
       # again on outside-click dismissal.
       @show_highlight = false
 
@@ -429,7 +441,7 @@ module Crysterm
       end
 
       # Whether *e* is a key that moves the list selection (so the first such
-      # press should reveal the highlight): the keys `Mixin::ItemView#on_keypress`
+      # press should reveal the highlight): the keys `Mixin::ItemView#handle_key_press`
       # acts on, plus vi_keys aliases when `#vi_keys?`.
       private def selection_key?(e) : Bool
         # Vertical navigation (Up/Down/paging/Home-End + vi_keys j/k/g/G) is classified
@@ -458,7 +470,7 @@ module Crysterm
       # the current selection.
       def current_index=(index : Int)
         # `current_index=` does *not* enable `@show_highlight` — that's driven only by
-        # user interaction (`#hover_item` / a selection key in `#on_keypress`),
+        # user interaction (`#hover_item` / a selection key in `#handle_key_press`),
         # so a programmatic selection never lights up a row on its own.
         acts = visible_actions
         unless acts.empty?
@@ -497,7 +509,7 @@ module Crysterm
         Mixin::NavKeys.nearest_selectable(n, index.to_i, dir) { |i| acts[i].separator? } || index.clamp(0, n - 1).to_i
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         intent = nav_intent(e)
 
         # A menu opens with no row highlighted; the first selection-moving key —
@@ -533,7 +545,7 @@ module Crysterm
             open_submenu_selected act
             e.accept
             return
-          elsif nav = root_menu.on_navigate
+          elsif nav = root_menu.navigate_handler
             # No submenu to enter: hand Right to the chain owner's hook — via
             # the *root* menu, so a leaf at any submenu depth still moves e.g.
             # a `MenuBar` to the next top-level menu.
@@ -543,7 +555,7 @@ module Crysterm
           end
         elsif e.key == ::Tput::Key::Left
           return if dismiss_to_parent_menu e
-          if (nav = @on_navigate) && @submenu_open.nil?
+          if (nav = @navigate_handler) && @submenu_open.nil?
             nav.call -1
             e.accept
             return
@@ -628,7 +640,7 @@ module Crysterm
       # leaf fires and dismisses the chain. Enter and click keep
       # activate-and-close even on checkable rows. With the highlight not yet
       # revealed, Space is instead a reveal key — handled by the gate at the
-      # top of `#on_keypress`, never here.
+      # top of `#handle_key_press`, never here.
       private def space_pressed(e) : Bool
         return false unless e.char == ' ' && @show_highlight
         act = selected_action

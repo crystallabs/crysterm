@@ -40,7 +40,7 @@ module Crysterm
         # `ContentsChanged` handler wrapper on the current document, so
         # `#unwire_document`/`#swap_document` can detach it. The includer's
         # `#wire_document` installs it.
-        @ev_contents_change : Crysterm::Event::ContentsChanged::Wrapper?
+        @ev_contents_change : ::EventHandler::Subscription?
 
         def buf_text : String
           document.to_plain_text
@@ -373,9 +373,7 @@ module Crysterm
         end
 
         private def unwire_document : Nil
-          @ev_contents_change.try do |w|
-            @document.try &.off(Crysterm::Event::ContentsChanged, w)
-          end
+          @ev_contents_change.try &.off
           @ev_contents_change = nil
         end
 

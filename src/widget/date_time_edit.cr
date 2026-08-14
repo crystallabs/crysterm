@@ -93,7 +93,7 @@ module Crysterm
         self.date_time = step_time_field @datetime, @section, delta
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         handle_section_key e
       end
     end

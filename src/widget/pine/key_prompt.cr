@@ -70,7 +70,7 @@ module Crysterm
           # so it is in place before `rebuild` appends children.
           @layout = Crysterm::Layout::Masonry.new
           rebuild
-          on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
+          on ::Crysterm::Event::KeyPress, ->handle_key_press(::Crysterm::Event::KeyPress)
         end
 
         # Builds a generic yes/no prompt. The `yes`/`no` callbacks (if given) run
@@ -111,7 +111,7 @@ module Crysterm
 
         # Selects the choice whose `key` matches the pressed character (case
         # insensitively); other keys are ignored.
-        def on_keypress(e)
+        def handle_key_press(e)
           char = e.char
           return if char == '\0'
           # Compare as `Char`s: a `String` comparison would allocate per keypress

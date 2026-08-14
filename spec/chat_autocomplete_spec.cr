@@ -297,11 +297,11 @@ describe Crysterm::Widget::Chat::Autocomplete do
     ac.open?.should be_true
   end
 
-  it "on_accept observes the chosen item" do
+  it "accept_handler observes the chosen item" do
     s = headless_screen(60, 20)
     input, ac = build s
     got = [] of Completion::Item
-    ac.on_accept { |it| got << it }
+    ac.accept_handler { |it| got << it }
 
     type_str input, "/mod"
     press_enter input

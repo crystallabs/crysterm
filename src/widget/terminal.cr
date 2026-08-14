@@ -96,24 +96,29 @@ module Crysterm
         @input = true
         window?.try &.register_keyable self
 
-        on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
-        on ::Crysterm::Event::Mouse, ->on_mouse(::Crysterm::Event::Mouse)
-        on ::Crysterm::Event::Paste, ->on_paste(::Crysterm::Event::Paste)
+        on ::Crysterm::Event::KeyPress, ->handle_key_press(::Crysterm::Event::KeyPress)
+        on ::Crysterm::Event::Mouse, ->handle_mouse(::Crysterm::Event::Mouse)
+        on ::Crysterm::Event::Paste, ->handle_paste(::Crysterm::Event::Paste)
         on(::Crysterm::Event::FocusIn) { report_focus true }
         on(::Crysterm::Event::FocusOut) { report_focus false }
         on(::Crysterm::Event::Destroy) { kill }
       end
 
       # Installs the raw-input `handler` (the block form of the `handler:` ctor
-      # param) via a block: `term.on_input { |bytes| ... }`.
+      # param) via a block: `term.input_handler { |bytes| ... }`.
       #
       # CONSTRAINT: must be called *before the widget bootstraps* (its first
       # render). `@handler` is consumed in `#bootstrap`, which decides there and
       # then whether to spawn a PTY (no handler) or run externally-driven (with
       # one); once bootstrapped the choice is fixed, so a later install would be
       # silently ignored. Raises if the widget has already bootstrapped.
+      @[Deprecated("Renamed to `#input_handler`: this sets a single overwritable slot, which the `on_*` prefix (the multicast-subscription convention) misrepresented.")]
       def on_input(&block : String ->) : Nil
-        raise "Widget::Terminal#on_input must be set before the terminal bootstraps (first render)" if @bootstrapped
+        input_handler(&block)
+      end
+
+      def input_handler(&block : String ->) : Nil
+        raise "Widget::Terminal#input_handler must be set before the terminal bootstraps (first render)" if @bootstrapped
         @handler = block
       end
 
@@ -229,7 +234,7 @@ module Crysterm
       # Esc would arrive as junk. Such events are re-encoded to legacy bytes
       # via `KeyEvent#to_legacy_bytes` — before the scrollback match below, so
       # Shift-PageUp/PageDown re-encode to the legacy `;2` forms it expects.
-      protected def on_keypress(e : ::Crysterm::Event::KeyPress) : Nil
+      protected def handle_key_press(e : ::Crysterm::Event::KeyPress) : Nil
         return unless focused?
 
         data =
@@ -265,7 +270,7 @@ module Crysterm
       # child, wrapped in bracketed-paste markers when the child has enabled
       # the mode (DECSET 2004) — so a child readline/editor can treat the
       # paste atomically instead of as typed input.
-      protected def on_paste(e : ::Crysterm::Event::Paste) : Nil
+      protected def handle_paste(e : ::Crysterm::Event::Paste) : Nil
         return unless focused?
 
         data = e.content
@@ -293,7 +298,7 @@ module Crysterm
       # Forwards a mouse event to the child when mouse tracking is enabled,
       # encoded in whichever scheme it asked for (normal/SGR/urxvt). No-op when
       # tracking is off, so the window's default click-to-focus/wheel-scroll applies.
-      def on_mouse(e : ::Crysterm::Event::Mouse) : Nil
+      def handle_mouse(e : ::Crysterm::Event::Mouse) : Nil
         em = @emulator
         return unless em && em.mouse_enabled?
         # Only forward what the child's active tracking mode asked for;
@@ -309,7 +314,7 @@ module Crysterm
         # the child is off by the scroll offset. Columns keep the unclipped
         # content origin (`aleft + ileft`), which `#draw` also uses, since
         # horizontal clipping carries no `base`. Falls back to the layout
-        # position before the first render (direct `on_mouse` calls have no
+        # position before the first render (direct `handle_mouse` calls have no
         # `@lpos` yet), mirroring `Event::Mouse#local_y`.
         col = e.x - (aleft + ileft)
         row =

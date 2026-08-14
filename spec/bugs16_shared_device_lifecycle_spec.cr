@@ -59,7 +59,7 @@ describe "BUGS16 B16-03: non-active sibling realloc leaves the shared tty alone"
       sleep 80.milliseconds
       out.clear
 
-      # The non-active sibling's `on_resize` reallocs synchronously; `alloc`
+      # The non-active sibling's `handle_resize` reallocs synchronously; `alloc`
       # must not end with `tput.clear` on the SHARED tty, which would erase
       # the active window's frame behind its back. It must write nothing at all.
       size = ::Crysterm::Size.new(a.awidth - 4, a.aheight - 2)

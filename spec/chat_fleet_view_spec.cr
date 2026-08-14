@@ -117,7 +117,7 @@ describe Crysterm::Widget::Chat::FleetView do
 
     fleet.roster.current_index = 1
     e = kp key: ::Tput::Key::Enter
-    fleet.roster.on_keypress e
+    fleet.roster.handle_key_press e
     e.accepted?.should be_true
     fleet.pages.current_widget.same?(fleet.context?(b)).should be_true
     fleet.context?(b).not_nil!.focused?.should be_true
@@ -146,7 +146,7 @@ describe Crysterm::Widget::Chat::FleetView do
     # The task is finished, so TaskStrip's Escape falls through to the stock
     # item-view cancel — which emits ItemActivated too; the fleet must not
     # treat that as an open.
-    fleet.roster.on_keypress kp(key: ::Tput::Key::Escape)
+    fleet.roster.handle_key_press kp(key: ::Tput::Key::Escape)
     fleet.roster.focused?.should be_true
     fleet.context?(a).not_nil!.focused?.should be_false
   end

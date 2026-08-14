@@ -265,7 +265,7 @@ describe Crysterm::Widget::Chat::Transcript do
     s.render
 
     # Ctrl+O toggles the most recent collapsible entry, as before.
-    t.on_chat_keypress Crysterm::Event::KeyPress.new('\u{f}', ::Tput::Key::CtrlO)
+    t.handle_chat_key_press Crysterm::Event::KeyPress.new('\u{f}', ::Tput::Key::CtrlO)
     e.collapsed.should be_false
   end
 

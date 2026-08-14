@@ -90,7 +90,7 @@ module Crysterm
 
       # This widget's subscription to `@clock`, kept so it can unsubscribe on
       # pause/stop/destroy instead of leaving the shared clock poking a dead widget.
-      @clock_sub : ::Crysterm::Event::Tick::Wrapper? = nil
+      @clock_sub : ::EventHandler::Subscription? = nil
 
       # Set by `#pause_playback_for_visibility` when playback is stopped for
       # visibility (as opposed to an explicit `#pause`/`#stop`), so the
@@ -433,9 +433,7 @@ module Crysterm
       # Drop this widget's subscription to the shared clock (without stopping the
       # clock itself — other widgets may share it).
       private def unsubscribe_clock : Nil
-        if (c = @clock) && (w = @clock_sub)
-          c.off ::Crysterm::Event::Tick, w
-        end
+        @clock_sub.try &.off
         @clock_sub = nil
       end
 
@@ -737,7 +735,7 @@ module Crysterm
 
       # The post-render wrapper both siblings register. Owned here so it is
       # declared exactly once across the two.
-      @ev_rendered : ::Crysterm::Event::Rendered::Wrapper?
+      @ev_rendered : ::EventHandler::Subscription?
 
       # One-shot guard for this widget's own lifecycle hooks, so re-registering
       # the window listener(s) after a cross-window move doesn't stack duplicate
@@ -793,8 +791,8 @@ module Crysterm
       # Removes the `Rendered` listener and forgets the window. Siblings holding
       # extra wrappers off theirs first and then call this as the tail.
       protected def forget_listener_screen : Nil
-        s = @listener_screen || return
-        @ev_rendered.try { |w| s.off ::Crysterm::Event::Rendered, w }
+        return unless @listener_screen
+        @ev_rendered.try &.off
         @ev_rendered = nil
         @listener_screen = nil
       end

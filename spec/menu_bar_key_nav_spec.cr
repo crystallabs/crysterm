@@ -15,7 +15,7 @@ include Crysterm
 #     first (Down/Space) or last (Up) entry selected.
 
 private def press(w, key : Tput::Key)
-  w.on_keypress Crysterm::Event::KeyPress.new('\0', key)
+  w.handle_key_press Crysterm::Event::KeyPress.new('\0', key)
 end
 
 private def nav_bar(s)
@@ -95,7 +95,7 @@ describe "MenuBar keyboard navigation" do
     child.try(&.current_index).should eq 0 # "old-1", like Right
 
     fm.close_submenu
-    fm.on_keypress Crysterm::Event::KeyPress.new(' ') # Space: identical
+    fm.handle_key_press Crysterm::Event::KeyPress.new(' ') # Space: identical
     child = fm.@submenu_open
     child.nil?.should be_false
     child.try(&.@show_highlight).should be_true

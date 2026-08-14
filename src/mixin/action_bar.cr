@@ -136,11 +136,11 @@ module Crysterm
         @auto_prefix = auto_prefix
 
         if @keys
-          on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
+          on ::Crysterm::Event::KeyPress, ->handle_key_press(::Crysterm::Event::KeyPress)
         end
 
         # `auto_command_keys` (number-key selection) is handled in the
-        # widget-local `#on_keypress` rather than a global `window.on`: number
+        # widget-local `#handle_key_press` rather than a global `window.on`: number
         # keys must not be hijacked while unfocused (would collide with numeric
         # input elsewhere), and a widget-local handler is torn down with the
         # widget instead of leaking on the window.
@@ -732,7 +732,7 @@ module Crysterm
         fire i
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         # Number-key selection (`auto_command_keys`): only while focused, so it
         # can't collide with numeric input elsewhere. '1'..'9' pick tabs 0..8,
         # '0' picks the 10th (index 9).
@@ -775,7 +775,7 @@ module Crysterm
         end
 
         # Consume every handled key so it doesn't also drive an ancestor
-        # (mirrors `Mixin::ItemView#on_keypress`): an un-accepted key would go
+        # (mirrors `Mixin::ItemView#handle_key_press`): an un-accepted key would go
         # on to window-level accelerators (a dialog's Enter/Escape) and to
         # `Application`'s default quit keys — where the bar's own vi cancel key
         # 'q' would quit the whole app.

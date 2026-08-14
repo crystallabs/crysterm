@@ -124,7 +124,7 @@ module Crysterm
         end
 
         # Whether the keypress currently being dispatched is an Escape. Only
-        # ever true inside an `#on_keypress` dispatch.
+        # ever true inside an `#handle_key_press` dispatch.
         #
         # Needed because the stock item-view cancel (Escape on a settled row,
         # reached through this class's Escape fall-through) emits
@@ -137,7 +137,7 @@ module Crysterm
         # `Ctrl+B`/`Ctrl+K`/`Esc` (see the class doc); anything else keeps the
         # stock item-view keys. `Ctrl+B` deliberately shadows the item-view
         # page-up chord — the strip is a short list.
-        def on_keypress(e)
+        def handle_key_press(e)
           @cancelling = e.key == ::Tput::Key::Escape
           case e.key
           when ::Tput::Key::CtrlB

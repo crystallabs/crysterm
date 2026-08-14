@@ -7,11 +7,11 @@ private def pls_items
 end
 
 private def press(w, key : Tput::Key)
-  w.on_keypress Crysterm::Event::KeyPress.new('\0', key)
+  w.handle_key_press Crysterm::Event::KeyPress.new('\0', key)
 end
 
 private def press_space(w)
-  w.on_keypress Crysterm::Event::KeyPress.new(' ')
+  w.handle_key_press Crysterm::Event::KeyPress.new(' ')
 end
 
 describe "Pine::ListSelect" do
@@ -39,12 +39,12 @@ describe "Pine::ListSelect" do
     ls.selection.should eq ["Apricot", "Cherry"]
   end
 
-  it "runs on_confirm with the selection on #confirm (multi mode)" do
+  it "runs confirm_handler with the selection on #confirm (multi mode)" do
     s = headless_screen(80, 24)
     confirmed = [] of String
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s,
-      on_confirm: ->(chosen : Array(String)) { confirmed = chosen; nil }
+      confirm_handler: ->(chosen : Array(String)) { confirmed = chosen; nil }
 
     press_space ls # check Apricot
     # In multi mode `activate` toggles (it does not confirm); `confirm` applies.
@@ -89,7 +89,7 @@ describe "Pine::ListSelect" do
     confirmed = nil.as(Array(String)?)
     ls = Crysterm::Widget::Pine::ListSelect(String).new pls_items,
       label: ->(x : String) { x }, multi: true, parent: s,
-      on_confirm: ->(sel : Array(String)) { confirmed = sel; nil }
+      confirm_handler: ->(sel : Array(String)) { confirmed = sel; nil }
 
     ls.activate_on_click?.should be_true
     ls.current_index = 1

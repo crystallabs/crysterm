@@ -131,7 +131,7 @@ describe "BUGS12 #7 FrameClock#start stores the fiber" do
     ticks = 0
     stops = 0
     clock = Crysterm::FrameClock.new(1.millisecond) { ticks += 1 }
-    clock.on_stop { stops += 1 }
+    clock.stop_handler { stops += 1 }
 
     clock.start
     clock.running?.should be_true

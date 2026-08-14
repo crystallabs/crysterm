@@ -133,7 +133,7 @@ module Crysterm
         super **box
 
         build_children
-        on(Crysterm::Event::Mouse) { |e| on_mouse e }
+        on(Crysterm::Event::Mouse) { |e| handle_mouse e }
         refresh_ui
       end
 
@@ -494,7 +494,7 @@ module Crysterm
         !editing_focused?
       end
 
-      private def on_mouse(e : Crysterm::Event::Mouse) : Nil
+      private def handle_mouse(e : Crysterm::Event::Mouse) : Nil
         return unless lpos = @lpos
         # While a window move or pick is in flight, a window-level listener owns
         # the pointer — don't also treat motion as field/hue input.

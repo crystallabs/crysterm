@@ -24,7 +24,7 @@ module Crysterm
   abstract class SyntaxHighlighter
     getter document : TextDocument?
 
-    @ev_contents_change : Crysterm::Event::ContentsChanged::Wrapper?
+    @ev_contents_change : ::EventHandler::Subscription?
     # Reentrancy guard: `#rehighlight` pokes the document's `ContentsChanged`
     # so views repaint — which must not re-enter the highlighter itself.
     @highlighting = false
@@ -47,7 +47,7 @@ module Crysterm
     # highlights it whole. `nil` detaches.
     def document=(doc : TextDocument?) : TextDocument?
       if old = @document
-        @ev_contents_change.try { |w| old.off(Crysterm::Event::ContentsChanged, w) }
+        @ev_contents_change.try &.off
         @ev_contents_change = nil
         # Drop this highlighter's overlays and user states so the old document
         # renders plain again and a later highlighter starts from clean

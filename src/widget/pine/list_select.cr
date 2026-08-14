@@ -29,7 +29,7 @@ module Crysterm
       # ```
       #
       # Navigate with the arrow keys; in multi mode press the space bar to toggle
-      # the current row's checkbox. Press Enter to confirm: the `on_confirm`
+      # the current row's checkbox. Press Enter to confirm: the `confirm_handler`
       # callback (if any) runs with the chosen items, and `#selection` returns
       # them (the checked items in multi mode, or the single highlighted item in
       # single mode). The selected row is drawn reverse.
@@ -41,7 +41,7 @@ module Crysterm
       #   label: ->(s : String) { s },
       #   multi: true,
       #   parent: screen,
-      #   on_confirm: ->(chosen : Array(String)) {
+      #   confirm_handler: ->(chosen : Array(String)) {
       #     puts "picked: #{chosen.join(", ")}"
       #   })
       # picker.focus
@@ -59,11 +59,16 @@ module Crysterm
 
         # Optional callback invoked on confirm (Enter) with the chosen items
         # (see `#selection`).
-        property on_confirm : Proc(Array(T), Nil)?
+        property confirm_handler : Proc(Array(T), Nil)?
 
-        # Block form of `#on_confirm=`, e.g. `picker.on_confirm { |chosen| ... }`.
+        # Block form of `#confirm_handler=`, e.g. `picker.confirm_handler { |chosen| ... }`.
+        @[Deprecated("Renamed to `#confirm_handler` — a single overwritable slot, not an `on_*` multicast subscription.")]
         def on_confirm(&block : Array(T) ->) : Nil
-          @on_confirm = block
+          confirm_handler(&block)
+        end
+
+        def confirm_handler(&block : Array(T) ->) : Nil
+          @confirm_handler = block
         end
 
         def initialize(
@@ -71,7 +76,7 @@ module Crysterm
           *,
           label : T -> String,
           multi : Bool = false,
-          on_confirm : Proc(Array(T), Nil)? = nil,
+          confirm_handler : Proc(Array(T), Nil)? = nil,
           **list,
         )
           # Must be assigned before `super`: it ends up calling `#format_row`,
@@ -79,7 +84,7 @@ module Crysterm
           @label = label
           @multi = multi
           @checked_indices = Set(Int32).new
-          @on_confirm = on_confirm
+          @confirm_handler = confirm_handler
 
           super items, **list
 
@@ -162,18 +167,18 @@ module Crysterm
 
         # Invoked on `Event::ItemActivated` (Enter / click). In multi mode toggles
         # the current row's checkbox without dismissing the list; in single mode
-        # confirms the highlighted item via `on_confirm`.
+        # confirms the highlighted item via `confirm_handler`.
         def activate
           if @multi
             toggle_selected
           else
-            @on_confirm.try &.call(selection)
+            @confirm_handler.try &.call(selection)
           end
         end
 
-        # Confirms the current `#selection` via `on_confirm`, regardless of mode.
+        # Confirms the current `#selection` via `confirm_handler`, regardless of mode.
         def confirm
-          @on_confirm.try &.call(selection)
+          @confirm_handler.try &.call(selection)
         end
 
         # Renders one item into its row, prefixing a `[X]`/`[ ]` checkbox in

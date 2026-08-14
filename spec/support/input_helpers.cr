@@ -8,7 +8,7 @@
 # down/move/up dispatch trio built on top of it.
 #
 # NOT here, by design: a shared `press`. `press` is not one thing across the
-# suite -- mouse-down in the drag/text-editing specs, `#on_keypress` dispatch
+# suite -- mouse-down in the drag/text-editing specs, `#handle_key_press` dispatch
 # in the ActionBar specs (bugs18_action_bar_spec.cr,
 # bugsf2_actionbar_pine_spec.cr), `#emit` in bugs6_mixin_util_spec.cr,
 # `#_listener` in bugs5_text_editing_spec.cr. Each of those stays a local,

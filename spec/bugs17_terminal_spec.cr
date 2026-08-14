@@ -7,7 +7,7 @@ include Crysterm
 #   B17-32  Widget::Terminal#apply_cursor — the :block cursor must TOGGLE
 #           REVERSE (not OR it), so it stays visible on a cell the child already
 #           rendered reversed (SGR 7). Mirrors the B16-05 fix in window_cursor.cr.
-#   B17-34  Widget::Terminal#on_mouse — rows must map through the RENDERED
+#   B17-34  Widget::Terminal#handle_mouse — rows must map through the RENDERED
 #           position (lpos.yi + lpos.base), not layout `atop`, so reports
 #           forwarded to the child are correct inside a scrolled container.
 #   B17-35  TerminalEmulator#resize — a column shrink that clips a wide-glyph
@@ -92,14 +92,14 @@ describe "TerminalEmulator#resize wide-glyph column truncation (B17-35)" do
   end
 end
 
-# ── B17-34: on_mouse maps rows through the rendered position. ──
+# ── B17-34: handle_mouse maps rows through the rendered position. ──
 #
 # A Terminal partially clipped by a scrolled ancestor: `#draw` paints the grid
 # at `lpos.yi` with the clipped-top rows folded into `lpos.base`, so the mouse
 # hit-map must undo exactly that. With the old layout-`atop` mapping the report
 # forwarded to the child was off by the scroll offset (here the top rows were
 # even dropped by the `row < 0` guard).
-describe "Widget::Terminal#on_mouse row mapping in a scrolled container (B17-34)" do
+describe "Widget::Terminal#handle_mouse row mapping in a scrolled container (B17-34)" do
   it "reports the emulator row under the pointer, not one offset by the scroll base" do
     captured = [] of String
     s = headless_screen(80, 24)
@@ -130,7 +130,7 @@ describe "Widget::Terminal#on_mouse row mapping in a scrolled container (B17-34)
     py = lp.yi + term.itop + r_visible
 
     captured.clear
-    term.on_mouse b17_mouse(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, px, py)
+    term.handle_mouse b17_mouse(::Tput::Mouse::Action::Down, ::Tput::Mouse::Button::Left, px, py)
 
     captured.size.should eq 1
     # SGR report: ESC [ < Cb ; Xcol ; Yrow (M|m). Rows/cols are 1-based.

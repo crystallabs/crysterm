@@ -191,11 +191,11 @@ module Crysterm
         # re-attach re-covers them.
         window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }
         menu.hide
-        menu.on_navigate { |dir| switch_relative dir }
+        menu.navigate_handler { |dir| switch_relative dir }
         # A leaf activation dismisses the whole chain — deactivate the bar too
         # (Windows semantics): focus returns to the central area, so the fired
         # command doesn't leave the bar focused with a lit title.
-        menu.on_chain_activated { deactivate_after_activation }
+        menu.chain_activated_handler { deactivate_after_activation }
         # The bar's own strip counts as "inside" the open menu's modal grab, so
         # hovering another title still switches menus while one is open.
         menu.treat_as_inside { |x, y| grab_contains? x, y }
@@ -303,7 +303,7 @@ module Crysterm
         @open_index.try { |i| @menus[i]?.try &.hide_popup }
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         # Down/Up/Space open the highlighted menu (Enter and Left/Right come from
         # `Mixin::ActionBar`). Keyboard-opened, the menu drops with an entry
         # already selected — the first for Down/Space, the last for Up (cycling
@@ -344,7 +344,7 @@ module Crysterm
       # the central area — the F10/F6 return slot when one is set, else the
       # first central Tab target (`Window#focus_central` handles both). The
       # menus are already closed (and focus already rewound onto the bar) by
-      # the time the `on_chain_activated` hook runs.
+      # the time the `chain_activated_handler` hook runs.
       private def deactivate_after_activation : Nil
         w = window? || return
         w.focus_central

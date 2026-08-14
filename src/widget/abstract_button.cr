@@ -163,13 +163,13 @@ module Crysterm
         true
       end
 
-      # The keyboard activation gesture, invoked by `#on_keypress` on Space/Enter.
+      # The keyboard activation gesture, invoked by `#handle_key_press` on Space/Enter.
       # A push button `#click`s; the marker controls override it to `#toggle`.
       protected def activate
         click
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         if e.activates?
           e.accept
           activate
@@ -186,18 +186,32 @@ module Crysterm
       end
 
       # Subscribes *block* to this button's activation (`Event::Clicked`) — the
-      # block-based spelling of `on(Event::Clicked) { ... }`. Fires on every
+      # block-based spelling of `on(Event::Clicked) { ... }`; returns the
+      # `Subscription` so the caller can disconnect. Fires on every
       # click/keyboard-activation, checkable or not.
-      def on_click(&block) : Nil
+      def on_clicked(&block) : ::EventHandler::Subscription
         on(::Crysterm::Event::Clicked) { block.call }
       end
 
+      # :ditto: — shorter spelling, kept as an alias of the canonical
+      # `#on_clicked` (sugar names mirror their event names).
+      def on_click(&block) : ::EventHandler::Subscription
+        on_clicked(&block)
+      end
+
       # Subscribes *block* to this button's checked-state changes, handing it the
-      # new checked flag. A checkable button emits `Event::StateChanged`
+      # new checked flag; returns the `Subscription` so the caller can
+      # disconnect. A checkable button emits `Event::StateChanged`
       # (`CheckState`) on toggle; this adapts it to a plain `Bool` (Qt's
       # `toggled(bool)`). Never fires for a non-checkable button.
-      def on_toggle(&block : Bool ->) : Nil
+      def on_toggled(&block : Bool ->) : ::EventHandler::Subscription
         on(::Crysterm::Event::StateChanged) { |e| block.call e.state.checked? }
+      end
+
+      # :ditto: — present-tense spelling, kept as an alias of the past-tense
+      # canonical (sugar names mirror their event names).
+      def on_toggle(&block : Bool ->) : ::EventHandler::Subscription
+        on_toggled(&block)
       end
     end
   end

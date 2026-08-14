@@ -20,7 +20,7 @@ include Crysterm
 #
 # * B18-08 — an exception in a `FrameClock` tick block unwound the loop fiber
 #   past the finalization, leaving the clock stuck `running? == true` with
-#   `on_stop` never fired (contract promises it fires for *any* loop end).
+#   `stop_handler` never fired (contract promises it fires for *any* loop end).
 #   Ticks are isolated per invocation and finalization runs in an `ensure`.
 #
 # * B18-09 — `Window#disable_mouse` nil'd `@_hover` without emitting
@@ -154,14 +154,14 @@ describe "B18-06: first-device-anchors for the global CSS cell geometry" do
 end
 
 describe "B18-08: FrameClock survives a raising tick and always finalizes" do
-  it "keeps ticking after a tick raises, and stop still fires on_stop" do
+  it "keeps ticking after a tick raises, and stop still fires stop_handler" do
     ticks = 0
     stops = 0
     clock = Crysterm::FrameClock.new(1.millisecond) do
       ticks += 1
       raise "boom" if ticks == 1
     end
-    clock.on_stop { stops += 1 }
+    clock.stop_handler { stops += 1 }
 
     clock.start
     sleep 30.milliseconds
@@ -172,7 +172,7 @@ describe "B18-08: FrameClock survives a raising tick and always finalizes" do
 
     clock.stop
     sleep 20.milliseconds
-    # Finalization ran: `running?` is honest and `on_stop` fired exactly once.
+    # Finalization ran: `running?` is honest and `stop_handler` fired exactly once.
     clock.running?.should be_false
     stops.should eq 1
   end

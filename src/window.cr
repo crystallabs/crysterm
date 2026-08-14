@@ -420,7 +420,7 @@ module Crysterm
       @_render_loop_fiber = spawn render_loop
     end
 
-    def on_attached(e)
+    def handle_attached(e)
       # Adopt the size from this window's device. Skipped when the size was
       # pinned explicitly at construction (headless / fixed-size).
       @screen.adopt_terminal_size
@@ -430,8 +430,8 @@ module Crysterm
       @_resize_handler = subscribe_global_resize
     end
 
-    def on_detached(e)
-      @_resize_handler.try { |handler| GlobalEvents.off ::Crysterm::Event::Resize, handler }
+    def handle_detached(e)
+      @_resize_handler.try &.off
       # Must be nil'd, so a later reattach resubscribes instead of keeping a
       # dangling handle.
       @_resize_handler = nil
@@ -441,11 +441,11 @@ module Crysterm
     end
 
     # Destroys this `Window`.
-    def on_destroy(e)
-      on_detached(e)
+    def handle_destroy(e)
+      handle_detached(e)
     end
 
-    def on_resize(e)
+    def handle_resize(e)
       # A pinned axis ignores the terminal's reported size; only unpinned axes
       # follow it (an inline window pins height, tracks width).
       e.size.try do |size|

@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# B16-32: Menu#on_keypress's Right-key branch opened the highlighted action's
+# B16-32: Menu#handle_key_press's Right-key branch opened the highlighted action's
 # submenu with only `act.menu?` -- no `act.enabled?` gate, unlike every other
 # submenu-opening path (#hover_item, #activate_index). A disabled submenu row
 # could still be entered (and its children fired) with the keyboard, though
@@ -27,7 +27,7 @@ describe Crysterm::Widget::Menu do
     s.repaint
     m.current_index = 0 # highlight the disabled "Export" row
 
-    m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Right)
+    m.handle_key_press Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Right)
     s.repaint
 
     # No submenu opened, and focus stayed on the parent menu.
@@ -44,7 +44,7 @@ describe Crysterm::Widget::Menu do
     s.repaint
     m.current_index = 0
 
-    m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Right)
+    m.handle_key_press Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Right)
     s.repaint
 
     child = s.focused

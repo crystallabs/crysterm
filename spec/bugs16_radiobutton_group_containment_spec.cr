@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# B16-30: RadioButton#on_statechanged unchecked EVERY descendant RadioButton
+# B16-30: RadioButton#handle_state_changed unchecked EVERY descendant RadioButton
 # under the containing widget-tree ancestor, ignoring `ButtonGroup` membership.
 # Two exclusive `ButtonGroup`s whose radios share one parent container (e.g.
 # a `Box` holding two radio questions, a common layout-engine arrangement)
@@ -11,7 +11,7 @@ include Crysterm
 # nothing selected" revert (its suppressed re-check re-emits StateChanged,
 # re-running the containment handler while @suppress is raised).
 #
-# RadioButton#on_statechanged defers entirely to its `ButtonGroup`
+# RadioButton#handle_state_changed defers entirely to its `ButtonGroup`
 # (the `group` back-reference) when one owns the button -- matching Qt, where
 # per-parent autoExclusive behavior applies only to ungrouped radios.
 

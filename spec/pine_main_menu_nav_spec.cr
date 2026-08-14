@@ -11,7 +11,7 @@ private def pmm_options
 end
 
 private def press(menu, key : Tput::Key)
-  menu.on_keypress Crysterm::Event::KeyPress.new('\0', key)
+  menu.handle_key_press Crysterm::Event::KeyPress.new('\0', key)
 end
 
 # `MainMenu` spaces options with `item_spacing` (gaps, not items) rather than

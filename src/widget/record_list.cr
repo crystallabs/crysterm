@@ -109,7 +109,7 @@ module Crysterm
       end
 
       # Whether pressing the space bar toggles the current row. When `true`,
-      # `#on_keypress` handles `Space → #toggle_selected` and consumes the key;
+      # `#handle_key_press` handles `Space → #toggle_selected` and consumes the key;
       # otherwise Space falls through to the inherited list handling.
       protected def space_toggles? : Bool
         false
@@ -123,7 +123,7 @@ module Crysterm
       # Space-bar toggling (gated by `#space_toggles?`) on top of the inherited
       # arrow/Enter/paging navigation. A subclass needing extra keys overrides
       # this, handles its keys, then calls `super`.
-      def on_keypress(e)
+      def handle_key_press(e)
         if e.char == ' ' && space_toggles?
           toggle_selected
           e.accept

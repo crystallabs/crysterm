@@ -11,7 +11,7 @@ module Crysterm
     property resize_interval : Time::Span = Config.window_resize_interval
 
     @_resize_loop_fiber : Fiber?
-    @_resize_handler : ::Crysterm::Event::Resize::Wrapper?
+    @_resize_handler : ::EventHandler::Subscription?
 
     # Set by `#destroy` to make `resize_loop` exit on its next wake-up. Without
     # it the resize fiber loops forever on `@_resize_channel.receive`, pinning
@@ -40,7 +40,7 @@ module Crysterm
     # onto this window's resize loop. The in-band-resize (DEC 2048) path, when
     # active, reports size via the input stream, so the global signal is ignored
     # to avoid double handling.
-    private def subscribe_global_resize : ::Crysterm::Event::Resize::Wrapper
+    private def subscribe_global_resize : ::EventHandler::Subscription
       GlobalEvents.on(::Crysterm::Event::Resize) do |_|
         schedule_resize unless in_band_resize_enabled?
       end

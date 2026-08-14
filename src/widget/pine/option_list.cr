@@ -283,7 +283,7 @@ module Crysterm
 
         # Adds inline-editing keys on top of the inherited arrow/Enter/Space
         # handling.
-        def on_keypress(e)
+        def handle_key_press(e)
           if @editing
             handle_edit_key e
             return

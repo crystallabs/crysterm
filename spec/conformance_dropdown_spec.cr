@@ -128,7 +128,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
         wheel_down: -> { dd_wheel s, menu.aleft + 2, menu.atop + menu.itop + 1; nil },
         press_outside: -> { dd_press s, 78, 22; nil },
         outside_covered: -> { menu.contains_point? 78, 22 },
-        escape: -> { menu.on_keypress dd_kp('\0', ::Tput::Key::Escape); nil },
+        escape: -> { menu.handle_key_press dd_kp('\0', ::Tput::Key::Escape); nil },
       )
     }
   )
@@ -156,7 +156,7 @@ describe "Dropdown conformance (FORMAL-WIDGETS Part A / Piece 5)" do
         outside_covered: -> { cb.popup_widget.not_nil!.contains_point? 78, 22 },
         # Non-editable combo hands focus to the popup, so Escape routes through it
         # (ItemView cancel path -> `ComboBox#hide_popup`).
-        escape: -> { cb.popup_widget.not_nil!.on_keypress dd_kp('\0', ::Tput::Key::Escape); nil },
+        escape: -> { cb.popup_widget.not_nil!.handle_key_press dd_kp('\0', ::Tput::Key::Escape); nil },
       )
     }
   )

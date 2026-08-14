@@ -4,7 +4,7 @@ include Crysterm
 
 # A size constraint (`min_width`/`max_width`/`min_height`/`max_height`) change
 # alters the widget's effective `awidth`/`aheight` just as `width=`/`height=` do,
-# so it must emit `Event::Resize` — otherwise listeners (`Mixin::ItemView#on_resize`,
+# so it must emit `Event::Resize` — otherwise listeners (`Mixin::ItemView#handle_resize`,
 # `Mixin::TextEditing`'s Resize->`_update_cursor`) never fire and scroll/cursor
 # state goes stale after a `max-height`/`min-width` change.
 #

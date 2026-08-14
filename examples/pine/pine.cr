@@ -658,7 +658,7 @@ end
 
 # SORT ORDER picker (single-select `ListSelect`): Enter confirms the
 # highlighted order, reorders the index, and returns to it.
-sortpick.on_confirm do |sel|
+sortpick.confirm_handler do |sel|
   sel.first?.try do |o|
     current_sort = o
     case o
@@ -676,7 +676,7 @@ end
 
 # FLAG MAINTENANCE (multi-select `ListSelect`): leaving the screen ("<")
 # calls `flagpick.confirm`, which applies checked flags and returns to the index.
-flagpick.on_confirm do |sel|
+flagpick.confirm_handler do |sel|
   flag_target.try do |m|
     flags_of[m] = sel.to_set
     apply_flags.call m

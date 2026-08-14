@@ -132,7 +132,7 @@ module Crysterm
         getter! status_line : StatusLine
 
         # The trigger-key completion controller attached to the input. Its
-        # `Autocomplete#on_accept` hook is left free for the application
+        # `Autocomplete#accept_handler` hook is left free for the application
         # (e.g. to switch input modes on a `!` completion).
         getter! autocomplete : Autocomplete
 

@@ -359,9 +359,16 @@ module Crysterm
 
       # Subscribes *block* to selection changes — the block spelling of
       # `on(Event::CurrentChanged) { |e| ... }` (Qt's `currentIndexChanged`),
-      # mirroring `AbstractButton#on_click`. The block receives the new index.
-      def on_current_index_change(&block : Int32 ->) : Nil
+      # mirroring `AbstractButton#on_clicked`; returns the `Subscription` so
+      # the caller can disconnect. The block receives the new index.
+      def on_current_index_changed(&block : Int32 ->) : ::EventHandler::Subscription
         on(::Crysterm::Event::CurrentChanged) { |e| block.call e.index }
+      end
+
+      # :ditto: — present-tense spelling, kept as an alias of the past-tense
+      # canonical (sugar names mirror their event names).
+      def on_current_index_change(&block : Int32 ->) : ::EventHandler::Subscription
+        on_current_index_changed(&block)
       end
 
       # The `{index, value}` pair a list mutation might move, sampled before it
@@ -597,8 +604,8 @@ module Crysterm
         false
       end
 
-      def on_keypress(e)
-        return on_keypress_editable(e) if editable?
+      def handle_key_press(e)
+        return handle_key_press_editable(e) if editable?
 
         return if @open
         if e.key == Tput::Key::Down || e.key == Tput::Key::Enter || e.char == ' '
@@ -628,7 +635,7 @@ module Crysterm
 
       # Key handling for an editable combo: the box keeps focus and drives the
       # (filtering) popup itself.
-      private def on_keypress_editable(e)
+      private def handle_key_press_editable(e)
         k = e.key
         ch = e.char
 

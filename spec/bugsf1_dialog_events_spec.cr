@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs for BUGS-F1 findings owned by the dialog/geometry files:
 #
-#  Finding 6  (src/widget/color_dialog.cr): `on_mouse` must guard on
+#  Finding 6  (src/widget/color_dialog.cr): `handle_mouse` must guard on
 #     `@ev_move.active?`, not the bare `@ev_move` Subscription (always truthy)
 #     — otherwise ALL direct field/hue mouse input is dead.
 #
@@ -69,7 +69,7 @@ describe "BUGS-F1 finding 6: ColorDialog direct mouse input is not dead" do
     cd.saturation.should eq 0.0 # white == fully desaturated
     cd.hsv_value.should eq 1.0
 
-    # Field origin, computed the same way `on_mouse` does.
+    # Field origin, computed the same way `handle_mouse` does.
     ox = cd.aleft + cd.ileft
     oy = cd.atop + cd.itop
     # A point in the middle of the FIELD_W x FIELD_H gradient.

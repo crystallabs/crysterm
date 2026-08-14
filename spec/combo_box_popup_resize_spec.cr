@@ -21,17 +21,17 @@ describe "ComboBox editable popup resize" do
 
     # First char opens and sizes popup: 6 matches, capped at max_visible_items (6),
     # plus 2 border rows.
-    cb.on_keypress cb_key('a')
+    cb.handle_key_press cb_key('a')
     cb.open?.should be_true
     pop = cb.popup_widget.not_nil!
     pop.height.should eq 8
 
     # Narrowing to "al" leaves 2 matches; the popup must shrink to fit them.
-    cb.on_keypress cb_key('l')
+    cb.handle_key_press cb_key('l')
     pop.height.should eq 4
 
     # Backspacing back to "a" widens the matches again; the popup must regrow.
-    cb.on_keypress Crysterm::Event::KeyPress.new('\u{0}', Tput::Key::Backspace)
+    cb.handle_key_press Crysterm::Event::KeyPress.new('\u{0}', Tput::Key::Backspace)
     pop.height.should eq 8
   end
 end

@@ -67,8 +67,8 @@ module Crysterm
       protected def teardown_ok_cancel(ev_ok, ev_cancel) : Nil
         hide
         window.restore_focus
-        ev_ok.try { |h| @ok.off ::Crysterm::Event::Clicked, h }
-        ev_cancel.try { |h| @cancel.off ::Crysterm::Event::Clicked, h }
+        ev_ok.try &.off
+        ev_cancel.try &.off
       end
     end
   end

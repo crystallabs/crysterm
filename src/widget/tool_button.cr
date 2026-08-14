@@ -184,7 +184,7 @@ module Crysterm
         end
       end
 
-      def on_keypress(e)
+      def handle_key_press(e)
         # Down summons the menu in the (default) MenuButtonPopup/DelayedPopup
         # modes, where activation is reserved for the action/press.
         if @menu && !@popup_mode.instant_popup? && e.key == Tput::Key::Down

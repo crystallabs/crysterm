@@ -69,7 +69,7 @@ describe "BUGS7 ActionBar#remove_item renumbers auto prefixes" do
     # Number-key '1' now selects the first remaining command ("save"), which is
     # also the one now labeled "1" — a desynced numbering would select "save"
     # while it was still labeled "2".
-    bar.on_keypress Crysterm::Event::KeyPress.new('1', nil)
+    bar.handle_key_press Crysterm::Event::KeyPress.new('1', nil)
     fired.last.should eq "save"
   end
 end
@@ -83,10 +83,10 @@ describe "BUGS7 Menu Enter/Escape reveal gate" do
     menu.add_action("Save") { activated << "Save" }
     menu.popup 1, 1 # opens with no row highlighted
 
-    menu.on_keypress Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)
+    menu.handle_key_press Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)
     activated.empty?.should be_true # first Enter only revealed the highlight
 
-    menu.on_keypress Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)
+    menu.handle_key_press Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)
     activated.should eq ["Open"] # second Enter activates the highlighted item
   end
 end

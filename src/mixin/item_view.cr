@@ -162,10 +162,10 @@ module Crysterm
         self.current_index = 0
 
         if @keys
-          on ::Crysterm::Event::KeyPress, ->on_keypress(::Crysterm::Event::KeyPress)
+          on ::Crysterm::Event::KeyPress, ->handle_key_press(::Crysterm::Event::KeyPress)
         end
 
-        on ::Crysterm::Event::Resize, ->on_resize(::Crysterm::Event::Resize)
+        on ::Crysterm::Event::Resize, ->handle_resize(::Crysterm::Event::Resize)
       end
     end
   end

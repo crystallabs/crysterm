@@ -39,7 +39,7 @@ module Crysterm
       include Media::WindowListener
 
       # The erase-on-move wrapper — the half `Media::RenderHook` does not have.
-      @ev_prerender : ::Crysterm::Event::PreRender::Wrapper?
+      @ev_prerender : ::EventHandler::Subscription?
 
       # Cell rectangle (`{xi, yi, w, h}`) the overlay was last painted at, used to
       # detect movement/resize so the old position can be cleared.
@@ -135,8 +135,8 @@ module Crysterm
       # tail. Nothing observes `@ev_prerender` in between, so clearing it before
       # rather than after the `Rendered` `off` is immaterial.
       protected def teardown_overlay_listeners
-        s = @listener_screen || return
-        @ev_prerender.try { |w| s.off ::Crysterm::Event::PreRender, w }
+        return unless @listener_screen
+        @ev_prerender.try &.off
         @ev_prerender = nil
         forget_listener_screen
       end

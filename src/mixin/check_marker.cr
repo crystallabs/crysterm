@@ -174,7 +174,7 @@ module Crysterm
         request_render
       end
 
-      protected def on_focusin(e : ::Crysterm::Event::FocusIn)
+      protected def handle_focus_in(e : ::Crysterm::Event::FocusIn)
         return unless lpos = @lpos
         window?.try do |s|
           s.tput.lsave_cursor hash
@@ -185,7 +185,7 @@ module Crysterm
         end
       end
 
-      protected def on_focusout(e : ::Crysterm::Event::FocusOut)
+      protected def handle_focus_out(e : ::Crysterm::Event::FocusOut)
         window?.try do |s|
           s.tput.lrestore_cursor hash, true
         end

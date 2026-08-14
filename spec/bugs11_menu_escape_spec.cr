@@ -24,10 +24,10 @@ describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
 
     # Down reveals the highlight (first selection key just unhides it, selecting
     # the first item "Delete file").
-    m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Down)
+    m.handle_key_press Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Down)
 
     # Escape must back out of the menu, not run the highlighted action.
-    m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Escape)
+    m.handle_key_press Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Escape)
 
     triggered.should be_false
     cancelled.should be_true
@@ -42,10 +42,10 @@ describe "BUGS11 #15 Menu Escape (embedded menu cancels, does not activate)" do
     s.render
 
     # Enter reveals the highlight on the first press...
-    m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Enter)
+    m.handle_key_press Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Enter)
     triggered.should be_false
     # ...and activates it on the second.
-    m.on_keypress Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Enter)
+    m.handle_key_press Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Enter)
     triggered.should be_true
   end
 end

@@ -136,11 +136,11 @@ describe "BUGS6 Calendar guarded date construction (bug 3)" do
     s.repaint
 
     # Home/End and month stepping all build dates through local_date.
-    cal.on_keypress Crysterm::Event::KeyPress.new(' ', Tput::Key::Home)
+    cal.handle_key_press Crysterm::Event::KeyPress.new(' ', Tput::Key::Home)
     cal.date.day.should eq 1
-    cal.on_keypress Crysterm::Event::KeyPress.new(' ', Tput::Key::End)
+    cal.handle_key_press Crysterm::Event::KeyPress.new(' ', Tput::Key::End)
     cal.date.day.should eq 31 # January
-    cal.on_keypress Crysterm::Event::KeyPress.new(' ', Tput::Key::PageDown)
+    cal.handle_key_press Crysterm::Event::KeyPress.new(' ', Tput::Key::PageDown)
     cal.date.month.should eq 2
   end
 end
