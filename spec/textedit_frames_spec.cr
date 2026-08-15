@@ -30,7 +30,7 @@ describe Widget::TextEdit do
       row_text(s, 0, 0...6).should eq "before"
       row_text(s, 1, 0...20).should eq "┌" + "─" * 18 + "┐"
       row_text(s, 2, 0...8).should eq "│ inside"
-      s.lines[2][19].char.should eq '│'
+      s.cell_rows[2][19].char.should eq '│'
       row_text(s, 3, 0...20).should eq "└" + "─" * 18 + "┘"
       row_text(s, 4, 0...5).should eq "after"
     end
@@ -54,8 +54,8 @@ describe Widget::TextEdit do
       row_text(s, 0, 0...20).should eq "┌" + "─" * 18 + "┐"
       row_text(s, 1, 0...20).should eq "│ ┌" + "─" * 14 + "┐ │"
       row_text(s, 2, 0...8).should eq "│ │ deep"
-      s.lines[2][17].char.should eq '│'
-      s.lines[2][19].char.should eq '│'
+      s.cell_rows[2][17].char.should eq '│'
+      s.cell_rows[2][19].char.should eq '│'
       row_text(s, 3, 0...4).should eq "│ └─"
       row_text(s, 4, 0...2).should eq "└─"
     end
@@ -97,8 +97,8 @@ describe Widget::TextEdit do
       s.repaint
       # Text rows all carry both bars.
       (1...te._clines.size - 1).each do |rl|
-        s.lines[rl][0].char.should eq '│'
-        s.lines[rl][19].char.should eq '│'
+        s.cell_rows[rl][0].char.should eq '│'
+        s.cell_rows[rl][19].char.should eq '│'
       end
     end
   end

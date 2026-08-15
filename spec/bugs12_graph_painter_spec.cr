@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # Re-exposes the private `TextOverlay` stamping helpers so they can be exercised
-# directly against a real `window.lines` grid.
+# directly against a real `window.cell_rows` grid.
 private class OverlayProbe < Crysterm::Widget::Box
   include Crysterm::Widget::Graph::TextOverlay
 
@@ -80,50 +80,50 @@ describe Crysterm::Widget::Graph::TextOverlay do
     it "put_text does not stamp onto the wrapped bottom row for a negative y" do
       s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
-      last = s.lines.size - 1
+      last = s.cell_rows.size - 1
       # Snapshot the bottom row before the (negative-row) stamp attempt.
-      before = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
+      before = (0...s.cell_rows[last].size).map { |x| s.cell_rows[last][x].char }
       probe.probe_text 0, -1, "HELLO", 0_i64, 0, 20
-      after = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
+      after = (0...s.cell_rows[last].size).map { |x| s.cell_rows[last][x].char }
       after.should eq before
     end
 
     it "put_text does not wrap a negative column to the right end of the row" do
       s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
-      right = s.lines[0].size - 1
-      before = s.lines[0][right].char
+      right = s.cell_rows[0].size - 1
+      before = s.cell_rows[0][right].char
       # x=-1 with a negative clip floor: char i=0 lands at cx=-1, which would
       # wrap to the last column unless `lo` is clamped to 0.
       probe.probe_text -1, 0, "X", 0_i64, -5, 20
-      s.lines[0][right].char.should eq before
+      s.cell_rows[0][right].char.should eq before
     end
 
     it "put_cell does not stamp onto the wrapped bottom row for a negative y" do
       s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
-      last = s.lines.size - 1
-      before = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
+      last = s.cell_rows.size - 1
+      before = (0...s.cell_rows[last].size).map { |x| s.cell_rows[last][x].char }
       probe.probe_cell 0, -1, 'Z', 0_i64, 0, 20
-      after = (0...s.lines[last].size).map { |x| s.lines[last][x].char }
+      after = (0...s.cell_rows[last].size).map { |x| s.cell_rows[last][x].char }
       after.should eq before
     end
 
     it "put_cell rejects a negative column even with a negative clip floor" do
       s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
-      right = s.lines[0].size - 1
-      before = s.lines[0][right].char
+      right = s.cell_rows[0].size - 1
+      before = s.cell_rows[0][right].char
       probe.probe_cell -1, 0, 'Z', 0_i64, -5, 20
-      s.lines[0][right].char.should eq before
+      s.cell_rows[0][right].char.should eq before
     end
 
     it "put_text still stamps a normal in-range label" do
       s = headless_screen(20, 6, default_quit_keys: true)
       probe = OverlayProbe.new parent: s, width: 10, height: 3
       probe.probe_text 1, 0, "OK", 0_i64, 0, 20
-      s.lines[0][1].char.should eq 'O'
-      s.lines[0][2].char.should eq 'K'
+      s.cell_rows[0][1].char.should eq 'O'
+      s.cell_rows[0][2].char.should eq 'K'
     end
   end
 end

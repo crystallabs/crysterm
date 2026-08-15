@@ -15,7 +15,7 @@ private def content_rows_with_fg(screen, lt, color) : Array(Int32)
   base = lt.atop + lt.itop
   ys = [] of Int32
   (0...screen.height).each do |y|
-    next unless screen.lines[y]?
+    next unless screen.cell_rows[y]?
     if (0...screen.width).any? { |x| cell_fg(screen, x, y) == color }
       ys << y - base
     end

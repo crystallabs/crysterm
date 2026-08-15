@@ -9,7 +9,7 @@ include Crysterm
 private def count_cells_fg(screen, color)
   n = 0
   (0...screen.height).each do |y|
-    next unless screen.lines[y]?
+    next unless screen.cell_rows[y]?
     (0...screen.width).each { |x| n += 1 if cell_fg(screen, x, y) == color }
   end
   n

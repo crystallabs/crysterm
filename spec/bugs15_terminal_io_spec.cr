@@ -183,7 +183,7 @@ describe "BUGS15 89: Widget::Terminal#write before the first render" do
     em_row_text(em, 0, 5).should eq "hello"
     # And they reach the screen cells on that same first render.
     lp = term.lpos.not_nil!
-    String.build { |io| 5.times { |x| io << s.lines[lp.yi][lp.xi + x].char } }.should eq "hello"
+    String.build { |io| 5.times { |x| io << s.cell_rows[lp.yi][lp.xi + x].char } }.should eq "hello"
   ensure
     s.try &.destroy
   end

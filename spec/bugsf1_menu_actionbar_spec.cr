@@ -10,8 +10,8 @@ include Crysterm
 # Whole rendered screen as one string (all rows joined), for text-presence checks.
 private def f1_screen_text(s) : String
   String.build do |io|
-    (0...s.lines.size).each do |y|
-      row = s.lines[y]
+    (0...s.cell_rows.size).each do |y|
+      row = s.cell_rows[y]
       (0...row.size).each { |x| io << row[x].char }
       io << '\n'
     end
@@ -82,8 +82,8 @@ describe "BUGS-F1 #51 ActionBar command width ignores tag markup" do
     tagged = bar.add_item "{bold}File{/bold}"
 
     # Both render 'File' (4 cols) + 2 for the box padding => equal width.
-    plain.width.should eq tagged.width
-    tagged.width.should eq 6
+    plain.width_spec.should eq tagged.width_spec
+    tagged.width_spec.should eq 6
   end
 end
 

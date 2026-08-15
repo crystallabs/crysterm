@@ -12,11 +12,12 @@ module Crysterm
     # `Mixin::CheckMarker`.
     abstract class AbstractButton < Input
       # The button's text label (Qt's `QAbstractButton#text`) — the one label API
-      # for the family. The push buttons store it as their `#content`, so for
-      # them `text:` and `content:` can never disagree. The marker controls
-      # (`CheckBox`/`RadioButton`) shadow this: their `#text` is the bare label
-      # while `#content` carries the composed `"[x] Label"` line the marker
-      # paint writes — on those, read/write the label through `#text` only.
+      # for the family. `#text` and `#content` can never disagree, on any
+      # button: the push buttons store the label as their `#content`, and the
+      # marker controls (`CheckBox`/`RadioButton`) route both accessors to the
+      # bare label — the composed `"[x] Label"` line their paint draws is
+      # render-internal (reported by `#rendered_content`, never the property
+      # value).
       def text : String
         content
       end

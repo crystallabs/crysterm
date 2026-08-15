@@ -11,7 +11,7 @@ module Crysterm
     # `Crysterm::Pty` spawns and talks to the child via a PTY, and
     # `Crysterm::TerminalEmulator` parses its byte stream into a cell grid. This
     # widget wires them to the window: sizes them from its inner area, forwards
-    # keystrokes, copies the emulator grid onto `window.lines` each render, and
+    # keystrokes, copies the emulator grid onto `window.cell_rows` each render, and
     # draws the cursor.
     #
     # Usage:

@@ -29,16 +29,16 @@ describe "multi-line content over a cells background" do
 
       box.background_paints_cells?.should be_true
 
-      s.lines[0][0].char.should eq 'a'
-      s.lines[0][1].char.should eq 'b'
-      s.lines[1][0].char.should eq 'c'
-      s.lines[1][1].char.should eq 'd'
+      s.cell_rows[0][0].char.should eq 'a'
+      s.cell_rows[0][1].char.should eq 'b'
+      s.cell_rows[1][0].char.should eq 'c'
+      s.cell_rows[1][1].char.should eq 'd'
 
       # The second line's text must not leak onto row 0 (the defect painted
       # "cd" right after "ab" on the first row).
       (2...10).each do |x|
-        s.lines[0][x].char.should_not eq 'c'
-        s.lines[0][x].char.should_not eq 'd'
+        s.cell_rows[0][x].char.should_not eq 'c'
+        s.cell_rows[0][x].char.should_not eq 'd'
       end
     end
   end
@@ -52,7 +52,7 @@ describe "multi-line content over a cells background" do
 
       # Cells after "ab" on row 0 keep the painted image rather than being
       # cleared to the widget fill.
-      Crysterm::Attr.bg(s.lines[0][5].attr).should_not eq Crysterm::Attr::COLOR_DEFAULT
+      Crysterm::Attr.bg(s.cell_rows[0][5].attr).should_not eq Crysterm::Attr::COLOR_DEFAULT
     end
   end
 
@@ -62,9 +62,9 @@ describe "multi-line content over a cells background" do
     s.repaint
 
     box.background_paints_cells?.should be_false
-    s.lines[0][0].char.should eq 'a'
-    s.lines[0][1].char.should eq 'b'
-    s.lines[1][0].char.should eq 'c'
-    s.lines[1][1].char.should eq 'd'
+    s.cell_rows[0][0].char.should eq 'a'
+    s.cell_rows[0][1].char.should eq 'b'
+    s.cell_rows[1][0].char.should eq 'c'
+    s.cell_rows[1][1].char.should eq 'd'
   end
 end

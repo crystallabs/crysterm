@@ -4,7 +4,7 @@ module Crysterm
       # Text-overlay helpers for the Canvas-backed graph widgets. Such a graph
       # draws its plot/pixels on a `Graph::Canvas` child, then stamps crisp
       # terminal text (titles, axis labels, markers, readouts) directly onto
-      # `window.lines` on top. This module carries the per-color attr memoizer
+      # `window.cell_rows` on top. This module carries the per-color attr memoizer
       # and thin `[lo, hi)`-clipped wrappers over the shared `Box` stamp
       # helpers (`stamp_text_run`/`stamp_cell`).
       #

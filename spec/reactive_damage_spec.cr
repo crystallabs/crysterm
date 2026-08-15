@@ -40,10 +40,10 @@ end
 # Asserts the two windows' cell buffers are identical, like
 # `spec/damage_tracking_spec.cr`'s namesake.
 private def assert_same_lines(a : Crysterm::Window, b : Crysterm::Window, ctx = "")
-  a.lines.size.should eq b.lines.size
-  a.lines.each_index do |y|
-    la = a.lines[y]
-    lb = b.lines[y]
+  a.cell_rows.size.should eq b.cell_rows.size
+  a.cell_rows.each_index do |y|
+    la = a.cell_rows[y]
+    lb = b.cell_rows[y]
     la.size.should eq lb.size
     la.size.times do |x|
       ca = la[x]
@@ -61,7 +61,7 @@ end
 # guards — an example that renders nothing twice must not pass.
 private def row_signature(screen : Crysterm::Window, y : Int32) : String
   String.build do |s|
-    line = screen.lines[y]
+    line = screen.cell_rows[y]
     line.size.times { |x| s << line[x].char << line[x].attr << ' ' }
   end
 end

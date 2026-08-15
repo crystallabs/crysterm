@@ -212,7 +212,7 @@ module Crysterm
         @buttons.each do |b|
           b.left = left
           b.top = 0
-          w = b.width
+          w = b.width_spec
           left += (w.is_a?(Int) ? w : 0) + 1
         end
         unless @buttons.empty?

@@ -139,12 +139,12 @@ describe "BUGS15 45: clipped Widget::Terminal shows the correct grid region" do
     lp.base.should eq 3
 
     # Viewport top now shows emulator row 3; the row two below shows row 5.
-    s.lines[lp.yi][lp.xi].char.should eq '3'
-    s.lines[lp.yi + 2][lp.xi].char.should eq '5'
+    s.cell_rows[lp.yi][lp.xi].char.should eq '3'
+    s.cell_rows[lp.yi + 2][lp.xi].char.should eq '5'
 
     # The cursor (emulator row 4) maps to viewport row 1 (4 - base 3): the
     # block cursor inverts that cell (an unclipped mapping draws 3 rows too low).
-    (Attr.flags(s.lines[lp.yi + 1][lp.xi + 2].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.cell_rows[lp.yi + 1][lp.xi + 2].attr) & Attr::REVERSE).should_not eq 0
   ensure
     term.try &.kill
     s.try &.destroy
@@ -172,12 +172,12 @@ describe "BUGS15 46: ranged extra selections use the row decoration offset" do
 
     # Underline must land on the text cells (2,3,4), offset past the marker —
     # crucially col 4 ('e'), which a text-relative range never reaches.
-    (Attr.flags(s.lines[0][2].attr) & Attr::UNDERLINE).should_not eq 0
-    (Attr.flags(s.lines[0][3].attr) & Attr::UNDERLINE).should_not eq 0
-    (Attr.flags(s.lines[0][4].attr) & Attr::UNDERLINE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][2].attr) & Attr::UNDERLINE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][3].attr) & Attr::UNDERLINE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][4].attr) & Attr::UNDERLINE).should_not eq 0
     # The marker cells and the cell past the word stay un-highlighted.
-    (Attr.flags(s.lines[0][0].attr) & Attr::UNDERLINE).should eq 0
-    (Attr.flags(s.lines[0][1].attr) & Attr::UNDERLINE).should eq 0
-    (Attr.flags(s.lines[0][5].attr) & Attr::UNDERLINE).should eq 0
+    (Attr.flags(s.cell_rows[0][0].attr) & Attr::UNDERLINE).should eq 0
+    (Attr.flags(s.cell_rows[0][1].attr) & Attr::UNDERLINE).should eq 0
+    (Attr.flags(s.cell_rows[0][5].attr) & Attr::UNDERLINE).should eq 0
   end
 end

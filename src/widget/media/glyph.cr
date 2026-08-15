@@ -121,7 +121,7 @@ module Crysterm
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                                 col_off : Int32, row_off : Int32)
-        lines = window.lines
+        lines = window.cell_rows
         sx, sy = @mode.subgrid
 
         # Braille is one color per cell, so it needs a single global on/off

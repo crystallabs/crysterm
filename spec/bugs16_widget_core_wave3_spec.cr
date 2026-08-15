@@ -89,8 +89,8 @@ describe "BUGS16 B16-13: reserved horizontal-bar band gets the widget background
     box.hscrollbar_rows.should eq 1
     # The corner (last cell of the bar row) is left to the widget's own fill.
     row_text(s, 4, 11...12).should eq " "
-    corner_bg = Attr.bg(s.lines[4][11].attr)
-    interior_bg = Attr.bg(s.lines[0][0].attr) # content cell carries the widget bg
+    corner_bg = Attr.bg(s.cell_rows[4][11].attr)
+    interior_bg = Attr.bg(s.cell_rows[0][0].attr) # content cell carries the widget bg
     corner_bg.should eq interior_bg
   ensure
     s.try &.destroy

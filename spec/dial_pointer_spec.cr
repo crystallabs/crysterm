@@ -19,7 +19,7 @@ private def center_glyph(s, dial) : Char
   s.repaint
   cx = dial.aleft + dial.ileft + ((dial.awidth - dial.ihorizontal) // 2)
   cy = dial.atop + dial.itop + ((dial.aheight - dial.ivertical) // 2)
-  s.lines[cy][cx].char
+  s.cell_rows[cy][cx].char
 end
 
 describe "Widget::Dial#pointer" do

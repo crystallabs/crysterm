@@ -62,13 +62,13 @@ describe Crysterm::Widget::Graph::Canvas do
 
       braille = ->(ch : Char) { ('⠀'..'⣿').includes?(ch) && ch != '⠀' }
       # Interior (cols 1..6, rows 1..3) is filled braille.
-      braille.call(s.lines[1][1].char).should be_true
-      braille.call(s.lines[3][6].char).should be_true
+      braille.call(s.cell_rows[1][1].char).should be_true
+      braille.call(s.cell_rows[3][6].char).should be_true
       # Border ring is untouched (not braille): right col 7, bottom row 4, left col 0, top row 0.
-      braille.call(s.lines[1][7].char).should be_false # right border
-      braille.call(s.lines[4][6].char).should be_false # bottom border
-      braille.call(s.lines[1][0].char).should be_false # left border
-      braille.call(s.lines[0][1].char).should be_false # top border
+      braille.call(s.cell_rows[1][7].char).should be_false # right border
+      braille.call(s.cell_rows[4][6].char).should be_false # bottom border
+      braille.call(s.cell_rows[1][0].char).should be_false # left border
+      braille.call(s.cell_rows[0][1].char).should be_false # top border
     ensure
       Crysterm::CSS.default_stylesheet = saved
     end
@@ -87,7 +87,7 @@ describe Crysterm::Widget::Graph::Canvas do
 
     # The Canvas interior (6x3 cells at 0,0) should now be full-block braille.
     full = '⣿' # U+28FF, all 8 dots
-    found = (0...3).any? { |y| (0...6).any? { |x| s.lines[y][x].char == full } }
+    found = (0...3).any? { |y| (0...6).any? { |x| s.cell_rows[y][x].char == full } }
     found.should be_true
   end
 
@@ -108,12 +108,12 @@ describe Crysterm::Widget::Graph::Canvas do
 
     s.repaint
     paints.should eq 1
-    snap = s.lines.map(&.map { |c| {c.char, c.attr} })
+    snap = s.cell_rows.map(&.map { |c| {c.char, c.attr} })
 
     # Several renders with no state change: no extra paints, identical cells.
     3.times { s.repaint }
     paints.should eq 1
-    s.lines.map(&.map { |c| {c.char, c.attr} }).should eq snap
+    s.cell_rows.map(&.map { |c| {c.char, c.attr} }).should eq snap
   end
 
   it "repaints after #refresh (and reflects the mutated state)" do
@@ -129,13 +129,13 @@ describe Crysterm::Widget::Graph::Canvas do
       p.fill_rect 0, 0, (w * frac).to_i, h
     end
     s.repaint
-    before = s.lines.map(&.map { |c| {c.char, c.attr} })
+    before = s.cell_rows.map(&.map { |c| {c.char, c.attr} })
 
     frac = 0.95
     cv.refresh
     s.repaint
     paints.should eq 2 # refresh forced exactly one more paint
-    s.lines.map(&.map { |c| {c.char, c.attr} }).should_not eq before
+    s.cell_rows.map(&.map { |c| {c.char, c.attr} }).should_not eq before
   end
 end
 
@@ -147,13 +147,13 @@ describe Crysterm::Widget::Graph::Donut do
     d = Crysterm::Widget::Graph::Donut.new parent: s, top: 0, left: 0, width: 18, height: 9,
       value: 20, type: Crysterm::Widget::Media::Type::Glyph
     s.repaint
-    a = s.lines.map(&.map { |c| {c.char, c.attr} })
+    a = s.cell_rows.map(&.map { |c| {c.char, c.attr} })
     s.repaint
-    s.lines.map(&.map { |c| {c.char, c.attr} }).should eq a # static: unchanged
+    s.cell_rows.map(&.map { |c| {c.char, c.attr} }).should eq a # static: unchanged
 
     d.value = 95
     s.repaint
-    s.lines.map(&.map { |c| {c.char, c.attr} }).should_not eq a # mutation repaints
+    s.cell_rows.map(&.map { |c| {c.char, c.attr} }).should_not eq a # mutation repaints
   end
 end
 

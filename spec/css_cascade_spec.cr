@@ -468,8 +468,8 @@ describe "CSS cascade" do
     screen.stylesheet = "Box { width: 40; height: 10; left: center; top: 5; text-align: center; }"
     screen.apply_stylesheet
 
-    box.width.should eq 40 # bare int -> cells
-    box.height.should eq 10
+    box.width_spec.should eq 40 # bare int -> cells
+    box.height_spec.should eq 10
     box.left.should eq "center" # keyword -> passthrough string
     box.top.should eq 5
     # `text-align` replaces only the horizontal bits; the widget's default

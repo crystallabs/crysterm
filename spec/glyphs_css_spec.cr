@@ -231,8 +231,8 @@ describe "Slider::handle / cell-role validation" do
     s.repaint
     # Handle at the low end; the widget-wide `glyph` must NOT bleed into the
     # track (only an explicitly-set sub-style answers for a part).
-    s.lines[0][sl.aleft].char.should eq '◆'
-    s.lines[0][sl.aleft + 5].char.should eq '─'
+    s.cell_rows[0][sl.aleft].char.should eq '◆'
+    s.cell_rows[0][sl.aleft + 5].char.should eq '─'
   end
 
   it "rejects a wide character on a cell role (falls back to the registry)" do
@@ -241,7 +241,7 @@ describe "Slider::handle / cell-role validation" do
     s.stylesheet = %(Slider::handle { glyph: "🚀"; })
     s.apply_stylesheet
     s.repaint
-    s.lines[0][sl.aleft].char.should eq '█' # registry default, not the emoji
+    s.cell_rows[0][sl.aleft].char.should eq '█' # registry default, not the emoji
   end
 end
 

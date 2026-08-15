@@ -306,18 +306,18 @@ to place and size any of them; they are stored on the widget's
 Crysterm exposes three related "views" of a widget's geometry, plus the
 decoration thicknesses, each with a consistent prefix:
 
-| Spec (as you set it) | Relative, resolved (vs. parent) | Absolute, resolved (vs. window) | Inner offset (decoration) |
-|----------------------|---------------------------------|---------------------------------|---------------------------|
-| `left` / `left=`     | `rleft`                         | `aleft`                         | `ileft`                   |
-| `top` / `top=`       | `rtop`                          | `atop`                          | `itop`                    |
-| `right` / `right=`   | `rright`                        | `aright`                        | `iright`                  |
-| `bottom` / `bottom=` | `rbottom`                       | `abottom`                       | `ibottom`                 |
-| `width` / `width=`   | —                               | `awidth`                        | `ihorizontal`             |
-| `height` / `height=` | —                               | `aheight`                       | `ivertical`               |
+| Spec (as you set it)          | Relative, resolved (vs. parent) | Absolute, resolved (vs. window) | Inner offset (decoration) |
+|-------------------------------|---------------------------------|---------------------------------|---------------------------|
+| `left` / `left=`              | `rleft`                         | `aleft`                         | `ileft`                   |
+| `top` / `top=`                | `rtop`                          | `atop`                          | `itop`                    |
+| `right` / `right=`            | `rright`                        | `aright`                        | `iright`                  |
+| `bottom` / `bottom=`          | `rbottom`                       | `abottom`                       | `ibottom`                 |
+| `width_spec` / `width=`       | —                               | `awidth` (= `width`)            | `ihorizontal`             |
+| `height_spec` / `height=`     | —                               | `aheight` (= `height`)          | `ivertical`               |
 
-- **Spec** methods (`left`, `top`, `width`, …) return *exactly what you set* —
-  the raw user value, which may be an integer, a `Dim`, a string such as
-  `"50%+2"`, or `nil`. They do not compute anything.
+- **Spec** methods (`left`, `top`, `width_spec`, …) return *exactly what you
+  set* — the raw user value, which may be an integer, a `Dim`, a string such
+  as `"50%+2"`, or `nil`. They do not compute anything.
 - **Relative** methods (`rleft`, …) return computed integers in the *spec
   space*: each is the value its bare setter would need to reproduce the
   current placement, so `w.left = w.rleft` is a no-op. See
@@ -328,15 +328,21 @@ decoration thicknesses, each with a consistent prefix:
   decoration on the inside (or summed across the two sides of an axis) — a
   thickness, not a position. See [§4.7](#47-inner-content-offsets).
 
-The prefix rule in one line: **bare = your spec, `r*` = relative resolved
-(round-trips through the bare setter), `a*` = absolute resolved.**
+The prefix rule in one line: **bare position = your spec, `r*` = relative
+resolved (round-trips through the bare setter), `a*` = absolute resolved.**
+Sizes are the deliberate exception, matching how every Qt/CSS reader parses
+`w.width`: **`width`/`height` return the resolved cells** (aliases of
+`awidth`/`aheight`), and the raw specs live at `width_spec`/`height_spec`.
+The setters take specs in both spellings (`w.width = "50%"` works), so
+`w.width = w.width` round-trips for cell specs — writing back a resolved
+value pins a percent/auto spec, the usual imperative trade.
 
 On top of the scalar accessors sit the Qt-named value-object forms:
 
 - `x` / `y` / `pos : Point` — aliases of `rleft`/`rtop` (Qt's `x()`, `y()`,
   `pos()`); `pos=`/`move` write back.
-- `size : Size` — `(awidth, aheight)` bundled; `width_cells`/`height_cells`
-  are discoverable aliases of `awidth`/`aheight`; `resize`/`size=` write back.
+- `size : Size` — `(awidth, aheight)` bundled — i.e. `(width, height)`;
+  `resize`/`size=` write back.
 - `geometry : Rectangle` — the live parent-relative rectangle,
   `geometry.top_left == pos` (Qt's `geometry()`); `geometry=`/`set_geometry`
   write back, so `w.geometry = w.geometry` is a no-op. `rect` is the same box
@@ -431,10 +437,11 @@ clipping/scroll) as a value object, see `absolute_geometry`
 
 ### 4.6 Size
 
-`awidth` and `aheight` resolve the widget's size in cells (`width_cells`/
-`height_cells` are their discoverable aliases, and `size : Size` the bundle):
+`awidth` and `aheight` resolve the widget's size in cells (`width`/`height`
+are their Qt/CSS-reading aliases, and `size : Size` the bundle):
 
-- If `width`/`height` is an **integer**, it is returned as-is.
+- If the spec (`width_spec`/`height_spec`) is an **integer**, it is returned
+  as-is.
 - If it is a **`Dim`/string percentage**, it resolves against the parent's
   *content area* (with `"half"` mapped to `"50%"`).
 - If it is **`nil`**, the size is computed as the largest space that fits,
@@ -480,7 +487,7 @@ values are — there is no fixed "0 or 1" border assumption.
 
 Setting `shrink_to_fit = true` makes a widget render in the *minimal box*
 needed to hold its content and children (it can grow from there) — roughly
-CSS `width: fit-content`. Only the axes left unset (`nil` `width`/`height`)
+CSS `width: fit-content`. Only the axes left unset (`nil` `width_spec`/`height_spec`)
 shrink; the bounding box is computed from the content and the children's own
 coordinates, with right/bottom-anchored children handled specially so they
 don't inflate the parent's computed size.
@@ -1284,7 +1291,9 @@ Any Crysterm app accepts these out of the box: `crystal tests/hellos/hello.cr --
 
 - In Blessed the user-set values live in `widget.position.*` and `left`/`top`/…
   read from there. In Crysterm the Spec getters `left`/`top`/`right`/`bottom`
-  *are* the raw user values, the absolute resolved values are `aleft`/`atop`/…,
+  (and `width_spec`/`height_spec` — the bare `width`/`height` read as resolved
+  cells, the Qt/CSS convention) *are* the raw user values, the absolute
+  resolved values are `aleft`/`atop`/…,
   and the relative resolved values are `rleft`/`rtop`/… (in the spec space, so
   `w.left = w.rleft` is a no-op). The accessor table in
   [§4.2](#42-three-views-of-a-widgets-geometry) is the streamlined Crysterm

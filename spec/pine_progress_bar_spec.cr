@@ -8,7 +8,7 @@ describe "Pine::ProgressBar" do
     bar = Crysterm::Widget::Pine::ProgressBar.new parent: s
     bar.text_visible?.should be_true
     bar.format.should eq "[%p%]"
-    bar.height.should eq 1
+    bar.height_spec.should eq 1
   end
 
   it "derives #percent from a value set on the Pine subclass" do

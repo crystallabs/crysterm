@@ -116,7 +116,7 @@ describe "BUGS18 B18-23: Layout::Box releases a stretch-assigned cross size" do
     child.aheight.should eq 20 # Stretch fills the 20-tall interior
     # The spec itself is never touched by the engine (layout-geometry
     # channel): the assignment lives beside it, not over it.
-    child.height.should be_nil
+    child.height_spec.should be_nil
 
     l.align = Layout::Box::Align::Start
     box.height = 10
@@ -125,7 +125,7 @@ describe "BUGS18 B18-23: Layout::Box releases a stretch-assigned cross size" do
     # Off Stretch, the stale assigned height is dropped before re-measure, so
     # the child re-resolves like a fresh auto-height child instead of staying
     # frozen at the stale assigned 20.
-    child.height.should be_nil
+    child.height_spec.should be_nil
     child.aheight.should eq 10
   end
 

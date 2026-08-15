@@ -150,9 +150,9 @@ describe "BUGS16 B16-06: in-band resize reaches every window on the device" do
       # Each window debounces the report on its own resize loop; the broadcast
       # must reach every window on the device, not just the active w2, or
       # w1's buffers would stay stale forever.
-      wait_until { w2.lines.size == rows }
-      wait_until { w1.lines.size == rows }
-      w1.lines[0].size.should eq cols
+      wait_until { w2.cell_rows.size == rows }
+      wait_until { w1.cell_rows.size == rows }
+      w1.cell_rows[0].size.should eq cols
     ensure
       w1.destroy
       w2.destroy
@@ -174,13 +174,13 @@ describe "BUGS16 B16-06: in-band resize reaches every window on the device" do
       new_w = w1.awidth - 4
       new_h = w1.aheight - 2
       dev.resize new_w, new_h
-      w1.lines.size.should_not eq new_h # stale, by construction
+      w1.cell_rows.size.should_not eq new_h # stale, by construction
 
       app.activate w1
       # `activate` reallocs before the full repaint, so the raised window is
       # not composited with buffers clipped to the old rows/columns.
-      w1.lines.size.should eq new_h
-      w1.lines[0].size.should eq new_w
+      w1.cell_rows.size.should eq new_h
+      w1.cell_rows[0].size.should eq new_w
     ensure
       w1.destroy
       w2.destroy

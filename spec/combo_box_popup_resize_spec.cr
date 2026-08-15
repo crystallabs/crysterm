@@ -24,14 +24,14 @@ describe "ComboBox editable popup resize" do
     cb.handle_key_press cb_key('a')
     cb.open?.should be_true
     pop = cb.popup_widget.not_nil!
-    pop.height.should eq 8
+    pop.height_spec.should eq 8
 
     # Narrowing to "al" leaves 2 matches; the popup must shrink to fit them.
     cb.handle_key_press cb_key('l')
-    pop.height.should eq 4
+    pop.height_spec.should eq 4
 
     # Backspacing back to "a" widens the matches again; the popup must regrow.
     cb.handle_key_press Crysterm::Event::KeyPress.new('\u{0}', Tput::Key::Backspace)
-    pop.height.should eq 8
+    pop.height_spec.should eq 8
   end
 end

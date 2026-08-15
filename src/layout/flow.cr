@@ -298,7 +298,7 @@ module Crysterm
       # stretched full-interior extent). Falls back to `awidth` when no drawn
       # rect exists (frame 1, or scroll-clipped, where `lpos` is nil'd).
       private def occupied_width(el : Widget) : Int32
-        if el.width.nil? && (lp = rendered_geometry(el))
+        if el.width_spec.nil? && (lp = rendered_geometry(el))
           lp.width
         else
           el.awidth
@@ -307,7 +307,7 @@ module Crysterm
 
       # :ditto: for the vertical axis (`aheight` / drawn height).
       private def occupied_height(el : Widget) : Int32
-        if el.height.nil? && (lp = rendered_geometry(el))
+        if el.height_spec.nil? && (lp = rendered_geometry(el))
           lp.height
         else
           el.aheight
@@ -348,7 +348,7 @@ module Crysterm
         # and a `min_height` above the remaining interior pushes the resolved
         # height past the fill, making a nil-height child genuinely overflowable.
         # `max_height` needs no term — it can only lower the result.
-        return if el.height.nil? && el.min_height.nil?
+        return if el.height_spec.nil? && el.min_height.nil?
 
         height = interior.height
         # Include the top margin: render shifts a fixed-size box down by `mtop`

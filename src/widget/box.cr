@@ -46,7 +46,7 @@ module Crysterm
         # `lo` still rejects off-left columns.
         return if y < 0
         lo = 0 if lo < 0
-        window.lines[y]?.try do |line|
+        window.cell_rows[y]?.try do |line|
           text.each_char_with_index do |ch, i|
             cx = x + i
             break if cx >= hi
@@ -69,7 +69,7 @@ module Crysterm
         return if y < 0
         lo = 0 if lo < 0
         return if x < lo || x >= hi
-        window.lines[y]?.try do |line|
+        window.cell_rows[y]?.try do |line|
           line[x]?.try do |cell|
             cell.char = ch
             cell.attr = attr

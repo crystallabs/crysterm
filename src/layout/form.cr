@@ -200,7 +200,7 @@ module Crysterm
       # otherwise the widest wrapped line plus the label's own horizontal
       # insets (border/padding), so a bordered label still fits.
       private def measured_label_width(el : Widget) : Int32
-        if (w = el.width).is_a?(Int32)
+        if (w = el.width_spec).is_a?(Int32)
           return w
         end
         # Re-wrap the label's content at its current effective width before
@@ -218,7 +218,7 @@ module Crysterm
       # (e.g. `"30%"` -> its `aheight` against the live container), or 1
       # (forms are single-line by default) for a nil/auto height.
       private def row_height(el : Widget) : Int32
-        case h = el.height
+        case h = el.height_spec
         when Int32       then h
         when Dim, String then el.aheight
         else                  1

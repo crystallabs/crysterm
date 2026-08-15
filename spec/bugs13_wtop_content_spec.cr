@@ -144,9 +144,9 @@ describe "BUGS13 W17: empty {escape}{/escape} does not corrupt the remainder" do
       parse_tags: true
     box.content = "a{escape}{/escape}b{bold}c{/bold}"
     s.repaint
-    (0..2).map { |x| s.lines[0][x].char }.join.should eq "abc"
+    (0..2).map { |x| s.cell_rows[0][x].char }.join.should eq "abc"
     # 'c' carries the bold attr; 'b' doesn't.
-    s.lines[0][2].attr.should_not eq s.lines[0][1].attr
+    s.cell_rows[0][2].attr.should_not eq s.cell_rows[0][1].attr
   ensure
     s.try &.destroy
   end

@@ -8,8 +8,8 @@ include Crysterm
 # the historically hardcoded literals), and widgets resolve through
 # `Widget#glyph`/`BorderType#line_glyphs(tier)`/`Docking.dock(..., ascii)`.
 private def rows(s)
-  (0...s.lines.size).map do |y|
-    row = s.lines[y]
+  (0...s.cell_rows.size).map do |y|
+    row = s.cell_rows[y]
     (0...row.size).map { |x| row[x].char }.join
   end
 end

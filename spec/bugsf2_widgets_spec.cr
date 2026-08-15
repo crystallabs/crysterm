@@ -370,7 +370,7 @@ describe "BUGS-F2 39: BigText auto-width sums per-glyph widths" do
 
     # Each CJK glyph is full-width (2x the half-width cell), so 3 graphemes need
     # 6 cell-widths, not the 3 the old codepoint-count formula produced.
-    bt.width.should eq bt.ratio.width * 6
+    bt.width_spec.should eq bt.ratio.width * 6
   end
 end
 

@@ -10,8 +10,8 @@ include Crysterm
 
 private def screen_has_char?(screen, char : Char) : Bool
   (0...screen.height).any? do |y|
-    next false unless screen.lines[y]?
-    (0...screen.width).any? { |x| screen.lines[y][x].char == char }
+    next false unless screen.cell_rows[y]?
+    (0...screen.width).any? { |x| screen.cell_rows[y][x].char == char }
   end
 end
 

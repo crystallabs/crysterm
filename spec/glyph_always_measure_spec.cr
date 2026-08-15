@@ -46,7 +46,7 @@ describe "SizeGrip always-measure width reservation" do
       width: 1, height: 1, glyph: "⚠️"
     s.repaint
     grip.content.should eq "⚠️" # whole 2-codepoint cluster, not reduced
-    grip.width.should eq 2      # reserved the measured columns (grew from 1)
+    grip.width_spec.should eq 2 # reserved the measured columns (grew from 1)
   end
 
   it "stays 1 column for the classic single-cell glyph (byte-identical)" do
@@ -54,7 +54,7 @@ describe "SizeGrip always-measure width reservation" do
     win = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6
     grip = Widget::SizeGrip.new parent: win, bottom: 0, right: 0, width: 1, height: 1
     s.repaint
-    grip.width.should eq 1
+    grip.width_spec.should eq 1
     grip.content.should eq Glyphs.str(Glyphs::Role::SizeGrip, Glyphs::Tier::Unicode)
   end
 
@@ -77,7 +77,7 @@ describe "DockWidget titlebuttons reserve the glyph's measured width" do
       s.repaint
       close = dock.@close_button.not_nil!
       float = dock.@float_button.not_nil!
-      close.width.should eq 2      # reserved the wide glyph's columns
+      close.width_spec.should eq 2 # reserved the wide glyph's columns
       close.content.should eq "⚠️" # kept whole
       # Float button sits one cell left of the (2-wide) close button.
       float.right.should eq 3 # Unicode.width(close_glyph) + 1
@@ -91,7 +91,7 @@ describe "DockWidget titlebuttons reserve the glyph's measured width" do
     dock = Widget::DockWidget.new parent: s, top: 0, left: 0, width: 30, height: 10,
       title: "Files", closable: true, floatable: true
     s.repaint
-    dock.@close_button.not_nil!.width.should eq 1
+    dock.@close_button.not_nil!.width_spec.should eq 1
     dock.@float_button.not_nil!.right.should eq 2 # classic 1 + 1 gap
   end
 end

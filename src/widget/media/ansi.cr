@@ -124,7 +124,7 @@ module Crysterm
 
       protected def draw_sample(bmp : PNGGIF::Bitmap, xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                                 col_off : Int32, row_off : Int32)
-        lines = window.lines
+        lines = window.cell_rows
         # In a reduced-color mode, dither the whole sample to the palette up
         # front: error diffusion needs neighbours, so it can't be done per cell.
         # Keyed on the full sample, so a clipped widget still hits the memo (and

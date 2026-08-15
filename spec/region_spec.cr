@@ -11,32 +11,32 @@ describe "Window#fill_region / #blend_region" do
     s = headless_screen(default_quit_keys: true)
     s.fill_region 7_i64, 'X', 1, 4, 0, 1, force: true
 
-    s.lines[0][0].char.should eq ' ' # left of region, untouched
-    s.lines[0][1].char.should eq 'X'
-    s.lines[0][3].char.should eq 'X'
-    s.lines[0][4].char.should eq ' ' # xl is exclusive
-    s.lines[0][1].attr.should eq 7_i64
-    s.lines[0].dirty.should be_true
+    s.cell_rows[0][0].char.should eq ' ' # left of region, untouched
+    s.cell_rows[0][1].char.should eq 'X'
+    s.cell_rows[0][3].char.should eq 'X'
+    s.cell_rows[0][4].char.should eq ' ' # xl is exclusive
+    s.cell_rows[0][1].attr.should eq 7_i64
+    s.cell_rows[0].dirty.should be_true
   end
 
   it "clamps a negative origin to 0 (fill_region)" do
     s = headless_screen(default_quit_keys: true)
     s.fill_region 5_i64, 'Y', -3, 2, 0, 1, force: true
     # Clamped: only columns 0 and 1 are written, with no wrap to the far edge.
-    s.lines[0][0].char.should eq 'Y'
-    s.lines[0][1].char.should eq 'Y'
-    s.lines[0][2].char.should eq ' '
-    s.lines[0][s.awidth - 1].char.should eq ' '
+    s.cell_rows[0][0].char.should eq 'Y'
+    s.cell_rows[0][1].char.should eq 'Y'
+    s.cell_rows[0][2].char.should eq ' '
+    s.cell_rows[0][s.awidth - 1].char.should eq ' '
   end
 
   it "blends existing cell attributes toward black" do
     s = headless_screen(default_quit_keys: true)
     s.fill_region 0x00FF00_i64, 'a', 0, 2, 0, 1, force: true
-    before = s.lines[0][0].attr
+    before = s.cell_rows[0][0].attr
 
     s.blend_region 0.5, 0, 2, 0, 1
-    s.lines[0][0].attr.should eq Colors.blend(before, alpha: 0.5)
-    s.lines[0][0].char.should eq 'a' # blend only touches the attribute
+    s.cell_rows[0][0].attr.should eq Colors.blend(before, alpha: 0.5)
+    s.cell_rows[0][0].char.should eq 'a' # blend only touches the attribute
   end
 
   # A widget's top/left shadow against the top/left screen edge passes
@@ -49,25 +49,25 @@ describe "Window#fill_region / #blend_region" do
     s = headless_screen(default_quit_keys: true)
     h = s.aheight
     w = s.awidth
-    base = s.lines[h - 1][w - 1].attr
+    base = s.cell_rows[h - 1][w - 1].attr
 
     # A row band entirely above the top edge (negative y) must be a complete
     # no-op, not a blend of the last row via negative-index wraparound.
     s.blend_region 0.5, 0, w, -2, 0
-    s.lines[h - 1][w - 1].attr.should eq base
-    s.lines[h - 1][0].attr.should eq base
+    s.cell_rows[h - 1][w - 1].attr.should eq base
+    s.cell_rows[h - 1][0].attr.should eq base
 
     # A column band entirely left of the left edge (negative x) on a valid row:
     # likewise no wrap to the rightmost column.
     s.blend_region 0.5, -2, 0, 0, 1
-    s.lines[0][w - 1].attr.should eq base
+    s.cell_rows[0][w - 1].attr.should eq base
 
     # A region straddling the left edge blends only its in-bounds columns (0..1),
     # leaving the wrapped-to far edge untouched.
     s.blend_region 0.5, -1, 2, 0, 1
-    s.lines[0][w - 1].attr.should eq base
-    s.lines[0][0].attr.should eq Colors.blend(base, alpha: 0.5)
-    s.lines[0][1].attr.should eq Colors.blend(base, alpha: 0.5)
+    s.cell_rows[0][w - 1].attr.should eq base
+    s.cell_rows[0][0].attr.should eq Colors.blend(base, alpha: 0.5)
+    s.cell_rows[0][1].attr.should eq Colors.blend(base, alpha: 0.5)
   end
 end
 

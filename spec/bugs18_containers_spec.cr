@@ -51,13 +51,13 @@ describe "BUGS18 B18-53: BigText shrink-to-content sizing includes border/paddin
     s.repaint
 
     # Outer size = glyph extent + insets (1 cell each side for a plain border).
-    bt.width.should eq bt.ratio.width * 2 + 2
-    bt.height.should eq bt.ratio.height + 2
+    bt.width_spec.should eq bt.ratio.width * 2 + 2
+    bt.height_spec.should eq bt.ratio.height + 2
 
     lit = [] of Tuple(Int32, Int32) # {y, x}
     (0...s.height).each do |y|
       (0...s.width).each do |x|
-        lit << {y, x} if s.lines[y][x].char == '#'
+        lit << {y, x} if s.cell_rows[y][x].char == '#'
       end
     end
     lit.should_not be_empty
@@ -99,7 +99,7 @@ describe "BUGS18 B18-54: ToolBox section headers strip the container's border/pa
     # height-1 header's border must not eat the whole interior (which would
     # leave only border glyphs drawn).
     row = header.atop
-    chars = (0...s.width).map { |x| s.lines[row][x].char }.join
+    chars = (0...s.width).map { |x| s.cell_rows[row][x].char }.join
     chars.should contain "General"
   ensure
     s.try &.destroy
@@ -318,7 +318,7 @@ describe "BUGS18 B18-64: BigText re-derives its active font from style.bold? eve
 
     normal_cells = [] of Tuple(Int32, Int32)
     (0...s.height).each do |y|
-      (0...s.width).each { |x| normal_cells << {y, x} if s.lines[y][x].char == '#' }
+      (0...s.width).each { |x| normal_cells << {y, x} if s.cell_rows[y][x].char == '#' }
     end
     normal_cells.should_not be_empty
 
@@ -330,7 +330,7 @@ describe "BUGS18 B18-64: BigText re-derives its active font from style.bold? eve
 
     bold_cells = [] of Tuple(Int32, Int32)
     (0...s.height).each do |y|
-      (0...s.width).each { |x| bold_cells << {y, x} if s.lines[y][x].char == '#' }
+      (0...s.width).each { |x| bold_cells << {y, x} if s.cell_rows[y][x].char == '#' }
     end
 
     # The bundled bold face is synthesized by smearing each lit pixel one

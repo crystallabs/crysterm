@@ -24,14 +24,14 @@ describe "BUGS13 M2: media backends clamp negative coordinates" do
     img.bitmap = red_bitmap(4, 4)
     s.repaint
 
-    base = s.lines[4][10].attr # an untouched reference cell
+    base = s.cell_rows[4][10].attr # an untouched reference cell
     (0..3).each do |x|
       # Rows -2/-1 must not wrap to the bottom of the buffer (rows 4/5).
-      s.lines[4][x].attr.should eq base
-      s.lines[5][x].attr.should eq base
+      s.cell_rows[4][x].attr.should eq base
+      s.cell_rows[5][x].attr.should eq base
     end
     # Sanity: the visible part did paint.
-    s.lines[0][0].attr.should_not eq base
+    s.cell_rows[0][0].attr.should_not eq base
   ensure
     s.try &.destroy
   end
@@ -43,13 +43,13 @@ describe "BUGS13 M2: media backends clamp negative coordinates" do
     img.bitmap = red_bitmap(8, 4)
     s.repaint
 
-    base = s.lines[0][10].attr
+    base = s.cell_rows[0][10].attr
     [18, 19].each do |x|
       # Columns -2/-1 must not wrap to the right end of the row (18/19).
-      s.lines[0][x].attr.should eq base
-      s.lines[1][x].attr.should eq base
+      s.cell_rows[0][x].attr.should eq base
+      s.cell_rows[1][x].attr.should eq base
     end
-    s.lines[0][0].attr.should_not eq base
+    s.cell_rows[0][0].attr.should_not eq base
   ensure
     s.try &.destroy
   end
@@ -63,10 +63,10 @@ describe "BUGS13 M4: paint_document clamps negative columns" do
     s.repaint
 
     # The first visible character is the 4th of the row's text.
-    s.lines[0][0].char.should eq 'l'
+    s.cell_rows[0][0].char.should eq 'l'
     # Columns -3..-1 must not wrap to cells 17..19.
     (17..19).each do |x|
-      s.lines[0][x].char.should eq ' '
+      s.cell_rows[0][x].char.should eq ' '
     end
   ensure
     s.try &.destroy

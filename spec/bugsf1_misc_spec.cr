@@ -151,9 +151,9 @@ describe "BUGS-F1 finding 39: Donut caption is not stamped onto the bottom borde
 
     # The centered "CPU" would land at column 4 (xi=1, width 12).
     # Tight donut: bottom border row is 2 — must NOT hold the caption.
-    s.lines[2][4].char.should_not eq 'C'
+    s.cell_rows[2][4].char.should_not eq 'C'
     # Roomy donut: interior caption row is 4+3 = 7 — must hold it.
-    s.lines[7][4].char.should eq 'C'
+    s.cell_rows[7][4].char.should eq 'C'
   end
 end
 

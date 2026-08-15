@@ -22,7 +22,7 @@ end
 
 private def f2_screen_text(s) : String
   String.build do |io|
-    s.lines.each do |line|
+    s.cell_rows.each do |line|
       (0...s.awidth).each do |x|
         c = line[x]?.try(&.char) || ' '
         io << (c == '\0' ? ' ' : c)
@@ -68,7 +68,7 @@ describe "BUGS-F2 finding 2: scroll-clip label exemption is 'IS a label'" do
     # through by the scrolled child's border). Zeroing all four clip
     # compensations for the labeled child corrupts the frame.
     bl = box.lpos.not_nil!
-    corner = s.lines[bl.yl - 1][bl.xi]?.try(&.char)
+    corner = s.cell_rows[bl.yl - 1][bl.xi]?.try(&.char)
     corner.should eq '└'
   end
 end

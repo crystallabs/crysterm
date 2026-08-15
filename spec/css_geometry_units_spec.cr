@@ -11,8 +11,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width.should eq 20 # 200 / 10
-    a.left.should eq 1   # round(12 / 10)
+    a.width_spec.should eq 20 # 200 / 10
+    a.left.should eq 1        # round(12 / 10)
   end
 
   it "passes percentage / keyword forms straight through" do
@@ -30,8 +30,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width.should eq 7    # the mapped unit's sibling still applies
-    a.height.should be_nil # 3cm dropped -> never set
+    a.width_spec.should eq 7    # the mapped unit's sibling still applies
+    a.height_spec.should be_nil # 3cm dropped -> never set
   end
 
   it "scales units in non-geometry lengths (padding/margin) too" do
@@ -110,7 +110,7 @@ describe "CSS geometry units" do
     s.repaint
     # Viewport string is kept on the widget (not baked to cells), re-resolving
     # against the screen every frame.
-    a.width.should eq "50vw"
+    a.width_spec.should eq "50vw"
     a.awidth.should eq 40  # 50% of 80
     a.aheight.should eq 24 # 100% of 24
     a.atop.should eq 6     # 25% of min(80, 24)
@@ -133,9 +133,9 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width.should eq "50VW" # kept as a (reactive) viewport string, not dropped
-    a.awidth.should eq 24    # 50% of 80, clamped to max-width (30% of 80 = 24)
-    a.aheight.should eq 24   # 100% of 24
+    a.width_spec.should eq "50VW" # kept as a (reactive) viewport string, not dropped
+    a.awidth.should eq 24         # 50% of 80, clamped to max-width (30% of 80 = 24)
+    a.aheight.should eq 24        # 100% of 24
     # A viewport constraint is kept unresolved too, so — like a viewport size —
     # it re-resolves against the window on every frame instead of being baked to
     # cells once at cascade time.
@@ -154,8 +154,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width.should eq 22 # 20 + 2
-    a.left.should eq 1   # round(0.8 - 0.2)
+    a.width_spec.should eq 22 # 20 + 2
+    a.left.should eq 1        # round(0.8 - 0.2)
   end
 
   it "accepts a leading-dot decimal length (.5em), bare and inside calc()" do
@@ -173,8 +173,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width.should eq 7    # sibling still applies
-    a.height.should be_nil # calc with `%` -> dropped, never set
+    a.width_spec.should eq 7    # sibling still applies
+    a.height_spec.should be_nil # calc with `%` -> dropped, never set
   end
 
   it "resolves a sub-cell border width to no border" do
@@ -257,8 +257,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint # must not raise OverflowError
-    a.width.should eq Int32::MAX
-    a.height.should eq Int32::MAX
+    a.width_spec.should eq Int32::MAX
+    a.height_spec.should eq Int32::MAX
   end
 
   it "seeds the px divisor from the css.px_per_cell config option" do
@@ -269,7 +269,7 @@ describe "CSS geometry units" do
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
       s.repaint
-      a.width.should eq 40 # 200 / 5
+      a.width_spec.should eq 40 # 200 / 5
     ensure
       Superconf.css_px_per_cell = 10.0 # back to default ⇒ un-configured
       Crysterm::CSS::Length.divisors["px"] = 10.0
@@ -285,8 +285,8 @@ describe "CSS geometry units" do
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
       s.repaint
-      a.width.should eq 25 # map px=4, then px_per_cell=8 wins ⇒ 200 / 8
-      a.height.should eq 2 # em=2 from the map ⇒ 4 / 2
+      a.width_spec.should eq 25 # map px=4, then px_per_cell=8 wins ⇒ 200 / 8
+      a.height_spec.should eq 2 # em=2 from the map ⇒ 4 / 2
     ensure
       Superconf.css_unit_divisors = ""
       Superconf.css_px_per_cell = 10.0
@@ -303,8 +303,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width.should eq 20  # 200 / 10
-    a.height.should eq 10 # 200 / (10 * 2.0)
+    a.width_spec.should eq 20  # 200 / 10
+    a.height_spec.should eq 10 # 200 / (10 * 2.0)
   end
 
   it "leaves relative units (em/ch) isotropic regardless of axis" do
@@ -313,8 +313,8 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width.should eq 4  # 4 / 1
-    a.height.should eq 4 # 4 / 1 -- not scaled by the aspect ratio
+    a.width_spec.should eq 4  # 4 / 1
+    a.height_spec.should eq 4 # 4 / 1 -- not scaled by the aspect ratio
   end
 
   it "honors an explicit css.cell_aspect_ratio override" do
@@ -325,8 +325,8 @@ describe "CSS geometry units" do
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
       s.repaint
-      a.width.should eq 20 # 200 / 10 (horizontal, unaffected)
-      a.height.should eq 5 # 200 / (10 * 4.0)
+      a.width_spec.should eq 20 # 200 / 10 (horizontal, unaffected)
+      a.height_spec.should eq 5 # 200 / (10 * 4.0)
     ensure
       Superconf.css_cell_aspect_ratio = 2.0
       Crysterm::CSS::Length.cell_aspect_ratio = 2.0
@@ -342,7 +342,7 @@ describe "CSS geometry units" do
       a = Widget::Box.new parent: s, content: "x"
       a.css_id = "a"
       s.repaint
-      a.width.should eq 10 # 200 / 20
+      a.width_spec.should eq 10 # 200 / 20
     ensure
       Crysterm::CSS::Length.divisors["px"] = original
     end

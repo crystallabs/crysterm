@@ -29,15 +29,15 @@ describe "BUGS18 B18-51: Splitter orientation change" do
     b = Crysterm::Widget::Box.new
     sp.add_widget a
     sp.add_widget b
-    a.width.should eq 30 # (62 - 1) // 2
+    a.width_spec.should eq 30 # (62 - 1) // 2
 
     sp.orientation = Tput::Orientation::Vertical
     sp.orientation.vertical?.should be_true
 
     # The setter relayouts immediately; the old horizontal extent must be gone
     # so the `left: 0`/`right: 0` stretch takes effect.
-    a.width.should be_nil
-    a.height.should eq 9 # (20 - 1) // 2
+    a.width_spec.should be_nil
+    a.height_spec.should eq 9 # (20 - 1) // 2
     a.left.should eq 0
     a.right.should eq 0
 
@@ -55,12 +55,12 @@ describe "BUGS18 B18-51: Splitter orientation change" do
     b = Crysterm::Widget::Box.new
     sp.add_widget a
     sp.add_widget b
-    a.height.should eq 9
+    a.height_spec.should eq 9
 
     sp.orientation = Tput::Orientation::Horizontal
 
-    a.height.should be_nil
-    a.width.should eq 30
+    a.height_spec.should be_nil
+    a.width_spec.should eq 30
     a.top.should eq 0
     a.bottom.should eq 0
 
@@ -80,8 +80,8 @@ describe "BUGS18 B18-51: Splitter orientation change" do
 
     sp.orientation = Tput::Orientation::Horizontal
     div.right.should be_nil # stale `right: 0` from the vertical layout cleared
-    div.width.should eq 1
-    div.height.should be_nil
+    div.width_spec.should eq 1
+    div.height_spec.should be_nil
   end
 end
 
@@ -89,12 +89,12 @@ describe "BUGS18 B18-52: Line#orientation= axis swap" do
   it "moves a default horizontal line's length to the vertical axis and back" do
     s = headless_screen(80, 24)
     l = Crysterm::Widget::HLine.new parent: s, top: 5
-    l.width.should eq "100%"
-    l.height.should be_nil
+    l.width_spec.should eq "100%"
+    l.height_spec.should be_nil
 
     l.orientation = Tput::Orientation::Vertical
-    l.width.should be_nil
-    l.height.should eq "100%"
+    l.width_spec.should be_nil
+    l.height_spec.should eq "100%"
 
     # One column wide, not a full-area slab of glyphs.
     s.repaint
@@ -102,16 +102,16 @@ describe "BUGS18 B18-52: Line#orientation= axis swap" do
     (lp.xl - lp.xi).should eq 1
 
     l.orientation = Tput::Orientation::Horizontal
-    l.width.should eq "100%"
-    l.height.should be_nil
+    l.width_spec.should eq "100%"
+    l.height_spec.should be_nil
   end
 
   it "carries an explicit thickness over to the new axis" do
     s = headless_screen(80, 24)
     l = Crysterm::Widget::Line.new parent: s, top: 2, left: 2, width: 20, height: 3
     l.orientation = Tput::Orientation::Vertical
-    l.width.should eq 3
-    l.height.should eq 20
+    l.width_spec.should eq 3
+    l.height_spec.should eq 20
   end
 end
 
@@ -138,7 +138,7 @@ describe "BUGS18 B18-55: Splitter pane removal bookkeeping" do
     old_dividers.each { |d| sp.children.includes?(d).should be_false }
 
     # The surviving panes re-even across the whole span, no ghost slot.
-    a.width.should eq 19 # (40 - 1) // 2
+    a.width_spec.should eq 19 # (40 - 1) // 2
     c.left.should eq 20
     c.right.should eq 0
   end
@@ -162,7 +162,7 @@ describe "BUGS18 B18-55: Splitter pane removal bookkeeping" do
     # The remaining pane is laid out as the last (and only) pane: stretched.
     b.left.should eq 0
     b.right.should eq 0
-    b.width.should be_nil
+    b.width_spec.should be_nil
   end
 
   it "handles a generic remove() the same as remove_widget" do

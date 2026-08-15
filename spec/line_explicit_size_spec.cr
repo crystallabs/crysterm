@@ -12,24 +12,24 @@ describe Crysterm::Widget::Line do
   it "honors an explicit width on a horizontal line" do
     s = headless_screen(80, 24)
     h = Crysterm::Widget::HLine.new parent: s, top: 0, left: 4, width: 40
-    h.width.should eq 40
+    h.width_spec.should eq 40
   end
 
   it "honors an explicit height on a vertical line" do
     s = headless_screen(80, 24)
     v = Crysterm::Widget::VLine.new parent: s, top: 2, left: 0, height: 16
-    v.height.should eq 16
+    v.height_spec.should eq 16
   end
 
   it "still fills its parent when given no explicit length" do
     s = headless_screen(80, 24)
     h = Crysterm::Widget::HLine.new parent: s, top: 0, left: 0
-    h.width.should eq "100%"
+    h.width_spec.should eq "100%"
   end
 
   it "still honors the explicit size convenience argument" do
     s = headless_screen(80, 24)
     h = Crysterm::Widget::HLine.new parent: s, top: 0, left: 0, line_size: 30
-    h.width.should eq 30
+    h.width_spec.should eq 30
   end
 end

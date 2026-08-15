@@ -51,7 +51,7 @@ private def backdrop_attr_at(y : Int32, x : Int32) : Int64
   Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 12,
     style: Crysterm::Style.new(bg: "red")
   s.repaint
-  Crysterm::Attr.bg(s.lines[y][x].attr)
+  Crysterm::Attr.bg(s.cell_rows[y][x].attr)
 end
 
 private def padding_ring_attr(fill : Bool)
@@ -69,7 +69,7 @@ private def padding_ring_attr(fill : Bool)
   s.repaint
 
   lp = b.lpos.not_nil!
-  {Crysterm::Attr.bg(s.lines[lp.yi][lp.xi].attr), lp}
+  {Crysterm::Attr.bg(s.cell_rows[lp.yi][lp.xi].attr), lp}
 end
 
 # BUGS15 #91 — the opacity pre-blend in `repaint`'s pre-fill block ran
@@ -102,7 +102,7 @@ end
 # `scrollbar_width=`/`scrollbar_height=` change then desynced the reserved
 # content margin from the actual bar size, leaving a dead reserved stripe.
 # `update_scrollbar_widget`'s per-frame reconcile re-asserts
-# `sb.width`/`hb.height` (already change-guarded, so free when unchanged).
+# `sb.width_spec`/`hb.height_spec` (already change-guarded, so free when unchanged).
 describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollBar chrome in sync" do
   it "widens the vertical bar to match content_margin_x after scrollbar_width=" do
     s = headless_screen(40, 12)
@@ -113,7 +113,7 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
 
     s.repaint
     sb = box.scrollbar_widget.not_nil!
-    sb.width.should eq 1
+    sb.width_spec.should eq 1
     box.content_margin_x.should eq 1
     width_before = box.content_width
 
@@ -124,7 +124,7 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
     box.content_width.should eq width_before - 1
     # Without the reassert, the memoized bar would stay 1 column wide here,
     # leaving a dead reserved column between content and bar.
-    sb.width.should eq 2
+    sb.width_spec.should eq 2
   end
 
   it "heightens the horizontal bar to match hscrollbar_rows after scrollbar_height=" do
@@ -135,7 +135,7 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
 
     s.repaint
     hb = box.horizontal_scrollbar_widget.not_nil!
-    hb.height.should eq 1
+    hb.height_spec.should eq 1
     box.hscrollbar_rows.should eq 1
     rows_before = box.aheight - box.ivertical - box.hscrollbar_rows
 
@@ -145,6 +145,6 @@ describe "BUGS15 92: runtime scrollbar_width=/scrollbar_height= keep the ScrollB
     box.hscrollbar_rows.should eq 2
     (box.aheight - box.ivertical - box.hscrollbar_rows).should eq rows_before - 1
     # Without the reassert, the memoized bar would stay 1 row tall here.
-    hb.height.should eq 2
+    hb.height_spec.should eq 2
   end
 end

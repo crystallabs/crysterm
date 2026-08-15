@@ -293,7 +293,7 @@ module Crysterm
       private def relayout : Nil
         n = @tablets.size
         return if n == 0
-        inner = (aheight - ivertical) rescue (height.as?(Int32) || n)
+        inner = (aheight - ivertical) rescue (height_spec.as?(Int32) || n)
         return if inner <= 0
         outer_w = (awidth - ihorizontal) rescue 0
 

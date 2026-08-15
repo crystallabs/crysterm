@@ -24,8 +24,8 @@ describe "Window#draw artificial cursor movement" do
 
     # Stable content; primes @flushed_lines to mirror @lines (default cursor is
     # hardware, so nothing artificial painted yet).
-    s.lines.size.times { |y| s.lines[y].size.times { |x| s.lines[y][x].char = '.' } }
-    s.lines.each &.dirty=(true)
+    s.cell_rows.size.times { |y| s.cell_rows[y].size.times { |x| s.cell_rows[y][x].char = '.' } }
+    s.cell_rows.each &.dirty=(true)
     s.draw
 
     # Switch to a visible artificial block cursor and place it at (x1, y1).
@@ -41,7 +41,7 @@ describe "Window#draw artificial cursor movement" do
 
     # Cursor cell now carries REVERSE in @flushed_lines; content cell does not.
     (Attr.flags(s.flushed_lines[y1][x1].attr) & Attr::REVERSE).should_not eq 0
-    (Attr.flags(s.lines[y1][x1].attr) & Attr::REVERSE).should eq 0
+    (Attr.flags(s.cell_rows[y1][x1].attr) & Attr::REVERSE).should eq 0
 
     # Move to a different row: no content change, no row marked dirty. The
     # vacated cell must revert to the real content.
@@ -60,8 +60,8 @@ describe "Window#draw artificial cursor movement" do
   it "erases the artificial cursor when it stops being drawn" do
     s = cursor_screen
     s.alloc
-    s.lines.size.times { |y| s.lines[y].size.times { |x| s.lines[y][x].char = '.' } }
-    s.lines.each &.dirty=(true)
+    s.cell_rows.size.times { |y| s.cell_rows[y].size.times { |x| s.cell_rows[y][x].char = '.' } }
+    s.cell_rows.each &.dirty=(true)
     s.draw
 
     s.cursor.artificial = true

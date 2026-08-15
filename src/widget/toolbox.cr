@@ -209,7 +209,7 @@ module Crysterm
         n = @sections.size
         return if n == 0
 
-        inner = (aheight - ivertical) rescue (height.as?(Int) || n)
+        inner = (aheight - ivertical) rescue (height_spec.as?(Int) || n)
         page_height = Math.max(0, inner - n)
 
         y = 0

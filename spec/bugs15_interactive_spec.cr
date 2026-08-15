@@ -112,15 +112,15 @@ describe "BUGS15 44: Slider paints its track in the content region (padding resp
     # a border-only render would paint the full 24 cells, overlapping padding.
     sl.ileft.should eq 2
     {lp.xi, lp.xi + 1, lp.xi + 22, lp.xi + 23}.each do |x|
-      c = s.lines[row][x].char
+      c = s.cell_rows[row][x].char
       c.should_not eq '-'
       c.should_not eq '#'
     end
     # The content region (cols xi+2 .. xi+21) carries the track, and the handle
     # falls inside it — so the drawn handle and the click-mapped value share the
     # same origin/span.
-    s.lines[row][lp.xi + 2].char.should eq '-'
-    handle_x = (lp.xi + 2..lp.xi + 21).find { |x| s.lines[row][x].char == '#' }
+    s.cell_rows[row][lp.xi + 2].char.should eq '-'
+    handle_x = (lp.xi + 2..lp.xi + 21).find { |x| s.cell_rows[row][x].char == '#' }
     handle_x.should_not be_nil
   end
 end

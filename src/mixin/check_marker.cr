@@ -7,10 +7,10 @@ module Crysterm
     # width stabilization without the button interaction wiring. Any `Widget`
     # can include it; set `@text` before calling `#marker_line`.
     module MarkerLine
-      # The label drawn after the marker glyph. A marker control renders the
-      # composed `<open><mark><close> text` line as its `#content`, so it cannot
-      # let `AbstractButton#text` read/write `#content` the way the push buttons
-      # do — it keeps the label in its own ivar and `#marker_line` re-composes.
+      # The label drawn after the marker glyph. A marker control paints the
+      # composed `<open><mark><close> text` line, so the label lives in its own
+      # ivar and `#marker_line` re-composes; `CheckMarker` routes the public
+      # `#text`/`#content` pair here, keeping the composed line render-internal.
       @text : String = ""
 
       # Cached last-built line and the inputs it was built from: `marker_line`
@@ -118,6 +118,22 @@ module Crysterm
       # :ditto: — a change only needs a repaint; `#paint` re-composes the marker
       # line from `@text`.
       repaint_property text, String
+
+      # On a marker control `#content` is the *label* — the same value as
+      # `#text`, upholding `AbstractButton`'s "text and content can never
+      # disagree" guarantee. The composed `<marker> label` line `#paint`
+      # writes is render-internal storage, reported (post-parse) by
+      # `#rendered_content` like any other widget's drawn output — it is
+      # never the property value.
+      def content : String
+        @text
+      end
+
+      # :ditto: — writing either spelling sets the label; the marker line is
+      # re-composed on the next paint.
+      def content=(content)
+        self.text = content.to_s
+      end
 
       # Sets the checkable base state (`#checkable?`, `#checked?`), the initial
       # `#text` from an explicit `content:`, and wires marker input via

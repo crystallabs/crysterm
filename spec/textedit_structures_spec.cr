@@ -189,8 +189,8 @@ describe Widget::TextEdit do
       te.selection_anchor = 0
       te.cursor_pos = 3
       s.repaint
-      (Attr.flags(s.lines[0][2].attr) & Attr::REVERSE).should_not eq 0
-      (Attr.flags(s.lines[0][0].attr) & Attr::REVERSE).should eq 0
+      (Attr.flags(s.cell_rows[0][2].attr) & Attr::REVERSE).should_not eq 0
+      (Attr.flags(s.cell_rows[0][0].attr) & Attr::REVERSE).should eq 0
     end
   end
 end

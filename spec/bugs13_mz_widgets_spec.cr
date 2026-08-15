@@ -89,7 +89,7 @@ describe "BUGS13 M7: ToolTip sizes by display width" do
     tt.show_at 0, 0, "日本語"
     # 6 display cells + 1 leading/trailing pad cell each side + insets;
     # codepoint counting (3) would clip the text inside the box.
-    tt.width.should eq 6 + 2 + tt.ihorizontal
+    tt.width_spec.should eq 6 + 2 + tt.ihorizontal
   ensure
     s.try &.destroy
   end
@@ -104,7 +104,7 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
     bar.add_permanent "日本語" # 6 cells
     s.repaint
     # Starts at xl - 6 == 14, not xl - .size == 17.
-    s.lines[0][14].char.should eq '日'
+    s.cell_rows[0][14].char.should eq '日'
   ensure
     s.try &.destroy
   end
@@ -118,7 +118,7 @@ describe "BUGS13 M8: StatusBar permanent sections use display width" do
     s.repaint
     # Must drop A,B,C (3 cells) keeping "DE日本" (6 cells) — a codepoint
     # slice would drop only one character and start the run off-cell.
-    s.lines[0][0].char.should eq 'D'
+    s.cell_rows[0][0].char.should eq 'D'
   ensure
     s.try &.destroy
   end

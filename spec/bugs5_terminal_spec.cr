@@ -60,7 +60,7 @@ describe "Widget::Terminal cursor on wide-glyph continuation half (BUG 1)" do
 
     s.repaint
 
-    line = s.lines[0]
+    line = s.cell_rows[0]
     # Grid invariant preserved: lead holds the wide glyph, next cell is its
     # continuation.
     ::Crysterm::Unicode.width(line[0].char).should eq 2
@@ -86,7 +86,7 @@ describe "Widget::Terminal cursor on wide-glyph continuation half (BUG 1)" do
     em.feed "世\e[5G" # cursor to col 5, away from the glyph pair
     s.repaint
 
-    line = s.lines[0]
+    line = s.cell_rows[0]
     line[1].continuation?.should be_true
     (Attr.flags(line[1].attr) & Attr::REVERSE).should eq 0
   ensure
@@ -140,7 +140,7 @@ describe "Widget::Terminal :line cursor preserves the underlying glyph (BUG 3)" 
     em.cursor_x.should eq 0
     s.repaint
 
-    line = s.lines[0]
+    line = s.cell_rows[0]
     # The glyph under the bar cursor is preserved (not replaced by '│').
     line[0].char.should eq 'X'
   ensure

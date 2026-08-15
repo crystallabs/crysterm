@@ -43,7 +43,7 @@ end
 # The packed bg color of the top-left visible cell of *img*.
 private def top_left_bg(s, img) : Int64
   lp = img.lpos.not_nil!
-  cell = s.lines[lp.yi][lp.xi]
+  cell = s.cell_rows[lp.yi][lp.xi]
   Attr.bg(cell.attr)
 end
 
@@ -108,7 +108,7 @@ describe "BUGS17 B17-33 Media::Cells#render clip base/origin" do
 
     # Every row shows its own source color, unsquashed/uncropped.
     10.times do |y|
-      cell = s.lines[lp.yi + y][lp.xi]
+      cell = s.cell_rows[lp.yi + y][lp.xi]
       Attr.bg(cell.attr).should eq Attr.pack_color(row_rgb(y))
     end
   ensure

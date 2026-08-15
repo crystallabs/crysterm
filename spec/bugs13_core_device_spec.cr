@@ -45,8 +45,8 @@ describe "BUGS13 C12: Window#screen= sizes an adopted fresh device" do
     w.aheight.should eq fresh.tput.screen.height
     w.awidth.should be > 1
     # The cell buffers follow the adopted size.
-    w.lines.size.should eq w.aheight
-    w.lines[0].size.should eq w.awidth
+    w.cell_rows.size.should eq w.aheight
+    w.cell_rows[0].size.should eq w.awidth
 
     w.destroy
   end

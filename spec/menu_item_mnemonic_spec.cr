@@ -56,7 +56,7 @@ describe "Menu entry & mnemonics" do
     m2 << Crysterm::Action.new "Wrapping"
     m1.fit_to_content
     m2.fit_to_content
-    m1.width.should eq m2.width
+    m1.width_spec.should eq m2.width_spec
   end
 
   it "keeps markup intact on the exact-fit widest row (no mid-tag truncation)" do

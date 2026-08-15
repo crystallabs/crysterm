@@ -104,7 +104,7 @@ describe "BUGS7 Menu row width uses display width" do
 
     # Same codepoint count, so a codepoint-based width would be identical;
     # display-width sizing makes the CJK menu exactly 2 columns wider.
-    (cjk.width.as(Int) - ascii.width.as(Int)).should eq 2
+    (cjk.width_spec.as(Int) - ascii.width_spec.as(Int)).should eq 2
   end
 end
 

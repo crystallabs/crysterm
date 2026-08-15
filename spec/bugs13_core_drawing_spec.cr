@@ -2,6 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
+class Crysterm::Window
+  # Spec-only access to the protected CSR scroll primitive (§1.3 made the
+  # `scroll_*_rows` drawing internals protected).
+  def _b13_scroll_delete_rows(n, y, top, bottom)
+    scroll_delete_rows n, y, top, bottom
+  end
+end
+
 # Regression specs for BUGS13 core findings C3, C7, C9, C16
 # (src/window_drawing.cr):
 #
@@ -71,7 +79,7 @@ describe "BUGS13 C7: inline CSR ops hand the whole terminal back" do
     out.clear
 
     # A CSR-backed line op sets the region for the op, then must restore.
-    w.delete_line 1, 0, 0, 4
+    w._b13_scroll_delete_rows 1, 0, 0, 4
     w.draw
 
     regions = out.to_s.scan(/\e\[(\d+);(\d+)r/)
@@ -90,7 +98,7 @@ describe "BUGS13 C7: inline CSR ops hand the whole terminal back" do
     out = w.output.as(IO::Memory)
     out.clear
 
-    w.delete_line 1, 0, 0, 4
+    w._b13_scroll_delete_rows 1, 0, 0, 4
     w.draw
 
     regions = out.to_s.scan(/\e\[(\d+);(\d+)r/)
@@ -110,7 +118,7 @@ describe "BUGS13 C9: invalidate_region repaints a wide glyph straddling its left
     out = w.output.as(IO::Memory)
 
     # A wide glyph occupying columns 4 (lead) and 5 (continuation) on row 1.
-    line = w.lines[1]
+    line = w.cell_rows[1]
     line[4].char = '日'
     line[5].continuation!
     line.dirty = true
@@ -131,7 +139,7 @@ end
 describe "BUGS13 C16: fill_region clears the link overlay" do
   it "drops links when blanking linked cells" do
     w = b13dr_window
-    line = w.lines[1]
+    line = w.cell_rows[1]
     line[3].char = 'a'
     line.set_link 3, 7_u16
     line.has_links?.should be_true
@@ -145,7 +153,7 @@ describe "BUGS13 C16: fill_region clears the link overlay" do
 
   it "rewrites an already-blank cell that still carries a link" do
     w = b13dr_window
-    line = w.lines[1]
+    line = w.cell_rows[1]
     # Cell content already equals the fill (default attr + space): the write
     # guard must still rewrite it rather than keep the stale link.
     line.set_link 2, 9_u16

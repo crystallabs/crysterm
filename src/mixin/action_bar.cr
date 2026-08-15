@@ -315,7 +315,7 @@ module Crysterm
       # a widget that resolves to nothing still gets a slot rather than
       # collapsing the row.
       private def embedded_width(widget : Widget) : Int32
-        w = widget.width
+        w = widget.width_spec
         n = w.is_a?(Int32) ? w : widget.awidth
         n > 0 ? n : 1
       end

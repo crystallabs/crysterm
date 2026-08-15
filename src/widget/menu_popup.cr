@@ -96,7 +96,7 @@ module Crysterm
         # clamp and the single absolute→window-local inset conversion: a
         # window-appended menu's `left`/`top` are relative to the window content
         # origin, so a padded window would otherwise shift it by the inset.
-        Overlay.place_child(self, {x, y, 0, 0}, {awidth_hint, height.as?(Int) || 1},
+        Overlay.place_child(self, {x, y, 0, 0}, {awidth_hint, height_spec.as?(Int) || 1},
           [Overlay::Side::At], point: {x, y})
         show
         to_front
@@ -146,7 +146,7 @@ module Crysterm
       # Configured width used for on-window clamping in `#popup` (the value just
       # assigned by `#fit_to_content`).
       private def awidth_hint : Int32
-        (width.as?(Int) || 1)
+        (width_spec.as?(Int) || 1)
       end
 
       private def activate_index(index : Int32)
@@ -246,7 +246,7 @@ module Crysterm
           row_top = lp.yi + itop + (current_index - @child_base)
           Overlay.place_child(child,
             {lp.xi, row_top, (lp.xl - lp.xi) - border, 1},
-            {child.width.as?(Int) || 1, child.height.as?(Int) || 1},
+            {child.width_spec.as?(Int) || 1, child.height_spec.as?(Int) || 1},
             [Overlay::Side::Right, Overlay::Side::Left])
         rescue
           child.left = 0

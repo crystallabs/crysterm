@@ -49,7 +49,7 @@ private def cell_sig(s, img) : String
   lp = img.lpos.not_nil!
   String.build do |io|
     (lp.yi...lp.yl).each do |y|
-      row = s.lines[y]? || next
+      row = s.cell_rows[y]? || next
       (lp.xi...lp.xl).each do |x|
         cell = row[x]? || next
         io << cell.attr << ':' << cell.char << ';'

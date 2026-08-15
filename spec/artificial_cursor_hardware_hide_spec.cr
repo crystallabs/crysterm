@@ -21,8 +21,8 @@ end
 
 private def prime(s)
   s.alloc
-  s.lines.size.times { |y| s.lines[y].size.times { |x| s.lines[y][x].char = '.' } }
-  s.lines.each &.dirty=(true)
+  s.cell_rows.size.times { |y| s.cell_rows[y].size.times { |x| s.cell_rows[y][x].char = '.' } }
+  s.cell_rows.each &.dirty=(true)
 end
 
 describe "Window#draw hardware cursor hide during the frame" do

@@ -88,16 +88,16 @@ describe "BUGS17 B17-23: SizeGrip drag-resize inside a scrolled container" do
     session.x = gx
     session.y = gy
     grip.emit Crysterm::Event::Drag, session
-    box.width.should eq 30
-    box.height.should eq 8
+    box.width_spec.should eq 30
+    box.height_spec.should eq 8
 
     # Move the pointer 5 right / 3 down: the outer edge follows by exactly that
     # much (35 / 11), regardless of the scroll offset.
     session.x = gx + 5
     session.y = gy + 3
     grip.emit Crysterm::Event::Drag, session
-    box.width.should eq 35
-    box.height.should eq 11
+    box.width_spec.should eq 35
+    box.height_spec.should eq 11
   end
 end
 

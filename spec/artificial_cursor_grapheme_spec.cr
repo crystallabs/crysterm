@@ -37,8 +37,8 @@ describe "Window#draw artificial cursor over a grapheme cluster (full_unicode)" 
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     s.alloc
     y, x = 0, 3
-    s.lines[y][x].grapheme = "e\u{0301}"
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].grapheme = "e\u{0301}"
+    s.cell_rows[y].dirty = true
     place_cursor s, y, x, Tput::CursorShape::Line
     s.draw
 
@@ -52,8 +52,8 @@ describe "Window#draw artificial cursor over a grapheme cluster (full_unicode)" 
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     s.alloc
     y, x = 1, 2
-    s.lines[y][x].grapheme = "e\u{0301}"
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].grapheme = "e\u{0301}"
+    s.cell_rows[y].dirty = true
     place_cursor s, y, x, Tput::CursorShape::None
     s.cursor.style.fill_char = '#'
     s.draw
@@ -67,8 +67,8 @@ describe "Window#draw artificial cursor over a grapheme cluster (full_unicode)" 
     pending! "full_unicode unavailable in this environment" unless s.full_unicode_effective?
     s.alloc
     y, x = 0, 2
-    s.lines[y][x].grapheme = "e\u{0301}"
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].grapheme = "e\u{0301}"
+    s.cell_rows[y].dirty = true
     place_cursor s, y, x, Tput::CursorShape::Block
     s.draw
 

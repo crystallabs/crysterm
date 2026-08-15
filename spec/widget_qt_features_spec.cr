@@ -881,7 +881,7 @@ describe Crysterm::Widget::Splitter do
 
     sp.panes[0].should be(a)
     sp.panes[1].should be(b)
-    a.width.should eq 10
+    a.width_spec.should eq 10
     sp.dividers[0].left.should eq 10
     b.left.should eq 11
   end
@@ -906,7 +906,7 @@ describe Crysterm::Widget::Splitter do
     sp.add_widget a
     sp.add_widget b
     sp.set_divider_position 0, 8
-    a.height.should eq 8
+    a.height_spec.should eq 8
     sp.dividers[0].top.should eq 8
     b.top.should eq 9
   end
@@ -1057,14 +1057,14 @@ describe "Splitter multi-pane" do
     sp.panes.size.should eq 3
     sp.dividers.size.should eq 2
     sp.divider_position(0).should be < sp.divider_position(1)
-    a.width.should eq 9
-    b.width.should eq 9
+    a.width_spec.should eq 9
+    b.width_spec.should eq 9
     sp.dividers[0].left.should eq 9
     sp.dividers[1].left.should eq 19
 
     sp.set_divider_position 0, 5
     sp.divider_position(0).should eq 5
-    a.width.should eq 5
+    a.width_spec.should eq 5
   end
 
   # Qt's `QSplitter` talks in pane sizes; the divider offsets are its private
@@ -1085,8 +1085,8 @@ describe "Splitter multi-pane" do
     sp.sizes.should eq [5, 10, 14]
     sp.divider_position(0).should eq 5
     sp.divider_position(1).should eq 16
-    a.width.should eq 5
-    b.width.should eq 10
+    a.width_spec.should eq 5
+    b.width_spec.should eq 10
 
     # Clamped like a drag: no pane may collapse below one cell.
     sp.sizes = [0, 0, 0]
@@ -1127,8 +1127,8 @@ describe "Splitter multi-pane" do
     # Dividers stay ordered and inside the new 12-cell span (each pane >= 1 cell).
     sp.divider_position(0).should be < sp.divider_position(1)
     sp.divider_position(1).should be <= 10 # total(12) - 2
-    a.width.as(Int32).should be >= 1
-    b.width.as(Int32).should be >= 1
+    a.width_spec.as(Int32).should be >= 1
+    b.width_spec.as(Int32).should be >= 1
   end
 end
 
@@ -2126,8 +2126,8 @@ describe Crysterm::Widget::ToolTip do
       # On the unstyled floor the tooltip carries a structural border (see
       # `ToolTip#floor_border?`); `show_at` must reserve room for it.
       tip.css_styled?.should be_false
-      tip.width.should eq 9  # "Hello" (5) + 2 padding + border (ihorizontal 2)
-      tip.height.should eq 3 # 1 text line + border (ivertical 2)
+      tip.width_spec.should eq 9  # "Hello" (5) + 2 padding + border (ihorizontal 2)
+      tip.height_spec.should eq 3 # 1 text line + border (ivertical 2)
     ensure
       Crysterm::CSS.theme = saved_theme
       Crysterm::CSS.default_stylesheet = saved_default
@@ -2263,8 +2263,8 @@ describe Crysterm::Widget::SizeGrip do
     # (see bugs14_sizegrip_keymenu_spec) folds that offset in, so the target's
     # *outer* edge tracks the pointer instead of lagging by the border. Pointer at
     # (30, 12) → outer edge = pointer + inset(1).
-    win.width.should eq 32 # 30 - left(0) + 1 + edge_x(1)
-    win.height.should eq 9 # 12 - top(5) + 1 + edge_y(1)
+    win.width_spec.should eq 32 # 30 - left(0) + 1 + edge_x(1)
+    win.height_spec.should eq 9 # 12 - top(5) + 1 + edge_y(1)
   end
 end
 

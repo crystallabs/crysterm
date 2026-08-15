@@ -50,8 +50,8 @@ describe "Widget#set_geometry" do
     resizes.should eq 1
     b.left.should eq 1
     b.top.should eq 2
-    b.width.should eq 10
-    b.height.should eq 5
+    b.width_spec.should eq 10
+    b.height_spec.should eq 5
   end
 
   it "is a full no-op (no events) when nothing changed" do

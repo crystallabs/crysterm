@@ -17,7 +17,7 @@ describe "CSS invalidation" do
     b.add_css_class "wide"
     s.stylesheet = ".wide { width: 40; min-width: 12; text-align: center; }"
     s.apply_stylesheet
-    b.width.should eq 40
+    b.width_spec.should eq 40
     b.min_width.should eq 12
     # `text-align` replaces only the horizontal bits, so the default vertical
     # alignment stays put while the rule matches.
@@ -25,7 +25,7 @@ describe "CSS invalidation" do
 
     b.remove_css_class "wide"
     s.apply_stylesheet
-    b.width.should eq "100%"                                        # programmatic value back
+    b.width_spec.should eq "100%"                                   # programmatic value back
     b.min_width.should be_nil                                       # unconstrained again
     b.align.should eq(Tput::AlignFlag::Top | Tput::AlignFlag::Left) # default alignment back
   end
@@ -35,13 +35,13 @@ describe "CSS invalidation" do
     b = Widget::Box.new parent: s
     s.stylesheet = "Box { width: 40; height: 7; }"
     s.apply_stylesheet
-    b.width.should eq 40
-    b.height.should eq 7
+    b.width_spec.should eq 40
+    b.height_spec.should eq 7
 
     s.stylesheet = "Box { color: red; }" # geometry rule gone; cascade still runs
     s.apply_stylesheet
-    b.width.should be_nil
-    b.height.should be_nil
+    b.width_spec.should be_nil
+    b.height_spec.should be_nil
   end
 
   # Clearing the stylesheet must restyle (revert) everything, just like
@@ -58,13 +58,13 @@ describe "CSS invalidation" do
       s.apply_stylesheet
       b.css_styled?.should be_true
       b.styles.normal.bg.should eq 0xff0000
-      b.width.should eq 33
+      b.width_spec.should eq 33
 
       s.stylesheet = nil
       s.apply_stylesheet
       b.css_styled?.should be_false # inline `@style` short-circuit honored again
       b.styles.normal.bg.should eq before_bg
-      b.width.should be_nil # CSS-written geometry reverted too
+      b.width_spec.should be_nil # CSS-written geometry reverted too
     end
   end
 

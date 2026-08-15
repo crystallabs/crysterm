@@ -32,11 +32,11 @@ describe "ComboBox popup border sizing" do
     # Borderless: no interior insets, so outer height is exactly 3 rows (not
     # 3 + 2) — proves the size tracks the popup's actual border.
     pop.ivertical.should eq 0
-    pop.height.should eq 3
+    pop.height_spec.should eq 3
 
     # And in general the height is always rows + the popup's real ivertical.
     rows = Math.min(3, cb.max_visible_items)
-    pop.height.should eq rows + pop.ivertical
+    pop.height_spec.should eq rows + pop.ivertical
   end
 
   it "still sizes a default 1-cell-border popup as rows + 2 (visually identical)" do
@@ -47,7 +47,7 @@ describe "ComboBox popup border sizing" do
     pop = cb.popup_widget.not_nil!
     # Floor border = 1 cell each side -> ivertical 2 -> height 3 + 2, unchanged.
     pop.ivertical.should eq 2
-    pop.height.should eq 5
+    pop.height_spec.should eq 5
   end
 end
 

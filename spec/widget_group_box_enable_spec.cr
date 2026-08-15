@@ -53,7 +53,7 @@ describe Crysterm::Widget::GroupBox do
     gb = Crysterm::Widget::GroupBox.new parent: s, title: "Opt", checkable: true,
       top: 0, left: 0, width: 30, height: 8
     s.repaint
-    row = (0...30).map { |x| s.lines[gb.atop][gb.aleft + x].char }.join
+    row = (0...30).map { |x| s.cell_rows[gb.atop][gb.aleft + x].char }.join
     row.includes?("[x]").should be_true # Unicode tier: mark falls down to ascii 'x'
 
     # A tier change *after* construction (a retheme, or the screen's
@@ -61,7 +61,7 @@ describe Crysterm::Widget::GroupBox do
     # rebuild the baked marker on the next render.
     s.glyph_tier = Glyphs::Tier::Extended
     s.repaint
-    row = (0...30).map { |x| s.lines[gb.atop][gb.aleft + x].char }.join
+    row = (0...30).map { |x| s.cell_rows[gb.atop][gb.aleft + x].char }.join
     row.includes?("[✓]").should be_true
   end
 end

@@ -77,10 +77,10 @@ describe "BUGS13 C17: composite_onto carries the OSC-8 link overlay" do
       row.set_link 4, 7_u16
       row.dirty = true
 
-      pl.composite_onto s.lines
+      pl.composite_onto s.cell_rows
 
-      s.lines[1].link_at(4).should eq 7_u16
-      s.lines[1].has_links?.should be_true
+      s.cell_rows[1].link_at(4).should eq 7_u16
+      s.cell_rows[1].has_links?.should be_true
     ensure
       s.destroy
     end
@@ -89,7 +89,7 @@ describe "BUGS13 C17: composite_onto carries the OSC-8 link overlay" do
   it "clears the base cell's old link under an opaque overlay cell (no bleed-through)" do
     s = b13cp_window 20, 3
     begin
-      base = s.lines[1]
+      base = s.cell_rows[1]
       base[4].char = 'x'
       base.set_link 4, 9_u16
 
@@ -101,7 +101,7 @@ describe "BUGS13 C17: composite_onto carries the OSC-8 link overlay" do
       cell.char = 'o' # opaque overlay cell WITHOUT a link
       row.dirty = true
 
-      pl.composite_onto s.lines
+      pl.composite_onto s.cell_rows
 
       # A raw-array fold bypassing `Cell#char=`'s link-clear invariant would
       # leave the overlay cell clicking as the base's old link.
@@ -116,7 +116,7 @@ describe "BUGS13 C17: composite_onto carries the OSC-8 link overlay" do
     s = b13cp_window 20, 3
     begin
       attr = Attr.pack(0, Attr.pack_color(0xffffff), Attr.pack_color(0x333333))
-      base = s.lines[1]
+      base = s.cell_rows[1]
       base[4].attr = attr
       base[4].char = 'x'
 
@@ -129,7 +129,7 @@ describe "BUGS13 C17: composite_onto carries the OSC-8 link overlay" do
       row.set_link 4, 5_u16
       row.dirty = true
 
-      pl.composite_onto s.lines
+      pl.composite_onto s.cell_rows
 
       # A change test comparing only attr/char/grapheme would skip the
       # link-only difference, so the link would never reach the base.

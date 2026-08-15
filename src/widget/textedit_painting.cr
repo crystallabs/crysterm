@@ -29,7 +29,7 @@ module Crysterm
       # ameba:disable Metrics/CyclomaticComplexity
       private def paint_document(coords) : Nil
         scr = window
-        lines_buf = scr.lines
+        lines_buf = scr.cell_rows
         fu = scr.full_unicode_effective?
 
         xi = coords.xi

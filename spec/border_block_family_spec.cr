@@ -10,8 +10,8 @@ include Crysterm
 # (`Glyphs.braille_steps` and the dot-mask union corners).
 
 private def rows(s)
-  (0...s.lines.size).map do |y|
-    row = s.lines[y]
+  (0...s.cell_rows.size).map do |y|
+    row = s.cell_rows[y]
     (0...row.size).map { |x| row[x].char }.join
   end
 end
@@ -209,8 +209,8 @@ describe "block border families" do
       s.repaint
       # The border cell keeps the backdrop's bg behind its ink (implied
       # transparent ground) while an interior cell carries the widget bg.
-      Attr.bg(s.lines[1][1].attr).should eq 0x111111
-      Attr.bg(s.lines[2][3].attr).should eq 0x222222
+      Attr.bg(s.cell_rows[1][1].attr).should eq 0x111111
+      Attr.bg(s.cell_rows[2][3].attr).should eq 0x222222
       # An explicit bg still overrides the implied ground (fresh widget: the
       # frame-resolved style of an already-rendered one is re-resolved, so
       # mutating it after the fact wouldn't stick).
@@ -219,7 +219,7 @@ describe "block border families" do
       b2.style.border = Border.new(type: :inner, fg: 0xffffff, bg: 0x333333)
       s << b2
       s.repaint
-      Attr.bg(s.lines[1][1].attr).should eq 0x333333
+      Attr.bg(s.cell_rows[1][1].attr).should eq 0x333333
     end
   end
 
@@ -314,7 +314,7 @@ describe "braille border" do
       r[3][1..6].should eq "⣇⣀⣀⣀⣀⣸"
       # Outer-style grounding: the border cell's remainder carries the
       # widget's own bg, not the backdrop's.
-      Attr.bg(s.lines[1][1].attr).should eq 0x222222
+      Attr.bg(s.cell_rows[1][1].attr).should eq 0x222222
     end
   end
 end

@@ -516,7 +516,7 @@ module Crysterm
       end
 
       # The child's raw (user-set) main / cross size — a `Dim` union, possibly nil.
-      axis_pair main_size, cross_size, el.width, el.height
+      axis_pair main_size, cross_size, el.width_spec, el.height_spec
 
       # The child's resolved (`a*`) main / cross size in cells.
       axis_pair a_main_size, a_cross_size, el.awidth, el.aheight, Int32

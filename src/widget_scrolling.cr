@@ -659,11 +659,11 @@ module Crysterm
 
         if d > 0 && d < visible
           # scrolled down
-          window.delete_line(d, t, t, b)
+          window.scroll_delete_rows(d, t, t, b)
         elsif d < 0 && -d < visible
           # scrolled up
           d = -d
-          window.insert_line(d, t, t, b)
+          window.scroll_insert_rows(d, t, t, b)
         end
       end
 

@@ -40,7 +40,7 @@ describe "BUGS11 #36 ItemView#create_item builds 1-high items" do
     list = Crysterm::Widget::List.new parent: s, items: ["one", "two", "three"]
     list.items.size.should eq 3
     list.item_boxes.each do |item|
-      item.height.should eq 1
+      item.height_spec.should eq 1
     end
   end
 end

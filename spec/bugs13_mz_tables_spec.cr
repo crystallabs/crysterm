@@ -58,7 +58,7 @@ describe "BUGS13 W14 + M3: ListTable#draw_borders clipping" do
     # content offset 7, which an off-by-`ileft` clip would paint at absolute
     # column 8 — one column OUTSIDE the widget (columns 0..7).
     (0...6).each do |y|
-      s.lines[y][8].char.should eq ' '
+      s.cell_rows[y][8].char.should eq ' '
     end
   ensure
     s.try &.destroy

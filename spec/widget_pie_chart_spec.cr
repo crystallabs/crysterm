@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def text_of(s) : String
-  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
+  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.cell_rows[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
 
 describe Crysterm::Widget::Graph::PieChart do
@@ -48,7 +48,7 @@ describe Crysterm::Widget::Graph::PieChart do
       pie.add_slice "none", 0, 0x40E0D0
       s.repaint
       # No positive slice: the interior stays free of any wedge glyphs.
-      interior = (1..9).map { |y| (1...19).map { |x| s.lines[y][x].char }.join }
+      interior = (1..9).map { |y| (1...19).map { |x| s.cell_rows[y][x].char }.join }
       interior.all? { |row| row.each_char.none? { |ch| ('⠁'..'⣿').includes?(ch) } }.should be_true
     ensure
       Crysterm::CSS.default_stylesheet = saved

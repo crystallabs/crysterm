@@ -22,7 +22,7 @@ private def render_cell(mode : Widget::Media::Glyph::Mode, bmp : PNGGIF::Bitmap)
     mode: mode, fit: Widget::Media::Fit::Stretch)
   img.bitmap = bmp
   s.repaint
-  s.lines[0][0]
+  s.cell_rows[0][0]
 ensure
   s.try &.destroy
 end

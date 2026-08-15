@@ -9,7 +9,7 @@ include Crysterm
 # titles.
 
 private def g18_text(s) : String
-  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
+  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.cell_rows[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
 
 # Non-blocking receive on the render doorbell: true iff a frame is pending.

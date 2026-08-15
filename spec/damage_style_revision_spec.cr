@@ -10,10 +10,10 @@ end
 
 # Compares two screens' cell buffers, like `spec/damage_tracking_spec.cr`.
 private def assert_same_lines(a : Crysterm::Window, b : Crysterm::Window, ctx = "")
-  a.lines.size.should eq b.lines.size
-  a.lines.each_index do |y|
-    la = a.lines[y]
-    lb = b.lines[y]
+  a.cell_rows.size.should eq b.cell_rows.size
+  a.cell_rows.each_index do |y|
+    la = a.cell_rows[y]
+    lb = b.cell_rows[y]
     la.size.should eq lb.size
     la.size.times do |x|
       ca = la[x]
@@ -50,7 +50,7 @@ describe "damage tracking observes in-place style mutation (attr_revision sweep)
     # A no-change frame settles the damage path into its selective steady state.
     plain.repaint
     dmg.repaint
-    before = dmg.lines[2][3].attr
+    before = dmg.cell_rows[2][3].attr
 
     # The in-place mutation, with no `update` and no tracked setter — the
     # persistent per-state style is what rendering derives from.
@@ -59,7 +59,7 @@ describe "damage tracking observes in-place style mutation (attr_revision sweep)
     dmg.repaint
 
     # The change must actually land (guards against a trivially-equal pass) …
-    dmg.lines[2][3].attr.should_not eq before
+    dmg.cell_rows[2][3].attr.should_not eq before
     # … and the damage-tracked buffer must match the always-full one.
     assert_same_lines dmg, plain, "after in-place style.bg mutation"
   end

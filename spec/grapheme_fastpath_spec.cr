@@ -21,26 +21,26 @@ end
 describe "full_unicode single-codepoint fast path" do
   it "stores a plain codepoint as a char, no grapheme overlay (fast path)" do
     s = fu_render "abc"
-    s.lines[0][0].char.should eq 'a'
-    s.lines[0][0].grapheme_overlay.should be_nil
-    s.lines[0][2].char.should eq 'c'
-    s.lines[0][2].grapheme_overlay.should be_nil
+    s.cell_rows[0][0].char.should eq 'a'
+    s.cell_rows[0][0].grapheme_overlay.should be_nil
+    s.cell_rows[0][2].char.should eq 'c'
+    s.cell_rows[0][2].grapheme_overlay.should be_nil
   end
 
   it "lays a wide lone codepoint (CJK) across two cells without an overlay" do
     s = fu_render "漢z"
-    s.lines[0][0].char.should eq '漢'
-    s.lines[0][0].grapheme_overlay.should be_nil # fast path: no String built
-    s.lines[0][0].width.should eq 2
-    s.lines[0][1].continuation?.should be_true
-    s.lines[0][2].char.should eq 'z'
+    s.cell_rows[0][0].char.should eq '漢'
+    s.cell_rows[0][0].grapheme_overlay.should be_nil # fast path: no String built
+    s.cell_rows[0][0].width.should eq 2
+    s.cell_rows[0][1].continuation?.should be_true
+    s.cell_rows[0][2].char.should eq 'z'
   end
 
   it "still assembles a real combining cluster into the overlay" do
     s = fu_render "e\u{0301}x" # e + combining acute, then x
-    s.lines[0][0].grapheme.should eq "e\u{0301}"
-    s.lines[0][0].grapheme_overlay.should eq "e\u{0301}" # cluster path
-    s.lines[0][1].char.should eq 'x'
-    s.lines[0][1].grapheme_overlay.should be_nil # back to the fast path
+    s.cell_rows[0][0].grapheme.should eq "e\u{0301}"
+    s.cell_rows[0][0].grapheme_overlay.should eq "e\u{0301}" # cluster path
+    s.cell_rows[0][1].char.should eq 'x'
+    s.cell_rows[0][1].grapheme_overlay.should be_nil # back to the fast path
   end
 end

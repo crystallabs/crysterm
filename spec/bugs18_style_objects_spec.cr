@@ -39,7 +39,7 @@ end
 private def b18_count_cells_fg_bg(screen, fg, bg)
   n = 0
   (0...screen.height).each do |y|
-    next unless screen.lines[y]?
+    next unless screen.cell_rows[y]?
     (0...screen.width).each do |x|
       n += 1 if cell_fg(screen, x, y) == fg && cell_bg(screen, x, y) == bg
     end

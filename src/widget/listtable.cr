@@ -611,7 +611,7 @@ module Crysterm
         cells = @css_cells
         return if cells.nil? || cells.empty?
 
-        lines = window.lines
+        lines = window.cell_rows
         xi, yi, width, height = border_extent coords
 
         # Map visible x → actual column index, starting from the first visible
@@ -655,7 +655,7 @@ module Crysterm
         border = style.border
         return if !border.any? || !cell_borders?
 
-        lines = window.lines
+        lines = window.cell_rows
         xi, yi, width, height = border_extent coords
         battr = style_to_attr border
 

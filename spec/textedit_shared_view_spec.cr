@@ -128,8 +128,8 @@ describe Widget::TextEdit do
       a.cursor_pos = 3
       a._listener chr('!')
       s.repaint
-      String.build { |io| 4.times { |x| io << s.lines[0][x].char } }.should eq "one!"
-      String.build { |io| 4.times { |x| io << s.lines[4][x].char } }.should eq "one!"
+      String.build { |io| 4.times { |x| io << s.cell_rows[0][x].char } }.should eq "one!"
+      String.build { |io| 4.times { |x| io << s.cell_rows[4][x].char } }.should eq "one!"
     end
   end
 end

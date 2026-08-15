@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def cells_text(s) : String
-  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
+  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.cell_rows[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
 
 describe Crysterm::Widget::Graph::Map do
@@ -64,7 +64,7 @@ describe Crysterm::Widget::Graph::Map do
       m.add_marker latitude: 0.0, longitude: -150.0, char: 'W'
       m.add_marker latitude: 0.0, longitude: 150.0, char: 'E'
       s.repaint
-      rows = (0...s.aheight).map { |y| (0...s.awidth).map { |x| s.lines[y][x].char }.join }
+      rows = (0...s.aheight).map { |y| (0...s.awidth).map { |x| s.cell_rows[y][x].char }.join }
       wx = rows.compact_map(&.index('W')).first?
       ex = rows.compact_map(&.index('E')).first?
       wx.should_not be_nil

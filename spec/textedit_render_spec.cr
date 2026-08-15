@@ -39,12 +39,12 @@ describe Widget::TextEdit do
     te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true, fg: 0xFF0000))
     s.repaint
 
-    a = s.lines[0][0].attr
+    a = s.cell_rows[0][0].attr
     (Attr.flags(a) & Attr::BOLD).should_not eq 0
     Attr.fg(a).should eq Attr.pack_color(0xFF0000)
 
     # Past the run: default attributes again.
-    a2 = s.lines[0][6].attr
+    a2 = s.cell_rows[0][6].attr
     (Attr.flags(a2) & Attr::BOLD).should eq 0
     Attr.fg(a2).should eq Attr.pack_color(-1)
   end
@@ -58,10 +58,10 @@ describe Widget::TextEdit do
     te.document.apply_char_format(3, 4, TextCharFormat.new(inverse: true))
     s.repaint
 
-    (Attr.flags(s.lines[0][0].attr) & Attr::UNDERLINE).should_not eq 0
-    (Attr.flags(s.lines[0][1].attr) & Attr::ITALIC).should_not eq 0
-    (Attr.flags(s.lines[0][2].attr) & Attr::STRIKE).should_not eq 0
-    (Attr.flags(s.lines[0][3].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][0].attr) & Attr::UNDERLINE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][1].attr) & Attr::ITALIC).should_not eq 0
+    (Attr.flags(s.cell_rows[0][2].attr) & Attr::STRIKE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][3].attr) & Attr::REVERSE).should_not eq 0
   end
 
   it "renders an anchor underlined" do
@@ -69,8 +69,8 @@ describe Widget::TextEdit do
     te = new_te s, "link here"
     te.document.apply_char_format(0, 4, TextCharFormat.new(anchor_href: "https://example.org"))
     s.repaint
-    (Attr.flags(s.lines[0][0].attr) & Attr::UNDERLINE).should_not eq 0
-    (Attr.flags(s.lines[0][5].attr) & Attr::UNDERLINE).should eq 0
+    (Attr.flags(s.cell_rows[0][0].attr) & Attr::UNDERLINE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][5].attr) & Attr::UNDERLINE).should eq 0
   end
 
   it "renders a heading block bold" do
@@ -78,8 +78,8 @@ describe Widget::TextEdit do
     te = new_te s, "Title\nbody"
     te.document.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 1))
     s.repaint
-    (Attr.flags(s.lines[0][0].attr) & Attr::BOLD).should_not eq 0
-    (Attr.flags(s.lines[1][0].attr) & Attr::BOLD).should eq 0
+    (Attr.flags(s.cell_rows[0][0].attr) & Attr::BOLD).should_not eq 0
+    (Attr.flags(s.cell_rows[1][0].attr) & Attr::BOLD).should eq 0
   end
 
   it "extends a block background across the full row, past the text" do
@@ -87,11 +87,11 @@ describe Widget::TextEdit do
     te = new_te s, "bg\nplain"
     te.document.apply_block_format(0, 0, TextBlockFormat.new(bg: 0x0000FF))
     s.repaint
-    Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x0000FF)
+    Attr.bg(s.cell_rows[0][0].attr).should eq Attr.pack_color(0x0000FF)
     # Trailing cell far past the two chars of text:
-    Attr.bg(s.lines[0][20].attr).should eq Attr.pack_color(0x0000FF)
+    Attr.bg(s.cell_rows[0][20].attr).should eq Attr.pack_color(0x0000FF)
     # The other block is untouched:
-    Attr.bg(s.lines[1][0].attr).should eq Attr.pack_color(-1)
+    Attr.bg(s.cell_rows[1][0].attr).should eq Attr.pack_color(-1)
   end
 
   it "keeps formats attached to their text across edits before them" do
@@ -106,8 +106,8 @@ describe Widget::TextEdit do
     s.repaint
 
     # The bold run moved right with its text.
-    (Attr.flags(s.lines[0][7].attr) & Attr::BOLD).should_not eq 0
-    (Attr.flags(s.lines[0][0].attr) & Attr::BOLD).should eq 0
+    (Attr.flags(s.cell_rows[0][7].attr) & Attr::BOLD).should_not eq 0
+    (Attr.flags(s.cell_rows[0][0].attr) & Attr::BOLD).should eq 0
   end
 
   it "typing with a typing format inserts formatted text" do
@@ -119,8 +119,8 @@ describe Widget::TextEdit do
     s.repaint
 
     te.value.should eq "bo"
-    (Attr.flags(s.lines[0][0].attr) & Attr::BOLD).should_not eq 0
-    (Attr.flags(s.lines[0][1].attr) & Attr::BOLD).should_not eq 0
+    (Attr.flags(s.cell_rows[0][0].attr) & Attr::BOLD).should_not eq 0
+    (Attr.flags(s.cell_rows[0][1].attr) & Attr::BOLD).should_not eq 0
     # The document itself carries the format (not just the paint):
     te.document.char_format_at(1).bold?.should be_true
   end

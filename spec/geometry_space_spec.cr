@@ -119,7 +119,7 @@ describe "geometry/pos coordinate space (#10)" do
       aw = w.awidth # content 5 + border 2
       w.geometry.width.should eq 5
       w.geometry = w.geometry
-      w.width.should eq 5
+      w.width_spec.should eq 5
       w.awidth.should eq aw
     end
   end

@@ -364,7 +364,7 @@ module Crysterm
     # --- Layout-assigned geometry (plans/SIZE-POLICY-PLAN.md §2.2) ----------
     #
     # A parent layout engine places this widget through these fields, NOT by
-    # writing the user's `left`/`top`/`width`/`height` specs — so `w.width`
+    # writing the user's `left`/`top`/`width`/`height` specs — so `w.width_spec`
     # always reads what the user set, a `"50%"` re-resolves against the live
     # container every frame, and "the user reclaimed the child" is simply "the
     # spec is non-nil", with no shadow-map bookkeeping. Geometry resolution

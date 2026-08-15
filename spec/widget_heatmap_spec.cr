@@ -117,7 +117,7 @@ describe Crysterm::Widget::Graph::HeatMap do
       # a resolved color is `0..0xFFFFFF`, below the `COLOR_DEFAULT` sentinel.
       any_bg = (1...11).any? do |y|
         (1...29).any? do |x|
-          bg = Crysterm::Attr.bg(s.lines[y][x].attr)
+          bg = Crysterm::Attr.bg(s.cell_rows[y][x].attr)
           bg >= 0 && bg < Crysterm::Attr::COLOR_DEFAULT
         end
       end

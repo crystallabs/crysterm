@@ -137,7 +137,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
     s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     seen = nil.as(Int32 | String?)
-    box.on(Crysterm::Event::Resize) { seen = box.width }
+    box.on(Crysterm::Event::Resize) { seen = box.width_spec }
     box.width = 25
     seen.should eq 25
   end
@@ -146,7 +146,7 @@ describe "BUGS-F1 finding 15: geometry setters assign before emitting" do
     s = headless_screen(80, 24)
     box = Crysterm::Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 4
     seen = nil.as(Int32 | String?)
-    box.on(Crysterm::Event::Resize) { seen = box.height }
+    box.on(Crysterm::Event::Resize) { seen = box.height_spec }
     box.height = 9
     seen.should eq 9
   end

@@ -385,7 +385,7 @@ module Crysterm
       diff = @_clines.size - start
 
       render_line_shift(diff, real) do |d, y, top, bottom|
-        window.insert_line(d, y, top, bottom)
+        window.scroll_insert_rows(d, y, top, bottom)
       end
     end
 
@@ -462,7 +462,7 @@ module Crysterm
 
       # XXX clear_last_rendered_position() without diff statement?
       render_line_shift(diff, real) do |d, y, top, bottom|
-        window.delete_line(d, y, top, bottom)
+        window.scroll_delete_rows(d, y, top, bottom)
       end
     end
 

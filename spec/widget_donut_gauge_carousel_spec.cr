@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def text_of(s) : String
-  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
+  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.cell_rows[y][x].char; c == '\0' ? ' ' : c }.join }.join("\n")
 end
 
 describe Crysterm::Widget::Graph::Donut do
@@ -47,7 +47,7 @@ describe Crysterm::Widget::Graph::Donut do
       s.repaint
       # The 8% arc sits near the top; the bottom interior rows must be blank
       # (a full track ring would have filled them, which was the bug).
-      bottom = (7..9).map { |y| (1...19).map { |x| s.lines[y][x].char }.join }
+      bottom = (7..9).map { |y| (1...19).map { |x| s.cell_rows[y][x].char }.join }
       bottom.all? { |row| row.each_char.none? { |ch| ('⠁'..'⣿').includes?(ch) } }.should be_true
     ensure
       Crysterm::CSS.default_stylesheet = saved
@@ -67,7 +67,7 @@ describe Crysterm::Widget::Graph::Donut do
       fgs = [] of Int64
       (1...10).each do |y|
         (1...19).each do |x|
-          c = s.lines[y][x]
+          c = s.cell_rows[y][x]
           fgs << Crysterm::Attr.fg(c.attr) if ('⠁'..'⣿').includes?(c.char)
         end
       end

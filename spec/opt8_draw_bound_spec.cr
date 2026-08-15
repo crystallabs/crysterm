@@ -69,11 +69,11 @@ private def fu_frame(widen : Bool, width = 30, height = 5, *,
   buf = IO::Memory.new
   s = fu_bound_screen buf, width, height
   setup.call s
-  s.lines.each(&.dirty=(true))
+  s.cell_rows.each(&.dirty=(true))
   s.spec_draw_frame
   buf.clear
   mutate.call s
-  s.lines.each { |l| l.dirty = true if l.dirty } if widen
+  s.cell_rows.each { |l| l.dirty = true if l.dirty } if widen
   s.spec_draw_frame
   {String.new(buf.to_slice), flushed_dump(s)}
 end
@@ -81,7 +81,7 @@ end
 # Fills row *y* with `pattern` repeated, via the real cell writers (marks the
 # whole row through `set_if_changed`).
 private def fill_row(s, y, pattern : String, attr = 0_i64)
-  line = s.lines[y]
+  line = s.cell_rows[y]
   line.size.times do |x|
     line[x].set_if_changed attr, pattern[x % pattern.size]
   end
@@ -97,13 +97,13 @@ describe "Window#draw dirty-column bound under full_unicode" do
   scenarios = {
     "narrow change mid-row inside unchanged text" => {
       ->(s : Crysterm::Window) { fill_row s, 2, "abcdefghij" },
-      ->(s : Crysterm::Window) { s.lines[2][14].set_if_changed red, 'X' },
+      ->(s : Crysterm::Window) { s.cell_rows[2][14].set_if_changed red, 'X' },
     },
     "changes at row start and row end" => {
       ->(s : Crysterm::Window) { fill_row s, 1, "qrstu" },
       ->(s : Crysterm::Window) {
-        s.lines[1][0].set_if_changed red, 'L'
-        s.lines[1][29].set_if_changed blue, 'R'
+        s.cell_rows[1][0].set_if_changed red, 'L'
+        s.cell_rows[1][29].set_if_changed blue, 'R'
       },
     },
     "wide glyph placed mid-row" => {
@@ -120,7 +120,7 @@ describe "Window#draw dirty-column bound under full_unicode" do
         s.put_wide 0_i64, '漢', 12, 2
       },
       ->(s : Crysterm::Window) {
-        line = s.lines[2]
+        line = s.cell_rows[2]
         line[12].attr = red
         line.mark_dirty 12
       },
@@ -131,7 +131,7 @@ describe "Window#draw dirty-column bound under full_unicode" do
         s.put_wide 0_i64, '漢', 8, 1
       },
       ->(s : Crysterm::Window) {
-        line = s.lines[1]
+        line = s.cell_rows[1]
         line[9].attr = blue
         line.mark_dirty 9
         # A second change later in the row exercises the reposition after the
@@ -145,8 +145,8 @@ describe "Window#draw dirty-column bound under full_unicode" do
         s.put_wide red, '漢', 6, 2
       },
       ->(s : Crysterm::Window) {
-        s.lines[2][6].set_if_changed 0_i64, 'a'
-        s.lines[2][7].set_if_changed 0_i64, 'b'
+        s.cell_rows[2][6].set_if_changed 0_i64, 'a'
+        s.cell_rows[2][7].set_if_changed 0_i64, 'b'
       },
     },
     "adjacent wide glyphs with a narrow change between" => {
@@ -156,19 +156,19 @@ describe "Window#draw dirty-column bound under full_unicode" do
         s.put_wide 0_i64, '字', 8, 3
       },
       ->(s : Crysterm::Window) {
-        s.lines[3][6].set_if_changed red, 'Q'
-        s.lines[3][7].set_if_changed red, 'W'
+        s.cell_rows[3][6].set_if_changed red, 'Q'
+        s.cell_rows[3][7].set_if_changed red, 'W'
       },
     },
     "orphan continuation at column 0 (clipped lead)" => {
       ->(s : Crysterm::Window) {
         fill_row s, 0, "c"
-        line = s.lines[0]
+        line = s.cell_rows[0]
         line[0].continuation!
         line.mark_dirty 0
       },
       ->(s : Crysterm::Window) {
-        line = s.lines[0]
+        line = s.cell_rows[0]
         line[0].attr = red
         line.mark_dirty 0
         line[5].set_if_changed blue, 'D'
@@ -179,7 +179,7 @@ describe "Window#draw dirty-column bound under full_unicode" do
         fill_row s, 1, "e"
       },
       ->(s : Crysterm::Window) {
-        line = s.lines[1]
+        line = s.cell_rows[1]
         line[7].grapheme = "e\u{0301}"
         line.mark_dirty 7
       },
@@ -188,7 +188,7 @@ describe "Window#draw dirty-column bound under full_unicode" do
       ->(s : Crysterm::Window) { fill_row s, 2, "link text " },
       ->(s : Crysterm::Window) {
         id = s.link_id "http://example.com/a"
-        s.lines[2][11].link = id
+        s.cell_rows[2][11].link = id
         nil
       },
     },
@@ -197,15 +197,15 @@ describe "Window#draw dirty-column bound under full_unicode" do
       ->(s : Crysterm::Window) {
         s.put_wide red, '漢', 16, 3
         id = s.link_id "http://example.com/wide"
-        s.lines[3][16].link = id
-        s.lines[3][17].link = id
+        s.cell_rows[3][16].link = id
+        s.cell_rows[3][17].link = id
         nil
       },
     },
     "contiguous run marked via mark_dirty_range (media-style row sweep)" => {
       ->(s : Crysterm::Window) { fill_row s, 2, "sweep this " },
       ->(s : Crysterm::Window) {
-        line = s.lines[2]
+        line = s.cell_rows[2]
         (8..19).each do |x|
           line[x].attr = red
           line[x].char = '#'
@@ -224,9 +224,9 @@ describe "Window#draw dirty-column bound under full_unicode" do
         fill_row s, 4, "4"
       },
       ->(s : Crysterm::Window) {
-        s.lines[0][3].set_if_changed red, 'A'
+        s.cell_rows[0][3].set_if_changed red, 'A'
         s.put_wide blue, '漢', 20, 2
-        s.lines[4][27].set_if_changed red, 'B'
+        s.cell_rows[4][27].set_if_changed red, 'B'
       },
     },
   }

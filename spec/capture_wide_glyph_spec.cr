@@ -11,7 +11,7 @@ include Crysterm
 describe "Capture wide-glyph rendering" do
   it "paints the right half of a 2-column glyph into the continuation column" do
     s = headless_screen(4, 1, default_quit_keys: true)
-    line = s.lines[0]
+    line = s.cell_rows[0]
     line[0].attr = Crysterm::Window::DEFAULT_ATTR
     line[0].grapheme = "中" # full-width: occupies 2 columns
     line[1].continuation!

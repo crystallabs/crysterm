@@ -79,7 +79,7 @@ describe "Dial pointer ring" do
     d = Widget::Dial.new parent: s, top: 0, left: 0, width: 9, height: 3, value: 0, text_visible: false
     s.repaint
     # Value at minimum: pointer is "north" (↑) centered in the middle row.
-    row = (0...9).map { |x| s.lines[d.atop + 1][d.aleft + x].char }.join
+    row = (0...9).map { |x| s.cell_rows[d.atop + 1][d.aleft + x].char }.join
     row.includes?('↑').should be_true
 
     # Let `repaint` drive the cascade: it must see `css_dirty?` to force a
@@ -87,7 +87,7 @@ describe "Dial pointer ring" do
     # is skipped and keeps its stale pointer cells.
     s.stylesheet = %(Dial { glyphs: "NESW"; })
     s.repaint
-    row = (0...9).map { |x| s.lines[d.atop + 1][d.aleft + x].char }.join
+    row = (0...9).map { |x| s.cell_rows[d.atop + 1][d.aleft + x].char }.join
     row.includes?('N').should be_true
   end
 end
@@ -99,7 +99,7 @@ describe "Chart fill ramps" do
     s.stylesheet = %(Gauge { glyphs: " -=#"; })
     s.apply_stylesheet
     s.repaint
-    row = (0...10).map { |x| s.lines[g.atop][g.aleft + x].char }.join
+    row = (0...10).map { |x| s.cell_rows[g.atop][g.aleft + x].char }.join
     row.includes?('#').should be_true  # filled cells use the ramp's full step
     row.includes?('█').should be_false # not the registry blocks
   end
@@ -110,7 +110,7 @@ describe "Chart fill ramps" do
     s.stylesheet = %(Gauge { glyphs: " 🚀"; })
     s.apply_stylesheet
     s.repaint
-    row = (0...10).map { |x| s.lines[g.atop][g.aleft + x].char }.join
+    row = (0...10).map { |x| s.cell_rows[g.atop][g.aleft + x].char }.join
     row.includes?('█').should be_true
   end
 

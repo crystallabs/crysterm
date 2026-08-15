@@ -43,11 +43,11 @@ describe "API4 value-type / layout additions" do
       s = headless_screen(40, 20)
       w = Widget::Box.new parent: s, width: 5, height: 4
       w.resize Size.new(8, 9)
-      w.width.should eq 8
-      w.height.should eq 9
+      w.width_spec.should eq 8
+      w.height_spec.should eq 9
       w.size = Size.new(10, 11)
-      w.width.should eq 10
-      w.height.should eq 11
+      w.width_spec.should eq 10
+      w.height_spec.should eq 11
     end
   end
 
@@ -58,8 +58,8 @@ describe "API4 value-type / layout additions" do
       w.geometry = Rectangle.new(3, 4, 6, 7)
       w.left.should eq 3
       w.top.should eq 4
-      w.width.should eq 6
-      w.height.should eq 7
+      w.width_spec.should eq 6
+      w.height_spec.should eq 7
     end
   end
 

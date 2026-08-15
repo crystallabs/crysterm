@@ -117,12 +117,12 @@ describe Widget::TextBrowser do
     tb.focus_link(1).should be_true
     s.repaint
     # "go |one|" — link text cells render inverse.
-    (Attr.flags(s.lines[0][3].attr) & Attr::REVERSE).should_not eq 0
-    (Attr.flags(s.lines[0][0].attr) & Attr::REVERSE).should eq 0
+    (Attr.flags(s.cell_rows[0][3].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.cell_rows[0][0].attr) & Attr::REVERSE).should eq 0
     # Moving focus moves the highlight instead of stacking a second one.
     tb.focus_link(1)
     s.repaint
-    (Attr.flags(s.lines[0][3].attr) & Attr::REVERSE).should eq 0
+    (Attr.flags(s.cell_rows[0][3].attr) & Attr::REVERSE).should eq 0
     tb.extra_selections.size.should eq 1
   end
 

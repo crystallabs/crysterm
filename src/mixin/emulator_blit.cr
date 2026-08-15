@@ -9,7 +9,7 @@ module Crysterm
     # Written against the includer's widget surface (`content_edges`, `aleft`/
     # `ileft`, `window`), so it must be included into a `Widget` subclass.
     module EmulatorBlit
-      # Copies *em*'s visible grid into `window.lines` over the content area
+      # Copies *em*'s visible grid into `window.cell_rows` over the content area
       # described by *coords*.
       #
       # `cursor_x`/`cursor_y` are window-absolute coordinates of the cell to
@@ -19,7 +19,7 @@ module Crysterm
       # `-1, -1` sentinel (or use the block-less overload) to skip the overlay
       # entirely; `y`/`x` never go negative, so the sentinel can never match.
       private def blit_emulator_grid(em : TerminalEmulator, coords, cursor_x : Int32, cursor_y : Int32, & : Int64, Char -> {Int64, Char}) : Nil
-        lines = window.lines
+        lines = window.cell_rows
 
         xi, xl, yi, yl = content_edges coords
 

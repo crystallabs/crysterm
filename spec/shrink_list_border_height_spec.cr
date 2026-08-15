@@ -25,7 +25,7 @@ describe "Widget::List shrink-to-content height with a border" do
     # The last item must actually be painted (not clipped below the box).
     buffer = String.build do |io|
       (lp.yi...lp.yl).each do |y|
-        (lp.xi...lp.xl).each { |x| io << s.lines[y][x].char }
+        (lp.xi...lp.xl).each { |x| io << s.cell_rows[y][x].char }
       end
     end
     buffer.includes?("three").should be_true

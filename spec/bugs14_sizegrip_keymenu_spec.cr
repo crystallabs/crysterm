@@ -68,15 +68,15 @@ describe "BUGS14 M4 SizeGrip inner-corner drag tracks the pointer" do
     session.x = gx
     session.y = gy
     grip.emit Crysterm::Event::Drag, session
-    box.width.should eq 30
-    box.height.should eq 10
+    box.width_spec.should eq 30
+    box.height_spec.should eq 10
 
     # Now move the pointer 5 right and 3 down: the outer edge must follow by
     # exactly that much (35 / 13); without the fold-in it would lag by the border (34 / 12).
     session.x = gx + 5
     session.y = gy + 3
     grip.emit Crysterm::Event::Drag, session
-    box.width.should eq 35
-    box.height.should eq 13
+    box.width_spec.should eq 35
+    box.height_spec.should eq 13
   end
 end

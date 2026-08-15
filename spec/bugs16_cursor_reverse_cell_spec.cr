@@ -22,9 +22,9 @@ describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
     s.alloc
 
     x, y = 3, 1
-    s.lines[y][x].char = 'A'
-    s.lines[y][x].attr = Attr.pack(Attr::REVERSE, Attr.fg(s.lines[y][x].attr), Attr.bg(s.lines[y][x].attr))
-    base_attr = s.lines[y][x].attr
+    s.cell_rows[y][x].char = 'A'
+    s.cell_rows[y][x].attr = Attr.pack(Attr::REVERSE, Attr.fg(s.cell_rows[y][x].attr), Attr.bg(s.cell_rows[y][x].attr))
+    base_attr = s.cell_rows[y][x].attr
 
     s.cursor.artificial = true
     s.cursor._hidden = false
@@ -44,8 +44,8 @@ describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
     s.alloc
 
     x, y = 4, 2
-    s.lines[y][x].char = 'B'
-    base_attr = s.lines[y][x].attr
+    s.cell_rows[y][x].char = 'B'
+    base_attr = s.cell_rows[y][x].attr
     (Attr.flags(base_attr) & Attr::REVERSE).should eq 0
 
     s.cursor.artificial = true
@@ -63,14 +63,14 @@ describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
     s = cursor_screen
     s.alloc
 
-    s.lines.size.times { |yy| s.lines[yy].size.times { |xx| s.lines[yy][xx].char = '.' } }
+    s.cell_rows.size.times { |yy| s.cell_rows[yy].size.times { |xx| s.cell_rows[yy][xx].char = '.' } }
 
     # Simulate a reverse-video selected cell (e.g. TextEdit selection / list
     # 'floor highlight').
     x, y = 2, 2
-    s.lines[y][x].char = 'S'
-    s.lines[y][x].attr = Attr.pack(Attr::REVERSE, Attr.fg(s.lines[y][x].attr), Attr.bg(s.lines[y][x].attr))
-    s.lines.each &.dirty=(true)
+    s.cell_rows[y][x].char = 'S'
+    s.cell_rows[y][x].attr = Attr.pack(Attr::REVERSE, Attr.fg(s.cell_rows[y][x].attr), Attr.bg(s.cell_rows[y][x].attr))
+    s.cell_rows.each &.dirty=(true)
     s.draw
 
     s.cursor.artificial = true
@@ -85,6 +85,6 @@ describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
     # The cursor cell in @flushed_lines must differ from the underlying
     # (reversed) content cell, otherwise it never got emitted/is invisible.
     (Attr.flags(s.flushed_lines[y][x].attr) & Attr::REVERSE).should eq 0
-    (Attr.flags(s.lines[y][x].attr) & Attr::REVERSE).should_not eq 0
+    (Attr.flags(s.cell_rows[y][x].attr) & Attr::REVERSE).should_not eq 0
   end
 end

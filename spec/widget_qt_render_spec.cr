@@ -41,13 +41,13 @@ describe "Slider rendering" do
       s.repaint
       # "50" is centered at columns 4-5; the handle sits at column 5, so the '0'
       # digit lands directly on it.
-      s.lines[0][4].char.should eq '5'
-      s.lines[0][5].char.should eq '0'
-      track = s.lines[0][0].attr # a plain track cell, drawn with the base style
+      s.cell_rows[0][4].char.should eq '5'
+      s.cell_rows[0][5].char.should eq '0'
+      track = s.cell_rows[0][0].attr # a plain track cell, drawn with the base style
       # Both digits carry the track attr, not the handle's indicator attr.
-      s.lines[0][4].attr.should eq track
-      s.lines[0][5].attr.should eq track
-      s.lines[0][4].attr.should eq s.lines[0][5].attr
+      s.cell_rows[0][4].attr.should eq track
+      s.cell_rows[0][5].attr.should eq track
+      s.cell_rows[0][4].attr.should eq s.cell_rows[0][5].attr
     ensure
       Crysterm::CSS.default_stylesheet = saved
     end
@@ -73,7 +73,7 @@ describe "Table alternating rows rendering" do
     s.repaint
 
     alt_bg = Crysterm::Colors.convert("blue")
-    found = s.lines.any? { |line| line.any? { |cell| Crysterm::Attr.bg(cell.attr) == alt_bg } }
+    found = s.cell_rows.any? { |line| line.any? { |cell| Crysterm::Attr.bg(cell.attr) == alt_bg } }
     found.should be_true
   end
 
@@ -85,7 +85,7 @@ describe "Table alternating rows rendering" do
     s.repaint
 
     alt_bg = Crysterm::Colors.convert("blue")
-    found = s.lines.any? { |line| line.any? { |cell| Crysterm::Attr.bg(cell.attr) == alt_bg } }
+    found = s.cell_rows.any? { |line| line.any? { |cell| Crysterm::Attr.bg(cell.attr) == alt_bg } }
     found.should be_false
   end
 end
@@ -190,7 +190,7 @@ describe "Splitter mouse drag" do
     mouse_down s, 20, 3
     mouse_move s, 12, 3
     sp.divider_position(0).should eq 12
-    a.width.should eq 12
+    a.width_spec.should eq 12
     b.left.should eq 13
     mouse_up s, 12, 3
   end
@@ -304,11 +304,11 @@ describe "Dial rendering" do
       minimum: 0, maximum: 8, value: 0
     s.repaint
     # value 0 -> north pointer somewhere in the dial.
-    s.lines.any? { |line| line.any? { |c| c.char == '↑' } }.should be_true
+    s.cell_rows.any? { |line| line.any? { |c| c.char == '↑' } }.should be_true
 
     d.value = 2 # quarter turn -> east
     s.repaint
-    s.lines.any? { |line| line.any? { |c| c.char == '→' } }.should be_true
+    s.cell_rows.any? { |line| line.any? { |c| c.char == '→' } }.should be_true
   end
 end
 
@@ -396,7 +396,7 @@ end
 
 # Reads a vertical scroll bar's column (column 0) as a String.
 private def col_chars(s, x, y0, y1)
-  (y0...y1).map { |y| s.lines[y][x].char }.join
+  (y0...y1).map { |y| s.cell_rows[y][x].char }.join
 end
 
 describe "ScrollBar rendering" do
@@ -461,10 +461,10 @@ describe "ScrollBar rendering" do
     sb.style.add_page.bg.should eq Crysterm::Colors.convert("#00ff00")
     sb.style.up_arrow.fg.should eq Crysterm::Colors.convert("#0000ff")
     # And actually paint: blue up-arrow at the top, green add-page trough below.
-    s.lines[0][0].char.should eq '▲'
-    Crysterm::Attr.unpack_color(Crysterm::Attr.fg(s.lines[0][0].attr)).should eq 0x0000ff
-    s.lines[3][0].char.should eq '░'
-    Crysterm::Attr.unpack_color(Crysterm::Attr.bg(s.lines[3][0].attr)).should eq 0x00ff00
+    s.cell_rows[0][0].char.should eq '▲'
+    Crysterm::Attr.unpack_color(Crysterm::Attr.fg(s.cell_rows[0][0].attr)).should eq 0x0000ff
+    s.cell_rows[3][0].char.should eq '░'
+    Crysterm::Attr.unpack_color(Crysterm::Attr.bg(s.cell_rows[3][0].attr)).should eq 0x00ff00
   end
 end
 

@@ -41,7 +41,7 @@ describe "Widget::Terminal block cursor toggles REVERSE (B17-32)" do
     em.cursor_x.should eq 0
     s.repaint
 
-    line = s.lines[0]
+    line = s.cell_rows[0]
     line[0].char.should eq 'X'
     # B17-32: OR-ing REVERSE here was a no-op (cell already reversed) and the
     # cursor was invisible; toggling flips it back to normal video.
@@ -64,7 +64,7 @@ describe "Widget::Terminal block cursor toggles REVERSE (B17-32)" do
     em.feed "X\e[G" # plain 'X', cursor back onto it
     s.repaint
 
-    line = s.lines[0]
+    line = s.cell_rows[0]
     (Attr.flags(line[0].attr) & Attr::REVERSE).should_not eq 0
   ensure
     term.try &.kill

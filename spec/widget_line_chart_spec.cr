@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 private def rows(s) : Array(String)
-  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.lines[y][x].char; c == '\0' ? ' ' : c }.join }
+  (0...s.aheight).map { |y| (0...s.awidth).map { |x| c = s.cell_rows[y][x].char; c == '\0' ? ' ' : c }.join }
 end
 
 describe Crysterm::Widget::Graph::LineChart do

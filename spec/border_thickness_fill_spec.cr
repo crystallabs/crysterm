@@ -7,8 +7,8 @@ include Crysterm
 # classifying each cell as a horizontal run, a vertical run, or a corner/join
 # cell — not draw glyphs only in the outermost row/column.
 private def rows(s)
-  (0...s.lines.size).map do |y|
-    row = s.lines[y]
+  (0...s.cell_rows.size).map do |y|
+    row = s.cell_rows[y]
     (0...row.size).map { |x| row[x].char }.join
   end
 end

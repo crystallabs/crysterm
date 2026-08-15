@@ -11,7 +11,7 @@ include Crysterm
 #
 # The third fix lives in `Widget::Terminal#draw` (wide-glyph continuation kept
 # even when the cursor sits on the lead half), so it is driven through a real
-# render of the widget onto a headless `Window`, then inspecting `window.lines`.
+# render of the widget onto a headless `Window`, then inspecting `window.cell_rows`.
 #
 # NOT covered here: the PTY `resize`/`ioctl` fix, which needs a real pseudo-
 # terminal (`TIOCSWINSZ` on a live master fd) and cannot be exercised from a
@@ -171,7 +171,7 @@ describe "Widget::Terminal wide glyph under cursor (fix #1)" do
 
     s.repaint
 
-    line = s.lines[0]
+    line = s.cell_rows[0]
     # Lead cell holds the wide glyph.
     ::Crysterm::Unicode.width(line[0].char).should eq 2
     # The following window cell is a continuation (1 window cell == 1 terminal
@@ -197,7 +197,7 @@ describe "Widget::Terminal wide glyph under cursor (fix #1)" do
     em.feed "\e[5G" # cursor to column 5 (1-based) → away from the glyph
     s.repaint
 
-    line = s.lines[0]
+    line = s.cell_rows[0]
     ::Crysterm::Unicode.width(line[0].char).should eq 2
     line[1].continuation?.should be_true
   ensure

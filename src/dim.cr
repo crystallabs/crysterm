@@ -126,7 +126,7 @@ module Crysterm
       in Int32, Nil then value
       in Dim
         # A fixed cell count is canonically stored as a bare `Int32`, so
-        # `w.width == 5` and `5 == w.width` both hold however it was spelled.
+        # `w.width_spec == 5` and `5 == w.width_spec` both hold however it was spelled.
         value.cells? ? value.offset : value
       in String then parse value, size: size
       in Symbol
@@ -306,7 +306,7 @@ module Crysterm
     end
 
     # A `Dim` equals the `Int32`/`String`/`Symbol` spelling it was parsed
-    # from, so `w.width.should eq "50%"`-style comparisons keep working after
+    # from, so `w.width_spec.should eq "50%"`-style comparisons keep working after
     # the parse-at-assignment normalization.
     def ==(other : Int32) : Bool
       cells? && @offset == other

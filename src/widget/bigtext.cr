@@ -154,7 +154,7 @@ module Crysterm
         # draw, so bail out with the computed coords.
         return coords if @ratio.width <= 0 || @ratio.height <= 0
 
-        lines = window.lines
+        lines = window.cell_rows
         left, right, top, bottom = content_edges coords
 
         default_attr = @attr_memo.fetch(style)

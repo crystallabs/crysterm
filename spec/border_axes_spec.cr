@@ -18,8 +18,8 @@ private def with_aspect(aspect = 2.0, &)
 end
 
 private def rows(s)
-  (0...s.lines.size).map do |y|
-    row = s.lines[y]
+  (0...s.cell_rows.size).map do |y|
+    row = s.cell_rows[y]
     (0...row.size).map { |x| row[x].char }.join
   end
 end
@@ -33,7 +33,7 @@ private def band_rows(border : Crysterm::Border) : Array(String)
   b.style.border = border
   s << b
   s.repaint
-  (0...6).map { |y| (0...8).map { |x| s.lines[y][x].char }.join }
+  (0...6).map { |y| (0...8).map { |x| s.cell_rows[y][x].char }.join }
 end
 
 describe "border stroke axes" do
@@ -174,8 +174,8 @@ describe "braille axes" do
       b.style.border = Border.new(type: :braille, align: :inner, fg: 0xffffff)
       s << b
       s.repaint
-      Attr.bg(s.lines[1][1].attr).should eq 0x111111 # backdrop shows through
-      Attr.bg(s.lines[2][3].attr).should eq 0x222222 # interior keeps widget bg
+      Attr.bg(s.cell_rows[1][1].attr).should eq 0x111111 # backdrop shows through
+      Attr.bg(s.cell_rows[2][3].attr).should eq 0x222222 # interior keeps widget bg
     end
   end
 
@@ -301,10 +301,10 @@ describe "shadow auto-placement" do
       s.repaint
       # Bottom band only (light N), rows 4, spanning 1 cell past each edge:
       # widget columns 3..7 → shadow columns 2..8.
-      Attr.bg(s.lines[4][2].attr).should be < 0x808080
-      Attr.bg(s.lines[4][8].attr).should be < 0x808080
-      Attr.bg(s.lines[4][1].attr).should eq 0x808080 # beyond the spill
-      Attr.bg(s.lines[2][8].attr).should eq 0x808080 # no right band
+      Attr.bg(s.cell_rows[4][2].attr).should be < 0x808080
+      Attr.bg(s.cell_rows[4][8].attr).should be < 0x808080
+      Attr.bg(s.cell_rows[4][1].attr).should eq 0x808080 # beyond the spill
+      Attr.bg(s.cell_rows[2][8].attr).should eq 0x808080 # no right band
       # Directional: exact silhouette, columns 3..7 only (fresh screen — the
       # spot widget's shadow already darkened this one).
       s2 = headless_screen(12, 7)
@@ -318,8 +318,8 @@ describe "shadow auto-placement" do
       b2.style.light = Light.new(Light::Direction::N)
       s2 << b2
       s2.repaint
-      Attr.bg(s2.lines[4][2].attr).should eq 0x808080
-      Attr.bg(s2.lines[4][3].attr).should be < 0x808080
+      Attr.bg(s2.cell_rows[4][2].attr).should eq 0x808080
+      Attr.bg(s2.cell_rows[4][3].attr).should be < 0x808080
     end
   end
 end

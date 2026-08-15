@@ -19,7 +19,7 @@ describe "BUGS15 #85 content-sized table sizing" do
     s = headless_screen(40, 20, default_quit_keys: true)
     t = Crysterm::Widget::Table.new parent: s, rows: [["a very long header cell"]]
 
-    wide = t.width
+    wide = t.width_spec
     wide.should be_a(Int32)
 
     # Narrow the data. Width must fall back to the short-content width, i.e. the
@@ -28,12 +28,12 @@ describe "BUGS15 #85 content-sized table sizing" do
 
     fresh = Crysterm::Widget::Table.new parent: s, rows: [["x"]]
 
-    t.width.should eq(fresh.width)
-    t.width.as(Int32).should be < wide.as(Int32)
+    t.width_spec.should eq(fresh.width_spec)
+    t.width_spec.as(Int32).should be < wide.as(Int32)
 
     # Rendering must not re-grow it either.
     s.repaint
-    t.width.should eq(fresh.width)
+    t.width_spec.should eq(fresh.width_spec)
   end
 
   it "keeps a scrolling content-sized ListTable's width constant across refreshes" do
@@ -46,7 +46,7 @@ describe "BUGS15 #85 content-sized table sizing" do
     widths = [] of Int32
     5.times do
       s.repaint
-      widths << lt.width.as(Int32)
+      widths << lt.width_spec.as(Int32)
       lt.rows = data # identical data, refreshed
     end
 
@@ -61,14 +61,14 @@ describe "BUGS15 #85 content-sized table sizing" do
       width: 30,
       rows: [["Name", "City"], ["Al", "NY"]])
 
-    t.width.should eq(30)
+    t.width_spec.should eq(30)
 
     # New (still-narrow) data must not change the fixed width — the slack is
     # redistributed across the columns as before.
     t.rows = [["A", "B"], ["c", "d"]]
-    t.width.should eq(30)
+    t.width_spec.should eq(30)
 
     s.repaint
-    t.width.should eq(30)
+    t.width_spec.should eq(30)
   end
 end

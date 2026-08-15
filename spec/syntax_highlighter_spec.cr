@@ -119,7 +119,7 @@ describe Crysterm::SyntaxHighlighter do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 20, height: 4, content: "v 99"
     DigitHighlighter.new(te.document)
     s.repaint
-    Attr.fg(s.lines[0][2].attr).should eq Attr.pack_color(0xFF0000)
-    Attr.fg(s.lines[0][0].attr).should eq Attr.pack_color(-1)
+    Attr.fg(s.cell_rows[0][2].attr).should eq Attr.pack_color(0xFF0000)
+    Attr.fg(s.cell_rows[0][0].attr).should eq Attr.pack_color(-1)
   end
 end

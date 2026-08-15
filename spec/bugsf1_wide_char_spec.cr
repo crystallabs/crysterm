@@ -89,7 +89,7 @@ describe "BUGS-F1 #11: wide glyph straddling the left screen edge" do
     Widget::Box.new parent: s, top: 0, left: -1, width: 4, height: 1,
       content: "漢AB"
     s.repaint
-    line = s.lines[0]
+    line = s.cell_rows[0]
 
     # Column 0 must be a plain blank, never a continuation with no lead anywhere
     # (which would leave col 0 unrepainted forever and shift the row left).
@@ -106,7 +106,7 @@ end
 describe "BUGS-F1 #10: changed continuation cell in the draw diff" do
   it "repositions absolutely for the next changed cell (no left shift)" do
     s, outio = fu_screen(6, 1)
-    line = s.lines[0]
+    line = s.cell_rows[0]
 
     da = Crysterm::Window::DEFAULT_ATTR
     # Baseline: wide lead at col 0, its continuation at col 1, a letter at col 2.

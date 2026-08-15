@@ -10,7 +10,7 @@ include Crysterm
 private def count_cells_bg(screen, color)
   n = 0
   (0...screen.height).each do |y|
-    next unless screen.lines[y]?
+    next unless screen.cell_rows[y]?
     (0...screen.width).each { |x| n += 1 if cell_bg(screen, x, y) == color }
   end
   n
@@ -50,7 +50,7 @@ describe "CSS end-to-end rendering" do
     reds = [] of Int32
     blues = [] of Int32
     (0...24).each do |y|
-      next unless screen.lines[y]?
+      next unless screen.cell_rows[y]?
       (0...24).each do |x|
         case cell_fg(screen, x, y)
         when 0xff0000 then reds << x
@@ -74,7 +74,7 @@ describe "CSS end-to-end rendering" do
     reds = [] of Int32
     blues = [] of Int32
     (0...24).each do |y|
-      next unless screen.lines[y]?
+      next unless screen.cell_rows[y]?
       (0...24).each do |x|
         case cell_fg(screen, x, y)
         when 0xff0000 then reds << x
@@ -139,7 +139,7 @@ describe "CSS end-to-end rendering" do
     # the separator rule (a run of '─') is drawn from the separator sub-style
     magentas = 0
     (0...screen.height).each do |y|
-      next unless screen.lines[y]?
+      next unless screen.cell_rows[y]?
       (0...screen.width).each { |x| magentas += 1 if cell_fg(screen, x, y) == 0xff00ff }
     end
     magentas.should be > 0
@@ -157,7 +157,7 @@ describe "CSS end-to-end rendering" do
     # the tab labels in the strip are drawn from the pushed tab sub-style
     magentas = 0
     (0...screen.height).each do |y|
-      next unless screen.lines[y]?
+      next unless screen.cell_rows[y]?
       (0...screen.width).each { |x| magentas += 1 if cell_fg(screen, x, y) == 0xff00ff }
     end
     magentas.should be > 0

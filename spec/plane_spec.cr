@@ -34,7 +34,7 @@ describe Crysterm::Plane do
     pl.clear
     paint pl, 0, 10, Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(0xff0000)) # red, opaque, left half
     pl.opacity = 1.0
-    pl.composite_onto s.lines
+    pl.composite_onto s.cell_rows
 
     cell_bg(s, 5, 2).should eq 0xff0000  # painted (opaque) -> red replaces base
     cell_bg(s, 15, 2).should eq 0x0000ff # unpainted -> base shows through
@@ -47,7 +47,7 @@ describe Crysterm::Plane do
     pl.clear
     paint pl, 0, 20, Attr.pack(0, Attr::COLOR_DEFAULT, Attr.pack_color(0xff0000)) # opaque red overlay
     pl.opacity = 0.5                                                              # ...but the plane is 50% -> red over blue
-    pl.composite_onto s.lines
+    pl.composite_onto s.cell_rows
 
     cell_bg(s, 10, 2).should eq 0x7f007f # mix(red, blue): base shows through overlay
   end
@@ -66,7 +66,7 @@ describe Crysterm::Plane do
     (0...20).each { |x| c = row0[x]; c.attr = red; c.char = ' ' }
     row0.dirty = true
     pl.opacity = 1.0
-    pl.composite_onto s.lines
+    pl.composite_onto s.cell_rows
 
     cell_bg(s, 5, 0).should eq 0xff0000 # repainted row -> red
     cell_bg(s, 5, 1).should eq 0x0000ff # cleared row -> base shows (no stale overlay)
@@ -84,7 +84,7 @@ describe Crysterm::Plane do
     hc = Attr.with_bg_alpha(Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT), Attr::Alpha::HighContrast)
     paint pl, 10, 15, hc
     pl.opacity = 1.0
-    pl.composite_onto s.lines
+    pl.composite_onto s.cell_rows
 
     cell_bg(s, 2, 1).should eq 0x0000ff  # Transparent bg -> base shows
     cell_bg(s, 12, 1).should eq 0xf5f5f5 # HighContrast over dark -> near-white

@@ -14,7 +14,7 @@ include Crysterm
 # to a normal repaint.
 
 private def row_chars(s, y)
-  Array.new(s.lines[y].size) { |x| s.lines[y][x].char }
+  Array.new(s.cell_rows[y].size) { |x| s.cell_rows[y][x].char }
 end
 
 describe "BUGS13 W4: CSR scroll fast path bounds" do
@@ -25,13 +25,13 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     w.set_content((1..60).map { |i| "line #{i}" }.join('\n'))
     s.repaint
 
-    before = s.lines.size
+    before = s.cell_rows.size
     # Move child_base (always: true forces a base shift) — reaches the CSR
     # branch since the widget is full-width (clean_sides shortcut).
     w.scroll(1, true) # must not raise IndexError
     w.child_base.should be > 0
-    s.lines.size.should eq before
-    s.lines.size.should eq s.aheight
+    s.cell_rows.size.should eq before
+    s.cell_rows.size.should eq s.aheight
   ensure
     s.try &.destroy
   end
@@ -52,7 +52,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
 
     w.scroll(1, true) # must not touch buffer rows via a wrapped index
     w.child_base.should be > 0
-    s.lines.size.should eq s.aheight
+    s.cell_rows.size.should eq s.aheight
     row_chars(s, 10).should eq bottom1
     row_chars(s, 11).should eq bottom2
   ensure
@@ -69,9 +69,9 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     w.child_base.should be > 0
     s.repaint
 
-    before = s.lines.size
+    before = s.cell_rows.size
     w.scroll(-1, true) # insert_line direction; must not raise
-    s.lines.size.should eq before
+    s.cell_rows.size.should eq before
   ensure
     s.try &.destroy
   end
@@ -85,7 +85,7 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
 
     w.scroll(1, true)
     w.child_base.should be > 0
-    s.lines.size.should eq s.aheight
+    s.cell_rows.size.should eq s.aheight
   ensure
     s.try &.destroy
   end
@@ -97,9 +97,9 @@ describe "BUGS13 W4: CSR scroll fast path bounds" do
     w.set_content((1..20).map { |i| "line #{i}" }.join('\n'))
     s.repaint
 
-    before = s.lines.size
-    w.insert_line 1, "inserted" # render_line_shift → window.insert_line
-    s.lines.size.should eq before
+    before = s.cell_rows.size
+    w.insert_line 1, "inserted" # render_line_shift → window.scroll_insert_rows
+    s.cell_rows.size.should eq before
   ensure
     s.try &.destroy
   end

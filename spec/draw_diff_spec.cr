@@ -29,16 +29,16 @@ describe "Window#draw cell diff (full_unicode)" do
     y, x = 1, 2
 
     # Frame 1: a plain 'e' -> @flushed_lines mirrors it.
-    s.lines[y][x].char = 'e'
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].char = 'e'
+    s.cell_rows[y].dirty = true
     s.draw
     s.flushed_lines[y][x].char.should eq 'e'
     s.flushed_lines[y][x].grapheme_overlay.should be_nil
 
     # Frame 2: same base 'e' and attr, now a 2-codepoint cluster (e + combining
     # acute). Ignoring the overlay would skip this cell and lose the mark.
-    s.lines[y][x].grapheme = "e\u{0301}"
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].grapheme = "e\u{0301}"
+    s.cell_rows[y].dirty = true
     s.draw
 
     s.flushed_lines[y][x].grapheme.should eq "e\u{0301}"
@@ -51,14 +51,14 @@ describe "Window#draw cell diff (full_unicode)" do
     s.alloc
     y, x = 0, 1
 
-    s.lines[y][x].grapheme = "e\u{0301}"
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].grapheme = "e\u{0301}"
+    s.cell_rows[y].dirty = true
     s.draw
     s.flushed_lines[y][x].grapheme_overlay.should eq "e\u{0301}"
 
     # Back to a plain 'e' (overlay dropped) — the cell changed, so it must emit.
-    s.lines[y][x].char = 'e'
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].char = 'e'
+    s.cell_rows[y].dirty = true
     s.draw
     s.flushed_lines[y][x].char.should eq 'e'
     s.flushed_lines[y][x].grapheme_overlay.should be_nil
@@ -71,15 +71,15 @@ describe "Window#draw cell diff (full_unicode)" do
     s.alloc
     y, x = 2, 3
 
-    s.lines[y][x].grapheme = "e\u{0301}"
-    s.lines[y].dirty = true
+    s.cell_rows[y][x].grapheme = "e\u{0301}"
+    s.cell_rows[y].dirty = true
     s.draw
     s.flushed_lines[y][x].grapheme.should eq "e\u{0301}"
 
     # Redraw identical content: unchanged, so the diff must skip it and write
     # nothing. (Keying the skip on the OLD cell's overlay would re-emit every frame.)
     before = output.size
-    s.lines[y].dirty = true
+    s.cell_rows[y].dirty = true
     s.draw
     (output.size - before).should eq 0
   end
@@ -106,13 +106,13 @@ private def drawn_bytes(edits, narrowed : Bool, width = 40, height = 6) : Bytes
   s.draw # prime: @flushed_lines mirrors @lines
   buf.clear
   edits.each do |(y, x, ch, at)|
-    cell = s.lines[y][x]
+    cell = s.cell_rows[y][x]
     cell.attr = at
     cell.char = ch
     if narrowed
-      s.lines[y].mark_dirty x
+      s.cell_rows[y].mark_dirty x
     else
-      s.lines[y].dirty = true
+      s.cell_rows[y].dirty = true
     end
   end
   s.draw
@@ -150,8 +150,8 @@ end
 # changed but fell outside a too-narrow dirty range would be skipped, leaving
 # `@flushed_lines` stale — asserted here can't happen as widgets move and change.
 private def fully_synced(s) : {Int32, Int32}?
-  s.lines.size.times do |y|
-    line = s.lines[y]
+  s.cell_rows.size.times do |y|
+    line = s.cell_rows[y]
     o = s.flushed_lines[y]?
     next unless o
     Math.min(line.size, o.size).times do |x|

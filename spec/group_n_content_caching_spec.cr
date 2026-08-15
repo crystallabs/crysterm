@@ -16,32 +16,32 @@ describe "Group N per-frame content caching" do
       cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "Accept"
 
       cb.paint
-      cb.content.should eq "[ ] Accept"
+      cb.rendered_content.should eq "[ ] Accept"
       # A second render with no state change must yield the identical string.
       cb.paint
-      cb.content.should eq "[ ] Accept"
+      cb.rendered_content.should eq "[ ] Accept"
 
       cb.check
       cb.paint
-      cb.content.should eq "[x] Accept"
+      cb.rendered_content.should eq "[x] Accept"
 
       cb.uncheck
       cb.paint
-      cb.content.should eq "[ ] Accept"
+      cb.rendered_content.should eq "[ ] Accept"
 
       cb.text = "Other"
       cb.paint
-      cb.content.should eq "[ ] Other"
+      cb.rendered_content.should eq "[ ] Other"
     end
 
     it "reflects the partially-checked marker" do
       s = headless_screen(40, 12)
       cb = Crysterm::Widget::CheckBox.new parent: s, top: 0, left: 0, width: 20, height: 1, tristate: true, content: "All"
       cb.paint
-      cb.content.should eq "[ ] All"
+      cb.rendered_content.should eq "[ ] All"
       cb.partial
       cb.paint
-      cb.content.should eq "[-] All"
+      cb.rendered_content.should eq "[-] All"
     end
   end
 
@@ -50,12 +50,12 @@ describe "Group N per-frame content caching" do
       s = headless_screen(40, 12)
       rb = Crysterm::Widget::RadioButton.new parent: s, top: 0, left: 0, width: 20, height: 1, content: "One"
       rb.paint
-      rb.content.should eq "( ) One"
+      rb.rendered_content.should eq "( ) One"
       rb.paint
-      rb.content.should eq "( ) One"
+      rb.rendered_content.should eq "( ) One"
       rb.check
       rb.paint
-      rb.content.should eq "(*) One"
+      rb.rendered_content.should eq "(*) One"
     end
   end
 

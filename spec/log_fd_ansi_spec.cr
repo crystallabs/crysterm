@@ -169,7 +169,7 @@ describe "Widget::LogFd :ansi mode" do
 
     x, y = content_origin fd
     cell_char(win, x, y).should eq '中'
-    win.lines[y][x + 1].continuation?.should be_true
+    win.cell_rows[y][x + 1].continuation?.should be_true
     cell_char(win, x + 2, y).should eq 'x'
   ensure
     fd.try &.close

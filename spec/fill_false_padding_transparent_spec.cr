@@ -21,7 +21,7 @@ private def fill_false_interior_bg(padding : Int32)
   lp = b.lpos.not_nil!
   y = lp.yi + padding + 1
   x = lp.xi + padding + 1
-  Crysterm::Attr.bg(s.lines[y][x].attr)
+  Crysterm::Attr.bg(s.cell_rows[y][x].attr)
 end
 
 # Regression: a `fill: false` widget is transparent (its content loop draws no

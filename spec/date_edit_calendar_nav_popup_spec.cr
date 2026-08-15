@@ -89,7 +89,7 @@ describe "DateEdit keeps the calendar open when picking a nav-dropdown row that 
     # `Completer`/`List` drop-down.
     sb.min_thumb.should eq Crysterm::Mixin::ItemView::ITEM_VIEW_MIN_THUMB
     x = sb.aleft
-    thumb = (sb.atop...(sb.atop + sb.aheight)).count { |y| s.lines[y][x].char == sb.thumb_char }
+    thumb = (sb.atop...(sb.atop + sb.aheight)).count { |y| s.cell_rows[y][x].char == sb.thumb_char }
     thumb.should eq Crysterm::Mixin::ItemView::ITEM_VIEW_MIN_THUMB
   end
 

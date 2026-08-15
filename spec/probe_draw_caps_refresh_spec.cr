@@ -70,8 +70,8 @@ describe "Screen#probe draw_caps refresh" do
 
     obuf = screen.output.as(IO::Memory)
     rgb = Attr.pack(0i64, Attr.pack_color(0xff8800), Attr::COLOR_DEFAULT)
-    c = s.lines[0][0]; c.attr = rgb; c.char = 'A'
-    s.lines[0].dirty = true
+    c = s.cell_rows[0][0]; c.attr = rgb; c.char = 'A'
+    s.cell_rows[0].dirty = true
     obuf.clear
     s.draw
 

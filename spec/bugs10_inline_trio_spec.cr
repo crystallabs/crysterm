@@ -56,8 +56,8 @@ describe "inline Window physical/surface coordination (BUGS10 #1-#3)" do
     s.alloc
 
     # Stable content; primes @flushed_lines to mirror @lines.
-    s.lines.size.times { |y| s.lines[y].size.times { |x| s.lines[y][x].char = '.' } }
-    s.lines.each &.dirty=(true)
+    s.cell_rows.size.times { |y| s.cell_rows[y].size.times { |x| s.cell_rows[y][x].char = '.' } }
+    s.cell_rows.each &.dirty=(true)
     s.draw
 
     s.cursor.artificial = true

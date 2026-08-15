@@ -12,7 +12,7 @@ include Crysterm
 #
 # The gate must be `compositing_layers?` (true for the whole subtree), not
 # `@compositing` (set only on the layer root): a bordered descendant paints
-# into the plane too (root redirects `screen.lines` for the whole subtree) but
+# into the plane too (root redirects `screen.cell_rows` for the whole subtree) but
 # has `@compositing == false`, so gating on it leaks the descendant's border
 # rows onto the base `_dock_stops`, joining the child's border to content under
 # the overlay.

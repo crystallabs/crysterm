@@ -387,8 +387,8 @@ describe "CSS fidelity" do
       screen.repaint
 
       box.aheight.should eq 3 # 1 content row + top and bottom edges
-      screen.lines[0][0].char.should eq '┌'
-      screen.lines[2][0].char.should eq '└'
+      screen.cell_rows[0][0].char.should eq '┌'
+      screen.cell_rows[2][0].char.should eq '└'
     end
 
     it "applies min-/max- to the same box the size measures, per CSS" do
@@ -443,8 +443,8 @@ describe "CSS fidelity" do
       screen.apply_stylesheet
       screen.repaint
 
-      screen.lines[0][0].char.should eq '█'
-      screen.lines[0][11].char.should eq '█'
+      screen.cell_rows[0][0].char.should eq '█'
+      screen.cell_rows[0][11].char.should eq '█'
     end
 
     it "caps the top/bottom edges of a one-column box" do
@@ -455,8 +455,8 @@ describe "CSS fidelity" do
       screen.apply_stylesheet
       screen.repaint
 
-      screen.lines[0][0].char.should eq '█'
-      screen.lines[3][0].char.should eq '█'
+      screen.cell_rows[0][0].char.should eq '█'
+      screen.cell_rows[3][0].char.should eq '█'
     end
 
     it "draws the ordinary full frame when the border fits" do
@@ -467,9 +467,9 @@ describe "CSS fidelity" do
       screen.apply_stylesheet
       screen.repaint
 
-      screen.lines[0][0].char.should eq '┌'
-      screen.lines[1][0].char.should eq '│'
-      screen.lines[2][0].char.should eq '└'
+      screen.cell_rows[0][0].char.should eq '┌'
+      screen.cell_rows[1][0].char.should eq '│'
+      screen.cell_rows[2][0].char.should eq '└'
     end
 
     it "lets an explicit border char override outrank the cap" do
@@ -480,8 +480,8 @@ describe "CSS fidelity" do
       screen.apply_stylesheet
       screen.repaint
 
-      screen.lines[0][0].char.should eq '@'  # author's choice
-      screen.lines[0][11].char.should eq '█' # uncustomized side still caps
+      screen.cell_rows[0][0].char.should eq '@'  # author's choice
+      screen.cell_rows[0][11].char.should eq '█' # uncustomized side still caps
     end
 
     it "uses the ascii solid at the ascii tier, which has no block glyph" do

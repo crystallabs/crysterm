@@ -31,7 +31,7 @@ describe "Media::Cells single-frame APNG" do
 
     # Content cell must carry the image pixel's color. With the bug the
     # animation branch composed no sample and the cell stayed at screen default.
-    cell = s.lines[0][0]
+    cell = s.cell_rows[0][0]
     Attr.bg(cell.attr).should eq Attr.pack_color(0x0a141e)
   ensure
     img.try &.stop

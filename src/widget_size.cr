@@ -6,21 +6,45 @@ module Crysterm
 
     # Widget's size
 
-    # User-defined width (setter is defined below). Accepts a cell count
-    # (`Int32`), a `Dim` (`Dim.percent(50)`), `:half`, or the string micro-DSL
-    # (`"50%"`, `"half-3"`, `"50vw"`) — strings/symbols parse to a `Dim` once,
-    # at assignment (malformed raises `ArgumentError` there); `nil` stretches.
+    # The user-defined width *spec*, exactly as set (`nil` until then). The
+    # setters (`width=`/`width_spec=`) accept a cell count (`Int32`), a `Dim`
+    # (`Dim.percent(50)`), `:half`, or the string micro-DSL (`"50%"`,
+    # `"half-3"`, `"50vw"`) — strings/symbols parse to a `Dim` once, at
+    # assignment (malformed raises `ArgumentError` there), so the stored spec
+    # is always `Dim | Int32?`; `nil` stretches.
     #
-    # NOTE Returns the **unresolved spec**, not a cell count — by design, so
-    # `Widget.new(width: "50%")` round-trips through `#width`. For the
-    # resolved size in cells see `#awidth` (and the `#size` bundle below).
-    getter width : Dim | Int32 | String?
+    # NOTE `#width` itself returns the **resolved cells** (Qt/CSS reading);
+    # this is the unresolved-spec reader, so `Widget.new(width: "50%")`
+    # round-trips through `#width_spec`.
+    @width : Dim | Int32?
 
-    # User-defined height (setter is defined below); forms as for `#width`.
-    #
-    # NOTE Same caveat as `#width`: unresolved spec, not cells. See `#aheight`
-    # (and `#size`).
-    getter height : Dim | Int32 | String?
+    # :ditto:
+    def width_spec : Dim | Int32?
+      @width
+    end
+
+    # The user-defined height *spec*; forms and caveats as for `#width_spec`.
+    @height : Dim | Int32?
+
+    # :ditto:
+    def height_spec : Dim | Int32?
+      @height
+    end
+
+    # The resolved width in cells — what a Qt/CSS reader expects of `#width`,
+    # and an alias of `#awidth` (the `a*` spelling stays canonical in-tree).
+    # The *setter* `#width=` takes a spec: `w.width = w.width` therefore
+    # round-trips (an `Int32` spec resolves to itself), while a percent/auto
+    # spec written back this way is pinned to cells — the usual imperative
+    # trade, as with `#geometry=`. For the raw spec see `#width_spec`.
+    def width : Int32
+      awidth
+    end
+
+    # :ditto: — alias of `#aheight`; see `#width`.
+    def height : Int32
+      aheight
+    end
 
     # Whether the widget sizes itself to its content and children rather than to
     # its slot — roughly CSS `width: fit-content`. Only the dimensions the user
@@ -33,18 +57,26 @@ module Crysterm
     # `#size_policy` axis, which sizes the slot to `#size_hint`.
     property? shrink_to_fit = false
 
-    # `width=`/`height=`: change-guarded setters that normalize through
+    # `width=`/`height=`: change-guarded spec setters that normalize through
     # `Dim.from` (parse-at-assignment, size context), mark dirty and emit
     # `Resize`. The assign lands *before* the emit so in-tree Resize listeners
-    # observe the new size, not the old one.
+    # observe the new size, not the old one. `width_spec=`/`height_spec=` are
+    # the same setters under the spec readers' spelling, completing that
+    # property pair.
     {% for dim in %w[width height] %}
-      # Sets widget's total {{ dim.id }}
+      # Sets widget's total {{ dim.id }} (a size *spec* — cells, `Dim`,
+      # percent string, or `nil` to stretch).
       def {{ dim.id }}=(val : Dim | Int32 | String | Symbol | Nil)
         val = Dim.from val, size: true
         return if @{{ dim.id }} == val
         @{{ dim.id }} = val
         update
         emit ::Crysterm::Event::Resize
+      end
+
+      # :ditto: — the `{{ dim.id }}_spec` property-pair spelling.
+      def {{ dim.id }}_spec=(val : Dim | Int32 | String | Symbol | Nil)
+        self.{{ dim.id }} = val
       end
     {% end %}
 
@@ -401,19 +433,6 @@ module Crysterm
     # `(#awidth, #aheight)` bundled as a `Size` — Qt's `QWidget::size()`.
     def size : Size
       Size.new awidth, aheight
-    end
-
-    # The resolved width in cells — a discoverable alias of `#awidth` for
-    # readers who don't know the `a*` prefix convention. `#width` returns the
-    # size *spec* (`Dim | Int32 | String?` — possibly `"50%"` or `nil`); this
-    # returns the cells actually used.
-    def width_cells : Int32
-      awidth
-    end
-
-    # :ditto: — alias of `#aheight`.
-    def height_cells : Int32
-      aheight
     end
 
     # `Size` overload of `#resize` — Qt's `QWidget::resize(QSize)`. Pure

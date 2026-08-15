@@ -21,7 +21,7 @@ private def alpha_content_bg(padding : Int32)
   # A cell inside the content region (offset past any padding).
   y = lp.yi + padding + 1
   x = lp.xi + padding + 1
-  Crysterm::Attr.bg(s.lines[y][x].attr)
+  Crysterm::Attr.bg(s.cell_rows[y][x].attr)
 end
 
 # Regression: a translucent (`style.opacity`) widget renders its interior by

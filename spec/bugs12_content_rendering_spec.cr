@@ -89,10 +89,10 @@ describe "Effect::Direct#paint clips the off-top/left band" do
     # The bottom and right edges of the buffer must remain untouched (a
     # negative-index wrap would have stamped the plasma glyph there).
     (0...12).each do |x|
-      s.lines[11][x].char.should_not eq '#'
+      s.cell_rows[11][x].char.should_not eq '#'
     end
     (0...12).each do |y|
-      s.lines[y][11].char.should_not eq '#'
+      s.cell_rows[y][11].char.should_not eq '#'
     end
 
     p # keep referenced
@@ -122,14 +122,14 @@ describe "Widget newline row-fill honors fill: false" do
     lp = b.lpos.not_nil!
     # Reference the backdrop from just OUTSIDE the box (col == lp.xl), which the
     # transparent widget never touches.
-    red = Crysterm::Attr.bg(s.lines[lp.yi][lp.xl].attr)
+    red = Crysterm::Attr.bg(s.cell_rows[lp.yi][lp.xl].attr)
 
     # A tail cell after "ab" on row 0 (inside the box, in the newline-fill zone)
     # must still show the red backdrop, not the widget's own fill.
-    tail_bg = Crysterm::Attr.bg(s.lines[lp.yi][lp.xi + 3].attr)
+    tail_bg = Crysterm::Attr.bg(s.cell_rows[lp.yi][lp.xi + 3].attr)
     tail_bg.should eq red
     # And a row with no newline-fill (row 1, "cd") must match too — sanity that
     # `red` really is the backdrop color.
-    Crysterm::Attr.bg(s.lines[lp.yi + 1][lp.xi + 3].attr).should eq red
+    Crysterm::Attr.bg(s.cell_rows[lp.yi + 1][lp.xi + 3].attr).should eq red
   end
 end

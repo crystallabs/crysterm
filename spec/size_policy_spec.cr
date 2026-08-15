@@ -59,8 +59,8 @@ describe "adjust_size (§1.8)" do
     s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, left: 0, top: 0, content: "Hello\nWorld!"
     w.adjust_size
-    w.width.should eq 6
-    w.height.should eq 2
+    w.width_spec.should eq 6
+    w.height_spec.should eq 2
   end
 
   it "is bounded by the parent's content area" do
@@ -68,7 +68,7 @@ describe "adjust_size (§1.8)" do
     tall = Widget::Box.new parent: s, left: 0, top: 0,
       content: Array.new(40, "x").join('\n')
     tall.adjust_size
-    tall.height.should eq 24
+    tall.height_spec.should eq 24
   end
 end
 
@@ -82,10 +82,10 @@ describe "Layout::Box consumes SizePolicy (§4.4)" do
     rest = Widget::Box.new parent: box
 
     s.repaint
-    label.awidth.should eq 5  # sized to the hint, not a flex share
-    label.aheight.should eq 5 # cross axis still stretches (Auto + nil spec)
-    rest.awidth.should eq 25  # the flex child takes the rest
-    label.width.should be_nil # the hint went through the layout channel
+    label.awidth.should eq 5       # sized to the hint, not a flex share
+    label.aheight.should eq 5      # cross axis still stretches (Auto + nil spec)
+    rest.awidth.should eq 25       # the flex child takes the rest
+    label.width_spec.should be_nil # the hint went through the layout channel
   end
 
   it "Preferred is never grown, and shrinks when space runs short" do
@@ -137,7 +137,7 @@ describe "Layout::Box consumes SizePolicy (§4.4)" do
     s.repaint
     c1.awidth.should eq 15
     c2.awidth.should eq 15
-    c1.width.should eq 10 # the spec survives untouched
+    c1.width_spec.should eq 10 # the spec survives untouched
   end
 
   it "a policy change re-arranges on the next frame" do

@@ -24,10 +24,10 @@ end
 
 # Asserts the two screens' cell buffers are identical.
 private def assert_same_lines(a : Crysterm::Window, b : Crysterm::Window, ctx = "")
-  a.lines.size.should eq b.lines.size
-  a.lines.each_index do |y|
-    la = a.lines[y]
-    lb = b.lines[y]
+  a.cell_rows.size.should eq b.cell_rows.size
+  a.cell_rows.each_index do |y|
+    la = a.cell_rows[y]
+    lb = b.cell_rows[y]
     la.size.should eq lb.size
     la.size.times do |x|
       ca = la[x]

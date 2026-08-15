@@ -21,9 +21,9 @@ describe "Window#draw runtime color depth" do
     s = color_screen buf
     begin
       tc = Attr.pack(0, Attr.pack_color(0x123456), Attr::COLOR_DEFAULT)
-      s.lines[0][0].attr = tc
-      s.lines[0][0].char = 'X'
-      s.lines[0].dirty = true
+      s.cell_rows[0][0].attr = tc
+      s.cell_rows[0][0].char = 'X'
+      s.cell_rows[0].dirty = true
 
       # Sanity: at the default (auto/truecolor here) depth, a 24-bit SGR is emitted.
       buf.clear
@@ -38,7 +38,7 @@ describe "Window#draw runtime color depth" do
       # Re-emit the same cell (poison @flushed_lines so it differs) and confirm the
       # color is now reduced — no 24-bit sequence survives.
       s.flushed_lines[0][0].char = '?'
-      s.lines[0].dirty = true
+      s.cell_rows[0].dirty = true
       buf.clear
       s.draw
       buf.to_s.should_not contain("38;2;")

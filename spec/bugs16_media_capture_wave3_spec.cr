@@ -56,9 +56,9 @@ describe "BUGS16 B16-55: Media::Ansi auto-size compensates border/padding insets
       bordered = Widget::Media::Ansi.new file: path, parent: s,
         style: Crysterm::Style.new(border: true)
 
-      plain.width.as(Int32).should be > 0
-      bordered.width.as(Int32).should eq plain.width.as(Int32) + bordered.ihorizontal
-      bordered.height.as(Int32).should eq plain.height.as(Int32) + bordered.ivertical
+      plain.width_spec.as(Int32).should be > 0
+      bordered.width_spec.as(Int32).should eq plain.width_spec.as(Int32) + bordered.ihorizontal
+      bordered.height_spec.as(Int32).should eq plain.height_spec.as(Int32) + bordered.ivertical
       bordered.ihorizontal.should eq 2
     ensure
       s.try &.destroy

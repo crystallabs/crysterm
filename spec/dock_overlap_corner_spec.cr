@@ -37,10 +37,10 @@ describe "border docking with an overlapping popup" do
 
     # Must still be the top-right corner glyph (a box-drawing char with a
     # downward arm), not blanked or reduced to a bare horizontal rule.
-    corner = s.lines[cy][cx].char
+    corner = s.cell_rows[cy][cx].char
     corner.should eq '┐'
 
     # And it joins downward into the popup's shared-border junction.
-    s.lines[cy + 1][cx].char.should eq '├'
+    s.cell_rows[cy + 1][cx].char.should eq '├'
   end
 end

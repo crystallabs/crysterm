@@ -85,7 +85,7 @@ end
 # or nil. Rows/cols are read straight off the rendered window.
 private def bugs6cd_pointer_row(s, y0, y1, x0, x1) : Int32?
   (y0...y1).find do |y|
-    (x0...x1).any? { |x| Crysterm::Widget::Dial::POINTERS.includes?(s.lines[y][x].char) }
+    (x0...x1).any? { |x| Crysterm::Widget::Dial::POINTERS.includes?(s.cell_rows[y][x].char) }
   end
 end
 

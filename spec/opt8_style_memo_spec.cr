@@ -120,15 +120,15 @@ describe "Widget::Marquee render attr memo" do
       m = Widget::Marquee.new parent: s, top: 0, left: 0, width: 10, height: 1,
         text: "ABCDE"
       s.repaint
-      s.lines[0][0].attr.should eq Widget.style_to_attr(m.style)
+      s.cell_rows[0][0].attr.should eq Widget.style_to_attr(m.style)
 
       # In-place mutation, no object swap — via `#restyle`, which also marks
       # the widget dirty so damage tracking re-renders it (a bare in-place
       # write is invisible to damage tracking; see `Mixin::Style#restyle`).
       m.restyle &.bg=(0x102030)
       s.repaint
-      s.lines[0][0].attr.should eq Widget.style_to_attr(m.style)
-      Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x102030)
+      s.cell_rows[0][0].attr.should eq Widget.style_to_attr(m.style)
+      Attr.bg(s.cell_rows[0][0].attr).should eq Attr.pack_color(0x102030)
     end
   end
 end
@@ -146,24 +146,24 @@ describe "Widget::Table recolor attr memos" do
 
       hx = t.ileft
       hy = t.itop
-      s.lines[hy][hx].attr.should eq Widget.style_to_attr(st.header)
+      s.cell_rows[hy][hx].attr.should eq Widget.style_to_attr(st.header)
 
       # Steady frame: unchanged styles keep the same attrs.
       s.repaint
-      s.lines[hy][hx].attr.should eq Widget.style_to_attr(st.header)
+      s.cell_rows[hy][hx].attr.should eq Widget.style_to_attr(st.header)
 
       # In-place mutation of the header sub-style — no object swap — must
       # defeat the memo on the next repaint. Through `#restyle` so damage
       # tracking re-renders the widget (the write itself is invisible to it).
       t.restyle &.header.bg=(0x445566)
       s.repaint
-      s.lines[hy][hx].attr.should eq Widget.style_to_attr(st.header)
-      Attr.bg(s.lines[hy][hx].attr).should eq Attr.pack_color(0x445566)
+      s.cell_rows[hy][hx].attr.should eq Widget.style_to_attr(st.header)
+      Attr.bg(s.cell_rows[hy][hx].attr).should eq Attr.pack_color(0x445566)
 
       # Swapping the sub-style object invalidates by identity.
       t.restyle &.header=(Style.new(bg: 0x778899))
       s.repaint
-      Attr.bg(s.lines[hy][hx].attr).should eq Attr.pack_color(0x778899)
+      Attr.bg(s.cell_rows[hy][hx].attr).should eq Attr.pack_color(0x778899)
     end
   end
 end
@@ -181,19 +181,19 @@ describe "Widget::ProgressBar fill attr memo" do
       # memoized attr must equal the plain `style_to_attr` of the slot.
       ind = pb.style.indicator
       fill = Widget.style_to_attr(ind)
-      s.lines[0][0].attr.should eq fill
+      s.cell_rows[0][0].attr.should eq fill
       Attr.bg(fill).should eq Attr.pack_color(0x336699)
 
       # Steady frame: unchanged style keeps the same attr.
       s.repaint
-      s.lines[0][0].attr.should eq fill
+      s.cell_rows[0][0].attr.should eq fill
 
       # In-place mutation of the indicator sub-style — no object swap — must
       # defeat the memo on the next repaint.
       pb.restyle &.indicator.bg=(0x445566)
       s.repaint
-      s.lines[0][0].attr.should eq Widget.style_to_attr(ind)
-      Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x445566)
+      s.cell_rows[0][0].attr.should eq Widget.style_to_attr(ind)
+      Attr.bg(s.cell_rows[0][0].attr).should eq Attr.pack_color(0x445566)
     end
   end
 end
@@ -209,8 +209,8 @@ describe "Widget::ScrollBar render attr memos" do
 
       # Value at the minimum: thumb on the first row; below it the add-page
       # trough, whose slot resolution falls back to the bar's base style.
-      s.lines[0][0].attr.should eq Widget.style_to_attr(st.indicator)
-      s.lines[3][0].attr.should eq Widget.style_to_attr(st)
+      s.cell_rows[0][0].attr.should eq Widget.style_to_attr(st.indicator)
+      s.cell_rows[3][0].attr.should eq Widget.style_to_attr(st)
 
       # In-place mutations — no object swaps — must defeat both memos on the
       # next repaint (the trough memo's key object IS the base style, via the
@@ -220,8 +220,8 @@ describe "Widget::ScrollBar render attr memos" do
         style.bg = 0x334455
       end
       s.repaint
-      Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x445566)
-      Attr.bg(s.lines[3][0].attr).should eq Attr.pack_color(0x334455)
+      Attr.bg(s.cell_rows[0][0].attr).should eq Attr.pack_color(0x445566)
+      Attr.bg(s.cell_rows[3][0].attr).should eq Attr.pack_color(0x334455)
     end
   end
 end
@@ -242,7 +242,7 @@ describe "Widget::TextEdit steady-frame attr memo" do
       # so damage tracking re-renders the widget.
       te.restyle &.bg=(0x102030)
       s.repaint
-      Attr.bg(s.lines[0][10].attr).should eq Attr.pack_color(0x102030)
+      Attr.bg(s.cell_rows[0][10].attr).should eq Attr.pack_color(0x102030)
       te.process_content.should be_false
     end
   end

@@ -146,7 +146,7 @@ describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
     Widget::Slider.new parent: s, top: 0, left: 0, width: 11, height: 1,
       minimum: 0, maximum: 10, value: 0, handle_char: '#', track_char: '-'
     s.repaint
-    (0...11).map { |x| s.lines[0][x].char }.join.should eq "#----------"
+    (0...11).map { |x| s.cell_rows[0][x].char }.join.should eq "#----------"
   end
 
   it "Slider's handle is CSS-overridable when unpinned" do
@@ -156,7 +156,7 @@ describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
     s.stylesheet = %(Slider::handle { glyph: "◆"; })
     s.apply_stylesheet
     s.repaint
-    s.lines[0][sl.aleft].char.should eq '◆'
+    s.cell_rows[0][sl.aleft].char.should eq '◆'
   end
 
   it "ScrollBar's macro-converted thumb/arrows stay pinnable" do
@@ -169,8 +169,8 @@ describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
     sb.up_arrow_char = '^'
     sb.down_arrow_char = 'v'
     s.repaint
-    s.lines[0][sb.aleft].char.should eq '^'
-    s.lines[4][sb.aleft].char.should eq 'v'
+    s.cell_rows[0][sb.aleft].char.should eq '^'
+    s.cell_rows[4][sb.aleft].char.should eq 'v'
   end
 
   it "ScrollBar's up-arrow is CSS-overridable when unpinned" do
@@ -180,7 +180,7 @@ describe "O5-27: Macros.pinnable_glyph shared by Slider and ScrollBar" do
     s.stylesheet = %(ScrollBar::up-arrow { glyph: "^"; })
     s.apply_stylesheet
     s.repaint
-    s.lines[0][sb.aleft].char.should eq '^'
+    s.cell_rows[0][sb.aleft].char.should eq '^'
   end
 end
 

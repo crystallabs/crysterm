@@ -427,11 +427,21 @@ module Crysterm
       value
     end
 
-    # Grid of desired cell contents (the "framebuffer"). Written only through the
-    # ivar by the render/alloc path, so the accessor is getter-only.
-    getter lines = Array(Row).new
-    # Cells as last flushed to the terminal, diffed against `#lines` each draw.
-    # Getter-only for the same reason as `#lines`.
+    # Grid of desired cell contents (the "framebuffer") — one `Row` of `Cell`s
+    # per screen row. Written only through the ivar by the render/alloc path,
+    # so the accessor is getter-only. Named for what it holds: `cell_rows` is
+    # the window's *cell* grid, unrelated to the text-content `Widget#lines`
+    # (§1.3's name-collision fix; the ivar stays `@lines`).
+    @lines = Array(Row).new
+
+    # :ditto:
+    def cell_rows : Array(Row)
+      @lines
+    end
+
+    # Cells as last flushed to the terminal, diffed against `#cell_rows` each
+    # draw. Getter-only for the same reason as `#cell_rows`; no Widget-side
+    # name collides with it, so it keeps the historical `lines` suffix.
     getter flushed_lines = Array(Row).new
 
     # Compositing planes, keyed by z-index — one per distinct `z_index` among
@@ -480,7 +490,7 @@ module Crysterm
     end
 
     # Runs *block* with the cell buffer temporarily redirected to *buf*, so a
-    # widget's ordinary `screen.lines[...]` writes land in a plane instead of
+    # widget's ordinary `screen.cell_rows[...]` writes land in a plane instead of
     # the base. Restores the base buffer afterward (the plane is then composited).
     private def with_render_target(buf : Array(Row), &)
       saved = @lines

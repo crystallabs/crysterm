@@ -200,7 +200,7 @@ module Crysterm
 
       # Applies header/cell attributes to the rendered text cells.
       private def recolor_cells(coords)
-        lines = window.lines
+        lines = window.cell_rows
         xi, yi, width, height = border_extent coords
 
         dattr = @dattr_memo.fetch(style)
@@ -278,7 +278,7 @@ module Crysterm
       # border and the internal `├─┼─┤` rows between table rows (each table row
       # spans two grid rows).
       private def draw_junction_rows(coords)
-        lines = window.lines
+        lines = window.cell_rows
         xi, yi, _width, _height = border_extent coords
         border = style.border
         battr = gridline_attr
@@ -379,7 +379,7 @@ module Crysterm
       # content-origin grid top: each table row spans a text row (carrying the
       # `│` separators) and a separator row (carrying the `─` fills).
       private def draw_grid_runs(coords)
-        lines = window.lines
+        lines = window.cell_rows
         xi, _yi, width, _height = border_extent coords
         battr = gridline_attr
 

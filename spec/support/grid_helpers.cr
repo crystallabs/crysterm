@@ -17,23 +17,23 @@
 
 # Char of the cell at column *x*, row *y*.
 def cell_char(s, x, y)
-  s.lines[y][x].char
+  s.cell_rows[y][x].char
 end
 
 # Unpacked foreground color of the cell at column *x*, row *y*.
 def cell_fg(s, x, y)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(s.lines[y][x].attr))
+  Crysterm::Attr.unpack_color(Crysterm::Attr.fg(s.cell_rows[y][x].attr))
 end
 
 # Unpacked background color of the cell at column *x*, row *y*.
 def cell_bg(s, x, y)
-  Crysterm::Attr.unpack_color(Crysterm::Attr.bg(s.lines[y][x].attr))
+  Crysterm::Attr.unpack_color(Crysterm::Attr.bg(s.cell_rows[y][x].attr))
 end
 
 # Row *y* as a String. With *range* given, exactly those columns, verbatim;
 # without it, the whole row with trailing blanks stripped.
 def row_text(s, y, range : Range(Int32, Int32)? = nil)
-  row = s.lines[y]
+  row = s.cell_rows[y]
   if range
     String.build { |io| range.each { |x| io << row[x].char } }
   else

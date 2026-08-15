@@ -27,7 +27,7 @@ describe "Window#draw artificial cursor + BCE" do
     s.alloc
 
     # Sync @flushed_lines to @lines (an all-blank buffer).
-    s.lines.each &.dirty=(true)
+    s.cell_rows.each &.dirty=(true)
     s.draw
 
     y = 1

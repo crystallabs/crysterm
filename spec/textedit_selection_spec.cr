@@ -18,7 +18,7 @@ private def ctl(k : ::Tput::Key)
 end
 
 private def reversed?(s, x, y)
-  (Attr.flags(s.lines[y][x].attr) & Attr::REVERSE) != 0
+  (Attr.flags(s.cell_rows[y][x].attr) & Attr::REVERSE) != 0
 end
 
 describe Widget::TextEdit do
@@ -109,9 +109,9 @@ describe Widget::TextEdit do
     te.extra_selections = [Widget::TextEdit::ExtraSelection.new(c, TextCharFormat.new(bg: 0x333333))]
     s.repaint
 
-    Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(0x333333)
-    Attr.bg(s.lines[0][6].attr).should eq Attr.pack_color(0x333333)
-    Attr.bg(s.lines[0][8].attr).should eq Attr.pack_color(-1)
+    Attr.bg(s.cell_rows[0][0].attr).should eq Attr.pack_color(0x333333)
+    Attr.bg(s.cell_rows[0][6].attr).should eq Attr.pack_color(0x333333)
+    Attr.bg(s.cell_rows[0][8].attr).should eq Attr.pack_color(-1)
 
     # The overlay is render-time only: the document text carries no bg.
     te.document.char_format_at(1).bg.should be_nil
@@ -129,11 +129,11 @@ describe Widget::TextEdit do
     s.repaint
 
     # Whole row 1 carries the bg — including cells past the text.
-    Attr.bg(s.lines[1][0].attr).should eq Attr.pack_color(0x222244)
-    Attr.bg(s.lines[1][20].attr).should eq Attr.pack_color(0x222244)
+    Attr.bg(s.cell_rows[1][0].attr).should eq Attr.pack_color(0x222244)
+    Attr.bg(s.cell_rows[1][20].attr).should eq Attr.pack_color(0x222244)
     # Other rows don't.
-    Attr.bg(s.lines[0][0].attr).should eq Attr.pack_color(-1)
-    Attr.bg(s.lines[2][0].attr).should eq Attr.pack_color(-1)
+    Attr.bg(s.cell_rows[0][0].attr).should eq Attr.pack_color(-1)
+    Attr.bg(s.cell_rows[2][0].attr).should eq Attr.pack_color(-1)
   end
 
   it "extra selections merge over char formats without erasing them" do
@@ -149,7 +149,7 @@ describe Widget::TextEdit do
     te.extra_selections = [Widget::TextEdit::ExtraSelection.new(c, TextCharFormat.new(bg: 0x111111))]
     s.repaint
 
-    a = s.lines[0][0].attr
+    a = s.cell_rows[0][0].attr
     (Attr.flags(a) & Attr::BOLD).should_not eq 0
     Attr.bg(a).should eq Attr.pack_color(0x111111)
   end

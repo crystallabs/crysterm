@@ -22,7 +22,7 @@ describe Crysterm::Widget::ListTable do
     # And the bottom viewport row shows data, not a solid horizontal-bar block.
     yi = lt.atop
     bottom = String.build do |io|
-      (lt.aleft...(lt.aleft + lt.awidth)).each { |x| io << (s.lines[yi + lt.aheight - 1][x]?.try(&.char) || ' ') }
+      (lt.aleft...(lt.aleft + lt.awidth)).each { |x| io << (s.cell_rows[yi + lt.aheight - 1][x]?.try(&.char) || ' ') }
     end
     bottom.should contain("Row")
     bottom.should_not contain("███")

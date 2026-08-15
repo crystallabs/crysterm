@@ -100,7 +100,7 @@ describe "BUGS16 B16-46: TabWidget tab_position/tab_height runtime changes" do
     s.repaint
 
     tw.tab_height = 2
-    tw.tab_bar.height.should eq 2
+    tw.tab_bar.height_spec.should eq 2
     pa.top.should eq 2
   ensure
     s.try &.destroy

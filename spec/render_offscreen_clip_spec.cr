@@ -21,7 +21,7 @@ describe "Widget#base_render off-screen clipping" do
     s << b
     s.repaint
 
-    row = s.lines[0]
+    row = s.cell_rows[0]
     chars = (0...row.size).map { |x| row[x].char }.join
 
     # The on-screen portion shows the widget's columns 3.. ("DEF") at column 0.
@@ -43,12 +43,12 @@ describe "Widget#base_render off-screen clipping" do
     def_char = Crysterm::Window::DEFAULT_CHAR
 
     # On-screen rows 0,1 show the widget's rows 2,3 ("cccc","dddd").
-    (0...4).map { |x| s.lines[0][x].char }.join.should eq "cccc"
-    (0...4).map { |x| s.lines[1][x].char }.join.should eq "dddd"
+    (0...4).map { |x| s.cell_rows[0][x].char }.join.should eq "cccc"
+    (0...4).map { |x| s.cell_rows[1][x].char }.join.should eq "dddd"
     # The off-screen-top rows must not wrap onto the bottom rows: rows 3 and 4
     # stay blank (wrap-around would paint "aaaa"/"bbbb" there).
-    (0...4).all? { |x| s.lines[3][x].char == def_char }.should be_true
-    (0...4).all? { |x| s.lines[4][x].char == def_char }.should be_true
+    (0...4).all? { |x| s.cell_rows[3][x].char == def_char }.should be_true
+    (0...4).all? { |x| s.cell_rows[4][x].char == def_char }.should be_true
   end
 
   it "does not wrap a left-clipped border onto the right edge" do
@@ -64,7 +64,7 @@ describe "Widget#base_render off-screen clipping" do
     # The off-screen-left border column must not wrap to the far right.
     (9...12).each do |x|
       (0...3).each do |y|
-        s.lines[y][x].char.should eq def_char
+        s.cell_rows[y][x].char.should eq def_char
       end
     end
   end

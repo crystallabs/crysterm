@@ -16,7 +16,7 @@ include Crysterm
 private def sc_text(s) : String
   String.build do |io|
     s.aheight.times do |y|
-      s.awidth.times { |x| io << s.lines[y][x].char }
+      s.awidth.times { |x| io << s.cell_rows[y][x].char }
       io << '\n'
     end
   end
@@ -46,11 +46,11 @@ describe "BUGS13 A10: Gauge/GaugeList rebuild content when glyph inputs change" 
     Widget::Gauge.new parent: s, top: 0, left: 0, width: 10, height: 1,
       value: 100, show_label: false
     s.repaint
-    s.lines[0][0].char.should eq '█' # Unicode eighth-block ramp
+    s.cell_rows[0][0].char.should eq '█' # Unicode eighth-block ramp
 
     s.glyph_tier = Glyphs::Tier::Ascii
     s.repaint
-    s.lines[0][0].char.should eq '@' # ASCII density ramp; stale '█' before fix
+    s.cell_rows[0][0].char.should eq '@' # ASCII density ramp; stale '█' before fix
   end
 
   it "re-resolves the GaugeList fill ramp after a glyph tier switch" do
@@ -59,10 +59,10 @@ describe "BUGS13 A10: Gauge/GaugeList rebuild content when glyph inputs change" 
     gl.add_item "x", 100
     s.repaint
     # Row layout: label (1 col) + gap + bar; the bar's first cell is col 2.
-    s.lines[4][2].char.should eq '█'
+    s.cell_rows[4][2].char.should eq '█'
 
     s.glyph_tier = Glyphs::Tier::Ascii
     s.repaint
-    s.lines[4][2].char.should eq '@'
+    s.cell_rows[4][2].char.should eq '@'
   end
 end

@@ -221,7 +221,7 @@ module Crysterm
       return unless @_acur_y >= 0 && x == @_acur_x && y == @_acur_y
       c = active_cursor
       return unless c.artificial? && !c._hidden && c._state != 0
-      attr = lines[y]?.try &.[x]?.try &.attr
+      attr = @lines[y]?.try &.[x]?.try &.attr
       return unless attr
       _artificial_cursor_attr c, attr
     end
@@ -235,7 +235,7 @@ module Crysterm
     def each_content_cell(xi : Int32, xl : Int32, yi : Int32, yl : Int32,
                           & : Window::Cell, Int32, Int32 ->) : Nil
       (yi...yl).each do |y|
-        line = lines[y]?
+        line = @lines[y]?
         next unless line
         (xi...xl).each do |x|
           cell = line[x]?

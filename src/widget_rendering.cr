@@ -282,7 +282,7 @@ module Crysterm
       # No-op unless an `animation` is declared.
       ensure_css_animation
 
-      lines = scr.lines
+      lines = scr.cell_rows
       fu = scr.full_unicode_effective?
       # A layer root's opacity is applied as its plane's opacity at composite time,
       # so suppress the render-time self-blend while painting into the plane.
@@ -1063,7 +1063,7 @@ module Crysterm
       stops.clear
       rows.each { |y| stops[y] = true }
       return if stops.empty?
-      Docking.dock scr.lines, stops, scr.awidth, contrast, ascii: scr.glyph_tier.ascii?
+      Docking.dock scr.cell_rows, stops, scr.awidth, contrast, ascii: scr.glyph_tier.ascii?
     end
 
     @[AlwaysInline]

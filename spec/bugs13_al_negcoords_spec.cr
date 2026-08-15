@@ -36,7 +36,7 @@ describe "BUGS13 A1: Box#draw_text_run guards negative coordinates" do
 
     # `lines[-1]` must not wrap to the last screen row.
     (5..7).each do |x|
-      s.lines[s.aheight - 1][x].char.should eq ' '
+      s.cell_rows[s.aheight - 1][x].char.should eq ' '
     end
   end
 
@@ -48,10 +48,10 @@ describe "BUGS13 A1: Box#draw_text_run guards negative coordinates" do
     box.spec_run(1, -2, "ABC", 20)
 
     # Only the in-bounds tail is written...
-    s.lines[1][0].char.should eq 'C'
+    s.cell_rows[1][0].char.should eq 'C'
     # ...and nothing wrapped to the far right of the row (cols width-2/width-1).
-    s.lines[1][s.awidth - 2].char.should eq ' '
-    s.lines[1][s.awidth - 1].char.should eq ' '
+    s.cell_rows[1][s.awidth - 2].char.should eq ' '
+    s.cell_rows[1][s.awidth - 1].char.should eq ' '
   end
 end
 
@@ -68,7 +68,7 @@ describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" d
     ratio_h.should be > 6 # the glyph really does hang off the top
     (s.aheight - 6...s.aheight).each do |y|
       s.awidth.times do |x|
-        s.lines[y][x].char.should eq ' '
+        s.cell_rows[y][x].char.should eq ' '
       end
     end
   end
@@ -83,7 +83,7 @@ describe "BUGS13 A2: BigText clips rows/columns hanging off the top/left edge" d
     # right end of the rows.
     (s.awidth - 4...s.awidth).each do |x|
       s.aheight.times do |y|
-        s.lines[y][x].char.should eq ' '
+        s.cell_rows[y][x].char.should eq ' '
       end
     end
   end
@@ -98,13 +98,13 @@ describe "BUGS13 A5: ColorDialog overlays are clipped to the rendered area" do
     s.repaint
 
     # An untouched baseline cell (bottom-right corner is outside the dialog).
-    base_attr = s.lines[23][79].attr
+    base_attr = s.cell_rows[23][79].attr
 
     # The gradient-field columns at x in -6..-1 must not wrap to the far right
     # of their rows (cols 74..79) and stamp colored attrs there.
     (0...20).each do |y|
       (74...80).each do |x|
-        s.lines[y][x].attr.should eq base_attr
+        s.cell_rows[y][x].attr.should eq base_attr
       end
     end
   end
@@ -116,12 +116,12 @@ describe "BUGS13 A5: ColorDialog overlays are clipped to the rendered area" do
     cd.show
     s.repaint
 
-    base_attr = s.lines[23][79].attr
+    base_attr = s.cell_rows[23][79].attr
 
     # Field rows at y in -5..-1 must not wrap to the bottom rows.
     (19...24).each do |y|
       (0...56).each do |x|
-        s.lines[y][x].attr.should eq base_attr
+        s.cell_rows[y][x].attr.should eq base_attr
       end
     end
   end

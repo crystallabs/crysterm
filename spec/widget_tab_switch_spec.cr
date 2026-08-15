@@ -4,7 +4,7 @@ include Crysterm
 
 private def screen_text(s) : String
   String.build do |io|
-    s.lines.each do |line|
+    s.cell_rows.each do |line|
       (0...s.awidth).each do |x|
         c = line[x]?.try(&.char) || ' '
         io << (c == '\0' ? ' ' : c)

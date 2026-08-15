@@ -4,7 +4,7 @@ include Crysterm
 
 # §4.4 / plans/SIZE-POLICY-PLAN.md Phase 2 — the layout-geometry channel.
 # Engines place children through `Widget#set_layout_geometry`, never the
-# children's own specs: `w.width`/`w.left` always read what the user set,
+# children's own specs: `w.width_spec`/`w.left` always read what the user set,
 # reclaim is exact (any non-nil spec), a stable layout emits no events, and
 # removing the layout (or the child) reverts geometry to the specs.
 
@@ -21,8 +21,8 @@ describe "layout-geometry channel (§4.4)" do
     child = Widget::Box.new parent: box # everything auto
 
     s.repaint
-    child.width.should be_nil
-    child.height.should be_nil
+    child.width_spec.should be_nil
+    child.height_spec.should be_nil
     child.left.should be_nil
     child.top.should be_nil
     child.awidth.should eq 30 # the assignment lives in the layout channel
@@ -37,8 +37,8 @@ describe "layout-geometry channel (§4.4)" do
       layout_hint: Layout::Grid::Hint.new(row: 0, column: 0)
 
     s.repaint
-    child.awidth.should eq 10             # the grid cell decides while managed
-    child.width.should eq Dim.percent(50) # the spec survives untouched
+    child.awidth.should eq 10                  # the grid cell decides while managed
+    child.width_spec.should eq Dim.percent(50) # the spec survives untouched
   end
 
   it "reclaims exactly: setting the very value the layout assigned makes the child fixed" do

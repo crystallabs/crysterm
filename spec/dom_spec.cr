@@ -45,7 +45,7 @@ require "./spec_helper"
       outer.should be_a Widget::Box
       outer.top.should eq 1
       outer.left.should eq 2
-      outer.width.should eq 40
+      outer.width_spec.should eq 40
       outer.children.size.should eq 1
 
       ok = s.find_by_id("ok").not_nil!

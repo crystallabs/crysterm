@@ -41,7 +41,7 @@ module Crysterm
         dfl = window.default_attr
         attr_lines = String.build do |a|
           (yi...yl).each do |y|
-            line = window.lines[y]
+            line = window.cell_rows[y]
             runs = String.build do |r|
               x = xi
               while x < xl

@@ -876,8 +876,13 @@ module Crysterm
       true
     end
 
-    # Inserts lines into the screen. (If CSR is used, it bypasses the output buffer.)
-    def insert_line(n, y, top, bottom)
+    # Scrolls rows down within the `top..bottom` band by inserting *n* rows at
+    # *y*, via the terminal's IL primitive under a scroll region (bypassing the
+    # output buffer when CSR is used) and shifting the cell buffer to match.
+    # A terminal-scrolling drawing internal — unrelated to the text-content
+    # `Widget#insert_line`, hence the distinct `scroll_*` name; used by the
+    # scrollable-widget CSR fast path (`Widget#scroll`).
+    protected def scroll_insert_rows(n, y, top, bottom)
       return unless with_scroll_region(top, bottom, need_insert_line: true) do
                       tput.cup(y + render_row_offset, 0)
                       tput.il(n)
@@ -886,8 +891,9 @@ module Crysterm
       shift_lines_down n, y, bottom
     end
 
-    # Deletes lines from the screen. (If CSR is used, it bypasses the output buffer.)
-    def delete_line(n, y, top, bottom)
+    # Scrolls rows up within the `top..bottom` band by deleting *n* rows at *y*
+    # — the `#scroll_insert_rows` inverse, via DL. See there for naming.
+    protected def scroll_delete_rows(n, y, top, bottom)
       # Only emits `dl`, so it must not require `il`: on a terminal advertising CSR
       # + delete_line but not insert_line that would make this a silent no-op,
       # dropping the buffer-side `shift_lines_up` too.
@@ -899,8 +905,8 @@ module Crysterm
       shift_lines_up n, y, bottom
     end
 
-    # Deletes line at bottom of screen.
-    def delete_bottom(top, bottom)
+    # Clears the bottom row of the `top..bottom` scroll band.
+    protected def scroll_clear_bottom_row(top, bottom)
       # `clear_region` is half-open in `y`, so the far edge must be ONE PAST the
       # row to clear; `bottom, bottom` would iterate zero rows.
       clear_region(0, awidth, bottom, bottom + 1)

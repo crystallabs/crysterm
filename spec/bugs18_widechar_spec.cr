@@ -46,14 +46,14 @@ describe "BUGS18 wide-char measuring/painting" do
       Crysterm::Unicode.display_width(text).should eq 8
       # Guards against `text.size + 2` == 6, which would undersize the button
       # and clip the label under the content engine's display-column wrap.
-      btn.width.should eq 10
+      btn.width_spec.should eq 10
     end
 
     it "still sizes ASCII labels the same as before (no regression)" do
       s = fu_screen
       bb = Widget::DialogButtonBox.new(parent: s, top: 0, left: 0)
       btn = bb.add_button "Cancel", Widget::DialogButtonBox::Role::Reject
-      btn.width.should eq 8 # "Cancel".size + 2, unchanged whether full_unicode or not
+      btn.width_spec.should eq 8 # "Cancel".size + 2, unchanged whether full_unicode or not
     end
   end
 
@@ -70,9 +70,9 @@ describe "BUGS18 wide-char measuring/painting" do
       expected = ['ニ', 'ュ', 'ー', 'ス']
       expected.each_with_index do |ch, i|
         lead_x = i * 2
-        s.lines[0][lead_x].char.should eq ch
-        s.lines[0][lead_x].continuation?.should be_false
-        s.lines[0][lead_x + 1].continuation?.should be_true
+        s.cell_rows[0][lead_x].char.should eq ch
+        s.cell_rows[0][lead_x].continuation?.should be_false
+        s.cell_rows[0][lead_x + 1].continuation?.should be_true
       end
     end
 
@@ -87,13 +87,13 @@ describe "BUGS18 wide-char measuring/painting" do
         width: 7, height: 1, text: "ニュース"
       s.repaint
 
-      s.lines[0][0].char.should eq 'ニ'
-      s.lines[0][2].char.should eq 'ュ'
-      s.lines[0][4].char.should eq 'ー'
+      s.cell_rows[0][0].char.should eq 'ニ'
+      s.cell_rows[0][2].char.should eq 'ュ'
+      s.cell_rows[0][4].char.should eq 'ー'
       # The 4th glyph's lead would need column 7, outside the 7-wide widget:
       # blanked instead of rendered half.
-      s.lines[0][6].char.should eq ' '
-      s.lines[0][6].continuation?.should be_false
+      s.cell_rows[0][6].char.should eq ' '
+      s.cell_rows[0][6].continuation?.should be_false
     end
 
     it "blanks an orphaned continuation column when the paired lead has scrolled off the left edge" do
@@ -107,10 +107,10 @@ describe "BUGS18 wide-char measuring/painting" do
       1.times { m.step }
       s.repaint
 
-      s.lines[0][0].char.should eq ' '
-      s.lines[0][0].continuation?.should be_false
-      s.lines[0][1].char.should eq 'ュ'
-      s.lines[0][7].char.should eq ' ' # the next straddling lead, blanked (right edge again)
+      s.cell_rows[0][0].char.should eq ' '
+      s.cell_rows[0][0].continuation?.should be_false
+      s.cell_rows[0][1].char.should eq 'ュ'
+      s.cell_rows[0][7].char.should eq ' ' # the next straddling lead, blanked (right edge again)
     end
 
     it "keeps painting a pure-ASCII message unchanged" do
@@ -119,7 +119,7 @@ describe "BUGS18 wide-char measuring/painting" do
         width: 6, height: 1, text: "AB"
       s.repaint
       w = m.awidth
-      String.build { |io| (0...w).each { |x| io << s.lines[0][x].char } }
+      String.build { |io| (0...w).each { |x| io << s.cell_rows[0][x].char } }
         .should eq String.build { |io| (0...w).each { |x| io << "AB"[x % 2] } }
     end
   end

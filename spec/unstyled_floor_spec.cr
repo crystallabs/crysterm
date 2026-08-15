@@ -28,7 +28,7 @@ require "./spec_helper"
   private def row_has_reverse?(s, y, x0 = 0, x1 = nil)
     x1 ||= s.awidth - 1
     (x0..x1).any? do |x|
-      (Crysterm::Attr.flags(s.lines[y][x].attr) & Crysterm::Attr::REVERSE) != 0
+      (Crysterm::Attr.flags(s.cell_rows[y][x].attr) & Crysterm::Attr::REVERSE) != 0
     end
   end
 
@@ -185,8 +185,8 @@ require "./spec_helper"
       # bottom row included, not just the interior), so it isn't clipped at corners.
       col = left_docked.aleft.not_nil! + left_docked.awidth.not_nil! - 1
       bottom = left_docked.atop.not_nil! + left_docked.aheight.not_nil! - 1
-      s.lines[left_docked.atop.not_nil!][col].char.should eq '│'
-      s.lines[bottom][col].char.should eq '│'
+      s.cell_rows[left_docked.atop.not_nil!][col].char.should eq '│'
+      s.cell_rows[bottom][col].char.should eq '│'
 
       # The border syncs as the dock floats/re-docks: re-docking must drop back
       # to the single content-facing edge, not keep the full floating frame.
@@ -213,7 +213,7 @@ require "./spec_helper"
       div.css_styled?.should be_false   # no `.divider` rule on the floor
       div.style.fill_char.should eq '│' # vertical divider between side-by-side panes
       # And it actually paints: the divider column shows the glyph.
-      s.lines[div.atop.not_nil!][div.aleft.not_nil!].char.should eq '│'
+      s.cell_rows[div.atop.not_nil!][div.aleft.not_nil!].char.should eq '│'
     end
 
     it "does not give a plain content widget (List) a border at the floor" do

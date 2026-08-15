@@ -66,7 +66,7 @@ module Crysterm
           w = xl - xi
           h = yl - yi
           return if w <= 0 || h <= 0
-          lines = window.lines
+          lines = window.cell_rows
           # Simulate at the UNCLIPPED content size. An ancestor clip (a scrolled
           # or `overflow: Hidden` container) shrinks the *visible* rect per
           # scroll step; sizing the simulation from it would `resize` — i.e.

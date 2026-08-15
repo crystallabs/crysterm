@@ -52,7 +52,7 @@ describe "BUGS3: scrollable text box per-line attr fallback" do
 
     pos = b.last_rendered_position
     # Inspect the top-left content cell of the rendered box.
-    cell = s.lines[pos.yi][pos.xi]
+    cell = s.cell_rows[pos.yi][pos.xi]
 
     # The rendered cell must not be black-on-black. Its background must be the
     # terminal default, exactly as DEFAULT_ATTR provides.

@@ -47,12 +47,12 @@ describe "Window#draw BCE clear-to-EOL" do
     # tail in @flushed_lines is bold spaces (differs from screen default), which is
     # what makes the next frame's clear actually need to fire.
     (0...5).each do |x|
-      c = s.lines[y][x]; c.attr = bold; c.char = 'X'
+      c = s.cell_rows[y][x]; c.attr = bold; c.char = 'X'
     end
     (5...w).each do |x|
-      c = s.lines[y][x]; c.attr = bold; c.char = ' '
+      c = s.cell_rows[y][x]; c.attr = bold; c.char = ' '
     end
-    s.lines[y].dirty = true
+    s.cell_rows[y].dirty = true
     s.draw
 
     # Frame B: change the leading cells (so they're re-emitted, leaving the
@@ -60,12 +60,12 @@ describe "Window#draw BCE clear-to-EOL" do
     # spaces (so the BCE clear-to-EOL path fires for the tail).
     obuf.clear
     (0...5).each do |x|
-      c = s.lines[y][x]; c.attr = bold; c.char = 'Y'
+      c = s.cell_rows[y][x]; c.attr = bold; c.char = 'Y'
     end
     (5...w).each do |x|
-      c = s.lines[y][x]; c.attr = default; c.char = ' '
+      c = s.cell_rows[y][x]; c.attr = default; c.char = ' '
     end
-    s.lines[y].dirty = true
+    s.cell_rows[y].dirty = true
     s.draw
 
     emitted = String.new(obuf.to_slice)

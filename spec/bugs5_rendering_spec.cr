@@ -40,7 +40,7 @@ describe "BUGS5: wide glyph at the last screen column (content region past scree
     s = fu_screen(6, 1)
     Widget::Box.new parent: s, top: 0, left: 5, width: 4, content: "漢"
     s.repaint
-    line = s.lines[0]
+    line = s.cell_rows[0]
 
     # Lead cell blanked to a space, not left as an unpaired '漢'.
     line[5].char.should eq ' '
@@ -58,7 +58,7 @@ describe "BUGS5: wide glyph at the last screen column (content region past scree
         s = fu_screen(6, 1)
         Widget::Box.new parent: s, top: 0, left: left, width: 4, content: content
         s.repaint
-        line = s.lines[0]
+        line = s.cell_rows[0]
         (0...(s.awidth)).each do |x|
           if line[x].width == 2
             # A width-2 lead cell must have an in-buffer continuation cell.
@@ -76,7 +76,7 @@ describe "BUGS5: wide glyph at the last screen column (content region past scree
     s = fu_screen(6, 1)
     Widget::Box.new parent: s, top: 0, left: 2, width: 4, content: "漢"
     s.repaint
-    line = s.lines[0]
+    line = s.cell_rows[0]
 
     line[2].char.should eq '漢'
     line[2].width.should eq 2

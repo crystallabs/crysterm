@@ -5,7 +5,7 @@ include Crysterm
 # Reads the rendered characters of screen row *y* across the table's interior
 # columns [xi, xl).
 private def row_chars(s, lp, y)
-  (lp.xi...lp.xl).map { |x| s.lines[y][x]?.try(&.char) || ' ' }.join
+  (lp.xi...lp.xl).map { |x| s.cell_rows[y][x]?.try(&.char) || ' ' }.join
 end
 
 # Horizontal-rule and junction glyphs that must never overwrite a cell's text
@@ -76,15 +76,15 @@ describe "BUGS11 #21 Table#draw_borders is clipped to the rendered coords" do
     lp = t.lpos.not_nil!
     lp.no_bottom?.should be_true # actually clipped by the ancestor
 
-    natural_bottom = t.height.as(Int32)    # pinned to 2*rows-1 + ivertical (== 21)
-    clip_bottom = lp.yl                    # visible bottom (exclusive)
-    clip_bottom.should be < natural_bottom # the clip really cut the table
+    natural_bottom = t.height_spec.as(Int32) # pinned to 2*rows-1 + ivertical (== 21)
+    clip_bottom = lp.yl                      # visible bottom (exclusive)
+    clip_bottom.should be < natural_bottom   # the clip really cut the table
 
     # No gridline glyph may appear on any row below the clipped bottom — the
     # junction/`─` passes must not stamp all the way down to the table's full
     # pinned height.
     (clip_bottom...natural_bottom).each do |y|
-      chars = (0...40).map { |x| s.lines[y][x]?.try(&.char) || ' ' }.join
+      chars = (0...40).map { |x| s.cell_rows[y][x]?.try(&.char) || ' ' }.join
       leaked = chars.each_char.find { |c| GRID_GLYPHS.includes?(c) }
       leaked.should be_nil
     end

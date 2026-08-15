@@ -118,12 +118,12 @@ describe "API4 A4-38b: ToolBar#add_widget" do
     s.repaint
 
     # The widget's own content lands on the strip row.
-    row = s.lines[tb.atop].map(&.char).join
+    row = s.cell_rows[tb.atop].map(&.char).join
     row.should contain "srch"
 
     # And keeps rendering after the strip changes around it.
     tb.add_button("Quit") { }
     s.repaint
-    s.lines[tb.atop].map(&.char).join.should contain "srch"
+    s.cell_rows[tb.atop].map(&.char).join.should contain "srch"
   end
 end

@@ -136,17 +136,17 @@ describe "CSS background-image" do
         box.background_paints_cells?.should be_true
 
         # An empty cell (well away from the "Hi") carries an image color.
-        Crysterm::Attr.bg(s.lines[3][5].attr).should_not eq Crysterm::Attr::COLOR_DEFAULT
+        Crysterm::Attr.bg(s.cell_rows[3][5].attr).should_not eq Crysterm::Attr::COLOR_DEFAULT
 
         # The content glyphs survive on top of the image.
-        s.lines[0][0].char.should eq 'H'
-        s.lines[0][1].char.should eq 'i'
+        s.cell_rows[0][0].char.should eq 'H'
+        s.cell_rows[0][1].char.should eq 'i'
 
         # Nearly every cell of the box carries the image (all but the two text cells).
         painted = 0
         (0...6).each do |y|
           (0...12).each do |x|
-            painted += 1 if Crysterm::Attr.bg(s.lines[y][x].attr) != Crysterm::Attr::COLOR_DEFAULT
+            painted += 1 if Crysterm::Attr.bg(s.cell_rows[y][x].attr) != Crysterm::Attr::COLOR_DEFAULT
           end
         end
         painted.should be >= 60
@@ -163,7 +163,7 @@ describe "CSS background-image" do
 
         # With alpha the text cell blends over the image, so its background is
         # image-derived, not the terminal default.
-        hcell = s.lines[0][0]
+        hcell = s.cell_rows[0][0]
         hcell.char.should eq 'H'
         Crysterm::Attr.bg(hcell.attr).should_not eq Crysterm::Attr::COLOR_DEFAULT
       end
@@ -177,7 +177,7 @@ describe "CSS background-image" do
       box.background_media.should be_nil
       box.background_paints_cells?.should be_false
       # Normal rendering is unaffected.
-      s.lines[0][0].char.should eq 'h'
+      s.cell_rows[0][0].char.should eq 'h'
     end
 
     it "tears the background layer down when the image is cleared" do

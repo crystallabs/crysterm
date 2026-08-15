@@ -98,8 +98,8 @@ class ThemeGrid < Widget::Box
       child.window.output.as(IO::Memory).clear
       x0 = (i % 2) * CELL_W
       y0 = 2 + (i // 2) * (CELL_H + 1)
-      child.window.lines.each_with_index do |src_row, y|
-        dst_row = win.lines[y0 + y]? || break
+      child.window.cell_rows.each_with_index do |src_row, y|
+        dst_row = win.cell_rows[y0 + y]? || break
         src_row.size.times do |x|
           src = src_row[x]
           dst = dst_row[x0 + x]? || break

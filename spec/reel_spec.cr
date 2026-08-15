@@ -9,7 +9,7 @@ include Crysterm
 
 # The characters actually painted on window row *row*.
 private def row_chars(s, row) : String
-  (0...s.width).map { |x| s.lines[row][x].char }.join
+  (0...s.width).map { |x| s.cell_rows[row][x].char }.join
 end
 
 # A reel whose four 5-row tablets carry distinguishable line content
@@ -83,7 +83,7 @@ describe Crysterm::Widget::Reel do
       t0.top.should eq 0
       t1.top.should eq 2
       t2.top.should eq 7
-      t1.height.should eq 5
+      t1.height_spec.should eq 5
       [t0, t1, t2].each &.visible?.should be_true
     ensure
       s.try &.destroy
@@ -96,7 +96,7 @@ describe Crysterm::Widget::Reel do
       t1 = reel.add_tablet "x", rows: 2
       s.repaint
 
-      t0.height.should eq 3
+      t0.height_spec.should eq 3
       t1.top.should eq 3
     ensure
       s.try &.destroy

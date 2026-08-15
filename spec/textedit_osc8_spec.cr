@@ -25,12 +25,12 @@ describe "OSC 8 hyperlinks" do
     s = osc8_screen
     anchor_te(s)
     s.repaint
-    id = s.lines[0][0].link
+    id = s.cell_rows[0][0].link
     id.should_not eq 0
     s.link_url(id).should eq "https://x.io"
-    s.lines[0][4].link.should eq id
+    s.cell_rows[0][4].link.should eq id
     # Past the anchor: no link.
-    s.lines[0][6].link.should eq 0
+    s.cell_rows[0][6].link.should eq 0
   end
 
   it "emits OSC 8 open around the anchor and closes before the frame ends" do
@@ -72,7 +72,7 @@ describe "OSC 8 hyperlinks" do
     s.repaint
     te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true))
     s.repaint
-    s.lines[0][0].link.should eq 0
+    s.cell_rows[0][0].link.should eq 0
   end
 
   it "registers each distinct URL once" do
@@ -91,7 +91,7 @@ describe "OSC 8 hyperlinks" do
     s.hyperlinks = false
     anchor_te(s)
     s.repaint
-    s.lines[0][0].link.should eq 0
+    s.cell_rows[0][0].link.should eq 0
     outp.to_s.should_not contain "\e]8;;"
   end
 end

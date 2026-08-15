@@ -25,9 +25,9 @@ describe "Capture INVISIBLE decorations" do
   it "draws no foreground pixels for a concealed underlined cell" do
     s = headless_screen(2, 1, default_quit_keys: true)
     s.alloc
-    s.lines[0][0].attr = Attr.pack(Attr::INVISIBLE | Attr::UNDERLINE,
+    s.cell_rows[0][0].attr = Attr.pack(Attr::INVISIBLE | Attr::UNDERLINE,
       Attr.pack_color(fg), Attr.pack_color(0x000000))
-    s.lines[0][0].char = 'A'
+    s.cell_rows[0][0].char = 'A'
     bmp = Crysterm::Capture.render(s, 0, 1, 0, 1)
     fg_pixels(bmp, fr, fgc, fb).should eq 0
   end
@@ -35,9 +35,9 @@ describe "Capture INVISIBLE decorations" do
   it "draws no foreground pixels for a concealed struck-through cell" do
     s = headless_screen(2, 1, default_quit_keys: true)
     s.alloc
-    s.lines[0][0].attr = Attr.pack(Attr::INVISIBLE | Attr::STRIKE,
+    s.cell_rows[0][0].attr = Attr.pack(Attr::INVISIBLE | Attr::STRIKE,
       Attr.pack_color(fg), Attr.pack_color(0x000000))
-    s.lines[0][0].char = 'A'
+    s.cell_rows[0][0].char = 'A'
     bmp = Crysterm::Capture.render(s, 0, 1, 0, 1)
     fg_pixels(bmp, fr, fgc, fb).should eq 0
   end
@@ -45,9 +45,9 @@ describe "Capture INVISIBLE decorations" do
   it "still draws the underline for a VISIBLE cell (no regression)" do
     s = headless_screen(2, 1, default_quit_keys: true)
     s.alloc
-    s.lines[0][0].attr = Attr.pack(Attr::UNDERLINE,
+    s.cell_rows[0][0].attr = Attr.pack(Attr::UNDERLINE,
       Attr.pack_color(fg), Attr.pack_color(0x000000))
-    s.lines[0][0].char = ' ' # space: only the underline contributes fg pixels
+    s.cell_rows[0][0].char = ' ' # space: only the underline contributes fg pixels
     bmp = Crysterm::Capture.render(s, 0, 1, 0, 1)
     fg_pixels(bmp, fr, fgc, fb).should be > 0
   end
