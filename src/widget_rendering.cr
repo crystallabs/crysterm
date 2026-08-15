@@ -11,6 +11,9 @@ module Crysterm
     # first use (many widgets never dock rows).
     @_dock_rows_stops : Hash(Int32, Bool)? = nil
 
+    # Single-slot custom-paint hook; see `#paint_handler`.
+    @paint_handler : ((Int32, Int32, Int32, Int32) ->)? = nil
+
     # Action when this widget overflows its parent's rectangle: the per-widget
     # override if set, else the window default (`Overflow::Ignore` if window-less).
     def overflow : Overflow
@@ -1127,6 +1130,30 @@ module Crysterm
       end
     end
 
+    # Custom-paint hook: a single overwritable slot (hence `*_handler`, cf.
+    # the `stop_handler` convention) invoked after the standard box/content
+    # pass with the widget's *content* rectangle `(xi, xl, yi, yl)` — the
+    # interior inside border and padding. It lets an instance paint custom
+    # cells without subclassing and overriding `#paint`:
+    #
+    # ```
+    # w.paint_handler do |xi, xl, yi, yl|
+    #   w.window.fill_region w.style.attr, '·', xi, xl, yi, yl
+    # end
+    # ```
+    #
+    # (`Canvas#on_paint` is the raster/vector counterpart — it hands the block
+    # a `Painter` over a pixel bitmap instead of a cell rectangle.)
+    def paint_handler(&block : (Int32, Int32, Int32, Int32) ->) : self
+      @paint_handler = block
+      self
+    end
+
+    # Clears the custom-paint hook installed by `#paint_handler`.
+    def clear_paint_handler : Nil
+      @paint_handler = nil
+    end
+
     # Paints this widget synchronously into the window's cell buffer. This is
     # the polymorphic paint entry — subclasses override it (keeping the
     # `(with_children = true)` signature, or the call is an overload rather
@@ -1134,7 +1161,11 @@ module Crysterm
     # pass. Callers outside the render pipeline should prefer `#repaint` (the
     # Qt-named public spelling) or, for a coalesced scheduled frame, `#update`.
     def paint(with_children = true)
-      base_render with_children
+      if handler = @paint_handler
+        with_content_coords(with_children) { |xi, xl, yi, yl| handler.call(xi, xl, yi, yl) }
+      else
+        base_render with_children
+      end
     end
 
     # Synchronously paints this widget ↔ `QWidget::repaint()` — dispatches to

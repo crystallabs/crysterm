@@ -58,6 +58,10 @@ with a different theme from [data/css/](data/css/).
 
 *Source: [tests/misc/themes.cr](tests/misc/themes.cr)*
 
+For the minimal author-your-own-stylesheet form — one CSS string styling a
+whole app, including `:focus` restyling — see
+[examples/css/css.cr](examples/css/css.cr).
+
 ## Borders, Shadow, and Light
 
 The full presentation of borders, shadows, and light
@@ -272,7 +276,9 @@ OSC 52 — copy/paste that works through SSH and tmux.
 
 ## Reactive programming
 
-A fine-grained signals system (SolidJS-style): `Reactive::Signal`,
+An **opt-in** app-state layer — the toolkit itself never requires it, and
+plain property assignment always works. When you want it: a fine-grained
+signals system (SolidJS-style): `Reactive::Signal`,
 `Reactive.computed`, effects with automatic dependency tracking,
 widget-lifetime `Reactive.bind`, `ObservableList` for collection views,
 batching, and a `reactive_property` macro for widget classes. Assign
@@ -415,17 +421,20 @@ through which all app events and input are routed.
 ```cr
 require "crysterm"
 
-alias C = Crysterm
+include Crysterm
+include Crysterm::Widgets
 
 # A `Window` is the surface your widgets live on.
-window = C::Window.new title: "hello"
+window = Window.new title: "hello"
 
-C::Widget::Box.new \
+# (`Widget::Box`, not bare `Box` — that name is taken by Crystal's stdlib;
+# most other widgets are directly visible through `include Crysterm::Widgets`.)
+Widget::Box.new \
   parent: window,
-  top: "center", left: "center", width: 20, height: 5,
+  top: :center, left: :center, width: 20, height: 5,
   content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
   parse_tags: true,
-  style: C::Style.new(fg: "yellow", bg: "blue", border: true)
+  style: Style.new(fg: "yellow", bg: "blue", border: true)
 
 # `q` / Ctrl-Q quit by default. Run the main loop:
 window.exec
@@ -450,7 +459,12 @@ Larger, complete applications:
 ```
 crystal examples/mutt/mutt.cr               # a Mutt-style mail client
 crystal examples/pine/pine.cr               # a Pine/Alpine-style mail client
-crystal examples/terminal/tid/tid.cr        # a terminal multiplexer
+crystal examples/claude/claude.cr           # a Claude-style rich-text chat session
+crystal examples/text/editor/editor.cr      # a working Unicode text editor
+crystal examples/terminal/emulator/emulator.cr  # a minimal real terminal emulator
+crystal examples/terminal/tid/tid.cr        # terminal identification, live
+crystal examples/screen/multiple/multiple.cr    # two windows, one app
+crystal examples/direct/completer/completer.cr  # inline (fzf-style) mode
 crystal examples/games/minesweeper/minesweeper.cr
 crystal examples/games/pong/pong.cr
 crystal examples/games/commando/commando.cr

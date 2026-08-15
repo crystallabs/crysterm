@@ -18,8 +18,8 @@ class X
       vi_keys: true,
       label: " Files ",
       cwd: ENV["HOME"]? || Dir.current,
-      height: "half",
-      width: "half",
+      height: "50%",
+      width: "50%",
       top: "center",
       left: "center",
       scrollbar: true,
@@ -27,8 +27,8 @@ class X
 
     box = Box.new \
       parent: s,
-      height: "half",
-      width: "half",
+      height: "50%",
+      width: "50%",
       top: "center",
       left: "center",
       style: Style.new(bg: "green", border: true)

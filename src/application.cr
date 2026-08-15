@@ -317,13 +317,17 @@ module Crysterm
     # `launcher` may be a `Terminal::Launcher`, a backend name (e.g. "kitty",
     # "tmux"), or nil to auto-detect (honoring `$TERMINAL`).
     #
+    # `cols`/`rows` default to the launching process's own terminal size (the
+    # window opens as big as the one it was launched from), or 80×24 when the
+    # launcher has no tty; pass explicit values to pin either axis.
+    #
     # Pass `start_input: true` to start reading input immediately, so a single
     # spawned window is interactive without a separate `#start_input`/`#exec`
     # call (the caller still has to keep the process alive, e.g. with `sleep`).
     # A reattached screen restores whatever listening state it had before
     # disconnecting.
     def self.open(*, launcher : Terminal::Launcher | String? = nil,
-                  cols : Int32 = 80, rows : Int32 = 24,
+                  cols : Int32? = nil, rows : Int32? = nil,
                   title : String? = nil, env : Process::Env = nil,
                   start_input : Bool = false, into : Window? = nil) : Window
       win = Terminal.spawn_window(launcher: launcher, cols: cols, rows: rows,
@@ -341,21 +345,29 @@ module Crysterm
       window
     end
 
-    # Convenience: open *window_count* emulator windows, build a window in each
-    # via the block, then render and start input on them all, then block. A `q` / `Ctrl-Q` in
-    # any window — or closing any window — tears that one down; the call
-    # returns (and the process exits) once the last window is gone.
+    # Convenience: open *window_count* emulator windows, yield them all to the
+    # block to build (cross-window wiring needs no forward-declared locals —
+    # every window exists when the block runs), then render and start input on
+    # them all, then block. A `q` / `Ctrl-Q` in any window — or closing any
+    # window — tears that one down; the call returns (and the process exits)
+    # once the last window is gone.
+    #
+    # ```
+    # Application.run(window_count: 2) do |wins|
+    #   sender, receiver = wins[0], wins[1]
+    #   # ... build both; they can reference each other freely ...
+    # end
+    # ```
     #
     # For a single in-process window, see the simpler `Crysterm.run`.
     def self.run(*, window_count : Int32, launcher : Terminal::Launcher | String? = nil,
-                 cols : Int32 = 80, rows : Int32 = 24, env : Process::Env = nil,
-                 & : Window, Int32 -> _) : Nil
+                 cols : Int32? = nil, rows : Int32? = nil, env : Process::Env = nil,
+                 & : Array(Window) -> _) : Nil
       wins = (0...window_count).map do |i|
-        w = open(launcher: launcher, cols: cols, rows: rows,
+        open(launcher: launcher, cols: cols, rows: rows,
           title: "Window #{i + 1}", env: env)
-        yield w, i
-        w
       end
+      yield wins
       exec_all wins
     end
 

@@ -8,7 +8,13 @@ module Crysterm
     # directly by a widget that must root in a different base.
     #
     # Sets the widget interactive (`@input`) and shrink-to-content
-    # (`@shrink_to_fit`), and wires the viewport scroll keys (when `keys:` is on
+    # (`@shrink_to_fit`). NOTE the latter *flips the base sizing default*:
+    # every includer (all of `Widget::Input`'s subclasses) shrinks to its
+    # content unless constructed with `shrink_to_fit: false` — the reason a
+    # full-pane editor spells `shrink_to_fit: false, width: "100%",
+    # height: "100%"` explicitly.
+    #
+    # Also wires the viewport scroll keys (when `keys:` is on
     # and `ignore_keys` is off): Up/Down (and, with `vi_keys:`, `k`/`j`) by a line,
     # `Ctrl-U`/`Ctrl-D` by a half page, `PageUp`/`PageDown` (and
     # `Ctrl-B`/`Ctrl-F`) by a full page, `Home`/`End` to the top/bottom, and —

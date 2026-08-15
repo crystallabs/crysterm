@@ -8,7 +8,7 @@ s = Window.new
 prompt = Prompt.new(
   style: Style.new(border: true),
   shrink_to_fit: true,
-  width: "half",
+  width: "50%",
   top: "center",
   left: "center",
   label: " {blue-fg}Prompt{/blue-fg} ",
@@ -20,7 +20,7 @@ prompt = Prompt.new(
 question = Question.new(
   style: Style.new(border: true),
   shrink_to_fit: true,
-  width: "half",
+  width: "50%",
   top: "center",
   left: "center",
   label: " {blue-fg}Question{/blue-fg} ",
@@ -32,7 +32,7 @@ question = Question.new(
 msg = Message.new(
   style: Style.new(border: true),
   shrink_to_fit: true,
-  width: "half",
+  width: "50%",
   top: "center",
   left: "center",
   label: " {blue-fg}Message{/blue-fg} ",
@@ -45,7 +45,7 @@ msg = Message.new(
 loader = Loading.new(
   style: Style.new(border: true),
   shrink_to_fit: true,
-  width: "half",
+  width: "50%",
   top: "center",
   left: "center",
   label: " {blue-fg}Loader{/blue-fg} ",

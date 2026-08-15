@@ -31,6 +31,12 @@ module Crysterm
         # Action invoked when the option is activated.
         property callback : Proc(Nil)?
 
+        # Block form of `#callback=`; the block's value is discarded, so the
+        # body needs no trailing `nil`.
+        def callback(&block : ->) : Nil
+          @callback = block
+        end
+
         def initialize(@key, @title, @description, @callback = nil)
         end
 

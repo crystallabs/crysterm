@@ -23,13 +23,8 @@ include Crysterm
 include Crysterm::Widgets
 include Tput::Namespace
 
-alias Sidebar = Widget::Mutt::Sidebar
-alias Mailbox = Widget::Mutt::Mailbox
-alias MessageIndex = Widget::Mutt::MessageIndex
-alias Message = Widget::Mutt::Message
-alias StatusBar = Widget::Mutt::StatusBar
-alias Compose = Widget::Mutt::Compose
-alias Attachment = Widget::Mutt::Attachment
+# The Mutt widget pack's alias set (Sidebar, MessageIndex, Compose, …).
+include Widget::Mutt::DSL
 
 s = Window.new(
   always_propagated_keys: [Tput::Key::CtrlQ],
@@ -468,8 +463,8 @@ end
 
 # ------------------------------------------------------------- wiring it up
 
-messages.each { |m| m.callback = -> { open_message.call m; nil } }
-sidebar.mailboxes.each { |mb| mb.callback = -> { open_folder.call mb; nil } }
+messages.each { |m| m.callback { open_message.call m } }
+sidebar.mailboxes.each { |mb| mb.callback { open_folder.call mb } }
 
 # Mailbox click / Enter in the sidebar hands focus back to the index.
 sidebar.on(Event::ItemActivated) { active_pane = :index }
@@ -487,9 +482,7 @@ s.on(Event::KeyPress) do |e|
   key = e.key
 
   if key == Tput::Key::CtrlQ
-    # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
-    # every window down before exiting, rather than hard-exiting behind the
-    # toolkit's back.
+    # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
     s.quit
   end
 
@@ -500,9 +493,7 @@ s.on(Event::KeyPress) do |e|
   if quit_pending
     quit_pending = false
     if ch == 'y' || ch == 'Y' || key == Tput::Key::Enter
-      # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
-      # every window down before exiting, rather than hard-exiting behind the
-      # toolkit's back.
+      # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
       s.quit
     end
     goto_index.call

@@ -309,6 +309,11 @@ module Crysterm
     # property? clickable = false
 
     # Puts current widget in focus. No-op while detached.
+    #
+    # Safe to call before the first render: focus itself doesn't need laid-out
+    # geometry, and the render that follows re-asserts the focused widget's
+    # visibility and caret against the freshly laid-out boxes — so
+    # "build, focus, exec" works without waiting for a frame.
     def focus
       # Re-`#focus`ing an already-focused widget is a no-op: focus events denote
       # a *change*, so `Event::FocusIn` is not re-fired — matching Qt, where

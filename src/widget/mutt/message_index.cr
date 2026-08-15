@@ -31,6 +31,12 @@ module Crysterm
         # Action invoked when the message is activated (Enter / click).
         property callback : Proc(Nil)?
 
+        # Block form of `#callback=`; the block's value is discarded, so the
+        # body needs no trailing `nil`.
+        def callback(&block : ->) : Nil
+          @callback = block
+        end
+
         def initialize(@from, @subject, *, @date = "", @size = 0, @status = "", @depth = 0, @unread = false, @callback = nil)
         end
 

@@ -3,8 +3,9 @@ This directory contains Crysterm examples, sorted by category.
 Examples are functional, reusable programs that you can use or
 copy as a base for your projects.
 
-- `hello.cr`, `hello2.cr` — the "Hello world" from the top-level README
+- the "Hello world" from the top-level README lives in `tests/hellos/`
 - `claude/` — a Claude-style chat session rendered with rich text (Markdown/GFM)
+- `css/` — a whole app styled by one authored CSS stylesheet (no `Style.new`)
 - `direct/` — direct (inline) mode: a widget app on the command line, `fzf`-style
 - `games/` — commando, minesweeper, pong, wumpus
 - `mutt/` — proof-of-concept Mutt-style mail client (mocked content)

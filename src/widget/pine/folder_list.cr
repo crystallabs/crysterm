@@ -25,6 +25,12 @@ module Crysterm
         # Action invoked when the folder is opened.
         property callback : Proc(Nil)?
 
+        # Block form of `#callback=`; the block's value is discarded, so the
+        # body needs no trailing `nil`.
+        def callback(&block : ->) : Nil
+          @callback = block
+        end
+
         def initialize(@name, @count = 0, *, @callback = nil)
         end
 

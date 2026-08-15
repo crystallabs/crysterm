@@ -10,8 +10,8 @@ class X
 
     # parent: l,
     i = PlainTextEdit.new \
-      width: "half",
-      height: "half",
+      width: "50%",
+      height: "50%",
       top: "center",
       left: "center",
       parse_tags: true,

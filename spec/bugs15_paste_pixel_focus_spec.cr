@@ -108,8 +108,16 @@ describe "BUGS15 63: send_focus enables terminal focus reporting (DEC 1004)" do
     s.try &.destroy
   end
 
+  it "send_focus defaults on (§7.2: focus reports ride mouse enable at zero cost)" do
+    s = headless_screen(60, 24)
+    s.send_focus?.should be_true
+  ensure
+    s.try &.destroy
+  end
+
   it "setting send_focus while mouse reporting is live re-asserts immediately" do
     s = headless_screen(60, 24)
+    s.send_focus = false
     s.enable_mouse
     s.screen.tput.mouse_focus_enabled?.should be_false
     seq = s.screen.tput.capture { s.send_focus = true }

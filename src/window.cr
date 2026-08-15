@@ -154,7 +154,7 @@ module Crysterm
 
     # Device-side mouse transport. The surface hit-test and the
     # `#disable_mouse` wrapper stay here; everything else delegates.
-    delegate mouse_enabled?, mouse_cursor_shaping?,
+    delegate mouse_enabled?, mouse_cursor_shaping?, mouse_cursor_shaping,
       to: @screen
 
     # Explicit forwarder (not `delegate`): the splat-forwarding delegate def
@@ -171,6 +171,11 @@ module Crysterm
     end
 
     def mouse_cursor_shaping=(value : Bool)
+      @screen.mouse_cursor_shaping = value
+    end
+
+    # :ditto:
+    def mouse_cursor_shaping=(value : AutoToggle)
       @screen.mouse_cursor_shaping = value
     end
 
@@ -296,6 +301,9 @@ module Crysterm
       @propagate_keys = @propagate_keys,
       @default_quit_keys = @default_quit_keys,
       @tab_navigation = @tab_navigation,
+      # Keyboard-ownership shorthand (see `#key_policy=`); applied after the
+      # individual toggles above, so it wins when both are given.
+      key_policy : Symbol? = nil,
       @cursor = @cursor,
       optimization : OptimizationFlag | Shorthands = @optimization,
       padding = nil,
@@ -350,6 +358,7 @@ module Crysterm
       self.optimization = optimization
       padding.try { |pad| @padding = Padding.from(pad) }
       title.try { |t| self.title = t }
+      key_policy.try { |p| self.key_policy = p }
 
       @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop }
 
@@ -514,8 +523,11 @@ module Crysterm
 
     # Quits the application this window is driven by (creating/using the global
     # one when never registered) — the canonical way for a handler to end the
-    # program: emits `Event::AboutToQuit`, tears every window down, and makes
-    # `#exec` return *status*. See `Application#quit`.
+    # program, in preference to a bare `exit`: it emits `Event::AboutToQuit`
+    # (a save-state hook) and tears every window down before exiting, where
+    # `exit` hard-exits behind the toolkit's back (no handlers run; only the
+    # `at_exit` net restores the terminal). Makes `#exec` return *status*.
+    # See `Application#quit`.
     def quit(status : Int32 = 0) : Nil
       (application || Application.global).quit status
     end

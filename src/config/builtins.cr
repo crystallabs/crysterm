@@ -68,8 +68,8 @@ module Superconf
     description: "Propagate unhandled keypresses up the widget tree"
   option "window.default_quit_keys", true,
     description: "Install a default quit handler (q / Ctrl-Q destroy the screen and exit) in the Screen constructor"
-  option "window.send_focus", false,
-    description: "Report terminal focus in/out (DEC private mode 1004) while mouse reporting is enabled; reports surface as window-level Event::Mouse with #mouse.focus_event?"
+  option "window.send_focus", true,
+    description: "Report terminal focus in/out (DEC private mode 1004) while mouse reporting is enabled; reports surface as window-level Event::Mouse with #mouse.focus_event? and drive render.pause_when_unfocused. On by default: enabling 1004 rides the mouse-enable sequence at zero cost"
   option "window.grab_keys", false,
     description: "Route all keypresses to a single grabbing widget"
   option "window.dock_borders", false,
@@ -101,10 +101,12 @@ module Superconf
   option "render.csr_threshold", 40,
     description: "FastCSR optimization activates when a widget is within this many columns of a screen edge",
     validate: ->(n : Int32) { n > 0 }
-  option "render.synchronized_output", true,
-    description: "Bracket each painted frame in a DEC 2026 synchronized update (\\e[?2026h … \\e[?2026l) so the terminal presents it atomically (no flicker/tearing on a multi-write redraw). Harmless and ignored on terminals that don't support it; set false to opt out globally"
-  option "render.hyperlinks", true,
-    description: "Emit OSC 8 hyperlink escapes for cells carrying a link (e.g. anchors in Widget::TextEdit/TextBrowser), so supporting terminals make them clickable/hoverable. Ignored (harmless) on terminals without OSC 8 support; set false to opt out globally"
+  option "render.synchronized_output", Crysterm::AutoToggle::Auto,
+    description: "Bracket each painted frame in a DEC 2026 synchronized update (\\e[?2026h … \\e[?2026l) so the terminal presents it atomically — no flicker/tearing on a multi-write redraw (auto|on|off). 'auto' (default) emits it only on a real tty whose emulator is identified as supporting it; 'on' forces it everywhere (harmless: unsupporting terminals ignore it); 'off' never emits"
+  option "render.hyperlinks", Crysterm::AutoToggle::Auto,
+    description: "Emit OSC 8 hyperlink escapes for cells carrying a link (e.g. anchors in Widget::TextEdit/TextBrowser), so supporting terminals make them clickable/hoverable (auto|on|off). 'auto' (default) emits only on a real tty whose emulator is identified as supporting OSC 8 — older terminals can echo the URI payload into the display; 'on' forces emission; 'off' disables links entirely"
+  option "render.pause_when_unfocused", true,
+    description: "Pause frame production while the terminal window is unfocused (requires focus reports: window.send_focus plus enabled mouse reporting), resuming with a repaint on focus-in. Timers and app logic keep running — only the render pipeline (frame build + terminal write) idles, so background windows don't burn CPU painting animations nobody sees"
   option "render.reduced_motion", false,
     description: "Honor a reduced-motion preference: collapse duration-based animations (CSS transitions, fades, tweens) straight to their final state instead of animating. Decorative looping effects and media playback keep running"
 
@@ -115,8 +117,8 @@ module Superconf
   # -- Mouse -----------------------------------------------------------------
   option "mouse.pixel_coordinates", Crysterm::PixelMouse::Auto,
     description: "Whether mouse events carry sub-cell pixel coordinates via SGR-Pixels reporting (DEC private mode 1016), exposed as Event::Mouse#px/#py (auto|on|off). 'auto' (default) enables it only when the application asks (Window#enable_mouse(pixels: :on)); 'on' forces it whenever the terminal reports a cell pixel size; 'off' disables it. In pixel mode the terminal reports pixels rather than cells, and the cell coordinates are derived by dividing by the detected cell size"
-  option "mouse.cursor_shape", false,
-    description: "Allow widgets to change the GUI mouse-pointer shape (xterm's OSC 22) while the pointer hovers them — e.g. a hand over a clickable widget, reset to the terminal default on leave. Off by default: it is best-effort (only xterm-class terminals honor OSC 22; most others ignore it) and changes a window the application doesn't otherwise own"
+  option "mouse.cursor_shape", Crysterm::AutoToggle::Auto,
+    description: "Allow widgets to change the GUI mouse-pointer shape (xterm's OSC 22) while the pointer hovers them — e.g. a hand over a clickable widget, reset to the terminal default on leave (auto|on|off). 'auto' (default) enables it only when the emulator is identified as honoring OSC 22 (xterm-class: xterm, kitty, foot); 'on' forces it (other terminals silently ignore the sequence); 'off' disables shaping"
 
   # -- Focus -----------------------------------------------------------------
   option "focus.history_size", 10,

@@ -217,9 +217,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
     @window.on(Event::KeyPress) do |e|
       if e.key == Tput::Key::CtrlQ
-        # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
-        # every window down before exiting, rather than hard-exiting behind the
-        # toolkit's back.
+        # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
         @window.quit
       end
 
@@ -479,9 +477,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
 
     # Quit works in any state.
     if verb == "q" || verb == "quit"
-      # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
-      # every window down before exiting, rather than hard-exiting behind the
-      # toolkit's back.
+      # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
       @window.quit
     end
 

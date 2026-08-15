@@ -44,6 +44,12 @@ module Crysterm
         # changes.
         property callback : Proc(String, Nil)?
 
+        # Block form of `#callback=`; the block's value is discarded, so the
+        # body needs no trailing `nil`.
+        def callback(&block : String ->) : Nil
+          @callback = block
+        end
+
         def initialize(
           @name,
           @kind : OptionKind = OptionKind::Text,

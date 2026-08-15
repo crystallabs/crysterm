@@ -1,7 +1,7 @@
 module Crysterm
   # A typed geometry value for `Widget` position/size properties (`left`,
   # `top`, `right`, `bottom`, `width`, `height`) — the parsed form of the
-  # stringly micro-DSL (`"50%"`, `"50%+5"`, `"center-3"`, `"half"`, `"50vw"`).
+  # stringly micro-DSL (`"50%"`, `"50%+5"`, `"center-3"`, `"50vw"`).
   #
   # Values are parsed **once, at assignment** (`Dim.from` in the setters), so
   # a malformed expression raises `ArgumentError` right where it is written
@@ -119,8 +119,8 @@ module Crysterm
     # or `Int32` passes through, `nil` stays `nil` (auto), a `String` is
     # parsed (raising `ArgumentError` when malformed — assignment is the
     # right place to learn about a typo, not a 0-resolved frame), and a
-    # `Symbol` maps `:center` (and, for sizes, `:half`). *size* selects the
-    # size-context alias (`"half"`) over the position one (`"center"`).
+    # `Symbol` maps `:center`. *size* marks a size context, which has no
+    # alias — a half-parent size is spelled `"50%"`.
     def self.from(value : Dim | Int32 | String | Symbol?, size : Bool = false) : Dim | Int32?
       case value
       in Int32, Nil then value
@@ -132,22 +132,19 @@ module Crysterm
       in Symbol
         case value
         when :center then center
-        when :half
-          raise ArgumentError.new "Dim :half is a size (use it for width/height; :center positions)" unless size
-          percent 50
         else
-          raise ArgumentError.new "Unknown Dim symbol: #{value.inspect} (expected :center or :half)"
+          raise ArgumentError.new "Unknown Dim symbol: #{value.inspect} (expected :center)"
         end
       end
     end
 
     # Parses a geometry expression: `"12"`, `"50%"`, `"50%+5"`, `"33.5%-2"`,
-    # `"center"`/`"center+5"` (positions; `"half"` for sizes when *size*),
+    # `"center"`/`"center+5"` (positions only; sizes have no alias),
     # `"50vw"`/`"50vh"`/`"50vmin"`/`"50vmax"`. Raises `ArgumentError` on
     # anything else.
     def self.parse(str : String, size : Bool = false) : Dim
       parse?(str, size: size) ||
-        raise ArgumentError.new "Invalid dimension expression: #{str.inspect} (expected N, N%±M, #{size ? "half" : "center"}±M, or Nvw/vh/vmin/vmax)"
+        raise ArgumentError.new "Invalid dimension expression: #{str.inspect} (expected N, N%±M, #{size ? "" : "center±M, "}or Nvw/vh/vmin/vmax)"
     end
 
     # Like `.parse`, but returns `nil` on a malformed expression. The
@@ -173,14 +170,15 @@ module Crysterm
         return new Kind::Viewport, 0, pct, axis
       end
 
-      # The context-sensitive 50% alias: `"center"` for positions, `"half"`
-      # for sizes, optionally with a `±N` cell offset.
-      aliased = size ? "half" : "center"
-      if str == aliased
-        return center_like size
-      elsif str.starts_with?(aliased) && (c = str[aliased.size]?) && (c == '+' || c == '-')
-        off = parse_offset(str, aliased.size + 1) || return
-        return center_like size, (c == '-' ? -off : off)
+      # The 50% position alias: `"center"`, optionally with a `±N` cell
+      # offset. Sizes have no alias — a half-parent size is spelled `"50%"`.
+      if !size && str.starts_with?("center")
+        if str.size == 6
+          return center
+        elsif (c = str[6]?) && (c == '+' || c == '-')
+          off = parse_offset(str, 7) || return
+          return center(c == '-' ? -off : off)
+        end
       end
 
       # Percentage with optional `±N` offset: `[+-]digits[.digits]% [+-]digits`.
@@ -243,12 +241,6 @@ module Crysterm
       end
       return unless digits
       neg ? -Float64::INFINITY : Float64::INFINITY
-    end
-
-    # `"center"`/`"half"` both mean 50%, but only a *position* center pulls
-    # back by half the widget's own size — a size stays a plain percentage.
-    private def self.center_like(size : Bool, offset : Int32 = 0) : Dim
-      size ? percent(50, offset) : center(offset)
     end
 
     # Parses the digits-only cell offset starting at byte *from*; `nil` when
@@ -314,16 +306,12 @@ module Crysterm
 
     # :ditto:
     def ==(other : String) : Bool
-      self == Dim.parse?(other, size: false) || self == Dim.parse?(other, size: true)
+      self == Dim.parse?(other)
     end
 
     # :ditto:
     def ==(other : Symbol) : Bool
-      case other
-      when :center then center? && @offset == 0
-      when :half   then percent? && @percent == 50.0 && @offset == 0
-      else              false
-      end
+      other == :center && center? && @offset == 0
     end
 
     # Emits the canonical source spelling (`"50%+5"`, `"center-3"`, `"7"`,

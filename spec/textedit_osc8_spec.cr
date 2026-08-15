@@ -9,9 +9,13 @@ include Crysterm
 # and closed before the frame ends.
 
 private def osc8_screen(output = IO::Memory.new, width = 30, height = 4)
-  Crysterm::Window.new(
+  s = Crysterm::Window.new(
     input: IO::Memory.new, output: output, error: IO::Memory.new,
     width: width, height: height)
+  # These specs exercise the emission machinery itself; force the policy on,
+  # since the default `auto` resolves off for a non-tty IO::Memory output.
+  s.hyperlinks = Crysterm::AutoToggle::On
+  s
 end
 
 private def anchor_te(s, url = "https://x.io")

@@ -67,31 +67,33 @@ dependencies:
 ```cr
 require "crysterm"
 
-alias C = Crysterm
+# The canonical header: pull Crysterm and its widget names into the current
+# namespace. (Prefer this over `alias C = Crysterm` — every example uses it.)
+include Crysterm
+include Crysterm::Widgets
 
 # A `Window` is the surface your widgets live on. (A `Screen` is the physical
 # terminal *device* behind it — see §3.1; you rarely construct one yourself.)
-window = C::Window.new title: "hello"
+window = Window.new title: "hello"
 
-# Optionally pull the widget classes into the current namespace:
-# include Crysterm::Widgets
-
-hello = C::Widget::Box.new \
+# (`Widget::Box`, not bare `Box` — that name is taken by Crystal's stdlib;
+# most other widgets are directly visible through `include Crysterm::Widgets`.)
+hello = Widget::Box.new \
   parent: window,          # The surface this widget belongs to
   name: "helloworld box",  # Symbolic name (for your own reference)
-  top: "center",           # Integer, "50%", "50%+10", or "center"
-  left: "center",
+  top: :center,            # Integer, "50%", "50%+10", or :center
+  left: :center,
   width: 20,
   height: 5,
   content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
   parse_tags: true,        # Interpret {…} tags in content (default: false)
-  style: C::Style.new(fg: "yellow", bg: "blue", border: true)
+  style: Style.new(fg: "yellow", bg: "blue", border: true)
 
 # `q` / Ctrl-Q already quit by default (see `Window#default_quit_keys?`), so
 # nothing else is needed here. To handle keys yourself, subscribe to a specific
-# key event (C::Event::KeyPress::CtrlQ) or to all of them and inspect the event:
+# key event (Event::KeyPress::CtrlQ) or to all of them and inspect the event:
 #
-#   window.on(C::Event::KeyPress) { |e| ... }
+#   window.on(Event::KeyPress) { |e| ... }
 
 # Run the main loop
 window.exec
@@ -150,6 +152,14 @@ This model is described in [§3.3](#33-the-single-threaded-render-model) and
 [§8](#8-rendering-and-drawing).
 
 To tear a window down, call `Window#destroy`.
+
+One process can also drive several windows: `Application.open` spawns a real
+terminal-emulator window and returns a `Window` for it,
+`Application.run(window_count: N) { |wins| ... }` opens N of them, yields
+them all to the block for building (so cross-window wiring needs no
+forward-declared locals), and blocks until the last one closes;
+`Application.exec_all(windows)` runs any set of windows under one shared
+event loop with graceful quit. See `examples/screen/multiple/`.
 
 ---
 
@@ -239,6 +249,27 @@ Three naming conventions divide the event surface, one per job:
   assignment replaces the first. The old `on_*` spellings of these have been
   removed: they looked like subscriptions but silently dropped the previous
   handler.
+
+#### Keyboard routing and ownership
+
+Two framework behaviors sit between the terminal and your key handlers, both
+on by default and both per-window properties:
+
+* **Default quit keys** — `q` / `Ctrl-Q` destroy the window and exit, as an
+  app-global hotkey applied to any key no widget `accept`ed
+  (`window.default_quit_keys = false` to opt out).
+* **Tab navigation** — Tab / Shift-Tab cycle focus through the keyable
+  widgets (`window.tab_navigation = false` to drive Tab yourself).
+
+An app that owns the whole keyboard can flip both at once with
+`Window.new key_policy: :app_owns` (or `window.key_policy = :app_owns`;
+`:framework` restores the defaults).
+
+A reading widget (e.g. a focused `LineEdit`) *grabs* the keyboard: keys go to
+it only, with no bubbling to ancestors. The deliberate exception is
+`window.always_propagated_keys` (an array of `Tput::Key`) and
+`always_propagated_chars` (plain `Char`s) — keys named there always bubble,
+which is how an app keeps its global hotkeys live while a field is reading.
 
 ### 3.3 The single-threaded render model
 
@@ -366,8 +397,6 @@ A position or size value can be:
   - Viewport units — `"50vw"`, `"50vh"`, `"50vmin"`, `"50vmax"` — resolve
     against the *window* size regardless of nesting depth, like their CSS
     namesakes.
-- **`"half"`** — shorthand for `"50%"` (half of the parent, *without*
-  centering).
 - **`"center"`** — for `left`/`top`: position the widget at 50% of the parent
   and then shift it back by half the widget's own size, so it ends up centered.
   Concretely the position is computed as the 50% point *minus* `awidth // 2`
@@ -375,6 +404,11 @@ A position or size value can be:
   size; for auto-sized/`shrink_to_fit` widgets the centering is reapplied
   against the final (shrunken) size. (The constructor shorthands `center:`,
   `center_x:`, `center_y:` and `fill:` expand to these specs for you.)
+  Note that positional centering and a centering *layout* round an odd
+  leftover cell to opposite sides: `left: :center` computes mid − size/2
+  (spare column ends up on the left), while `Layout::Box(align: Center)`
+  floors `(area − size) / 2` (spare column on the right) — pick one mechanism
+  per widget and stay with it.
 - **A `Dim`** — the value type every string/symbol form parses into:
   `Dim.cells(10)`, `Dim.percent(50)`, `Dim.percent(50, -2)` (percent plus
   offset), `Dim.center(offset = 0)`, `Dim.vw(50)`/`.vh`/`.vmin`/`.vmax`.
@@ -443,7 +477,7 @@ are their Qt/CSS-reading aliases, and `size : Size` the bundle):
 - If the spec (`width_spec`/`height_spec`) is an **integer**, it is returned
   as-is.
 - If it is a **`Dim`/string percentage**, it resolves against the parent's
-  *content area* (with `"half"` mapped to `"50%"`).
+  *content area*.
 - If it is **`nil`**, the size is computed as the largest space that fits,
   taking into account the parent's content area and the widget's own
   `left/top/right/bottom` offsets (and, under a layout engine, whatever the
@@ -470,11 +504,11 @@ they report *thickness*, not position:
 
 - `ileft`, `itop`, `iright`, `ibottom` — for one side, the border thickness on
   that side plus the padding on that side.
-- `iwidth`, `iheight` — the sums across the two horizontal or two vertical
-  sides (left+right, top+bottom).
+- `ihorizontal`, `ivertical` — the sums across the two horizontal or two
+  vertical sides (left+right, top+bottom).
 
 For example, a widget with a 1-cell border, 2 cells of top padding, and 3 cells
-of bottom padding has `iheight = 1 + 2 + 3 + 1 = 7`. Border and padding render
+of bottom padding has `ivertical = 1 + 2 + 3 + 1 = 7`. Border and padding render
 *inside* the widget's width/height, so larger inner offsets mean less room for
 content. (Shadow is the exception — it is cast *outside* the widget and does
 not reduce inner space; see [§5.3](#53-shadow).)
@@ -948,6 +982,16 @@ attributes during rendering, you can freely mix tags, raw escapes, and
 `Colorize` output in the same content string; they all end up as the same packed
 cell attributes.
 
+### 7.6 Rich text: `TextEdit` and documents
+
+Tags are the content system of plain widgets. `TextEdit` (and `TextBrowser`)
+instead hold a `TextDocument`, which imports and exports rich text in three
+formats, both directions: `set_markdown`/`markdown=`, `set_html`/`html=`,
+and the tag grammar via `content=`/`content` (which delegate to the
+document). `edit.value = ...` sets plain text. So a Markdown viewer is just
+`Widget::TextEdit.new(parent: s).set_markdown(File.read("doc.md"))` — no
+manual tagging needed.
+
 ---
 
 ## 8. Rendering and drawing
@@ -1073,6 +1117,24 @@ bound and eased, with a completion callback), used by animations,
 transitions, and effects. `every`/`after` are the
 convenience entry points; construct a `FrameClock` directly when you need
 easing or a bounded duration.
+
+### 8.6 Capability gating and idle efficiency
+
+Three render/mouse features follow an `auto|on|off` policy
+(`Crysterm::AutoToggle`): `render.synchronized_output` (DEC 2026 atomic frame
+presentation), `render.hyperlinks` (OSC 8 clickable links), and
+`mouse.cursor_shape` (OSC 22 pointer shaping). At `auto` — the default — each
+engages only on a real tty whose emulator is identified as supporting it
+(`Tput::Features`); `on` forces it and `off` disables it. Set them per
+window/screen (`window.hyperlinks = :on`-style enum, or plain `true`/`false`
+sugar) or via config/env.
+
+Terminal focus reporting (`window.send_focus`, DEC 1004) is on by default,
+and with `render.pause_when_unfocused` (default `true`) an unfocused terminal
+window stops producing frames entirely — timers and app logic keep running,
+and focus-in repaints whatever changed while the window was in the
+background. Spawned emulator windows (`Application.open`/`.run`) default to
+the launching terminal's own size instead of 80×24.
 
 ---
 

@@ -39,10 +39,27 @@ module Crysterm
     @_gpm : GPM? = nil
     @_gpm_fiber : Fiber?
 
-    # Whether widgets may change the GUI mouse-pointer shape (xterm's OSC 22)
-    # while hovered. Defaults to the `mouse.cursor_shape` config option (off);
-    # set per-device to override.
-    property? mouse_cursor_shaping : Bool = Config.mouse_cursor_shape
+    # Policy for whether widgets may change the GUI mouse-pointer shape
+    # (xterm's OSC 22) while hovered. Defaults to the `mouse.cursor_shape`
+    # config option: `Auto` enables it only when the emulator is identified as
+    # honoring OSC 22 (`Tput::Features#pointer_shape?` — xterm-class); set
+    # per-device to override.
+    property mouse_cursor_shaping : AutoToggle = Config.mouse_cursor_shape
+
+    # :ditto:
+    def mouse_cursor_shaping=(value : Bool)
+      @mouse_cursor_shaping = value ? AutoToggle::On : AutoToggle::Off
+    end
+
+    # The `#mouse_cursor_shaping` policy resolved against the terminal
+    # identity: whether shape requests are emitted.
+    def mouse_cursor_shaping? : Bool
+      case @mouse_cursor_shaping
+      in .on?   then true
+      in .off?  then false
+      in .auto? then @output.tty? && tput.features.pointer_shape?
+      end
+    end
 
     # GUI mouse-pointer shape currently pushed via OSC 22, or `nil` for the
     # terminal default. Tracked so we only emit on change and can restore the

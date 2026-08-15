@@ -300,6 +300,9 @@ module Crysterm
       # Resolve the automatic glyph tier from the env-detected identity;
       # re-resolved once XTVERSION hardens it. No-op when a tier was pinned.
       auto_glyph_tier
+      # Same cadence for the identity-derived capability flags (DEC 2026
+      # synchronized output, OSC 8 hyperlinks, OSC 22 pointer shapes).
+      Terminal::Capabilities.apply @tput
 
       width.try { |w| @explicit_width = true; @width = w }
       height.try { |h| @explicit_height = true; @height = h }
@@ -333,6 +336,9 @@ module Crysterm
       # or revoking an env-detected modern-font terminal — so re-resolve the
       # glyph tier in both directions.
       auto_glyph_tier
+      # And re-derive the identity-based capability flags from the hardened
+      # identity (recomputed from scratch, so a revoked identity revokes them).
+      Terminal::Capabilities.apply @tput
     end
 
     # Applies `Glyphs.detected_tier` (upgrade to `extended` on a

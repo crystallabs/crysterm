@@ -280,8 +280,12 @@ module Crysterm
       emit ::Crysterm::Event::Mouse, mouse_event(ev)
 
       # Focus in/out reports (mode 1004) share this channel but carry no
-      # pointer position; surface on the screen and stop before hit-testing.
-      return if ev.focus_event?
+      # pointer position; update the window's focus bookkeeping (which may
+      # resume a paused render loop), then stop before hit-testing.
+      if ev.focus_event?
+        terminal_focus_report ev.action.focus?
+        return
+      end
 
       # Every remaining report carries a real position: remember it, so a hover
       # ended without a report (`#end_hover`) has coordinates to synthesize from.

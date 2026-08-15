@@ -191,9 +191,7 @@ class Minesweeper
     @window.on(Event::KeyPress) do |e|
       case
       when e.key == Tput::Key::CtrlQ, e.char == 'q'
-        # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
-        # every window down before exiting, rather than hard-exiting behind the
-        # toolkit's back.
+        # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
         @window.quit
       when e.char == 'n'
         new_game @difficulty
@@ -241,9 +239,7 @@ class Minesweeper
     game.add_action("Cycle theme") { cycle_theme }
     game.add_separator
     game.add_action("Quit") do
-      # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
-      # every window down before exiting, rather than hard-exiting behind the
-      # toolkit's back.
+      # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
       @window.quit
     end
 

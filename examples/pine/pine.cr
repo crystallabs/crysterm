@@ -36,18 +36,8 @@ include Crysterm
 include Crysterm::Widgets
 include Tput::Namespace
 
-alias KeyMenu = Widget::Pine::KeyMenu
-alias MainMenu = Widget::Pine::MainMenu
-alias MessageIndex = Widget::Pine::MessageIndex
-alias Setup = Widget::Pine::Setup
-alias FolderList = Widget::Pine::FolderList
-alias AddressBook = Widget::Pine::AddressBook
-alias KeyPrompt = Widget::Pine::KeyPrompt
-alias ListSelect = Widget::Pine::ListSelect
-alias OptionList = Widget::Pine::OptionList
-alias OptionKind = Widget::Pine::OptionKind
-alias TextView = Widget::Pine::TextView
-alias FileBrowser = Widget::Pine::FileBrowser
+# The Pine widget pack's alias set (KeyMenu, MainMenu, MessageIndex, …).
+include Widget::Pine::DSL
 
 s = Window.new(
   always_propagated_keys: [Tput::Key::CtrlQ],
@@ -613,45 +603,42 @@ end
 
 # ------------------------------------------------------------- wiring it up
 
-main_menu.options[0].callback = -> { goto_help.call; nil }
-main_menu.options[1].callback = -> { goto_compose.call("", "", "to"); nil }
-main_menu.options[2].callback = -> { goto_index.call; nil }
-main_menu.options[3].callback = -> { goto_folders.call; nil }
-main_menu.options[4].callback = -> { goto_addrbook.call; nil }
-main_menu.options[5].callback = -> { goto_setup.call; nil }
-main_menu.options[6].callback = -> { ask_yes_no.call("Really quit ALPINE? ", -> { s.quit }); nil }
+main_menu.options[0].callback { goto_help.call }
+main_menu.options[1].callback { goto_compose.call("", "", "to") }
+main_menu.options[2].callback { goto_index.call }
+main_menu.options[3].callback { goto_folders.call }
+main_menu.options[4].callback { goto_addrbook.call }
+main_menu.options[5].callback { goto_setup.call }
+main_menu.options[6].callback { ask_yes_no.call("Really quit ALPINE? ", -> { s.quit }) }
 
 messages.each do |m|
-  m.callback = -> { open_message.call(m); nil }
+  m.callback { open_message.call(m) }
 end
 
 folders.folders.each do |f|
-  f.callback = -> do
+  f.callback do
     if f.name == "INBOX"
       goto_index.call
     else
       show_status.call %([Folder "#{f.name}" is empty or unavailable in this demo])
     end
-    nil
   end
 end
 
 addrbook.contacts.each do |c|
-  c.callback = -> { goto_compose.call(c.recipient, "", "to"); nil }
+  c.callback { goto_compose.call(c.recipient, "", "to") }
 end
 
 setup.options.each do |o|
-  o.callback = ->(on : Bool) do
+  o.callback do |on|
     header.info.content = "#{setup.options.count(&.enabled?)} of #{setup.options.size} enabled"
     show_status.call "[#{o.name} is now #{on ? "ON" : "OFF"}]"
-    nil
   end
 end
 
 config.options.each do |o|
-  o.callback = ->(value : String) do
+  o.callback do |value|
     show_status.call "[#{o.name} set to #{value.empty? ? "(empty)" : value}]"
-    nil
   end
 end
 
@@ -731,9 +718,7 @@ s.on(Event::KeyPress) do |e|
   key = e.key
 
   if key == Tput::Key::CtrlQ
-    # App-level quit: emits `Event::AboutToQuit` (a save-state hook) and tears
-    # every window down before exiting, rather than hard-exiting behind the
-    # toolkit's back.
+    # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
     s.quit
   end
 

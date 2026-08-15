@@ -379,8 +379,8 @@ module Crysterm
     # inline anchor by design), and `application` (documented usage re-`exec`s
     # the returned window, which registers it).
     private def copy_runtime_options_onto(other : Window) : Nil
-      other.hyperlinks = hyperlinks?
-      other.synchronized_output = synchronized_output?
+      other.hyperlinks = hyperlinks
+      other.synchronized_output = synchronized_output
       other.send_focus = send_focus?
       other.frame_interval = frame_interval
       other.drag_two_click = drag_two_click?
@@ -388,7 +388,7 @@ module Crysterm
       other.overflow = overflow
       other.default_attr = default_attr
       other.default_char = default_char
-      other.mouse_cursor_shaping = mouse_cursor_shaping?
+      other.mouse_cursor_shaping = mouse_cursor_shaping
     end
 
     # Moves every top-level widget from this screen onto *other*, destroys this

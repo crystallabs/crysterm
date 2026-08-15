@@ -64,9 +64,10 @@ module Crysterm
     # `EmulatorWindow`. Raises if no backend is available, the binary can't be
     # found, or the helper does not connect in time.
     def self.spawn_window(*, launcher : Launcher | String? = nil,
-                          cols : Int32 = 80, rows : Int32 = 24,
+                          cols : Int32? = nil, rows : Int32? = nil,
                           title : String? = nil,
                           env : Process::Env = nil) : EmulatorWindow
+      cols, rows = resolve_spawn_size cols, rows
       backend = resolve_launcher(launcher)
       raise "No terminal backend found (tried $TERMINAL and: #{LAUNCHERS.map(&.name).join(", ")})" unless backend
 
@@ -138,6 +139,18 @@ module Crysterm
           File.delete(path) rescue nil
         end
       end
+    end
+
+    # Resolves the spawned window's size: explicit values win; a `nil` axis
+    # inherits the launching process's own terminal size (the launcher knows
+    # how big a window suits this display), falling back to 80×24 when the
+    # launcher has no tty to measure (e.g. spawned from a service).
+    private def self.resolve_spawn_size(cols : Int32?, rows : Int32?) : {Int32, Int32}
+      return {cols, rows} if cols && rows
+      own = if STDOUT.tty? || STDIN.tty? || STDERR.tty?
+              ::Term::Screen.size # {rows, cols}, ioctl on the std streams
+            end
+      {cols || own.try(&.[1]) || 80, rows || own.try(&.[0]) || 24}
     end
 
     # Accepts a single connection on *server*, returning `nil` if none arrives

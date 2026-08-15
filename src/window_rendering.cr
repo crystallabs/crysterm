@@ -107,6 +107,23 @@ module Crysterm
     # so the very first request paints immediately.
     @last_render_at : Time::Instant? = nil
 
+    # Whether frame production pauses while the terminal window is unfocused
+    # (`#terminal_focused?` false, per DEC 1004 reports): doorbell rings are
+    # consumed but no frame is built or written, so a background window's
+    # animations stop burning CPU on paints nobody sees. Timers, tickers and
+    # `#post` jobs keep running — only the render pipeline idles — and the
+    # focus-in report resumes with a repaint that picks up everything they
+    # changed meanwhile. Requires focus reports to flow (`#send_focus?` plus
+    # enabled mouse reporting); without them the window is assumed focused and
+    # this is inert. Defaults to `Config.render_pause_when_unfocused`.
+    property? pause_when_unfocused : Bool = Config.render_pause_when_unfocused
+
+    # Whether the render loop should skip building frames right now: the
+    # unfocused-pause is on and the terminal window is unfocused.
+    private def render_paused? : Bool
+      pause_when_unfocused? && !terminal_focused?
+    end
+
     # Rings a coalescing doorbell: a non-blocking send on a capacity-1 channel.
     # If a notification is already pending the send is dropped, so a burst of
     # calls collapses into the single wake-up the loop eventually observes.
@@ -317,6 +334,13 @@ module Crysterm
         # for unmanaged/solo windows, so single-window programs are unaffected.
         next unless device_active_window?
 
+        # While the terminal window is unfocused (and the unfocused-pause is
+        # on), consume the ring without painting: animations keep mutating
+        # state, but no frames are built for a display nobody is looking at.
+        # Not a lost update — `#terminal_focus_report` re-rings on focus-in
+        # and the diff repaint picks up everything at once.
+        next if render_paused?
+
         # Trailing throttle: the first request after an idle period renders
         # immediately; back-to-back requests are spaced out to honor
         # `frame_interval` (the FPS cap) without adding latency to an isolated
@@ -343,6 +367,8 @@ module Crysterm
         # we sleep, and painting now would write over it (mirrors the
         # `@connected` recheck above).
         next unless device_active_window?
+        # And the unfocused-pause: a blur report can land during the sleep.
+        next if render_paused?
 
         begin
           repaint

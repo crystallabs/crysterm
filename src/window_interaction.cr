@@ -31,6 +31,28 @@ module Crysterm
     # can turn it off.
     property? default_quit_keys : Bool = Config.window_default_quit_keys
 
+    # Keyboard-ownership shorthand bundling the "who owns the keys" toggles.
+    # `:app_owns` — the app drives all keys itself: turns off the default
+    # `q`/Ctrl-Q quit hotkey (`#default_quit_keys=`) and the framework
+    # Tab/Shift-Tab focus cycling (`#tab_navigation=`); name the app's own
+    # global hotkeys in `#always_propagated_keys`/`#always_propagated_chars`
+    # so they keep bubbling past a grabbing widget. `:framework` (the
+    # default state) restores both toggles. Also available as a constructor
+    # kwarg: `Window.new key_policy: :app_owns`.
+    def key_policy=(policy : Symbol) : Symbol
+      case policy
+      when :app_owns
+        self.default_quit_keys = false
+        self.tab_navigation = false
+      when :framework
+        self.default_quit_keys = true
+        self.tab_navigation = true
+      else
+        raise ArgumentError.new "Unknown key_policy: #{policy.inspect} (expected :framework or :app_owns)"
+      end
+      policy
+    end
+
     # Array of keys to ignore when keys are locked or grabbed. Useful for defining
     # keys that will always execute their action (e.g. exit a program) regardless of
     # whether keys are propagate.

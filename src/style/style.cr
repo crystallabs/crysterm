@@ -42,6 +42,11 @@ module Crysterm
     # promoted to their own `Plane` at this z, composited over the base so
     # content from other widgets can show through; `opacity` becomes the plane's
     # opacity. `nil` = the base layer (the ordinary painter's path).
+    #
+    # Meaningful *relative to the theme's planes*: the built-in theme places
+    # chrome on low planes (e.g. scroll bars on plane 5, menus/popups higher),
+    # so a floating overlay that must cover them needs a `z_index` above the
+    # plane it overlaps — grep the theme for the current numbers.
     property z_index : Int32?
 
     # How a `background_image` is scaled to fill the widget box.

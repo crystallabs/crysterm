@@ -8,8 +8,8 @@ module Crysterm
 
     # The user-defined width *spec*, exactly as set (`nil` until then). The
     # setters (`width=`/`width_spec=`) accept a cell count (`Int32`), a `Dim`
-    # (`Dim.percent(50)`), `:half`, or the string micro-DSL (`"50%"`,
-    # `"half-3"`, `"50vw"`) — strings/symbols parse to a `Dim` once, at
+    # (`Dim.percent(50)`), or the string micro-DSL (`"50%"`,
+    # `"50%-3"`, `"50vw"`) — strings/symbols parse to a `Dim` once, at
     # assignment (malformed raises `ArgumentError` there), so the stored spec
     # is always `Dim | Int32?`; `nil` stretches.
     #
@@ -342,7 +342,7 @@ module Crysterm
     {% end %}
 
     # Size-context variant of `#resolve_dim`: a stored `Dim` resolves as
-    # parsed; the cold raw-`String` arm parses with the `"half"` alias.
+    # parsed; the cold raw-`String` arm parses in size context (no alias).
     private def resolve_size_dim(o : Dim | String, against : Int32) : Int32
       o.is_a?(Dim) ? resolve_dim(o, against) : resolve_dim(o, against, size: true)
     end

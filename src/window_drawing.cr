@@ -95,18 +95,62 @@ module Crysterm
       end
     end
 
-    # Whether to bracket each painted frame in a DEC 2026 *synchronized update*
-    # (`\e[?2026h` … `\e[?2026l`) so the terminal presents it atomically,
-    # eliminating flicker/tearing on a multi-write redraw. Harmless on
-    # unsupporting terminals (ignored, auto-release after a timeout). Defaults to
-    # `Config.render_synchronized_output`.
-    property? synchronized_output : Bool = Config.render_synchronized_output
+    # Policy for bracketing each painted frame in a DEC 2026 *synchronized
+    # update* (`\e[?2026h` … `\e[?2026l`) so the terminal presents it
+    # atomically, eliminating flicker/tearing on a multi-write redraw. `Auto`
+    # (the `Config.render_synchronized_output` default) emits only on a real
+    # tty whose emulator is identified as supporting it
+    # (`Tput::Features#synchronized_output?`); `On` forces emission (harmless
+    # on unsupporting terminals: ignored, auto-release after a timeout).
+    property synchronized_output : AutoToggle = Config.render_synchronized_output
 
-    # Whether cells carrying a hyperlink id draw with OSC 8 hyperlink escapes
-    # (`\e]8;;URI\e\\` … `\e]8;;\e\\`), making anchors clickable on supporting
-    # terminals. When off, `#link_id` registers nothing, so no cell ever carries a
-    # link. Defaults to `Config.render_hyperlinks`.
-    property? hyperlinks : Bool = Config.render_hyperlinks
+    # :ditto:
+    def synchronized_output=(value : Bool)
+      @synchronized_output = value ? AutoToggle::On : AutoToggle::Off
+    end
+
+    # The `#synchronized_output` policy resolved against the connected
+    # terminal: whether this frame gets the DEC 2026 bracket.
+    def synchronized_output? : Bool
+      case @synchronized_output
+      in .on?   then true
+      in .off?  then false
+      in .auto? then output_tty? && tput.features.synchronized_output?
+      end
+    end
+
+    # Policy for drawing cells carrying a hyperlink id with OSC 8 hyperlink
+    # escapes (`\e]8;;URI\e\\` … `\e]8;;\e\\`), making anchors clickable on
+    # supporting terminals. `Auto` (the `Config.render_hyperlinks` default)
+    # emits only on a real tty whose emulator is identified as rendering OSC 8
+    # (`Tput::Features#hyperlinks?`) — older terminals can echo the URI payload
+    # into the display. Links register under `Auto` even before the capability
+    # is known (`#link_id`), so the gate is at emission and a probe-time
+    # upgrade retroactively lights up earlier content; `Off` stops registration
+    # too, so no cell ever carries a link.
+    property hyperlinks : AutoToggle = Config.render_hyperlinks
+
+    # :ditto:
+    def hyperlinks=(value : Bool)
+      @hyperlinks = value ? AutoToggle::On : AutoToggle::Off
+    end
+
+    # The `#hyperlinks` policy resolved against the connected terminal:
+    # whether the draw loop emits OSC 8 for linked cells.
+    def hyperlinks? : Bool
+      case @hyperlinks
+      in .on?   then true
+      in .off?  then false
+      in .auto? then output_tty? && tput.features.hyperlinks?
+      end
+    end
+
+    # Whether this window's output is a real terminal (an IO that can't report
+    # `tty?` counts as "no"). The capability-gated escapes (DEC 2026, OSC 8)
+    # resolve their `Auto` policies through this.
+    private def output_tty? : Bool
+      (out = tput.output).responds_to?(:tty?) && out.tty?
+    end
 
     # OSC 8 hyperlink registry: cells store a compact `UInt16` id; the URIs live
     # here, deduplicated. Id `0` is "no link".
@@ -115,11 +159,15 @@ module Crysterm
 
     # Registers *url* and returns its cell link id — the value to assign to
     # `Cell#link=` for every cell the link covers. Returns `0` (no link) for an
-    # empty URL, when `#hyperlinks?` is off, or if the registry is full. URLs are
-    # stripped of control characters and length-capped, since they travel inside
-    # an escape sequence.
+    # empty URL, when the `#hyperlinks` policy is `Off`, or if the registry is
+    # full. Registration is deliberately gated on the *policy*, not the
+    # resolved `#hyperlinks?`: under `Auto`, content written before the
+    # terminal's OSC 8 support is known still carries its links, and emission
+    # alone decides whether they reach the terminal. URLs are stripped of
+    # control characters and length-capped, since they travel inside an escape
+    # sequence.
     def link_id(url : String) : UInt16
-      return 0_u16 if url.empty? || !hyperlinks?
+      return 0_u16 if url.empty? || @hyperlinks.off?
       @link_ids[url]? || begin
         return 0_u16 if @link_urls.size >= 0xFFFF
         clean = url.gsub(/[\x00-\x1f\x7f]/, "")
@@ -135,9 +183,17 @@ module Crysterm
       @link_urls[id - 1]?
     end
 
+    # Whether this frame emits OSC 8 — `#hyperlinks?` resolved once per frame
+    # by `#draw` (linked cells register regardless under `Auto`; see `#link_id`).
+    @_links_enabled = false
+
     # Emits the OSC 8 sequence switching the terminal's "current hyperlink" to
     # *id*'s URI (`0` = close): printed cells from here on carry the link.
+    # No-op while the resolved hyperlink policy is off — cells keep their link
+    # ids, the escapes just never reach an incapable terminal (which might
+    # echo the URI payload as garbage).
     private def emit_link(dest : IO, id : UInt16) : Nil
+      return unless @_links_enabled
       divert(@tmpbuf, dest) do
         if url = link_url(id)
           tput.begin_hyperlink url
@@ -202,6 +258,10 @@ module Crysterm
       # OSC 8 hyperlink currently in effect on the terminal (0 = none). The frame
       # closes it before finishing, so every frame starts link-free.
       cur_link = 0_u16
+
+      # Resolve the hyperlink policy once per frame (the `Auto` arm does a
+      # `tty?` syscall) — `emit_link` consults this, not `#hyperlinks?`.
+      @_links_enabled = hyperlinks?
 
       # Terminal-constant capabilities bound to locals. Only `bce_opt`, `fu` and
       # `ncolors` can change at runtime, so they stay per-frame.

@@ -76,17 +76,15 @@ end
 # --- Mode 1: two real terminal windows ---------------------------------------
 
 if ARGV.includes? "--spawn"
-  slider = nil
-  Application.run(window_count: 2, cols: 44, rows: 16) do |w, i|
-    frame = Widget::Box.new parent: w, top: 0, left: 0, width: "100%", height: "100%",
-      style: Style.new(border: true)
-    if i.zero?
-      slider = build_sender frame, volume
-    else
-      build_receiver frame, volume
-      # The windows are built in order, so the sender's slider exists by now.
-      slider.try { |sl| drive w, sl }
+  Application.run(window_count: 2, cols: 44, rows: 16) do |wins|
+    # All windows exist when the block runs, so cross-window wiring needs no
+    # forward-declared locals.
+    frames = wins.map do |w|
+      Widget::Box.new parent: w, fill: true, style: Style.new(border: true)
     end
+    slider = build_sender frames[0], volume
+    build_receiver frames[1], volume
+    drive wins[1], slider
   end
   exit
 end

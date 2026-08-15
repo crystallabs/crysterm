@@ -27,6 +27,12 @@ module Crysterm
         # Action invoked when the mailbox is opened (Enter / click).
         property callback : Proc(Nil)?
 
+        # Block form of `#callback=`; the block's value is discarded, so the
+        # body needs no trailing `nil`.
+        def callback(&block : ->) : Nil
+          @callback = block
+        end
+
         def initialize(@name, @unread = 0, @total = 0, *, @flagged = 0, @new = false, @depth = 0, @callback = nil)
         end
 

@@ -27,11 +27,10 @@ describe Crysterm::Dim do
       Crysterm::Dim.parse("center-3").should eq Crysterm::Dim.center(-3)
     end
 
-    it "parses half as a plain 50% in size context" do
-      d = Crysterm::Dim.parse("half", size: true)
-      d.percent?.should be_true
-      d.percent.should eq 50.0
-      Crysterm::Dim.parse("half-3", size: true).should eq Crysterm::Dim.percent(50, -3)
+    it "no longer accepts the removed Blessed half alias, in either context" do
+      expect_raises(ArgumentError) { Crysterm::Dim.parse("half", size: true) }
+      expect_raises(ArgumentError) { Crysterm::Dim.parse("half-3", size: true) }
+      expect_raises(ArgumentError) { Crysterm::Dim.parse("half") }
     end
 
     it "parses viewport units case-insensitively" do
@@ -64,10 +63,9 @@ describe Crysterm::Dim do
       Crysterm::Dim.from(Crysterm::Dim.cells(7)).should eq 7
     end
 
-    it "maps :center and, in size context, :half" do
+    it "maps :center and rejects unknown symbols (including removed :half)" do
       Crysterm::Dim.from(:center).should eq Crysterm::Dim.center
-      Crysterm::Dim.from(:half, size: true).should eq Crysterm::Dim.percent(50)
-      expect_raises(ArgumentError) { Crysterm::Dim.from(:half) }
+      expect_raises(ArgumentError) { Crysterm::Dim.from(:half, size: true) }
       expect_raises(ArgumentError) { Crysterm::Dim.from(:middle) }
     end
   end
@@ -95,7 +93,7 @@ describe Crysterm::Dim do
     it "equals the spellings it was parsed from" do
       (Crysterm::Dim.parse("50%+5") == "50%+5").should be_true
       (Crysterm::Dim.parse("center") == :center).should be_true
-      (Crysterm::Dim.parse("half", size: true) == :half).should be_true
+      Crysterm::Dim.parse?("half", size: true).should be_nil   # the Blessed alias is gone
       (Crysterm::Dim.parse("center") == "50%").should be_false # center pulls back half own size
     end
   end
@@ -106,7 +104,6 @@ describe Crysterm::Dim do
         d = Crysterm::Dim.parse(s)
         Crysterm::Dim.parse(d.to_s).should eq d
       end
-      Crysterm::Dim.parse("half+2", size: true).to_s.should eq "50%+2"
     end
   end
 end

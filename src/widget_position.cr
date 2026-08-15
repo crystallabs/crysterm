@@ -150,7 +150,7 @@ module Crysterm
     # Cold arm for a raw `String` written directly into a geometry ivar
     # (bypassing the normalizing setters): parsed per frame, with a malformed
     # expression degrading to 0 — a frame must never raise.
-    # *size* selects the `"half"` alias over `"center"`.
+    # *size* disables the position-only `"center"` alias.
     private def resolve_dim(o : String, against : Int32, size : Bool = false) : Int32
       (d = Dim.parse?(o, size: size)) ? resolve_dim(d, against) : 0
     end

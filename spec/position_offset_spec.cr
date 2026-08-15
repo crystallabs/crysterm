@@ -30,12 +30,13 @@ describe "center±N / half±N position & size offsets" do
     (pp.xi - bp.xi).should eq 4
   end
 
-  it "offsets a half size by the trailing amount" do
+  it "offsets a 50% size by the trailing amount (Blessed's half alias is gone)" do
     s = headless_screen(default_quit_keys: true)
-    half = Widget::Box.new parent: s, width: "half", height: "half"
-    plus = Widget::Box.new parent: s, width: "half+2", height: "half-1"
+    half = Widget::Box.new parent: s, width: "50%", height: "50%"
+    plus = Widget::Box.new parent: s, width: "50%+2", height: "50%-1"
 
     plus.awidth.should eq half.awidth + 2
     plus.aheight.should eq half.aheight - 1
+    expect_raises(ArgumentError) { Widget::Box.new parent: s, width: "half+2" }
   end
 end
