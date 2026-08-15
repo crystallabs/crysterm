@@ -269,7 +269,7 @@ module Crysterm
     end
 
     # Rendering performance figures are not drawn by the window itself; add a
-    # `Widget::Fps` to display them.
+    # `Widget::FPS` to display them.
 
     # Optimization flags for rendering/drawing. Defaults to
     # `Config.render_optimization` (a static, user-tunable config value). Choosing

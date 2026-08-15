@@ -147,7 +147,7 @@ module Crysterm
     alias Terminal = Widget::Terminal
 
     # Debug overlay showing render/draw/FPS rates and terminal byte throughput.
-    alias Fps = Widget::Fps
+    alias FPS = Widget::FPS
 
     # Qt-like
     alias Action = Crysterm::Action

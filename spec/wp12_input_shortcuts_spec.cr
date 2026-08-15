@@ -185,7 +185,7 @@ describe "WP-12 app loop, input, shortcuts" do
     it "interactive constructors are key-enabled by default, caller wins" do
       s = headless_screen(40, 12)
       Crysterm::Widget::Button.new(parent: s).keys?.should be_true
-      Crysterm::Widget::Checkbox.new(parent: s).keys?.should be_true
+      Crysterm::Widget::CheckBox.new(parent: s).keys?.should be_true
       Crysterm::Widget::Slider.new(parent: s).keys?.should be_true
       Crysterm::Widget::SpinBox.new(parent: s).keys?.should be_true
       Crysterm::Widget::ComboBox.new(parent: s).keys?.should be_true

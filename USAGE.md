@@ -1040,6 +1040,11 @@ work; each returns the `FrameClock` behind it, so it can be cancelled:
 clock = window.every(0.1.seconds) { progress.value += 1 }
 clock.stop
 
+# The block is also handed the timer, so a repeater can stop itself —
+# and `times:` runs a fixed count without any bookkeeping.
+window.every(0.1.seconds) { |t| t.stop if progress.value >= 100 }
+window.every(0.1.seconds, times: 10) { progress.value += 10 }
+
 # One-shot (`QTimer::singleShot` analog): invoke the block once after the span.
 clock = window.after(2.seconds) { status.content = "Saved." }
 clock.stop # cancels it if it hasn't fired yet
@@ -1056,9 +1061,16 @@ Because the render they trigger goes through the coalescing doorbell of
 [§8.4](#84-frame-coalescing-and-the-interval), many fast timers still produce
 at most one frame per render interval.
 
-`FrameClock` itself (see its class docs) is the underlying primitive: a
-phase-locked ticker with optional duration, easing, and completion callback,
-used by animations, transitions, and effects. `every`/`after` are the
+`every`/`after` delegate to `Timer.every`/`Timer.single_shot` — the same
+timers minus the render, for work not tied to a window. `Timer.new` itself,
+like `QTimer`, never starts on its own: build a shared clock with
+`Timer.new(0.1.seconds).start` and pass it around (e.g. as a widget's
+`animate:` clock).
+
+`FrameClock` itself (see its class docs) is the underlying primitive, built
+by shape: `FrameClock.ticker` (repeating) or `FrameClock.tween` (duration-
+bound and eased, with a completion callback), used by animations,
+transitions, and effects. `every`/`after` are the
 convenience entry points; construct a `FrameClock` directly when you need
 easing or a bounded duration.
 

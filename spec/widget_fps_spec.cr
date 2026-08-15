@@ -2,23 +2,23 @@ require "./spec_helper"
 
 include Crysterm
 
-describe Crysterm::Widget::Fps do
+describe Crysterm::Widget::FPS do
   it "renders the default R/D/FPS line, throughput and total" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    fps = Crysterm::Widget::Fps.new parent: s
+    fps = Crysterm::Widget::FPS.new parent: s
     s.repaint
 
     # First frame has no prior measurements: every rate reads 0, and the
     # cumulative total is still 0 (draw bytes are counted after the widget
     # paints). Fields are padded to fixed widths.
-    expected = Crysterm::Widget::Fps::DEFAULT_FORMAT % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B", "0B", "0B"]
+    expected = Crysterm::Widget::FPS::DEFAULT_FORMAT % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B", "0B", "0B"]
     fps.content.should eq expected
   end
 
   it "keeps a constant line length as the numbers change width (no jitter)" do
     # Fixed-width fields: small and large readings render to the same length,
     # so the auto-sized box never shrinks/grows a column.
-    fmt = Crysterm::Widget::Fps::DEFAULT_FORMAT
+    fmt = Crysterm::Widget::FPS::DEFAULT_FORMAT
     small = fmt % [0, 0, 0, 0, 0, 0, "0B", "0B", "0B", "0B", "0B"]
     large = fmt % [99999, 99999, 99999, 12345, 6789, 100, "1023.9MiB", "512.0KiB", "1023.9MiB", "512.0KiB", "8.0GiB"]
     large.size.should eq small.size
@@ -26,14 +26,14 @@ describe Crysterm::Widget::Fps do
 
   it "defaults to the bottom-left corner" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    fps = Crysterm::Widget::Fps.new parent: s
+    fps = Crysterm::Widget::FPS.new parent: s
     fps.left.should eq 0
     fps.bottom.should eq 0
   end
 
   it "honors an explicit position instead of the default corner" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    fps = Crysterm::Widget::Fps.new parent: s, top: 2, left: 5
+    fps = Crysterm::Widget::FPS.new parent: s, top: 2, left: 5
     fps.top.should eq 2
     fps.left.should eq 5
     fps.bottom.should be_nil
@@ -41,7 +41,7 @@ describe Crysterm::Widget::Fps do
 
   it "lets the user pick the format and which metrics to print" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    fps = Crysterm::Widget::Fps.new parent: s, format: "%s fps", args: [Crysterm::Widget::Fps::Metric::Fps]
+    fps = Crysterm::Widget::FPS.new parent: s, format: "%s fps", args: [Crysterm::Widget::FPS::Metric::Fps]
     s.repaint
     fps.content.should eq "0 fps"
   end
@@ -49,14 +49,14 @@ describe Crysterm::Widget::Fps do
   it "surfaces a bad format/args combination instead of crashing the render" do
     s = headless_screen(80, 24, default_quit_keys: true)
     # %d on a String arg raises inside String#%; the widget must catch it.
-    fps = Crysterm::Widget::Fps.new parent: s, format: "%d", args: [Crysterm::Widget::Fps::Metric::TotalH]
+    fps = Crysterm::Widget::FPS.new parent: s, format: "%d", args: [Crysterm::Widget::FPS::Metric::TotalH]
     s.repaint
     fps.content.should start_with "FPS format error"
   end
 
   it "accumulates the cumulative byte total across frames" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    fps = Crysterm::Widget::Fps.new parent: s, format: "%s", args: [Crysterm::Widget::Fps::Metric::Total]
+    fps = Crysterm::Widget::FPS.new parent: s, format: "%s", args: [Crysterm::Widget::FPS::Metric::Total]
 
     # Frame 1 draws the overlay text, so the running total grows above 0.
     s.repaint

@@ -35,7 +35,7 @@ describe "BUGS16 B16-02: FrameClock yields when behind schedule" do
     # call), so from the first inter-tick gap on the loop is always behind
     # schedule. Self-stops after a fixed count so the test can't hang if the
     # behind-schedule branch never yields (pristine code).
-    clock = Crysterm::FrameClock.new(1.millisecond) do |c|
+    clock = Crysterm::FrameClock.ticker(1.millisecond) do |c|
       busy_until = Time.instant + 3.milliseconds
       while Time.instant < busy_until
       end

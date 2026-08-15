@@ -172,7 +172,7 @@ module WidgetExamples
   # Discover documented widgets/layouts by mirroring the example tree onto the
   # source. Each example program `<out_dir>/<rel>/<name>.cr` names one class; the
   # exact FQN is read from the example's own instantiation, so irregular
-  # file<->class names (`lcd_number`<->`LCDNumber`, `hline`<->`HLine`) and nested
+  # file<->class names (`lcd_number`<->`LCDNumber`) and nested
   # classes (`Media::Unicode::Braille`) resolve with no registry. The source file
   # is found by walking up the rel path (a nested variant's class lives in its
   # parent file: `media/glyph/braille` -> `media/glyph.cr`).

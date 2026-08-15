@@ -202,13 +202,13 @@ module Crysterm
 
     # ---- Per-frame performance measurements --------------------------------
     #
-    # Updated at the end of every `repaint`; read by an optional `Widget::Fps`
+    # Updated at the end of every `repaint`; read by an optional `Widget::FPS`
     # overlay (or any other observer). Describe the frame just produced. A
-    # `Widget::Fps` renders as a child — before these are refreshed — so it
+    # `Widget::FPS` renders as a child — before these are refreshed — so it
     # always shows the previous frame's numbers, as a frame-rate counter wants.
 
     # Whether anything has read a per-frame metric. Reading any metric getter
-    # below arms this the first time (e.g. a `Widget::Fps` overlay compositing
+    # below arms this the first time (e.g. a `Widget::FPS` overlay compositing
     # for the first time). While it stays `false`, `_render_frame` takes a single
     # `t1`/`t3` frame-clock pair and skips the intermediate split reads and the
     # rate/throughput divisions; once armed, every frame is fully instrumented.
@@ -253,7 +253,7 @@ module Crysterm
     # Bytes/sec the draw phase wrote to the terminal this frame:
     # `last_draw_bytes / frame_time`. An instantaneous, per-frame figure (what
     # continuous rendering would sustain), not a wall-clock average;
-    # `Widget::Fps` smooths it via its rolling average.
+    # `Widget::FPS` smooths it via its rolling average.
     # ameba:disable Lint/UselessAssign
     observed_getter throughput : Int32 = 0
 
@@ -611,29 +611,29 @@ module Crysterm
     # into `screen.every(0.1.seconds) { # ...mutate widgets... }`. The render
     # happens after each block call, so the body only needs to update state.
     #
-    # Returns the `FrameClock` driving the loop, so the caller can `#stop` it
-    # (phase-locking that keeps the period at `interval` regardless of work
-    # cost lives there).
-    def every(interval : Time::Span, &block : ->) : FrameClock
-      FrameClock.new(interval) do
-        block.call
+    # Delegates to `Timer.every` (plus the render via `#update`), so it
+    # returns the already-started `Timer` driving the loop — the caller can
+    # `#stop` it, and the block is handed it too, letting a repeater stop
+    # itself: `screen.every(35.milliseconds) { |t| t.stop if done? }`. With
+    # *times*, it stops by itself after that many calls. Phase-locking that
+    # keeps the period at *interval* regardless of work cost lives in
+    # `FrameClock`.
+    def every(interval : Time::Span, *, times : Int32? = nil, &block : Timer ->) : Timer
+      Timer.every(interval, times: times) do |t|
+        block.call t
         update
-      end.start
+      end
     end
 
     # One-shot timer (`QTimer::singleShot` analog): invokes *block* once, after
-    # *span* has elapsed, then stops itself. Returns the `FrameClock` driving
-    # it, so the caller can `#stop` it to cancel before it fires.
-    #
-    # Built on the same ticker `FrameClock` shape `#every` uses, but with
-    # `immediate: false` so the first (and only) tick lands at t≈span instead
-    # of t≈0 (see `FrameClock#initialize`).
-    def after(span : Time::Span, &block : ->) : FrameClock
-      FrameClock.new(span, immediate: false) do |clock|
-        clock.stop
+    # *span* has elapsed, then stops itself. Delegates to `Timer.single_shot`
+    # (plus a render after the block), returning the already-started `Timer`
+    # so the caller can `#stop` it to cancel before it fires.
+    def after(span : Time::Span, &block : ->) : Timer
+      Timer.single_shot(span) do
         block.call
         update
-      end.start
+      end
     end
 
     # Builds and flushes one frame synchronously, on the calling fiber ↔
@@ -699,7 +699,7 @@ module Crysterm
       end
 
       # Only split the frame clock into its render/draw/flush parts when someone
-      # actually reads the figures. A `Widget::Fps` overlay (or a benchmark) arms
+      # actually reads the figures. A `Widget::FPS` overlay (or a benchmark) arms
       # `@metrics_observed` the first time it reads a metric getter — including
       # during the composite just above — so from that frame on we take the full
       # split; otherwise the intermediate `Time.instant` reads (and the divisions
@@ -752,7 +752,7 @@ module Crysterm
 
       # Record this frame's performance figures — only when observed (see the
       # split-clock note above). The arithmetic feeds the metric getters, which
-      # nothing reads unless a `Widget::Fps` overlay or benchmark is present.
+      # nothing reads unless a `Widget::FPS` overlay or benchmark is present.
       if observed
         t3 = Time.instant
 

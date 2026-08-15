@@ -1,5 +1,5 @@
 require "uri"
-require "./textedit"
+require "./text_edit"
 
 module Crysterm
   class Widget

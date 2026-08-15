@@ -238,10 +238,5 @@ module Crysterm
         coords
       end
     end
-
-    # <!-- widget-examples:capture v1 -->
-    # ![BigText screenshot](../../tests/widget/bigtext/bigtext.5s.apng)
-    # <!-- /widget-examples:capture -->
-    alias Bigtext = BigText
   end
 end

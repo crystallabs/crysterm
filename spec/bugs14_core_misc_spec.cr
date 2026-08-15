@@ -5,7 +5,7 @@ include Crysterm
 # Regression specs for BUGS14 findings C1, C2, R1, R3.
 #
 # C1 — an animated capture built its sampling clock as
-#      `FrameClock.new((1.0 / fps).seconds)`; `fps == 0` makes that
+#      `FrameClock.ticker((1.0 / fps).seconds)`; `fps == 0` makes that
 #      `Infinity.seconds`, which raises `OverflowError` at startup. Clamp
 #      `fps` to at least 1 before building the clock/ffmpeg args.
 # C2 — removing/destroying a NESTED widget skipped the window's transient
@@ -31,7 +31,7 @@ describe "BUGS14 C1: capture frame-rate is clamped to >= 1" do
     Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 3
     s.repaint
     io = IO::Memory.new
-    # `FrameClock.new((1.0 / 0).seconds)` would raise OverflowError at
+    # `FrameClock.ticker((1.0 / 0).seconds)` would raise OverflowError at
     # construction. A tiny duration keeps the clock loop short.
     s.feed_animation_frames(io, 0, s.awidth, 0, s.aheight, 2.milliseconds, 0)
   end

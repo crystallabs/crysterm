@@ -157,7 +157,7 @@ describe "B18-08: FrameClock survives a raising tick and always finalizes" do
   it "keeps ticking after a tick raises, and stop still fires stop_handler" do
     ticks = 0
     stops = 0
-    clock = Crysterm::FrameClock.new(1.millisecond) do
+    clock = Crysterm::FrameClock.ticker(1.millisecond) do
       ticks += 1
       raise "boom" if ticks == 1
     end

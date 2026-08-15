@@ -149,7 +149,7 @@ module Crysterm
       written = 1
       start_at = Time.instant
 
-      clock = FrameClock.new((1.0 / fps).seconds, immediate: false) do |clk|
+      clock = FrameClock.ticker((1.0 / fps).seconds, immediate: false) do |clk|
         if written >= total
           clk.stop # strip complete; nothing left to sample
         else

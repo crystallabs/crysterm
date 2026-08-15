@@ -118,7 +118,7 @@ describe "BUGS18 B18-90 leftovers: Gradient/Media ticker gating" do
 
     it "leaves a shared animate: Timer clock running when the widget hides" do
       s = headless_screen(20, 10)
-      clock = Crysterm::Timer.new 0.05.seconds
+      clock = Crysterm::Timer.new(0.05.seconds).start
       g = GradientProbe.new parent: s, top: 0, left: 0, width: 8, height: 3, animate: clock
 
       begin

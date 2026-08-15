@@ -11,12 +11,12 @@ module Crysterm
     # `#args` list naming which metrics fill the format's `%` slots; an element
     # is disabled by leaving it out of `args`. Defaults print everything:
     #
-    #     Crysterm::Widget::Fps.new(parent: window)            # everything, bottom-left
-    #     Crysterm::Widget::Fps.new(parent: window,
-    #       format: "%s fps", args: [Fps::Metric::Fps])        # just the frame rate
-    #     Crysterm::Widget::Fps.new(parent: window,
+    #     Crysterm::Widget::FPS.new(parent: window)            # everything, bottom-left
+    #     Crysterm::Widget::FPS.new(parent: window,
+    #       format: "%s fps", args: [FPS::Metric::Fps])        # just the frame rate
+    #     Crysterm::Widget::FPS.new(parent: window,
     #       format: "R %s  D %s  TX %s/s",
-    #       args: [Fps::Metric::Render, Fps::Metric::Draw, Fps::Metric::ThroughputH])
+    #       args: [FPS::Metric::Render, FPS::Metric::Draw, FPS::Metric::ThroughputH])
     #
     # Available `args`:
     #   :render  :draw  :flush  :fps      current per-frame rates (Int). `:draw`
@@ -41,9 +41,9 @@ module Crysterm
     # before the frame it appears in has finished).
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Fps screenshot](../../tests/widget/fps/fps.5s.apng)
+    # ![FPS screenshot](../../tests/widget/fps/fps.5s.apng)
     # <!-- /widget-examples:capture -->
-    class Fps < Box
+    class FPS < Box
       # Metrics that `#args` may name, one per `%` slot `#format` fills. See
       # the class docs above for what each one reports.
       enum Metric

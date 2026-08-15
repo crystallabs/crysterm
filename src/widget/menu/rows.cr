@@ -6,7 +6,7 @@ module Crysterm
       # The `#sync_items` rebuild pipeline and every per-frame memo it feeds:
       # visible-action snapshot, per-row text columns, fit-width/row-layout
       # caches and the render-time sizing passes. Split out of `menu.cr`
-      # following the `textedit.cr`/`textedit_painting.cr` precedent.
+      # following the `text_edit.cr`/`text_edit/painting.cr` precedent.
 
       # Caps the auto-sized (popup/submenu) height to at most this many item rows,
       # scrolling the remainder — mirrors `ComboBox#max_visible_items`. `nil` (default)

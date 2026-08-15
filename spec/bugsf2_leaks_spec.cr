@@ -155,7 +155,7 @@ end
 describe "Gradient shared-clock subscription cleanup (F2 #33)" do
   it "removes its Tick handler from a shared clock on destroy" do
     s = headless_screen(80, 24)
-    clock = Crysterm::Timer.new(0.1.seconds, autostart: false)
+    clock = Crysterm::Timer.new(0.1.seconds)
     clock.handlers(Crysterm::Event::Tick).size.should eq 0
 
     g = Crysterm::Widget::Gradient.new parent: s, width: 20, height: 2, animate: clock
@@ -170,7 +170,7 @@ describe "Gradient shared-clock subscription cleanup (F2 #33)" do
 
   it "creating/destroying many gradients against one clock doesn't accumulate handlers" do
     s = headless_screen(80, 24)
-    clock = Crysterm::Timer.new(0.1.seconds, autostart: false)
+    clock = Crysterm::Timer.new(0.1.seconds)
     5.times do
       g = Crysterm::Widget::Gradient.new parent: s, width: 20, height: 2, animate: clock
       g.destroy

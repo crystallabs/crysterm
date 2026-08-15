@@ -12,7 +12,7 @@ include Crysterm
 describe Crysterm::FrameClock do
   it "does not leave a superseded fiber running after a same-instance stop+start" do
     stops = 0
-    anim = Crysterm::FrameClock.new(1.millisecond) { }
+    anim = Crysterm::FrameClock.ticker(1.millisecond) { }
     anim.stop_handler { stops += 1 }
 
     anim.start
@@ -39,7 +39,7 @@ describe Crysterm::FrameClock do
     Crysterm::Config.set "render.reduced_motion", false
     stops = 0
     # Has a duration, so the reduced-motion branch applies.
-    anim = Crysterm::FrameClock.new(20.milliseconds, duration: 10.seconds) { }
+    anim = Crysterm::FrameClock.tween(20.milliseconds, duration: 10.seconds) { }
     anim.stop_handler { stops += 1 }
 
     anim.start # normal path: spawns the loop fiber, not yet run

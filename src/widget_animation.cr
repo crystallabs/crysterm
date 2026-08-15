@@ -121,7 +121,7 @@ module Crysterm
       # dropped/late ticks are real time the animation must still count, or a
       # finite animation outruns its duration and a looping one drifts under load.
       start_at = Time.instant
-      anim = FrameClock.new(step.seconds) do |clock|
+      anim = FrameClock.ticker(step.seconds) do |clock|
         elapsed = FrameClock.elapsed_since(start_at)
         cycles = elapsed / total
         if iters && cycles >= iters

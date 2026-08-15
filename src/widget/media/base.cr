@@ -533,7 +533,7 @@ module Crysterm
         # render and set the interval from the frame actually displayed — so
         # each frame is shown for its OWN delay, including frame 0.
         first = true
-        @animation = FrameClock.new((src[@anim_index]?.try(&.[1]) || 100).milliseconds) do |clock|
+        @animation = FrameClock.ticker((src[@anim_index]?.try(&.[1]) || 100).milliseconds) do |clock|
           if @playing
             unless first
               @anim_index += 1

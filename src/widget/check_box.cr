@@ -144,10 +144,5 @@ module Crysterm
         end
       end
     end
-
-    # <!-- widget-examples:capture v1 -->
-    # ![CheckBox screenshot](../../tests/widget/checkbox/checkbox.5s.apng)
-    # <!-- /widget-examples:capture -->
-    alias Checkbox = CheckBox
   end
 end

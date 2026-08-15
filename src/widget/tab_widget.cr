@@ -1,5 +1,5 @@
 require "./box"
-require "./listbar"
+require "./list_bar"
 require "../mixin/paged_container"
 require "../mixin/sub_style"
 

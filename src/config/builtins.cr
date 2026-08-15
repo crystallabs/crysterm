@@ -92,7 +92,7 @@ module Superconf
     description: "Minimum delay between frames in seconds (the FPS cap)",
     validate: ->(s : Float64) { s > 0 }
   option "render.fps_window", 30,
-    description: "Number of frames averaged by a Widget::Fps overlay's rolling averages",
+    description: "Number of frames averaged by a Widget::FPS overlay's rolling averages",
     validate: ->(n : Int32) { n > 0 }
   option "render.optimization", Crysterm::OptimizationFlag::DamageTracking,
     description: "Render/draw optimization flags (fast_csr|smart_csr|bce|damage_tracking, comma-separated)"

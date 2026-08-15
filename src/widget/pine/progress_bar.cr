@@ -1,4 +1,4 @@
-require "../progressbar"
+require "../progress_bar"
 
 module Crysterm
   class Widget

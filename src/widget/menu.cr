@@ -699,5 +699,5 @@ module Crysterm
   end
 end
 
-require "./menu_popup"
-require "./menu_rows"
+require "./menu/popup"
+require "./menu/rows"

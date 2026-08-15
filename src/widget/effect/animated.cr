@@ -99,7 +99,7 @@ module Crysterm
             on(::Crysterm::Event::Show) { resume_animation }
             on(::Crysterm::Event::Attached) { resume_animation }
           end
-          @animation = FrameClock.new(@interval) do
+          @animation = FrameClock.ticker(@interval) do
             step
             update!
             if done?

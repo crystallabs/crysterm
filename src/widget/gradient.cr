@@ -23,7 +23,7 @@ module Crysterm
     # Widget::Gradient.new parent: s, width: "100%", height: "100%"
     #
     # # animated hue-cycling strip, synced to a shared timer
-    # clock = Crysterm::Timer.new 0.1.seconds
+    # clock = Crysterm::Timer.new(0.1.seconds).start
     # Widget::Gradient.new parent: s, width: 76, height: 2, animate: clock, speed: 0.03
     # ```
     #
@@ -113,7 +113,7 @@ module Crysterm
 
         @timer = case animate
                  in Timer then animate
-                 in Bool  then animate ? (@own_timer = Timer.new(interval)) : nil
+                 in Bool  then animate ? (@own_timer = Timer.new(interval).start) : nil
                  end
         @timer.try do |t|
           @tick_sub.on(t, Crysterm::Event::Tick) do

@@ -1,4 +1,4 @@
-require "../filemanager"
+require "../file_manager"
 
 module Crysterm
   class Widget

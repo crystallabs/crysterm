@@ -6,7 +6,7 @@ module Crysterm
       # Everything that opens, anchors, dismisses and tears down floating menu
       # sessions: `#popup` context menus (modal grab + click-away watcher) and
       # the `#open_submenu`/`#close_submenu` chain. Split out of `menu.cr`
-      # following the `textedit.cr`/`textedit_editing.cr` precedent.
+      # following the `text_edit.cr`/`text_edit/editing.cr` precedent.
 
       # The menu this one is a submenu of (`nil` for a top-level menu). Set when a
       # submenu is opened; used to route Left/Escape back to the parent.

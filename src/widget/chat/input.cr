@@ -1,6 +1,6 @@
 require "../../chat/glyphs"
 require "../../mixin/input_history"
-require "../plaintextedit"
+require "../plain_text_edit"
 
 module Crysterm
   class Widget

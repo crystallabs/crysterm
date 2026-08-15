@@ -383,11 +383,10 @@ run_progress = ->(label : String) do
   header.info.content = label
   progress.value = 0
   status_line.call progress
-  timer : FrameClock? = nil
-  timer = s.every(35.milliseconds) do
+  s.every(35.milliseconds) do |timer|
     progress.value += 10
     if progress.value >= 100
-      timer.try &.stop
+      timer.stop
       status_line.call status
     end
   end

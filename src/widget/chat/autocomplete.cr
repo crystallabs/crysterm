@@ -2,7 +2,7 @@ require "../../chat/completion"
 require "../../control/completer"
 require "../../mixin/popup_controller"
 require "../../overlay/dismiss_session"
-require "../plaintextedit"
+require "../plain_text_edit"
 
 module Crysterm
   class Widget

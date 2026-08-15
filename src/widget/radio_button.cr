@@ -1,7 +1,7 @@
 require "./abstract_button"
 require "../mixin/check_marker"
 require "../mixin/exclusive_group"
-require "./radioset"
+require "./radio_set"
 
 module Crysterm
   class Widget

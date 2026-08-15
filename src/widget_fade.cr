@@ -146,7 +146,7 @@ module Crysterm
       # `FrameClock` drops catch-up ticks when behind, so an accumulator would
       # undercount every late tick and stretch the breathe cadence under load.
       start_at = Time.instant
-      anim = FrameClock.new(interval) do |_clock|
+      anim = FrameClock.ticker(interval) do |_clock|
         elapsed = FrameClock.elapsed_since(start_at)
         # Triangle phase 0→1→0 over `2*half`, eased by sine for a soft turnaround.
         phase = (elapsed % (2.0 * half)) / half  # 0..2

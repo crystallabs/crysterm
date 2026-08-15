@@ -169,7 +169,7 @@ module Crysterm
     private def start_tween(duration : Time::Span, easing : Easing | Symbol,
                             fps : Int32 = 30, on_done : Proc(Nil)? = nil, store : Proc(FrameClock, Nil)? = nil,
                             &tick : FrameClock ->) : FrameClock
-      anim = FrameClock.new((1.0 / fps).seconds, duration: duration, easing: easing) do |clock|
+      anim = FrameClock.tween((1.0 / fps).seconds, duration: duration, easing: easing) do |clock|
         tick.call clock
         update!
       end

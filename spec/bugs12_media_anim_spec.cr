@@ -130,7 +130,7 @@ describe "BUGS12 #7 FrameClock#start stores the fiber" do
   it "still ticks after start and stops cleanly (fiber enqueued correctly)" do
     ticks = 0
     stops = 0
-    clock = Crysterm::FrameClock.new(1.millisecond) { ticks += 1 }
+    clock = Crysterm::FrameClock.ticker(1.millisecond) { ticks += 1 }
     clock.stop_handler { stops += 1 }
 
     clock.start
