@@ -244,7 +244,11 @@ describe "CSS cascade" do
     screen.apply_stylesheet
 
     style = box.styles.normal
-    style.shadow.right.should eq 2     # default drop shadow enabled
+    # The offsets are honored: a 0/4px pair is a bottom-only shadow, the
+    # sub-cell 4px (0.2 cells) as a thin band.
+    style.shadow.right.should eq 0
+    style.shadow.bottom.should eq 1
+    style.shadow.ratio.should eq 0.2
     style.shadow.opacity.should eq 0.5 # default opacity, not 0
   end
 

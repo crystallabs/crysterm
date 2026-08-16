@@ -136,6 +136,47 @@ module Crysterm
         PROPERTIES.includes? property
       end
 
+      # The edge properties that, inside a non-`normal` *state* rule, become a
+      # relative positional nudge on the state's `Style` (Qt's QSS
+      # `position: relative` offsets — `QPushButton:pressed { top: 1; left: 1 }`)
+      # instead of widget geometry. `position` itself is not accepted there:
+      # only the relative (default) mode has a state meaning.
+      OFFSET_PROPERTIES = Set{"top", "left", "right", "bottom"}
+
+      # Whether *property* is an edge property with state-offset meaning.
+      def self.offset_property?(property : String) : Bool
+        OFFSET_PROPERTIES.includes? property
+      end
+
+      # Applies an edge declaration from a state rule as a positional offset on
+      # *style*. Only concrete lengths resolve (`1px`, `0.5em`, `2ch`, or a
+      # unitless number read as `px` per QSS); `%`/`center`/viewport forms have
+      # no offset meaning and are dropped.
+      def self.apply_offset(style : ::Crysterm::Style, property : String, value : String) : Nil
+        vertical = property == "top" || property == "bottom"
+        return unless cells = offset_cells(value, vertical)
+        case property
+        when "top"    then style.offset_top = cells
+        when "left"   then style.offset_left = cells
+        when "right"  then style.offset_right = cells
+        when "bottom" then style.offset_bottom = cells
+        end
+      end
+
+      # Resolves an offset value to whole cells, reading units as QSS does —
+      # a unitless number is `px`, never a cell count (`Length.qss_cells_f`).
+      # A nonzero length resolving sub-cell (`1px`, the classic QSS press
+      # nudge, or the bare `1` Qt reads identically) rounds away from zero to
+      # the smallest visible nudge rather than to 0 — the offset analog of the
+      # sub-cell *size* clamp in `#dimension`: an author who asked for a nudge
+      # gets one, not a silent no-op.
+      private def self.offset_cells(value : String, vertical : Bool) : Int32?
+        return unless f = Length.qss_cells_f(value, vertical)
+        cells = Length.to_cell_count(f)
+        cells = f > 0 ? 1 : -1 if cells == 0 && f != 0
+        cells
+      end
+
       # Applies a geometry declaration onto *widget*.
       def self.apply(widget : Widget, property : String, value : String) : Nil
         case property

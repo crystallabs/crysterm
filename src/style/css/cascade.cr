@@ -346,8 +346,16 @@ module Crysterm
           entries = acc[{uid, state}]? || EMPTY_ENTRIES
           apply_entries_with_inline style, entries, variables, resolved, widget.inline_style
           # Geometry/layout is per-widget, not per-state: apply once from the
-          # (now sorted) normal-state entries.
-          apply_geometry widget, entries, variables, resolved if any_geometry && state.normal?
+          # (now sorted) normal-state entries. In a *state* rule the edge
+          # properties instead mean a relative positional nudge (Qt's QSS
+          # `:pressed { top: 1; left: 1 }`), stored on the state's style.
+          if any_geometry
+            if state.normal?
+              apply_geometry widget, entries, variables, resolved
+            else
+              apply_state_offsets style, entries, variables, resolved
+            end
+          end
           widget.css_styled = true
         end
 
@@ -833,6 +841,19 @@ module Crysterm
         end
       end
 
+      # Applies a state rule's edge declarations (`top`/`left`/`right`/`bottom`)
+      # as positional offsets onto the state's *style*, in cascade order (last
+      # wins) — the non-`normal` counterpart of `apply_geometry`. Entries are
+      # already sorted by the caller's `apply_entries_with_inline`.
+      private def self.apply_state_offsets(style : Style, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String)) : Nil
+        entries.each do |entry|
+          entry[4].each do |property, value|
+            next unless Geometry.offset_property?(property)
+            Geometry.apply_offset(style, property, resolve_var(value, variables, resolved))
+          end
+        end
+      end
+
       # Folds an inline `@style`'s explicitly-set properties onto *style*. Each
       # property is copied only if the inline style `specified?` it — so inline
       # can switch a text attribute either on or off over a stylesheet.
@@ -850,6 +871,10 @@ module Crysterm
         style.background_image = inline.background_image if inline.specified?(:background_image)
         style.transitions = inline.transitions if inline.specified?(:transitions)
         style.animation = inline.animation if inline.specified?(:animation)
+        style.offset_left = inline.offset_left if inline.specified?(:offset_left)
+        style.offset_top = inline.offset_top if inline.specified?(:offset_top)
+        style.offset_right = inline.offset_right if inline.specified?(:offset_right)
+        style.offset_bottom = inline.offset_bottom if inline.specified?(:offset_bottom)
         style.glyph = inline.glyph if inline.specified?(:glyph)
         style.glyph_ascii = inline.glyph_ascii if inline.specified?(:glyph_ascii)
         style.glyph_unicode = inline.glyph_unicode if inline.specified?(:glyph_unicode)

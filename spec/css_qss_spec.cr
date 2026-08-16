@@ -53,9 +53,10 @@ describe Crysterm::CSS::Qss do
         .should eq "ScrollBar Track { }"
     end
 
-    it "keeps a sub-control's own state pseudo attached (e.g. handle hovered)" do
+    it "keeps a sub-control's own state pseudo attached (e.g. handle pressed)" do
+      # `:pressed` is a native `Stylesheet` state pseudo, so it passes through.
       Crysterm::CSS::Qss.to_css("QSlider::handle:pressed { }")
-        .should eq "Slider Indicator:active { }"
+        .should eq "Slider Indicator:pressed { }"
     end
 
     it "passes QScrollBar sub-controls through for native :: lowering" do
@@ -101,8 +102,8 @@ describe Crysterm::CSS::Qss do
       Crysterm::CSS::Qss.to_css("QPushButton:enabled { }").should eq "Button:enabled { }"
     end
 
-    it "maps the Qt-specific :pressed to an expressible Crysterm form" do
-      Crysterm::CSS::Qss.to_css("QPushButton:pressed { }").should eq "Button:active { }"
+    it "passes :pressed through for native lowering" do
+      Crysterm::CSS::Qss.to_css("QPushButton:pressed { }").should eq "Button:pressed { }"
     end
 
     it "maps orientation and :editable to boolean attributes" do

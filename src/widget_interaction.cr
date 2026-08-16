@@ -105,6 +105,14 @@ module Crysterm
     # Is element clickable?
     property? clickable = false
 
+    # Whether the widget is currently held down by an in-progress press gesture
+    # (Qt's `QAbstractButton#isDown`; false for anything but a pressed button —
+    # `AbstractButton` overrides). Consulted by focus bookkeeping so
+    # click-to-focus mid-press doesn't clobber the pressed (`Selected`) state.
+    def down? : Bool
+      false
+    end
+
     # Whether this widget should receive mouse events by default: it is
     # interactive, scrollable, draggable, explicitly `clickable?`, or already has
     # a mouse listener attached. Keying off the listeners means a plain `Box` that

@@ -107,15 +107,14 @@ module Crysterm
 
       # Genuinely Qt-specific state pseudo-classes, mapped to Crysterm syntax:
       # `:on`/`:off`/`:unchecked` become the complementary boolean attributes,
-      # `:pressed` approximates to `:active`, and the non-standard
-      # `:horizontal`/`:vertical`/`:editable` map to attributes. Standard-CSS
-      # states (`:checked`/`:indeterminate`/`:enabled`) are lowered natively by
-      # `Stylesheet` instead.
+      # and the non-standard `:horizontal`/`:vertical`/`:editable` map to
+      # attributes. Standard-CSS states (`:checked`/`:indeterminate`/
+      # `:enabled`) and `:pressed` (a native `Stylesheet` state pseudo) are
+      # lowered by `Stylesheet` instead.
       STATE_PSEUDOS = {
         "on"         => "[checked]",
         "unchecked"  => "[unchecked]",
         "off"        => "[unchecked]",
-        "pressed"    => ":active",
         "horizontal" => "[horizontal]", # ScrollBar/Slider/ProgressBar/Splitter orientation
         "vertical"   => "[vertical]",
         "editable"   => "[editable]", # ComboBox

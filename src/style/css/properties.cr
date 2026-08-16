@@ -727,11 +727,12 @@ module Crysterm
         Length.to_cells(value, vertical) || 0
       end
 
-      # Parses a `box-shadow`. `none` disables the shadow; otherwise a default
-      # drop shadow is enabled, and a bare fractional `0..1` number anywhere in
-      # the value is taken as its opacity. The full CSS offset/blur/spread/color
-      # syntax is accepted but only its presence (and optional opacity) is
-      # honored.
+      # Parses a `box-shadow`. `none` disables the shadow; a bare fractional
+      # `0..1` number outside the offset run is its opacity. The offset-x/
+      # offset-y pair maps onto real `Shadow` extents (see
+      # `#shadow_from_offsets`); blur, spread and the color are consumed but
+      # not honored (no cell-grid meaning / shadows have a tone, not a color).
+      # With no usable offsets, presence enables the default drop shadow.
       #
       # The opacity token must carry a decimal point to tell an opacity (`0.3`)
       # apart from an integer length offset — otherwise `box-shadow: 0 4px 8px
@@ -771,7 +772,46 @@ module Crysterm
             break
           end
         end
+        if offsets >= 2 && (sh = shadow_from_offsets(toks[0], toks[1], opacity))
+          return sh
+        end
         opacity ? Shadow.from(opacity) : Shadow.from(true)
+      end
+
+      # Maps a `box-shadow` offset-x/offset-y pair onto `Shadow` extents: the
+      # sign picks the side (positive → right/bottom, matching CSS's downward-
+      # right offset), the magnitude the band extent — in the value's own CSS
+      # unit, resolved through the length machinery (`ch`/`em` ≈ a cell, `px`
+      # through the configured px-per-cell, a unitless number as `px` per QSS —
+      # `Length.qss_cells_f`). A magnitude resolving *sub-cell* (`1px`,
+      # `0.125ch`) selects the thin eighth-block shadow — a 1-cell band at
+      # `Shadow#ratio` of that fraction — so a fractional-depth shadow has a
+      # pure-CSS spelling (`box-shadow: 0.125ch 0.125ch`). Explicit extents pin
+      # the sides; the scene light no longer places them. Returns `nil` —
+      # caller falls back to the default drop shadow — for unresolvable lengths
+      # (`%`) and for the both-zero web glow (`0 0 10px`), whose intent is a
+      # visible shadow, not an invisible one.
+      private def self.shadow_from_offsets(x_tok : String, y_tok : String, opacity : Float64?) : Shadow?
+        x = Length.qss_cells_f(x_tok)
+        y = Length.qss_cells_f(y_tok, vertical: true)
+        return unless x && y
+        return if x == 0 && y == 0
+        xc, xf = offset_band(x)
+        yc, yf = offset_band(y)
+        ratio = xf && yf ? Math.max(xf, yf) : (xf || yf)
+        Shadow.new(
+          left: x < 0 ? xc : 0, top: y < 0 ? yc : 0,
+          right: x > 0 ? xc : 0, bottom: y > 0 ? yc : 0,
+          opacity: opacity || 0.5, ratio: ratio)
+      end
+
+      # One offset magnitude's `{band extent in cells, thin fraction}`: whole
+      # cells round plainly, a nonzero sub-cell magnitude is a 1-cell thin band
+      # carrying its fraction.
+      private def self.offset_band(v : Float64) : {Int32, Float64?}
+        a = v.abs
+        return {0, nil} if a == 0
+        a < 1 ? {1, a} : {a.round.to_i, nil}
       end
 
       # Whether a `box-shadow` token occupies a geometry (offset/blur/spread) slot,

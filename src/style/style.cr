@@ -101,6 +101,44 @@ module Crysterm
     # change) the new value tweens in over its duration rather than snapping.
     property transitions : Hash(String, Tuple(Time::Span, Easing))?
 
+    # Positional nudge in cells, Qt's QSS `position: relative` offsets: a
+    # `top`/`left`/`right`/`bottom` declaration inside a *state* rule
+    # (`Button:pressed { top: 1; left: 1 }`) lands here rather than in widget
+    # geometry, and `Widget#coords` shifts the whole rendered box — border,
+    # content, shadow and children together — by it while the state lasts.
+    # `nil` = no offset on that side. Set all four via `#offsets=`.
+    property offset_left : Int32?
+
+    # :ditto:
+    property offset_top : Int32?
+
+    # :ditto:
+    property offset_right : Int32?
+
+    # :ditto:
+    property offset_bottom : Int32?
+
+    # The resolved horizontal nudge: Qt's rule is `left` when given, else the
+    # negated `right` (`right: 1` ≡ `left: -1`), else 0.
+    def offset_x : Int32
+      @offset_left || -(@offset_right || 0)
+    end
+
+    # The resolved vertical nudge: `top` when given, else the negated `bottom`.
+    def offset_y : Int32
+      @offset_top || -(@offset_bottom || 0)
+    end
+
+    # Whether any positional offset side is set.
+    def offset? : Bool
+      !!(@offset_left || @offset_top || @offset_right || @offset_bottom)
+    end
+
+    # Sets all four offset sides at once (`nil` clears).
+    def offsets=(value : Int32?) : Int32?
+      @offset_left = @offset_top = @offset_right = @offset_bottom = value
+    end
+
     # A CSS `animation` binding: which `@keyframes` to play and how. `nil` = none.
     record AnimationSpec,
       name : String,
@@ -188,6 +226,10 @@ module Crysterm
       when :background_image then !@background_image.nil?
       when :transitions      then !@transitions.nil?
       when :animation        then !@animation.nil?
+      when :offset_left      then !@offset_left.nil?
+      when :offset_top       then !@offset_top.nil?
+      when :offset_right     then !@offset_right.nil?
+      when :offset_bottom    then !@offset_bottom.nil?
       when :glyph            then !@glyph.nil?
       when :glyph_ascii      then !@glyph_ascii.nil?
       when :glyph_unicode    then !@glyph_unicode.nil?

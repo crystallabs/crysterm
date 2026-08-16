@@ -203,6 +203,9 @@ module Crysterm
     private def end_hover(*, notify : Bool) : Nil
       return unless old = @_hover
       @_hover = nil
+      # The `:hover` state resets on both paths: even a widget being unlinked
+      # (`notify: false`) must not carry a stale Hovered into a later re-attach.
+      hover_state_reset old
       return unless notify
       ev = ::Tput::Mouse::Event.new(
         ::Tput::Mouse::Action::Move, ::Tput::Mouse::Button::None,
@@ -565,15 +568,31 @@ module Crysterm
     private def update_hover(w : Widget?, ev : ::Tput::Mouse::Event)
       if w != @_hover
         if old = @_hover
+          hover_state_reset old
           old.emit ::Crysterm::Event::MouseLeave, mouse_out_event(ev, old)
         end
         @_hover = w
         if w
+          # Enter the `:hover` style state — only from `Normal`, so hovering
+          # never demotes a focused/selected/disabled look (the single-valued
+          # `WidgetState` ranks those above hover). Set before `MouseEnter`
+          # fires, so a handler-driven state change (e.g. hover-select) wins.
+          w.state = :hovered if w.state.normal?
           w.emit ::Crysterm::Event::MouseEnter, mouse_over_event(ev, w)
         end
       elsif w && ev.action.move?
         w.emit ::Crysterm::Event::MouseMove, mouse_move_event(ev, w)
       end
+    end
+
+    # Clears a widget's transient `:hover` state — but only when it is actually
+    # Hovered — returning whether it reset. The hover mirror of
+    # `blur_state_reset`: an unconditional `state = :normal` would clobber a
+    # Focused/Selected/Disabled state the widget gained while hovered.
+    private def hover_state_reset(o : Widget) : Bool
+      return false unless o.state.hovered?
+      o.state = :normal
+      true
     end
 
     # Returns the topmost visible, mouse-responsive widget whose absolute

@@ -470,6 +470,20 @@ module Crysterm
         yi, yl = shift_margin(yi, yl, eff_top, @bottom, margin.top, margin.bottom)
       end
 
+      # The current state style's positional nudge (Qt's QSS
+      # `:pressed { top: 1; left: 1 }` press-in): shift the whole box here, at
+      # the final-rectangle level, so border, content, shadow and (rendered)
+      # children move together — and the widget's own `left`/`top` specs and
+      # their `rleft`-round-trip law stay untouched.
+      if (st = style).offset?
+        dx = st.offset_x
+        dy = st.offset_y
+        xi += dx
+        xl += dx
+        yi += dy
+        yl += dy
+      end
+
       # Nearest ancestor that clips its children (memoized, see `#clip_ancestor`):
       # a scrollable element (clips to its scroll viewport) or one with
       # `overflow: Hidden` (clips to its rectangle without scrolling). A Hidden,

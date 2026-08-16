@@ -125,21 +125,27 @@ describe "QSS :pressed positional offset" do
   it "resolves offset values with Qt's semantics" do
     st = Style.new
     # `right`/`bottom` are the negated `left`/`top` (Qt: `bottom: y` ≡ `top: -y`).
-    Crysterm::CSS::Geometry.apply_offset(st, "right", "2")
-    Crysterm::CSS::Geometry.apply_offset(st, "bottom", "1")
+    Crysterm::CSS::Geometry.apply_offset(st, "right", "2ch")
+    Crysterm::CSS::Geometry.apply_offset(st, "bottom", "1ch")
     st.offset_x.should eq -2
     st.offset_y.should eq -1
     # An explicit `left`/`top` wins over `right`/`bottom`.
-    Crysterm::CSS::Geometry.apply_offset(st, "left", "3")
+    Crysterm::CSS::Geometry.apply_offset(st, "left", "3ch")
     st.offset_x.should eq 3
     # The classic sub-cell QSS nudge (`top: 1px`) rounds away from zero to a
     # visible one-cell nudge instead of silently to 0.
     Crysterm::CSS::Geometry.apply_offset(st, "top", "1px")
     st.offset_y.should eq 1
-    # Non-length forms have no offset meaning and are dropped.
+    # A unitless number is px, per QSS — never a cell count.
     st2 = Style.new
-    Crysterm::CSS::Geometry.apply_offset(st2, "top", "50%")
-    st2.offset?.should be_false
+    Crysterm::CSS::Geometry.apply_offset(st2, "left", "1")
+    st2.offset_x.should eq 1 # 1px, rounded up to the visible nudge
+    Crysterm::CSS::Geometry.apply_offset(st2, "top", "30")
+    st2.offset_y.should eq 2 # 30px at 20px/row IS 1.5 rows, not 30 cells
+    # Non-length forms have no offset meaning and are dropped.
+    st3 = Style.new
+    Crysterm::CSS::Geometry.apply_offset(st3, "top", "50%")
+    st3.offset?.should be_false
   end
 
   it "translates the QSS spelling through to native :pressed" do

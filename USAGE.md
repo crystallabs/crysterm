@@ -953,8 +953,11 @@ A widget can be in different **states**, tracked by its `state`
 
 There is also a `checked` slot, which is not a `WidgetState` but a parallel condition:
 `Widget#style_checked?` decides whether it applies (on buttons, `checkable? &&
-checked?`). There is no `pressed` slot — a terminal has no held-down state, and
-`Event::Clicked` reports the full activation.
+checked?`). A held-down button has no slot of its own either: while the mouse
+is held on an `AbstractButton` (or during the brief keyboard-activation flash)
+the button reports `down?` and takes the `selected` state, so the pressed look
+is the `selected` slot — CSS's `:pressed`/`:active`. `Event::Clicked` still
+reports the full activation.
 
 The per-state styles are held in a `Styles` container on the widget
 (`styles : Styles`). The active `style` is chosen from this container based on
@@ -1085,6 +1088,44 @@ Geometry written from CSS and geometry written from Crystal coexist without a
 protocol: the cascade snapshots the pre-CSS values, and a later programmatic
 write folds itself into that snapshot, so it survives the next cascade pass
 instead of being reverted to whatever CSS replaced.
+
+Buttons expose Qt's `:pressed` state (a synonym of `:active`): the mouse held
+down on a button, or the short flash around a keyboard activation. Inside a
+*state* rule the edge properties become a relative nudge of the rendered box —
+QSS's `position: relative` offsets — rather than widget geometry, which gives
+the classic DOS press-in, and composes with per-state `box-shadow` and
+`transition`:
+
+```css
+Button          { box-shadow: 2ch 1ch; transition: background-color 1s; }
+Button:pressed  { top: 1px; left: 1px; box-shadow: none;
+                  background-color: red; transition: none; }
+```
+
+Pressing nudges the button into its shadow's corner and turns it red instantly;
+releasing restores the box and fades the red back out over a second.
+
+`box-shadow`'s offset pair maps onto real shadow extents, in the value's own
+CSS units — `ch`/`em` ≈ a cell, `px` through the configured px-per-cell, a
+unitless number as `px` exactly as QSS reads it, never as a cell count. The
+sign picks the side (positive → right/bottom), the magnitude the band width,
+and a magnitude resolving *below one cell* (`1px`, `0.125ch`) gives a thin
+eighth-block shadow (`Shadow#ratio`) hugging the widget edge at that fraction
+of a cell. So the "press into a thin shadow" effect is pure CSS too:
+
+```css
+Button          { box-shadow: 0.25ch 0.25ch; }
+Button:pressed  { box-shadow: 0.125ch 0.125ch; }
+```
+
+Blur and spread are accepted but have no cell-grid meaning; a bare fractional
+number outside the offset pair (`box-shadow: 2ch 1ch black 0.3`) sets the
+shadow opacity; `0 0 <blur>` (a web glow) falls back to the default drop
+shadow.
+
+The `:hover` and `:pressed` states are driven by the real mouse: moving onto a
+mouse-aware widget enters `:hover` (never demoting a focused/selected look),
+and holding the primary button on any `AbstractButton` enters `:pressed`.
 
 ---
 

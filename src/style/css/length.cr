@@ -218,6 +218,20 @@ module Crysterm
         end
       end
 
+      # Fractional cells for a length token under the **QSS unit reading**: a
+      # bare number carries no unit and Qt assumes `px` (`qcssparser`'s
+      # unitless scale is 1, identical to `Px`), so `1` resolves as `1px`
+      # through the same divisor — never as a cell count. Unit'd lengths
+      # resolve exactly as `to_cells_f`. For the value parsers whose spellings
+      # come from unmodified CSS/QSS sheets (`box-shadow` offsets, state-rule
+      # positional offsets), where a cell-count default would silently re-scale
+      # a stock sheet.
+      def self.qss_cells_f(value : String, vertical : Bool = false) : Float64?
+        s = value.strip
+        return to_cells_f(s + "px", vertical) if s.matches?(NUMBER)
+        to_cells_f(s, vertical)
+      end
+
       # True if *value* is a viewport-relative length (`vw/vh/vmin/vmax`),
       # resolved only by `viewport_cells`.
       def self.viewport?(value : String) : Bool

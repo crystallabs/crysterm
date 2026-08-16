@@ -93,6 +93,68 @@ module Crysterm
         # push-only and stays in the push buttons; the marker controls hit-test
         # the marker glyph via `Mouse` instead.
         handle Crysterm::Event::KeyPress
+
+        # The held-down (pressed) gesture is family-wide: any button shows its
+        # `:pressed` look while the primary mouse button is held on it.
+        on Crysterm::Event::Mouse, ->handle_press_mouse(Crysterm::Event::Mouse)
+      end
+
+      # Whether the button is currently held down by a press gesture (Qt's
+      # `QAbstractButton#isDown`). While down the widget takes
+      # `WidgetState::Selected`, so `:pressed`/`:active` CSS rules — pressed
+      # colors, a `top`/`left` press-in nudge, a dropped `box-shadow` — apply.
+      getter? down : Bool = false
+
+      # Sets the held-down state (Qt's `setDown`): shows or clears the pressed
+      # look without emitting click/toggle events. Driven by the mouse
+      # press/release gesture and the keyboard-activation flash; callable
+      # directly to present a button as pressed programmatically.
+      def down=(value : Bool) : Bool
+        return value if @down == value
+        @down = value
+        if value
+          self.state = :selected
+        elsif state.selected?
+          # Restore only what the press styling set — a state changed under the
+          # press (e.g. a disable) stands. An unfocused button still under the
+          # pointer falls back to `:hover`.
+          self.state = focused? ? WidgetState::Focused : (under_mouse? ? WidgetState::Hovered : WidgetState::Normal)
+        end
+        value
+      end
+
+      # The press-gesture driver: primary-button press enters the held-down
+      # look and grabs the mouse (so the release is seen even off-widget);
+      # release clears it. Deliberately never `accept`s — the window's default
+      # handling (click-to-focus, `Event::Click` synthesis) must still run.
+      def handle_press_mouse(e)
+        if e.action.down? && primary_press_button?(e.button)
+          self.down = true
+          grab_mouse
+        elsif e.action.up? && down? && primary_press_button?(e.button)
+          self.down = false
+        end
+      end
+
+      # Whether *button* is the press gesture's button: the left button, or
+      # `None` for terminals whose release/legacy reports carry no button.
+      private def primary_press_button?(button : ::Tput::Mouse::Button) : Bool
+        button.left? || button.none?
+      end
+
+      # Pending un-press of a keyboard-activation flash, so a re-activation
+      # extends the flash instead of being cut short by the earlier timer.
+      @press_flash : ::Crysterm::Timer?
+
+      # Shows the pressed look briefly around a keyboard activation (the visual
+      # of Qt's `animateClick`): terminals deliver no key-release, so the
+      # held-down phase is simulated with a short timer. Skipped under
+      # `render.reduced_motion`.
+      private def animate_press : Nil
+        return if ::Crysterm::Config.render_reduced_motion
+        @press_flash.try &.stop
+        self.down = true
+        @press_flash = ::Crysterm::Timer.single_shot(0.1.seconds) { self.down = false }
       end
 
       # Activates the button (Qt's `QAbstractButton#click`): focuses it (unless
@@ -177,8 +239,10 @@ module Crysterm
       end
 
       # The keyboard activation gesture, invoked by `#handle_key_press` on Space/Enter.
-      # A push button `#click`s; the marker controls override it to `#toggle`.
+      # A push button flashes its pressed look and `#click`s; the marker
+      # controls override it to `#toggle`.
       protected def activate
+        animate_press
         click
       end
 

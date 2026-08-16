@@ -256,11 +256,12 @@ module Crysterm
     # actually Focused — returning whether it reset. `WidgetState` is
     # single-valued, so an unconditional `state = :normal` would re-enable a
     # widget disabled *while focused* and clobber a Selected/Hovered state a
-    # blurred widget may legitimately hold.
+    # blurred widget may legitimately hold. A blurred widget still under the
+    # pointer falls back to `:hover`, not `Normal` — focus merely outranked it.
     @[AlwaysInline]
     private def blur_state_reset(o : Widget) : Bool
       return false unless o.state.focused?
-      o.state = :normal
+      o.state = hovered == o ? WidgetState::Hovered : WidgetState::Normal
       true
     end
 
@@ -280,7 +281,9 @@ module Crysterm
       # focused scrollable widget doesn't scroll itself to reveal itself).
       el = cur.parent.try &.first_self_or_ancestor &.scrollable?
 
-      cur.state = :focused
+      # A click-to-focus lands mid-press: the pressed (`Selected`) state must
+      # survive until the release, which restores `Focused` itself.
+      cur.state = :focused unless cur.down?
       old.try { |o| blur_state_reset o }
 
       # If we're in a scrollable element, automatically scroll the focused

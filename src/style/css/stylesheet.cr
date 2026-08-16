@@ -136,14 +136,16 @@ module Crysterm
       getter rule_entries_cache = Hash(Tuple(Int32, Int32), Array(Cascade::Entry)).new
       getter selection_entries_cache = Hash(Tuple(Int32, Int32), Array(Cascade::Entry)).new
 
-      # Maps a state pseudo-class to a `WidgetState`. `:active` and `:selected`
-      # are treated as synonyms. There is no "blurred" state — style the
-      # unfocused look with `:not(:focus)`.
+      # Maps a state pseudo-class to a `WidgetState`. `:active`, `:selected`
+      # and Qt's `:pressed` (a held-down `AbstractButton`, see
+      # `AbstractButton#down?`) are treated as synonyms. There is no "blurred"
+      # state — style the unfocused look with `:not(:focus)`.
       STATE_PSEUDOS = {
         ":focus"    => WidgetState::Focused,
         ":hover"    => WidgetState::Hovered,
         ":selected" => WidgetState::Selected,
         ":active"   => WidgetState::Selected,
+        ":pressed"  => WidgetState::Selected,
         ":disabled" => WidgetState::Disabled,
         ":normal"   => WidgetState::Normal,
       }
