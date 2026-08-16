@@ -37,7 +37,7 @@ describe "margin hit-testing" do
     s = headless_screen(60, 24)
     # Group-box-like container with a top margin (the qtmodern case) and a child.
     gb = Widget::Box.new parent: s, top: 1, left: 1, width: 30, height: 12,
-      style: Style.new(border: true, margin: Margin.new(0, 2, 0, 0))
+      style: Style.new(border: true, margin: Margin.ltrb(0, 2, 0, 0))
     child = Widget::Box.new parent: gb, top: 4, left: 2, width: 10, height: 1
     s.repaint
     cl = child.lpos.not_nil!
@@ -50,7 +50,7 @@ describe "margin hit-testing" do
   it "returns the right widget from widget_at over a margined container's child" do
     s = headless_screen(60, 24)
     gb = Widget::Box.new parent: s, top: 1, left: 1, width: 30, height: 12,
-      style: Style.new(border: true, margin: Margin.new(0, 2, 0, 0))
+      style: Style.new(border: true, margin: Margin.ltrb(0, 2, 0, 0))
     # Click handler makes the child mouse-responsive / hit-testable.
     child = Widget::Box.new parent: gb, top: 4, left: 2, width: 10, height: 1
     child.on(Crysterm::Event::Click) { }

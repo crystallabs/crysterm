@@ -12,7 +12,7 @@ private def fill_false_interior_bg(padding : Int32)
 
   st = Crysterm::Style.new
   st.fill = false
-  st.padding = Crysterm::Padding.new(padding, padding, padding, padding) if padding > 0
+  st.padding = Crysterm::Padding.new(padding) if padding > 0
 
   b = Crysterm::Widget::Box.new parent: s, top: 1, left: 1, width: 10, height: 5,
     style: st, content: ""

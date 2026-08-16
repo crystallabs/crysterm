@@ -14,8 +14,8 @@ end
 
 describe "CSS (#to_html)" do
   it "derives the type-chain names from the widget hierarchy" do
-    # Button < AbstractButton < Input < Box < Widget (Qt: QPushButton < QAbstractButton)
-    Widget::Button.new.css_type_classes.should eq ["Button", "AbstractButton", "Input", "Box", "Widget"]
+    # Button < AbstractButton < AbstractInteractive < Box < Widget (Qt: QPushButton < QAbstractButton)
+    Widget::Button.new.css_type_classes.should eq ["Button", "AbstractButton", "AbstractInteractive", "Box", "Widget"]
     Widget::Box.new.css_type_classes.should eq ["Box", "Widget"]
     Widget.new.css_type_classes.should eq ["Widget"]
   end
@@ -49,8 +49,8 @@ describe "CSS (#to_html)" do
 
     doc = HTML5.parse(form.to_html)
 
-    # type name (emitted as a class) matches every Input subclass
-    inputs = doc.css(".Input").to_a
+    # type name (emitted as a class) matches every AbstractInteractive subclass
+    inputs = doc.css(".AbstractInteractive").to_a
     inputs.map { |node| uid_of node }.to_set.should eq [button.uid.to_s, check.uid.to_s].to_set
 
     # exact leaf type

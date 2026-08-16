@@ -22,7 +22,7 @@ class X
       width: "50%",
       top: "center",
       left: "center",
-      scrollbar: true,
+      scrollbar_policy: :as_needed,
       style: Style.new(border: true)
 
     box = Box.new \

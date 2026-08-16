@@ -4,7 +4,7 @@ include Crysterm
 
 # `Crysterm::Chat::Diff` (the unified-diff formatter) and
 # `Widget::Chat::Dialogs` (chat-flavored confirm/notice presenters over
-# `Question`/`Message`).
+# `MessageBox`).
 
 private alias ChatDiff = Crysterm::Chat::Diff
 private alias ChatDialogs = Crysterm::Widget::Chat::Dialogs

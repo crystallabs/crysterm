@@ -55,7 +55,7 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![MessageIndex screenshot](../../../tests/widget/pine/message_index/message_index.5s.apng)
       # <!-- /widget-examples:capture -->
-      class MessageIndex < SelectableList(Message)
+      class MessageIndex < RecordList(Message)
         # Nested-name alias for the record type.
         alias Message = ::Crysterm::Widget::Pine::Message
 

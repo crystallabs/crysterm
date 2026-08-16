@@ -72,7 +72,7 @@ describe "MenuBar keyboard navigation" do
   it "opens a submenu on Right with its first child selected" do
     s = headless_screen(80, 24)
     bar, fm = nav_bar(s)
-    bar.open 0
+    bar.open_menu 0
     fm.select_last_action # highlight "Recent"
 
     press fm, Tput::Key::Right
@@ -85,7 +85,7 @@ describe "MenuBar keyboard navigation" do
   it "opens a submenu on Enter or Space exactly like Right — first child selected" do
     s = headless_screen(80, 24)
     bar, fm = nav_bar(s)
-    bar.open 0
+    bar.open_menu 0
     fm.select_last_action # highlight "Recent"
 
     press fm, Tput::Key::Enter
@@ -105,7 +105,7 @@ describe "MenuBar keyboard navigation" do
   it "moves to the next top-level menu on Right from a leaf, at any depth" do
     s = headless_screen(80, 24)
     bar, fm = nav_bar(s)
-    bar.open 0
+    bar.open_menu 0
     fm.select_last_action
     press fm, Tput::Key::Right # into the "Recent" submenu
     child = fm.@submenu_open.not_nil!
@@ -123,7 +123,7 @@ describe "MenuBar keyboard navigation" do
   it "closes one submenu level per Left, then moves to the previous menu" do
     s = headless_screen(80, 24)
     bar, fm = nav_bar(s)
-    bar.open 0
+    bar.open_menu 0
     fm.select_last_action
     press fm, Tput::Key::Right
     child = fm.@submenu_open.not_nil!

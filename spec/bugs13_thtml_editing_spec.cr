@@ -26,7 +26,7 @@ end
 # repositions the terminal caret.
 # NOTE: deliberately NOT `private` — a file-private class with these mixin
 # includes trips a Crystal codegen bug (invalid GEP indices) as of 1.20.2.
-class T13FlatEdit < Crysterm::Widget::Input
+class T13FlatEdit < Crysterm::Widget::AbstractInteractive
   getter cursor_updates = 0
 
   include Crysterm::Mixin::TextEditing

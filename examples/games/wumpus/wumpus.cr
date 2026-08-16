@@ -157,7 +157,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       layout_hint: :center,
       content: "",
       parse_tags: true,
-      scrollbar: true,
+      scrollbar_policy: :as_needed,
       style: Style.new(fg: "white", bg: "#1a1a2e", border: true,
         scrollbar: Style.new(bg: "#5555aa"))
 
@@ -190,7 +190,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       height: 7,
       title: " Score ",
       parse_tags: true,
-      style: Style.new(fg: "white", bg: "#16213e", border: true, margin: :right,
+      style: Style.new(fg: "white", bg: "#16213e", border: true, margin: Margin.right,
         z_index: 10)
 
     frame.append @transcript

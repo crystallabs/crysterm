@@ -6,7 +6,6 @@ module Crysterm
   module Widgets
     # Blessed-like
     alias Box = Widget::Box
-    alias Input = Widget::Input
 
     # `Media` is the factory (`Media.new` auto-picks a backend). Each concrete
     # backend is also registered for explicit construction.
@@ -42,12 +41,11 @@ module Crysterm
     alias Gradient = Widget::Gradient
     alias ProgressBar = Widget::ProgressBar
     alias Loading = Widget::Loading
-    alias Question = Widget::Question
     alias Line = Widget::Line
     alias HLine = Widget::HLine
     alias VLine = Widget::VLine
     alias ListTable = Widget::ListTable
-    alias ListBar = Widget::ListBar
+    alias CommandBar = Widget::CommandBar
     alias List = Widget::List
     alias Tree = Widget::Tree
     alias TocView = Widget::TocView
@@ -102,8 +100,8 @@ module Crysterm
 
     alias Button = Widget::Button
     alias ToolButton = Widget::ToolButton
-    alias Prompt = Widget::Prompt
-    alias Message = Widget::Message
+    alias InputDialog = Widget::InputDialog
+    alias MessageBox = Widget::MessageBox
     alias Log = Widget::Log
 
     # Non-visual button manager (logical grouping / exclusivity).

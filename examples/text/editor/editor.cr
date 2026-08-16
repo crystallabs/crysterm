@@ -45,9 +45,9 @@ win = Widget::MainWindow.new parent: s
 
 status = Widget::StatusBar.new
 win.status_bar = status
-pos_i = status.add_permanent "⌖ Ln 1, Col 1"
+pos_section = status.add_permanent "⌖ Ln 1, Col 1"
 status.add_permanent "🌐 UTF-8"
-mod_i = status.add_permanent "✔ saved"
+mod_section = status.add_permanent "✔ saved"
 
 ed = Widget::TextEdit.new input_on_focus: true
 win.central_widget = ed
@@ -62,7 +62,7 @@ msg = ->(t : String) { status.show_message " #{t}" }
 file = menubar.add_menu "File"
 file.add_action("📄 New") { ed.text = ""; msg.call "new buffer" }
 file.add_action("📂 Open") { ed.text = SAMPLE; msg.call "opened sample.txt" }
-file.add_action("💾 Save") { status.set_permanent mod_i, "✔ saved"; msg.call "saved sample.txt" }
+file.add_action("💾 Save") { mod_section.text = "✔ saved"; msg.call "saved sample.txt" }
 file.add_separator
 file.add_action("Quit") { s.quit }
 
@@ -78,7 +78,7 @@ toolbar = Widget::ToolBar.new
 win.add_tool_bar toolbar
 toolbar.add_button("📄") { ed.text = ""; msg.call "new buffer" }
 toolbar.add_button("📂") { ed.text = SAMPLE; msg.call "opened sample.txt" }
-toolbar.add_button("💾") { status.set_permanent mod_i, "✔ saved"; msg.call "saved sample.txt" }
+toolbar.add_button("💾") { mod_section.text = "✔ saved"; msg.call "saved sample.txt" }
 toolbar.add_separator
 toolbar.add_button("↶") { ed.undo; msg.call "undo" }
 toolbar.add_button("↷") { ed.redo; msg.call "redo" }
@@ -90,11 +90,11 @@ ed.focus
 
 update_pos = -> do
   cur = ed.text_cursor
-  status.set_permanent pos_i, "⌖ Ln #{cur.block_number + 1}, Col #{cur.column_number + 1}"
+  pos_section.text = "⌖ Ln #{cur.block_number + 1}, Col #{cur.column_number + 1}"
 end
 
 ed.on(Event::TextChanged) do
-  status.set_permanent mod_i, "✎ modified"
+  mod_section.text = "✎ modified"
   update_pos.call
 end
 update_pos.call

@@ -152,8 +152,8 @@ describe "API4 additions" do
   describe "Message static helpers (A4-37)" do
     it "builds a Message parented to the window" do
       win = headless_window(width: 40, height: 10)
-      msg = Crysterm::Widget::Message.information(win, "hello")
-      msg.should be_a Crysterm::Widget::Message
+      msg = Crysterm::Widget::MessageBox.information(win, "hello")
+      msg.should be_a Crysterm::Widget::MessageBox
       msg.window.should eq win
     end
   end

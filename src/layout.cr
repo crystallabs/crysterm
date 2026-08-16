@@ -108,6 +108,17 @@ module Crysterm
     # Change-guarded; a real change repaints the container.
     layout_property spacing, Int32, 0
 
+    # Override of the generated setter: `spacing` is CSS-addressable (`gap:`),
+    # so a programmatic write also folds into the container's geometry
+    # snapshot, like the widget-side geometry setters.
+    def spacing=(value : Int32) : Int32
+      return value if value == @spacing
+      @spacing = value
+      container.try &.css_note_gap_write value
+      invalidate
+      value
+    end
+
     # Sanitizes an inter-child spacing/gap against the axis extent it is laid
     # into: a negative value (which would overlap children) maps to 0, and any
     # value beyond `extent` already means "no room" so it caps there. Behavior-

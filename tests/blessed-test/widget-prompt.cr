@@ -5,19 +5,19 @@ include Crysterm::Widgets
 
 s = Window.new
 
-prompt = Prompt.new(
+prompt = InputDialog.new(
   style: Style.new(border: true),
   shrink_to_fit: true,
   width: "50%",
   top: "center",
   left: "center",
-  label: " {blue-fg}Prompt{/blue-fg} ",
+  label: " {blue-fg}InputDialog{/blue-fg} ",
   parse_tags: true,
   keys: true,
   # vi_keys: true
 )
 
-question = Question.new(
+question = MessageBox.new(
   style: Style.new(border: true),
   shrink_to_fit: true,
   width: "50%",
@@ -29,13 +29,13 @@ question = Question.new(
   # vi_keys: true
 )
 
-msg = Message.new(
+msg = MessageBox.new(
   style: Style.new(border: true),
   shrink_to_fit: true,
   width: "50%",
   top: "center",
   left: "center",
-  label: " {blue-fg}Message{/blue-fg} ",
+  label: " {blue-fg}MessageBox{/blue-fg} ",
   parse_tags: true,
   keys: true,
   visible: false,
@@ -69,12 +69,12 @@ s.on(Event::KeyPress) do |e|
   end
 end
 
-prompt.read_input("Question?", "") do |_|
+prompt.open("Question?", "") do |_|
   STDERR.puts :q1
-  question.ask("Question?") do |_|
+  question.open("Question?") do |_|
     STDERR.puts :q2
-    msg.display("Hello world!", 3.seconds) do          # |err|
-      msg.display("Hello world again!", -1.seconds) do # |err|
+    msg.open("Hello world!", 3.seconds) do          # |err|
+      msg.open("Hello world again!", -1.seconds) do # |err|
         loader.start("Loading...")
         spawn do
           sleep 3.seconds

@@ -34,7 +34,7 @@ end
 
 describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly once" do
   it "matches the setter's result for every accepted `border:` argument type" do
-    values = [nil, true, false, Crysterm::BorderType::Double, Crysterm::Border.new(2, 3, 4, 5),
+    values = [nil, true, false, Crysterm::BorderType::Double, Crysterm::Border.ltrb(2, 3, 4, 5),
               Crysterm::Side::Left, :right, 3]
     values.each do |v|
       via_ctor = Crysterm::Style.new(border: v)
@@ -50,12 +50,12 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
     # An already-typed `Border` passed through the ctor keeps its identity —
     # a single coercion (`Border.from` on a `Border` is the identity arm)
     # behaves exactly like the old double coercion did.
-    b = Crysterm::Border.new(2, 3, 4, 5)
+    b = Crysterm::Border.ltrb(2, 3, 4, 5)
     Crysterm::Style.new(border: b).border.same?(b).should be_true
   end
 
   it "matches the setter's result for every accepted `padding:` argument type" do
-    values = [nil, true, false, Crysterm::Padding.new(1, 2, 3, 4),
+    values = [nil, true, false, Crysterm::Padding.ltrb(1, 2, 3, 4),
               Crysterm::Side::Top, :bottom, 5, {2, 3}, {1, 2, 3, 4}]
     values.each do |v|
       via_ctor = Crysterm::Style.new(padding: v)
@@ -66,12 +66,12 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
       via_ctor.specified?(:padding).should eq !v.nil?
       via_setter.specified?(:padding).should be_true
     end
-    p = Crysterm::Padding.new(1, 2, 3, 4)
+    p = Crysterm::Padding.ltrb(1, 2, 3, 4)
     Crysterm::Style.new(padding: p).padding.same?(p).should be_true
   end
 
   it "matches the setter's result for every accepted `margin:` argument type" do
-    values = [nil, true, false, Crysterm::Margin.new(1, 2, 3, 4),
+    values = [nil, true, false, Crysterm::Margin.ltrb(1, 2, 3, 4),
               Crysterm::Side::Top, :bottom, 5, {2, 3}, {1, 2, 3, 4}]
     values.each do |v|
       via_ctor = Crysterm::Style.new(margin: v)
@@ -82,12 +82,12 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
       via_ctor.specified?(:margin).should eq !v.nil?
       via_setter.specified?(:margin).should be_true
     end
-    m = Crysterm::Margin.new(1, 2, 3, 4)
+    m = Crysterm::Margin.ltrb(1, 2, 3, 4)
     Crysterm::Style.new(margin: m).margin.same?(m).should be_true
   end
 
   it "matches the setter's result for every accepted `shadow:` argument type" do
-    values = [nil, true, false, Crysterm::Shadow.new(1, 1, 1, 1),
+    values = [nil, true, false, Crysterm::Shadow.ltrb(1, 1, 1, 1),
               Crysterm::Side::Right, :left, 2.5, 2]
     values.each do |v|
       via_ctor = Crysterm::Style.new(shadow: v)
@@ -98,7 +98,7 @@ describe "O5-20: Style constructor coerces border/padding/margin/shadow exactly 
       via_ctor.specified?(:shadow).should eq !v.nil?
       via_setter.specified?(:shadow).should be_true
     end
-    sh = Crysterm::Shadow.new(1, 1, 1, 1)
+    sh = Crysterm::Shadow.ltrb(1, 1, 1, 1)
     Crysterm::Style.new(shadow: sh).shadow.same?(sh).should be_true
   end
 end

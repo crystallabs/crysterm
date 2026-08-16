@@ -48,7 +48,7 @@ describe "BUGS15 #35: ActionBar sizes command boxes by display columns" do
   # (see other specs' `force_unicode: true, full_unicode: true` pattern).
   it "sizes a CJK label's box by display width, not codepoint count" do
     s = sized_screen(40, 3, force_unicode: true, full_unicode: true)
-    bar = Widget::ListBar.new parent: s
+    bar = Widget::CommandBar.new parent: s
     bar.auto_prefix = false # isolate the label's own width from the "N:" prefix
     label = "ファイル"          # 4 codepoints, 8 display columns (East-Asian wide)
     bar.add_item label
@@ -63,7 +63,7 @@ describe "BUGS15 #35: ActionBar sizes command boxes by display columns" do
   # must NOT change.
   it "keeps codepoint-count sizing in legacy (non-full_unicode) mode" do
     s = sized_screen 40, 3
-    bar = Widget::ListBar.new parent: s
+    bar = Widget::CommandBar.new parent: s
     bar.auto_prefix = false
     label = "ファイル"
     bar.add_item label
@@ -74,7 +74,7 @@ describe "BUGS15 #35: ActionBar sizes command boxes by display columns" do
 
   it "sizes a separator by display width too" do
     s = sized_screen(40, 3, force_unicode: true, full_unicode: true)
-    bar = Widget::ListBar.new parent: s
+    bar = Widget::CommandBar.new parent: s
     bar.auto_prefix = false
     bar.add_item "a"
     bar.add_separator "日"

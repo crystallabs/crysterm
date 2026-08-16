@@ -40,7 +40,7 @@ describe "Menu entry & mnemonics" do
 
   it "underlines the marked letter in its row only, via per-row tag parsing" do
     s, bar, menu, _central, _f, _wrap = item_bar
-    bar.open 0
+    bar.open_menu 0
     s.repaint
 
     menu.@item_boxes[0].content.should contain "{underline}N{/underline}"
@@ -64,7 +64,7 @@ describe "Menu entry & mnemonics" do
     bar = Crysterm::Widget::MenuBar.new parent: s, top: 0, left: 0, width: 40, height: 1
     menu = bar.add_menu "&Help", [Crysterm::Action.new("&About")]
     s.repaint
-    bar.open 0
+    bar.open_menu 0
     s.repaint # size_rows runs at render; the widest row's pad is exactly 0
     menu.@item_boxes[0].content.should eq "{underline}A{/underline}bout"
   end
@@ -83,7 +83,7 @@ describe "Menu entry & mnemonics" do
 
   it "toggles a checkable row in place on its letter, keeping the menu open" do
     _s, bar, menu, _central, _f, wrap = item_bar
-    bar.open 0
+    bar.open_menu 0
 
     menu.handle_key_press kp('w')
     wrap.checked?.should be_true
@@ -95,7 +95,7 @@ describe "Menu entry & mnemonics" do
 
   it "opens a submenu row on its letter with the first child selected" do
     _s, bar, menu, _central, _f, _wrap = item_bar
-    bar.open 0
+    bar.open_menu 0
 
     menu.handle_key_press kp('r')
     child = menu.@submenu_open
@@ -106,7 +106,7 @@ describe "Menu entry & mnemonics" do
 
   it "ignores letters of disabled entries and unmarked letters" do
     _s, bar, menu, _central, _f, _wrap = item_bar
-    bar.open 0
+    bar.open_menu 0
 
     menu.handle_key_press kp('d') # "&Disabled" is disabled
     bar.open_index.should eq 0

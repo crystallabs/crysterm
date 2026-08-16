@@ -50,10 +50,11 @@ describe "BUGS14 large-range slider/progressbar overflow guards" do
   # the `/ 100.0`, overflowing for a span above ~21M.
   it "sets ProgressBar#percent on a large-range bar without raising (M1)" do
     s = headless_screen(80, 24)
-    # `bar.percent = 50` runs during construction here; `50 * 50_000_000` (Int32)
+    # `bar.percent = 50` on a large-range bar; `50 * 50_000_000` (Int32)
     # overflows unless the multiply coerces to Float64 first.
     bar = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
-      minimum: 0, maximum: 50_000_000, percent: 50
+      minimum: 0, maximum: 50_000_000
+    bar.percent = 50
     bar.percent.should eq 50
     bar.value.should eq 25_000_000
     bar.percent = 100 # must not raise OverflowError

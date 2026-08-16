@@ -63,11 +63,11 @@ module Crysterm
       # while the bar is attached.
       @activation_subscription : ::Crysterm::Subscription?
 
-      def initialize(menu_style : Style? = nil, **listbar)
+      def initialize(menu_style : Style? = nil, **command_bar)
         @menu_style = menu_style
 
         # Always keyboard/mouse-driven, plain titles ("File", not ActionBar's default "1:File").
-        super(**listbar.merge(keys: true))
+        super(**command_bar.merge(keys: true))
         # Window chrome: the window's Tab/Shift+Tab cycle steps over the bar by
         # default (as in Qt, a menu bar is reached by click or its accelerators,
         # not the Tab chain). A click still focuses it, and Left/Right/Enter
@@ -169,7 +169,7 @@ module Crysterm
       # Opens menu *i* the keyboard way — with its first entry selected, like
       # any keyboard-opened menu (`Down`/`Space` on the bar, a mnemonic).
       private def open_selected(i : Int32) : Nil
-        open i
+        open_menu i
         @menus[i]?.try &.select_first_action
       end
 
@@ -219,12 +219,12 @@ module Crysterm
         # the rendered title (the item boxes are `parse_tags`-enabled).
         display, mnemonic = Mnemonic.tagged title
         @mnemonics << mnemonic
-        add_item(display) { toggle index } # action-bar command: click / Enter toggles it
+        add_item(display) { toggle_menu index } # action-bar command: click / Enter toggles it
 
         # Hover a different title (while a menu is open) to switch to it.
         if item = item_boxes[index]?
           item.on(::Crysterm::Event::MouseEnter) do
-            open index if @open_index && @open_index != index
+            open_menu index if @open_index && @open_index != index
           end
         end
 
@@ -278,7 +278,10 @@ module Crysterm
       end
 
       # Opens menu *i* (closing any other), positioned under its title.
-      def open(i : Int) : Nil
+      #
+      # Named `open_menu`, not `open`: `Dialog#open` is the toolkit's dialog
+      # presentation verb, and a bare `MenuBar#open(i)` read like it.
+      def open_menu(i : Int) : Nil
         return unless menu = @menus[i]?
         @menus.each_with_index { |m, j| m.hide_popup if j != i && m.visible? }
         @open_index = i = i.to_i
@@ -290,11 +293,14 @@ module Crysterm
 
       # Toggles menu *i*: opens it, or closes it (deselecting the title) if it is
       # already the open one — matching the click behavior of desktop menu bars.
-      def toggle(i : Int) : Nil
+      #
+      # Named `toggle_menu`, not `toggle`: `AbstractButton#toggle` is the
+      # toolkit's check-state verb.
+      def toggle_menu(i : Int) : Nil
         if @open_index == i.to_i
           close
         else
-          open i
+          open_menu i
         end
       end
 
@@ -311,7 +317,7 @@ module Crysterm
         # unhighlighted until hovered.
         if (e.key == ::Tput::Key::Down || e.key == ::Tput::Key::Up || e.char == ' ') && !@menus.empty?
           i = current_index
-          open i
+          open_menu i
           @menus[i]?.try { |m| e.key == ::Tput::Key::Up ? m.select_last_action : m.select_first_action }
           e.accept
           return
@@ -336,7 +342,7 @@ module Crysterm
         n = @menus.size
         return if n == 0
         i = (((oi + dir) % n) + n) % n
-        open i
+        open_menu i
         @menus[i]?.try &.select_first_action
       end
 

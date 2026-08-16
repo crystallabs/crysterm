@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_interactive"
 
 module Crysterm
   class Widget
@@ -8,7 +8,7 @@ module Crysterm
     # Up/Down. Concrete classes supply editing behavior via
     # `Mixin::SpinBoxEditing` (numeric spin boxes) or `Mixin::SectionedField`
     # (date/time editors).
-    abstract class AbstractSpinBox < Input
+    abstract class AbstractSpinBox < AbstractInteractive
       # A spin box honors its given `width` rather than shrinking to its content.
       @shrink_to_fit = false
 

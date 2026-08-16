@@ -201,7 +201,7 @@ describe "API4 value-type / layout additions" do
   describe "Rectangle #+/#- (SidedGeometry) and SidedGeometry#inset/#outset (A4-25)" do
     it "+ grows by margins (outset), - shrinks (inset)" do
       r = Rectangle.new(10, 10, 20, 20) # xi=10 xl=30 yi=10 yl=30
-      m = Margin.new(1, 2, 3, 4)        # LTRB: left=1 top=2 right=3 bottom=4
+      m = Margin.ltrb(1, 2, 3, 4)       # LTRB: left=1 top=2 right=3 bottom=4
 
       grown = r + m
       grown.should eq Rectangle.of_edges(9, 8, 33, 34)
@@ -359,7 +359,7 @@ describe "API4 value-type / layout additions" do
   describe "Padding/Margin .ltrb/.trbl/.vh named constructors (A4-32)" do
     it ".ltrb matches the positional LTRB constructor" do
       a = Margin.ltrb(1, 2, 3, 4)
-      b = Margin.new(1, 2, 3, 4)
+      b = Margin.ltrb(1, 2, 3, 4)
       {a.left, a.top, a.right, a.bottom}.should eq({b.left, b.top, b.right, b.bottom})
     end
 

@@ -16,10 +16,11 @@ module Crysterm
     #    A base rule is folded into `normal` plus only those states that have a
     #    state-specific rule; the rest lazily fall back to `normal`.
     # 4. Fold each accumulation (sorted by `{tier, specificity, order}`) onto a
-    #    copy of the widget's existing style — default(0) < author(1) < inline
-    #    `@style`(2) < `!important`(3) — so CSS overrides only what it specifies
-    #    and leaves widget defaults intact. Geometry declarations write the
-    #    widget itself (not the `Style`).
+    #    copy of the widget's existing style — default < author < widget sheet
+    #    < inline `@style` < author/widget state rules < `!important` (the
+    #    `TIER_*` constants) — so CSS overrides only what it specifies and
+    #    leaves widget defaults intact. Geometry declarations write the widget
+    #    itself (not the `Style`).
     # 5. Inherit the (inheritable) `color` down the tree where unset.
     #
     # Application is non-destructive and opt-in: only widget/state pairs a rule
@@ -29,15 +30,29 @@ module Crysterm
       # Cascade origin/priority tiers, lowest to highest. A declaration in a
       # higher tier always wins over a lower one regardless of specificity.
       TIER_DEFAULT = 0 # default/UA stylesheet (base *and* state rules)
-      TIER_AUTHOR  = 1 # normal author rules (base)
-      TIER_INLINE  = 2 # inline `@style`
+      TIER_AUTHOR  = 1 # normal author rules (base), window/app level
+      # A widget's own stylesheet (`Widget#stylesheet=`), scoped to its
+      # subtree. Above the window-level author rules (Qt: the nearer sheet
+      # wins) but below the inline `@style`.
+      TIER_WIDGET = 2
+      TIER_INLINE = 3 # inline `@style`
       # An author-origin *state* rule (`:hover`/`:selected`/…) or `selection-*`
       # sorts here, above the inline base style — a themed highlight must show
       # even on a widget given an inline base `background`/`color`. (A
       # default/UA-origin state rule stays at `TIER_DEFAULT`, so an author
       # *base* rule still overrides it.)
-      TIER_AUTHOR_STATE = 3
-      TIER_IMPORTANT    = 4 # `!important` declarations
+      TIER_AUTHOR_STATE = 4
+      # A widget-sheet state rule: above author state rules, mirroring the
+      # base-tier ordering.
+      TIER_WIDGET_STATE = 5
+      TIER_IMPORTANT    = 6 # `!important` declarations
+
+      # Order-component bias between same-tier sheets: entries from the
+      # second, third, … sheet at one tier are shifted by this per slot, so an
+      # equal-`{tier, layer, specificity}` tie resolves to the later sheet
+      # (the sort is not stable, and per-sheet `rule.order` ranges collide).
+      # Far above any real sheet's rule count and `SELECTION_ORDER_BIAS`.
+      SHEET_ORDER_BIAS = 10_000_000
 
       # An accumulated match: `{tier, layer_rank, specificity, order,
       # declarations}`, sorted by the first four (origin/importance, then
@@ -53,16 +68,19 @@ module Crysterm
       # `var()` caches; both are rebuilt here when omitted (see `apply_sheets`).
       def self.apply(stylesheet : Stylesheet, window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil,
                      cached_variables : Hash(String, String)? = nil, cached_resolved : Hash(String, String)? = nil) : Nil
-        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT}, {stylesheet, TIER_AUTHOR}], window, doc, scope,
-          cached_variables, cached_resolved)
+        apply_sheets([{CSS.default_stylesheet, TIER_DEFAULT, nil.as(Widget?)}, {stylesheet, TIER_AUTHOR, nil.as(Widget?)}],
+          window, doc, scope, cached_variables, cached_resolved)
       end
 
-      # Resolves a list of `{stylesheet, base_tier}` sources, lowest tier first,
-      # against *window*, matching against the pre-parsed *doc* (the window owns
-      # parsing and caches it). Higher tiers win regardless of specificity. When
-      # *scope* is given, only widgets in that set have their styles recomputed
-      # (incremental update); selector matching is still over the whole document
-      # so ancestor/sibling context is correct.
+      # Resolves a list of `{stylesheet, base_tier, subtree owner}` sources,
+      # lowest tier first, against *window*, matching against the pre-parsed
+      # *doc* (the window owns parsing and caches it). Higher tiers win
+      # regardless of specificity. A non-`nil` owner scopes that sheet's
+      # matches to the owner widget and its descendants (a `Widget#stylesheet`);
+      # `nil` matches the whole tree. When *scope* is given, only widgets in
+      # that set have their styles recomputed (incremental update); selector
+      # matching is still over the whole document so ancestor/sibling context
+      # is correct.
       #
       # *cached_variables* (the custom properties merged across *sheets*) and
       # *cached_resolved* (the per-value `var()` resolution memo) are a pure
@@ -74,7 +92,7 @@ module Crysterm
       # splitting it to satisfy the metric would spread cascade state across
       # helpers.
       # ameba:disable Metrics/CyclomaticComplexity
-      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil,
+      def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32, Widget?)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil,
                             cached_variables : Hash(String, String)? = nil, cached_resolved : Hash(String, String)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
@@ -141,7 +159,12 @@ module Crysterm
         # selection colors are a state-independent appearance, like geometry).
         sel_acc = Hash(String, Array(Entry)).new # key -> selected-state entries
 
-        sheets.each do |(sheet, tier)|
+        # Per-tier sheet slot, driving `SHEET_ORDER_BIAS` (the first sheet at a
+        # tier is unbiased, so the common default+author case copies nothing).
+        tier_slots = Hash(Int32, Int32).new(0)
+        sheets.each do |(sheet, tier, owner)|
+          bias = tier_slots[tier] * SHEET_ORDER_BIAS
+          tier_slots[tier] += 1
           sheet.rules.each_with_index do |rule, rule_index|
             next if rule.selector.empty?
             if mq = rule.media
@@ -186,12 +209,15 @@ module Crysterm
             # declarations sort at `TIER_AUTHOR_STATE`, while default/UA state
             # rules (and any base rule) stay at their sheet tier. `!important`
             # still outranks all.
-            entries = rule_entries(sheet, rule_index, rule, rule.state ? state_tier(tier) : tier)
-            sel_entries = selection_entries(sheet, rule_index, rule, tier)
+            entries = bias_entries(rule_entries(sheet, rule_index, rule, rule.state ? state_tier(tier) : tier), bias)
+            sel_entries = bias_entries(selection_entries(sheet, rule_index, rule, tier), bias)
             next if entries.empty? && sel_entries.empty?
             nodes.each do |node|
               key = node["data-uid"]?.try(&.val)
               next unless key
+              # A widget-scoped sheet styles only its owner's subtree,
+              # whatever its selectors matched elsewhere in the document.
+              next if owner && !in_subtree?(index, key, owner)
               unless entries.empty?
                 if state = rule.state
                   (acc[{key, state}] ||= [] of Entry).concat entries
@@ -305,8 +331,8 @@ module Crysterm
         # another pair's state style — so no pair depends on a later one having
         # been materialized first.
         #
-        # Apply order within a pair: author/default declarations, then inline
-        # `@style` (tier 2), then `!important` (tier 3). Every touched widget is
+        # Apply order within a pair: author/default/widget-sheet declarations,
+        # then inline `@style`, then state tiers and `!important`. Every touched widget is
         # processed (even one matched only via a sub-element) so its inline style
         # still folds in, and is marked `css_styled` so `#style` returns the
         # computed result. Out-of-scope widgets keep their already-computed
@@ -665,7 +691,31 @@ module Crysterm
       # highlight shows over an inline base color; a default/UA rule keeps its
       # sheet tier (so an author base rule still overrides it).
       private def self.state_tier(base_tier : Int32) : Int32
-        base_tier == TIER_AUTHOR ? TIER_AUTHOR_STATE : base_tier
+        case base_tier
+        when TIER_AUTHOR then TIER_AUTHOR_STATE
+        when TIER_WIDGET then TIER_WIDGET_STATE
+        else                  base_tier
+        end
+      end
+
+      # *entries* with each order component shifted by *bias* (see
+      # `SHEET_ORDER_BIAS`); the cached array itself when unbiased.
+      private def self.bias_entries(entries : Array(Entry), bias : Int32) : Array(Entry)
+        return entries if bias == 0 || entries.empty?
+        entries.map { |(tier, layer, spec, order, decls)| {tier, layer, spec, order + bias, decls} }
+      end
+
+      # Whether the widget (or sub-element host) an index *key* maps to is
+      # *owner* or one of its descendants.
+      private def self.in_subtree?(index : Hash(String, Tuple(Widget, String?)), key : String, owner : Widget) : Bool
+        target = index[key]?
+        return false unless target
+        w : Widget? = target[0]
+        while w
+          return true if w.same?(owner)
+          w = w.parent
+        end
+        false
       end
 
       # The widget-uid part of an index key: everything before `::` in a
@@ -768,13 +818,17 @@ module Crysterm
       # onto the widget itself, from *entries* in cascade order (last wins).
       # Already sorted by the caller.
       private def self.apply_geometry(widget : Widget, entries : Array(Entry), variables : Hash(String, String), resolved : Hash(String, String)) : Nil
-        entries.each do |entry|
-          entry[4].each do |property, value|
-            next unless Geometry.handles?(property)
-            # Snapshot the pristine geometry before CSS first writes it, so the
-            # reset pass can revert a rule that stops matching. Memoized.
-            widget.capture_css_base_geometry
-            Geometry.apply(widget, property, resolve_var(value, variables, resolved))
+        # `css_geometry_sync`: these writes are the cascade's own, so they must
+        # not fold into the pristine snapshot as programmatic ones do.
+        widget.css_geometry_sync do
+          entries.each do |entry|
+            entry[4].each do |property, value|
+              next unless Geometry.handles?(property)
+              # Snapshot the pristine geometry before CSS first writes it, so the
+              # reset pass can revert a rule that stops matching. Memoized.
+              widget.capture_css_base_geometry
+              Geometry.apply(widget, property, resolve_var(value, variables, resolved))
+            end
           end
         end
       end

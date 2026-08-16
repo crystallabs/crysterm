@@ -1,12 +1,12 @@
 require "./dialog"
-require "./stacked_widget"
 require "./button"
+require "../mixin/paged_container"
 
 module Crysterm
   class Widget
     # Multi-page assistant, modeled after Qt's `QWizard`.
     #
-    # Holds an ordered set of pages (a `StackedWidget`) above a button row with
+    # Holds an ordered set of `#pages` above a button row with
     # **Back**, **Next**/**Finish** and **Cancel**. Back is disabled on the first
     # page; on the last page Next becomes Finish. Navigation emits `Event::Activated`
     # (the new page's title) on each page change, `Event::Completed` when Finish is
@@ -27,16 +27,21 @@ module Crysterm
     # ![Wizard screenshot](../../tests/widget/wizard/wizard.5s.apng)
     # <!-- /widget-examples:capture -->
     class Wizard < Dialog
+      # `#pages`, `#count`, `#current_index`/`#current_index=`,
+      # `#current_widget`, `#widget`/`#index_of` and the show/`next_page`/
+      # `#previous_page` core all come from here — a wizard *is* a paged
+      # container, so it no longer wraps a `StackedWidget` and reinvents that
+      # vocabulary beside it. Only the genuinely wizard-shaped verbs stay:
+      # `#back` (previous page, but never wrapping — Back is *disabled* on the
+      # first page) and `#advance` (next page, or Finish on the last).
+      include Mixin::PagedContainer
       include Mixin::WindowLifecycle
-
-      # The page stack. (Built in `initialize` after `super`, hence `getter!`.)
-      getter! stack : StackedWidget
 
       getter! back_button : Button
       getter! next_button : Button
       getter! cancel_button : Button
 
-      # Per-page titles, parallel to `stack.pages`.
+      # Per-page titles, parallel to `#pages`.
       getter titles = [] of String
 
       # Rows reserved for the button row.
@@ -46,12 +51,6 @@ module Crysterm
         @button_height = button_height
 
         super **box
-
-        @stack = StackedWidget.new(
-          parent: self,
-          top: 0, left: 0, right: 0,
-          bottom: @button_height,
-        )
 
         @back_button = wizard_button "Back", left: 0
         @cancel_button = wizard_button "Cancel", right: 10
@@ -99,28 +98,16 @@ module Crysterm
         )
       end
 
-      # Index of the current page.
-      def current_index : Int32
-        stack.current_index
-      end
-
-      # Number of pages.
-      def page_count : Int32
-        stack.count
-      end
-
-      # Alias of `#page_count`, matching the toolkit-wide `count` convention
-      # (`PagedContainer`/`Splitter`/`Menu`).
-      def count : Int32
-        page_count
-      end
-
       # Appends *page* titled *title* and refreshes the buttons. Title-first
       # argument order, matching every other container add-verb in the toolkit (a
       # deliberate, uniform deviation from Qt's widget-first `addPage`). Returns `self`.
       def add_page(title : String, page : Widget) : self
         @titles << title
-        stack.add_widget page
+        # Fill the wizard above the button row.
+        stretch_child page, top: 0, bottom: @button_height
+        @pages << page
+        append page
+        register_page page
         refresh_buttons
         self
       end
@@ -130,11 +117,12 @@ module Crysterm
         add_page "", page
       end
 
-      # Goes to the previous page (no-op on the first).
+      # Goes to the previous page (no-op on the first). Kept beside the mixin's
+      # `#previous_page` because the wizard semantics differ: Back never wraps
+      # to the last page — it is simply unavailable on the first.
       def back : Nil
         return if current_index <= 0
-        stack.previous_page
-        after_change
+        self.current_index = current_index - 1
       end
 
       # Goes to the next page, or finishes when already on the last page —
@@ -144,13 +132,12 @@ module Crysterm
         # A page-less wizard sits at the `-1` `current_index` sentinel; treat it
         # as having nothing to advance or complete (pages are added after
         # construction), so it can't "finish" with zero pages.
-        return if page_count == 0
-        if current_index >= page_count - 1
+        return if count == 0
+        if current_index >= count - 1
           emit ::Crysterm::Event::Completed
           accept
         else
-          stack.next_page
-          after_change
+          self.current_index = current_index + 1
         end
       end
 
@@ -161,9 +148,11 @@ module Crysterm
         super
       end
 
-      private def after_change : Nil
+      # Per-page-change work (`Mixin::PagedContainer` hook): refresh the button
+      # row and announce the new page's title.
+      protected def after_show_index(index : Int) : Nil
         refresh_buttons
-        emit ::Crysterm::Event::Activated, @titles[current_index]? || ""
+        emit ::Crysterm::Event::Activated, @titles[index]? || ""
         update!
       end
 
@@ -173,7 +162,7 @@ module Crysterm
         first = current_index <= 0
         # With no pages there is no "last" page to finish on — the `-1 >= -1`
         # sentinel would otherwise render an active "Finish".
-        last = page_count > 0 && current_index >= page_count - 1
+        last = count > 0 && current_index >= count - 1
 
         back_button.state = first ? WidgetState::Disabled : WidgetState::Normal
         next_button.set_content(last ? "Finish" : "Next")

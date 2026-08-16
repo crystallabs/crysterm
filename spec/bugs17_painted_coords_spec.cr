@@ -51,7 +51,7 @@ describe "BUGS17 B17-22: Splitter divider drag inside a scrolled container" do
 
     # The divider must land exactly at the wanted offset; resolving against
     # the layout origin (atop == lp.yi + k) yields target - k == 2.
-    sp.divider_position(0).should eq target
+    sp.dividers[0].position.should eq target
   end
 end
 

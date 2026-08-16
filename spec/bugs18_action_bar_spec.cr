@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for the BUGS18 ActionBar findings (shared by ListBar,
+# Regression specs for the BUGS18 ActionBar findings (shared by CommandBar,
 # MenuBar and ToolBar via `Mixin::ActionBar`):
 #   B18-39/B18-100 — `#handle_key_press` never accepted its handled keys, so vi 'q'
 #                    also hit the app's default quit keys and Enter/Escape
@@ -32,7 +32,7 @@ end
 describe "BUGS18 B18-39/B18-100 ActionBar#handle_key_press accepts handled keys" do
   it "accepts arrows, vi h/l, Enter/vi k and Escape/vi q" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, vi_keys: true
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true, vi_keys: true
     bar.add_item("open", -> { nil })
     bar.add_item("save", -> { nil })
     s.repaint
@@ -49,7 +49,7 @@ describe "BUGS18 B18-39/B18-100 ActionBar#handle_key_press accepts handled keys"
 
   it "accepts the vi 'q' cancel even on an empty bar" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, vi_keys: true
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true, vi_keys: true
     s.repaint
 
     # An un-accepted 'q' would go on to `Application`'s default quit keys and
@@ -62,7 +62,7 @@ describe "BUGS18 B18-39/B18-100 ActionBar#handle_key_press accepts handled keys"
     s = headless_screen(80, 24)
     fired = 0
     cancelled = [] of Int32
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, vi_keys: true
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true, vi_keys: true
     bar.add_item("open", -> { fired += 1; nil })
     bar.on(Crysterm::Event::ItemCancelled) { |e| cancelled << e.index }
     s.repaint
@@ -75,7 +75,7 @@ describe "BUGS18 B18-39/B18-100 ActionBar#handle_key_press accepts handled keys"
 
   it "lets genuinely unhandled keys bubble un-accepted" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, vi_keys: true
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true, vi_keys: true
     bar.add_item("open", -> { nil })
     s.repaint
 
@@ -86,7 +86,7 @@ describe "BUGS18 B18-39/B18-100 ActionBar#handle_key_press accepts handled keys"
     press(bar, key: Tput::Key::Tab).accepted?.should be_false
     press(bar, key: Tput::Key::ShiftTab).accepted?.should be_false
     # vi chars must not be consumed when vi_keys is off.
-    bar2 = Crysterm::Widget::ListBar.new parent: s, keys: true
+    bar2 = Crysterm::Widget::CommandBar.new parent: s, keys: true
     bar2.add_item("open", -> { nil })
     press(bar2, 'q').accepted?.should be_false
   end
@@ -95,7 +95,7 @@ end
 describe "ActionBar leaves Tab/Shift+Tab to window focus navigation" do
   it "moves focus off a focused bar instead of cycling its items" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, top: 0, left: 0, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true, top: 0, left: 0, height: 1
     bar.add_item("one", -> { nil })
     bar.add_item("two", -> { nil })
     other = Crysterm::Widget::Box.new parent: s, keys: true, top: 5, left: 0, width: 10, height: 1
@@ -119,7 +119,7 @@ end
 describe "BUGS18 B18-45 ActionBar negative-index validation" do
   it "makes remove_item(-1) a no-op that leaves the cursor alone" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s
+    bar = Crysterm::Widget::CommandBar.new parent: s
     bar.add_item("a", -> { nil })
     bar.add_item("b", -> { nil })
     bar.add_item("c", -> { nil })
@@ -134,7 +134,7 @@ describe "BUGS18 B18-45 ActionBar negative-index validation" do
   it "makes select_item/activate_item with a negative index no-ops" do
     s = headless_screen(80, 24)
     fired = 0
-    bar = Crysterm::Widget::ListBar.new parent: s
+    bar = Crysterm::Widget::CommandBar.new parent: s
     bar.add_item("a", -> { nil })
     bar.add_item("b", -> { nil })
     bar.add_item("c", -> { fired += 1; nil })
@@ -154,8 +154,8 @@ describe "BUGS18 B18-102 ActionBar per-command hotkey accepts the keypress" do
   it "accepts a matched hotkey so it can't double-act (or quit the app)" do
     s = headless_screen(80, 24)
     fired = 0
-    bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
+    bar = Crysterm::Widget::CommandBar.new parent: s
+    bar.add_item("quit", -> { fired += 1; nil }, shortcuts: ["q"])
     s.repaint
 
     e = emit_kp(s, 'q')
@@ -165,8 +165,8 @@ describe "BUGS18 B18-102 ActionBar per-command hotkey accepts the keypress" do
 
   it "leaves a non-matching keypress un-accepted" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add_item("quit", -> { nil }, keys: ["q"])
+    bar = Crysterm::Widget::CommandBar.new parent: s
+    bar.add_item("quit", -> { nil }, shortcuts: ["q"])
     s.repaint
 
     emit_kp(s, 'z').accepted?.should be_false
@@ -176,31 +176,31 @@ end
 describe "BUGS18 B18-103 ActionBar#items= renumbers auto prefixes" do
   it "reassigns position prefixes when commands are re-added in a new order" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s
+    bar = Crysterm::Widget::CommandBar.new parent: s
     bar.add_item("a", -> { nil })
     bar.add_item("b", -> { nil })
     bar.add_item("c", -> { nil })
     s.repaint
-    bar.items.map(&.prefix).should eq ["1", "2", "3"]
+    bar.commands.map(&.prefix).should eq ["1", "2", "3"]
 
-    bar.items = bar.items.reverse
+    bar.items = bar.commands.reverse
 
-    bar.items.map(&.text).should eq ["c", "b", "a"]
+    bar.commands.map(&.text).should eq ["c", "b", "a"]
     # Auto prefixes must track the raw index (number-key selection routes by
     # it), not the command's previous position.
-    bar.items.map(&.prefix).should eq ["1", "2", "3"]
+    bar.commands.map(&.prefix).should eq ["1", "2", "3"]
   end
 
   it "keeps hotkey-derived (non-auto) prefixes across a re-add" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s
+    bar = Crysterm::Widget::CommandBar.new parent: s
     bar.add_item("a", -> { nil })
-    bar.add_item("quit", -> { nil }, keys: ["x"])
+    bar.add_item("quit", -> { nil }, shortcuts: ["x"])
     s.repaint
 
-    bar.items = bar.items.reverse
+    bar.items = bar.commands.reverse
 
-    bar.items.map(&.prefix).should eq ["x", "2"]
+    bar.commands.map(&.prefix).should eq ["x", "2"]
   end
 end
 
@@ -209,7 +209,7 @@ describe "BUGS18 B18-107 ActionBar#activate_item emits ItemActivated" do
     s = headless_screen(80, 24)
     fired = 0
     activated = [] of Int32
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, auto_command_keys: true
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true, auto_command_keys: true
     bar.add_item("open", -> { nil })
     bar.add_item("save", -> { fired += 1; nil })
     bar.on(Crysterm::Event::ItemActivated) { |e| activated << e.index }
@@ -224,7 +224,7 @@ describe "BUGS18 B18-107 ActionBar#activate_item emits ItemActivated" do
     s = headless_screen(80, 24)
     fired = 0
     activated = [] of Int32
-    bar = Crysterm::Widget::ListBar.new parent: s
+    bar = Crysterm::Widget::CommandBar.new parent: s
     bar.add_item("open", -> { fired += 1; nil })
     bar.on(Crysterm::Event::ItemActivated) { |e| activated << e.index }
     s.repaint

@@ -116,9 +116,9 @@ describe "Group N per-frame content caching" do
       sp.@positions.should eq pos1
 
       # Pinning a divider still works (user-positioned clamp path).
-      sp.set_divider_position 0, 10
+      sp.dividers[0].position = 10
       s.repaint
-      sp.divider_position(0).should eq 10
+      sp.dividers[0].position.should eq 10
     end
   end
 

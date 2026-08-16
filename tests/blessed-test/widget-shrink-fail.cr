@@ -20,7 +20,7 @@ tab = ScrollableBox.new \
   keys: true,
   vi_keys: true,
   always_scroll: true,
-  scrollbar: true
+  scrollbar_policy: :as_needed
 
 form = Form.new \
   parent: tab,

@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_interactive"
 
 module Crysterm
   class Widget
@@ -10,7 +10,7 @@ module Crysterm
     # Push-style buttons inherit this wholesale; marker controls (`CheckBox`,
     # `RadioButton`) override rendering/toggle and wire their own input via
     # `Mixin::CheckMarker`.
-    abstract class AbstractButton < Input
+    abstract class AbstractButton < AbstractInteractive
       # The button's text label (Qt's `QAbstractButton#text`) — the one label API
       # for the family. `#text` and `#content` can never disagree, on any
       # button: the push buttons store the label as their `#content`, and the
@@ -61,6 +61,12 @@ module Crysterm
         @checked
       end
 
+      # The `styles.checked` slot (and CSS `[checked]`) applies while actually
+      # checked.
+      def style_checked? : Bool
+        checkable? && checked?
+      end
+
       # The `ButtonGroup` this button belongs to, or `nil` (Qt's
       # `QAbstractButton#group`). A `RadioButton` grouped by containment under a
       # `Widget::RadioSet` has no `ButtonGroup` and reports `nil`.
@@ -107,6 +113,9 @@ module Crysterm
       def toggle
         return unless checkable?
         @checked = !@checked
+        # `#style` resolves through the checked state (the `styles.checked`
+        # slot), so the frame-memoized resolution is stale as of this flip.
+        invalidate_frame_style
         invalidate_css # `checked` attribute selector may now match/unmatch
         emit Crysterm::Event::StateChanged, (@checked ? ::Crysterm::CheckState::Checked : ::Crysterm::CheckState::Unchecked)
         # Plain-`Bool` counterpart of `StateChanged` ↔ Qt's `toggled(bool)`; both
@@ -132,6 +141,9 @@ module Crysterm
       private def set_checked(to : Bool) : Nil
         @checked = to
         clear_partial
+        # `#style` resolves through the checked state (the `styles.checked`
+        # slot), so the frame-memoized resolution is stale as of this flip.
+        invalidate_frame_style
         invalidate_css
       end
 

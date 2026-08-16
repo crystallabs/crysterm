@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_interactive"
 require "../mixin/ranged_value"
 
 module Crysterm
@@ -8,7 +8,7 @@ module Crysterm
     # Holds the shared bounded-integer value/range behavior
     # (`#minimum`/`#maximum`/`#value`/`#step`/`#page_step`/`#wrapping?`,
     # `#step_up`/`#step_down`, `Event::ValueChanged`) via `Mixin::RangedValue`.
-    abstract class AbstractSlider < Input
+    abstract class AbstractSlider < AbstractInteractive
       include Mixin::RangedValue(Int32)
 
       # A slider/dial/scrollbar draws a fixed-size track/knob/trough; it should

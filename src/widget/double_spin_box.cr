@@ -45,7 +45,6 @@ module Crysterm
         @minimum = 0.0,
         @maximum = 100.0,
         single_step : Float64? = nil,
-        step : Float64? = nil,
         decimals = 2,
         @prefix = "",
         @suffix = "",
@@ -53,10 +52,8 @@ module Crysterm
         wrapping = false,
         **input,
       )
-        # `single_step:` is the blessed Qt-parity spelling; `step:` stays
-        # accepted as a compatibility alias, `single_step:` winning when both
-        # are given.
-        @single_step = single_step || step || 1.0
+        # `single_step:` is the Qt-parity spelling and the only one accepted.
+        @single_step = single_step || 1.0
 
         super **{keys: true}.merge(input)
 
@@ -70,10 +67,8 @@ module Crysterm
         emit Crysterm::Event::DoubleValueChanged, @value
       end
 
-      # No `Float64` range-change event exists, so range changes emit nothing;
-      # `RangedValue#set_range` still re-clamps and repaints.
-      protected def emit_range_change : Nil
-      end
+      # `#emit_range_change` comes from `Mixin::RangedValue`, which routes a
+      # `Float64` instantiation to `Event::DoubleRangeChanged`.
 
       # The value formatted to `#decimals` places.
       def formatted_value : String

@@ -94,7 +94,7 @@ describe "Widget size auto-branch clamps the post-margin size" do
     s = headless_screen(40, 20, default_quit_keys: true)
     parent = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 10
     child = Widget::Box.new parent: parent, left: 0, top: 0,
-      style: Style.new(margin: Margin.new(2, 0, 2, 0))
+      style: Style.new(margin: Margin.ltrb(2, 0, 2, 0))
 
     parent.awidth.should eq 10
 
@@ -112,7 +112,7 @@ describe "Widget size auto-branch clamps the post-margin size" do
     s = headless_screen(40, 20, default_quit_keys: true)
     parent = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 10
     child = Widget::Box.new parent: parent, left: 0, top: 0,
-      style: Style.new(margin: Margin.new(0, 2, 0, 2))
+      style: Style.new(margin: Margin.ltrb(0, 2, 0, 2))
 
     parent.aheight.should eq 10
 
@@ -126,7 +126,7 @@ describe "Widget size auto-branch clamps the post-margin size" do
     s = headless_screen(40, 20, default_quit_keys: true)
     parent = Widget::Box.new parent: s, left: 0, top: 0, width: 10, height: 10
     child = Widget::Box.new parent: parent, left: 0, top: 0,
-      style: Style.new(margin: Margin.new(1, 0, 1, 0))
+      style: Style.new(margin: Margin.ltrb(1, 0, 1, 0))
 
     # Post-margin auto width: 10 - 2 = 8.
     child.awidth.should eq 8

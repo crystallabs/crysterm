@@ -182,14 +182,14 @@ describe "Splitter mouse drag" do
     b = Crysterm::Widget::Box.new
     sp.add_widget a
     sp.add_widget b
-    sp.set_divider_position 0, 20
+    sp.dividers[0].position = 20
     s.repaint
 
-    sp.divider_position(0).should eq 20
+    sp.dividers[0].position.should eq 20
     # Grab the divider (a vertical bar at column 20) and drag it left to 12.
     mouse_down s, 20, 3
     mouse_move s, 12, 3
-    sp.divider_position(0).should eq 12
+    sp.dividers[0].position.should eq 12
     a.width_spec.should eq 12
     b.left.should eq 13
     mouse_up s, 12, 3
@@ -221,7 +221,7 @@ describe "List scroll-bar column reservation" do
     s = headless_screen(80, 24, default_quit_keys: true)
     # Two items: fits in height 4, no vertical overflow, no bar yet.
     list = Crysterm::Widget::List.new parent: s, top: 0, left: 0, width: 12, height: 4,
-      scrollbar: true, items: ["AAAAAAAAAA", "BBBBBBBBBB"]
+      scrollbar_policy: :as_needed, items: ["AAAAAAAAAA", "BBBBBBBBBB"]
     s.repaint
     list.show_scrollbar?.should be_false
     list.item_boxes.all? { |i| i.right == 0 }.should be_true
@@ -237,12 +237,12 @@ describe "List scroll-bar column reservation" do
   end
 end
 
-describe "Question#ask_choices" do
+describe "MessageBox#open (choices)" do
   it "invokes the block with the chosen button index and restores OK/Cancel" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
+    q = Crysterm::Widget::MessageBox.new parent: s, top: 0, left: 0, width: 40, height: 8
     chosen = nil.as(Int32?)
-    q.ask_choices("Pick one", ["Yes", "No", "Maybe"]) { |i| chosen = i }
+    q.open("Pick one", ["Yes", "No", "Maybe"]) { |i| chosen = i }
     s.repaint
 
     # The choice row is now a `DialogButtonBox` child (was inline direct-child
@@ -258,9 +258,9 @@ describe "Question#ask_choices" do
 
   it "survives an arrow key with an empty choice list (no division-by-zero)" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
+    q = Crysterm::Widget::MessageBox.new parent: s, top: 0, left: 0, width: 40, height: 8
     chosen = nil.as(Int32?)
-    q.ask_choices("Pick one", [] of String) { |i| chosen = i }
+    q.open("Pick one", [] of String) { |i| chosen = i }
     s.repaint
 
     # Left/Right used to do `(cur ± 1) % buttons.size` with size 0 → crash.
@@ -274,15 +274,15 @@ describe "Question#ask_choices" do
   end
 end
 
-describe "Prompt validation" do
+describe "InputDialog validation" do
   it "re-prompts on an invalid value and commits only a valid one" do
     s = headless_screen(80, 24, default_quit_keys: true)
-    pr = Crysterm::Widget::Prompt.new parent: s, top: 0, left: 0, width: 40, height: 8
+    pr = Crysterm::Widget::InputDialog.new parent: s, top: 0, left: 0, width: 40, height: 8
     pr.validator = ->(v : String) { v == "good" }
 
     result = nil.as(String?)
     calls = 0
-    pr.read_input("Enter:") { |data| calls += 1; result = data }
+    pr.open("Enter:") { |data| calls += 1; result = data }
 
     # Invalid submit -> stays open, outer callback not run.
     pr.line_edit.value = "bad"
@@ -439,7 +439,7 @@ describe "ScrollBar rendering" do
   it "steps the value when a stepper button is clicked" do
     s = headless_screen(80, 24, default_quit_keys: true)
     sb = Crysterm::Widget::ScrollBar.new parent: s, top: 0, left: 0, width: 1, height: 7,
-      minimum: 0, maximum: 10, value: 5, step: 1, stepper_buttons: true
+      minimum: 0, maximum: 10, value: 5, single_step: 1, stepper_buttons: true
     s.repaint
     mouse_down(s, 0, 6) # the bottom (add-line) button -> increment
     sb.value.should eq 6
@@ -650,7 +650,7 @@ describe "ListTable column-level horizontal scrolling" do
     rows = [["Name", "Status"]]
     8.times { |i| rows << ["item#{i}", "okay#{i}"] }
     lt = Crysterm::Widget::ListTable.new parent: s, top: 0, left: 0, height: 5,
-      scrollbar: true, rows: rows
+      scrollbar_policy: :as_needed, rows: rows
     s.repaint
 
     lt.show_scrollbar?.should be_true

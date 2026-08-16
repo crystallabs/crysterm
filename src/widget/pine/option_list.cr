@@ -128,7 +128,7 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![OptionList screenshot](../../../tests/widget/pine/option_list/option_list.5s.apng)
       # <!-- /widget-examples:capture -->
-      class OptionList < SelectableList(OptionListOption)
+      class OptionList < RecordList(OptionListOption)
         # Nested-name alias for the record type.
         alias Option = ::Crysterm::Widget::Pine::OptionListOption
 

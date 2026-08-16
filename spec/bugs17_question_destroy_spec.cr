@@ -4,9 +4,9 @@ include Crysterm
 
 # Regression spec for BUGS17 B17-17 (src/widget/question.cr).
 #
-# `Question#ask`/`#ask_choices` install a window-level `KeyPress` accelerator.
+# `MessageBox#open`'s question forms install a window-level `KeyPress` accelerator.
 # As raw `window.on` handlers removed only inside the local `finish` proc (and
-# with no `Question#destroy` override), a dialog destroyed while an answer was
+# with no `MessageBox#destroy` override), a dialog destroyed while an answer was
 # still pending left its accelerator on the live window holding the dead
 # dialog: a later unconsumed Enter/Escape/'q'/'y'/'n' anywhere in the app was
 # swallowed (permanently, once the done-latch tripped) and `finish` ran
@@ -14,16 +14,16 @@ include Crysterm
 # `NilAssertionError` on the way.
 #
 # Both accelerators must route through a `Crysterm::Subscription` stored in an
-# ivar, and a `Question#destroy` override must drop the subscription, run the
+# ivar, and a `MessageBox#destroy` override must drop the subscription, run the
 # OK/Cancel teardown while the window is still valid, and nil the pending
 # callbacks so nothing can fire post-destroy.
 
-describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
+describe "BUGS17 B17-17: MessageBox#open tears down its accelerator on destroy" do
   it "destroy while an ask is pending leaves no stale window handler" do
     w = headless_screen(40, 10, default_quit_keys: true)
-    q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
+    q = Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = :unset.as(Symbol | Bool)
-    q.ask("Delete file?") { |yes| answer = yes }
+    q.open("Delete file?") { |yes| answer = yes }
 
     q.destroy
 
@@ -42,8 +42,8 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
 
   it "does not permanently swallow keys on the window after destroy" do
     w = headless_screen(40, 10, default_quit_keys: true)
-    q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
-    q.ask("Sure?") { }
+    q = Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
+    q.open("Sure?") { }
     q.destroy
 
     # Emit a run of keys the buggy latch would have accepted forever.
@@ -60,13 +60,13 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
 
   it "a fresh ask on a new dialog still answers normally after an earlier one was destroyed" do
     w = headless_screen(40, 10, default_quit_keys: true)
-    stale = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
-    stale.ask("First?") { }
+    stale = Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
+    stale.open("First?") { }
     stale.destroy
 
-    q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
+    q = Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = :unset.as(Symbol | Bool)
-    q.ask("Second?") { |yes| answer = yes }
+    q.open("Second?") { |yes| answer = yes }
 
     e = Crysterm::Event::KeyPress.new 'y'
     w.emit e
@@ -76,9 +76,9 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
 
   it "destroy after a normal answer is a no-op (idempotent, does not raise)" do
     w = headless_screen(40, 10, default_quit_keys: true)
-    q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
+    q = Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = :unset.as(Symbol | Bool)
-    q.ask("Sure?") { |yes| answer = yes }
+    q.open("Sure?") { |yes| answer = yes }
 
     w.emit Crysterm::Event::KeyPress.new 'y'
     answer.should be_true
@@ -92,12 +92,12 @@ describe "BUGS17 B17-17: Question#ask tears down its accelerator on destroy" do
   end
 end
 
-describe "BUGS17 B17-17: Question#ask_choices tears down its accelerator on destroy" do
+describe "BUGS17 B17-17: MessageBox#open (choices) tears down its accelerator on destroy" do
   it "destroy while an ask_choices is pending leaves no stale window handler" do
     w = headless_screen(40, 10, default_quit_keys: true)
-    q = Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
+    q = Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
     picked = :unset.as(Symbol | Int32?)
-    q.ask_choices("Pick", choices: ["A", "B", "C"]) { |idx| picked = idx }
+    q.open("Pick", choices: ["A", "B", "C"]) { |idx| picked = idx }
 
     q.destroy
 

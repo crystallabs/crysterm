@@ -59,20 +59,21 @@ describe Crysterm::Widget::TabWidget do
     end
   end
 
-  describe "#tab_text / #set_tab_text" do
-    it "reads and rewrites a tab's title, refreshing the bar" do
+  describe "#tabs / Tab#text=" do
+    it "reads and rewrites a tab's title through its item object, refreshing the bar" do
       s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, width: 60, height: 20
       tabs.add_tab "A", Crysterm::Widget::Box.new
       tabs.add_tab "B", Crysterm::Widget::Box.new
       tabs.next_page
 
-      tabs.tab_text(1).should eq "B"
-      tabs.tab_text(9).should be_nil
-      tabs.tab_text(-1).should be_nil # never counts from the end
+      tabs.tabs.map(&.text).should eq ["A", "B"]
+      tabs.tab(1).not_nil!.text.should eq "B"
+      tabs.tab(9).nil?.should be_true
+      tabs.tab(-1).nil?.should be_true # never counts from the end
 
-      tabs.set_tab_text 1, "Bee"
-      tabs.tab_text(1).should eq "Bee"
+      tabs.tabs[1].text = "Bee"
+      tabs.tab(1).not_nil!.text.should eq "Bee"
       tabs.tab_bar.item_texts.should eq ["A", "Bee"]
       tabs.tab_bar.current_index.should eq 1 # rebuild kept the highlight on the current tab
     end
@@ -211,7 +212,7 @@ describe Crysterm::Widget::TabWidget do
       s = headless_screen(80, 24)
       tabs = Crysterm::Widget::TabWidget.new parent: s, tabs_closable: true, width: 40, height: 10
       tabs.add_tab "Files", Crysterm::Widget::Box.new
-      # ListBar prefixes each item with its command number ("1:"); the tab's
+      # CommandBar prefixes each item with its command number ("1:"); the tab's
       # display title (with the ✕ close marker) is the trailing part.
       tabs.tab_bar.item_boxes.first.content.ends_with?("Files ✕").should be_true
     end

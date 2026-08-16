@@ -94,7 +94,7 @@ end
 
 describe "BUGS-F1 #22 state pseudo-classes inside :has() are lowered to .state-*" do
   it "lowers a `:focus` inside `:has(...)` in the parsed rule" do
-    sheet = Crysterm::CSS::Stylesheet.parse "Form:has(Input:focus) { color: green; }"
+    sheet = Crysterm::CSS::Stylesheet.parse "Form:has(AbstractInteractive:focus) { color: green; }"
     rule = sheet.rules.first
     inner = rule.has.not_nil!
     inner.should contain "state-focused"
@@ -102,21 +102,21 @@ describe "BUGS-F1 #22 state pseudo-classes inside :has() are lowered to .state-*
   end
 
   it "marks the sheet dynamic-state when the state lives only inside :has()" do
-    sheet = Crysterm::CSS::Stylesheet.parse "Form:has(Input:focus) { color: green; }"
+    sheet = Crysterm::CSS::Stylesheet.parse "Form:has(AbstractInteractive:focus) { color: green; }"
     sheet.dynamic_state?.should be_true
   end
 
-  it "matches Form:has(Input:focus) once the input is focused (end-to-end)" do
+  it "matches Form:has(AbstractInteractive:focus) once the input is focused (end-to-end)" do
     screen = headless_screen(80, 24, default_quit_keys: true)
     form = Widget::Form.new
-    input = Widget::Input.new
+    input = Widget::AbstractInteractive.new
     form.append input
     screen.append form
 
     without_default_theme do
       screen.stylesheet = <<-CSS
         Form { color: white; }
-        Form:has(Input:focus) { color: green; }
+        Form:has(AbstractInteractive:focus) { color: green; }
         CSS
       screen.apply_stylesheet
       form.styles.normal.fg.should eq rgb("white") # nothing focused

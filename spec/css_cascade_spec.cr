@@ -37,12 +37,12 @@ describe "CSS cascade" do
 
   it "matches the type chain so a base-class rule styles subclasses" do
     screen = headless_screen(default_quit_keys: true)
-    button = Widget::Button.new  # Button < Input
-    check = Widget::CheckBox.new # CheckBox < Input
+    button = Widget::Button.new  # Button < AbstractInteractive
+    check = Widget::CheckBox.new # CheckBox < AbstractInteractive
     screen.append button
     screen.append check
 
-    screen.stylesheet = "Input { color: magenta; }"
+    screen.stylesheet = "AbstractInteractive { color: magenta; }"
     screen.apply_stylesheet
 
     button.styles.normal.fg.should eq rgb("magenta")
@@ -97,7 +97,7 @@ describe "CSS cascade" do
   it "routes sub-element rules into the matching sub-style without leaking" do
     screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
-    box.scrollbar = true
+    box.scrollbar_policy = :as_needed
     screen.append box
 
     screen.stylesheet = <<-CSS
@@ -174,9 +174,12 @@ describe "CSS cascade" do
         CSS
       screen.apply_stylesheet
 
-      # base-only widget: no distinct focused style built, lazily resolves to normal
-      base_only.styles.focused.should be base_only.styles.normal
-      stateful.styles.focused.should_not be stateful.styles.normal # distinct style exists
+      # base-only widget: no distinct focused style built; the slot lazily
+      # resolves to normal (the copy-on-write named getter would materialize,
+      # so the non-materializing `#[]`/`own_*?` forms are asserted).
+      base_only.styles.own_focused?.should be_false
+      base_only.styles[WidgetState::Focused].should be base_only.styles.normal
+      stateful.styles.own_focused?.should be_true # distinct style exists
       stateful.styles.focused.fg.should eq rgb("green")
     end
   end

@@ -149,7 +149,7 @@ end
 describe "BUGS-F2 21: per-line attr cache refreshes on a single-line base-style change" do
   it "recomputes the packed attr array when the default style changes" do
     s = headless_screen(80, 24)
-    box = Widget::Box.new parent: s, scrollable: true, scrollbar: false,
+    box = Widget::Box.new parent: s, scrollable: true, scrollbar_policy: :always_off,
       width: 10, height: 3, content: "hi"
     s.update
     before = box.wrapped_lines.attr.not_nil![0]

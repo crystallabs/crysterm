@@ -38,13 +38,47 @@ module Crysterm
       # The panes, in order.
       getter panes = [] of Widget
 
-      @dividers = [] of Box
+      @dividers = [] of Divider
 
-      # The dividers (one fewer than `#panes`), in order. A copy: these boxes are
-      # the splitter's own machinery, and adding or dropping one here would leave
-      # them out of step with the pane list. Move one with
-      # `#set_divider_position`; add panes with `#add_widget`.
-      def dividers : Array(Box)
+      # One divider of a `Splitter`: the draggable one-cell `Box` between two
+      # panes, and the item object through which its offset is read and moved:
+      #
+      # ```
+      # splitter.dividers[0].position = 20
+      # ```
+      #
+      # Replaces the old `#divider_position(i)` / `#set_divider_position(i, pos)`
+      # getter/setter pair.
+      # Excluded from the DOM-loader registry: a divider only exists as part of
+      # its `Splitter` (see `Crysterm::DOM::Skip`).
+      @[::Crysterm::DOM::Skip]
+      class Divider < Box
+        # The splitter this divider belongs to, and which split it marks
+        # (`#index` `i` separates pane `i` from pane `i + 1`).
+        getter index : Int32
+
+        def initialize(@owner : Splitter, @index : Int32, **box)
+          super **box
+        end
+
+        # This divider's offset along the split axis, in content cells.
+        def position : Int32
+          @owner.position_of @index
+        end
+
+        # Moves this divider, clamped so neither neighbor pane collapses below
+        # one cell, and re-lays the splitter out.
+        def position=(pos : Int) : Int32
+          @owner.move_divider @index, pos
+          position
+        end
+      end
+
+      # The dividers (one fewer than `#panes`), in order. A copy of the array:
+      # these boxes are the splitter's own machinery, and adding or dropping one
+      # here would leave them out of step with the pane list. Move one with
+      # `dividers[i].position =`; add panes with `#add_widget`.
+      def dividers : Array(Divider)
         @dividers.dup
       end
 
@@ -53,7 +87,7 @@ module Crysterm
       @positions = [] of Int32
 
       # Whether the user has set a divider explicitly (drag, keys, or an explicit
-      # `set_divider_position`). Until then, panes re-even to the current span on every
+      # `dividers[i].position =`). Until then, panes re-even to the current span on every
       # layout, so a splitter sized by a layout engine settles at its final size
       # rather than an early, wrong distribution. Once adjusted, only clamps.
       @user_positioned = false
@@ -230,13 +264,15 @@ module Crysterm
 
       # --- General divider control ---------------------------------------------
 
-      def divider_position(i : Int) : Int32
+      # Divider *i*'s offset along the split axis. Reached through
+      # `Divider#position`, which is the public spelling.
+      protected def position_of(i : Int) : Int32
         @positions[i]? || 0
       end
 
       # Sets divider *i*'s offset (clamped so neither neighbor pane collapses
-      # below one cell) and re-lays out.
-      def set_divider_position(i : Int, pos : Int) : Nil
+      # below one cell) and re-lays out. Reached through `Divider#position=`.
+      protected def move_divider(i : Int, pos : Int) : Nil
         return unless 0 <= i < @positions.size
         @user_positioned = true
         @positions[i] = clamp_position(i, pos.to_i)
@@ -251,8 +287,9 @@ module Crysterm
       # (themed via `.divider { ... }`). The single construction site for both
       # `#add_widget` and `#rebuild_dividers`; callers push the matching
       # `@positions << 0` themselves to keep the divider/position counts in step.
-      private def make_divider(idx : Int) : Box
-        div = Box.new(
+      private def make_divider(idx : Int) : Divider
+        div = Divider.new(
+          self, idx.to_i,
           parent: self,
           draggable: true,
           keys: true,
@@ -263,7 +300,7 @@ module Crysterm
         div
       end
 
-      private def wire_divider(div : Box, i : Int)
+      private def wire_divider(div : Divider, i : Int)
         # Drive the split from the pointer position relative to the splitter's
         # content origin, not the built-in `draggable` reposition, which moves
         # `left`/`top` in parent-relative terms — only correct at the window
@@ -274,9 +311,9 @@ module Crysterm
           # a scrolled container isn't offset by the enclosing scroll base.
           origin_x, origin_y = painted_origin
           if horizontal?
-            set_divider_position i, e.x - origin_x - ileft
+            move_divider i, e.x - origin_x - ileft
           else
-            set_divider_position i, e.y - origin_y - itop
+            move_divider i, e.y - origin_y - itop
           end
         end
 
@@ -284,10 +321,10 @@ module Crysterm
           dec = horizontal? ? Tput::Key::Left : Tput::Key::Up
           inc = horizontal? ? Tput::Key::Right : Tput::Key::Down
           if e.key == dec
-            set_divider_position i, divider_position(i) - 1
+            move_divider i, position_of(i) - 1
             e.accept
           elsif e.key == inc
-            set_divider_position i, divider_position(i) + 1
+            move_divider i, position_of(i) + 1
             e.accept
           end
         end

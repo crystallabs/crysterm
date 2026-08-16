@@ -33,10 +33,11 @@ module Crysterm
       # sits left-most of the right group (Qt's `addPermanentWidget` order).
       @permanent = [] of String
 
-      # A snapshot of the permanent sections. A copy, not the live array: the
-      # render string is cached against the sections, so mutating them behind
-      # the bar's back would paint stale text. Add and remove through
-      # `#add_permanent`/`#clear_permanent`, which keep the cache honest.
+      # A snapshot of the permanent sections' texts. A copy, not the live array:
+      # the render string is cached against the sections, so mutating them
+      # behind the bar's back would paint stale text. Add and remove through
+      # `#add_permanent`/`#clear_permanent`, and rewrite one through its
+      # `Section` handle — all of which keep the cache honest.
       def permanent : Array(String)
         @permanent.dup
       end
@@ -100,20 +101,65 @@ module Crysterm
         text
       end
 
-      # Appends a permanent right-aligned section (Qt's `addPermanentWidget`,
-      # specialized to a text label). Returns the section's index, usable with
-      # `#set_permanent` to update it in place.
-      def add_permanent(text : String) : Int32
-        @permanent << text
-        rebuild_permanent
-        @permanent.size - 1
+      # One permanent (right-aligned) section of a `StatusBar` — the handle
+      # `#add_permanent` returns, through which the section's text is read and
+      # rewritten in place:
+      #
+      # ```
+      # pos = bar.add_permanent "Ln 1, Col 1"
+      # pos.text = "Ln 4, Col 12"
+      # ```
+      #
+      # Replaces the old index-plus-`#set_permanent(index, text)` pair. A handle
+      # is a *view*: it holds a position, not a copy, so it goes stale if
+      # sections are removed around it — take a fresh one from
+      # `#permanent_sections`.
+      struct Section
+        # The owning bar and this section's position in it.
+        getter owner : StatusBar
+        getter index : Int32
+
+        def initialize(@owner, @index)
+        end
+
+        # This section's text.
+        def text : String
+          @owner.permanent_at(@index) || ""
+        end
+
+        # Replaces this section's text — the idiom for live sections like a
+        # `Ln, Col` readout. A no-op when the text is unchanged (or the handle
+        # is stale).
+        def text=(value : String) : String
+          @owner.rewrite_permanent @index, value
+          value
+        end
       end
 
-      # Replaces the permanent section at *index* (as returned by
-      # `#add_permanent`) with *text* — the idiom for live sections like a
-      # `Ln, Col` readout. A no-op when *index* is out of range or the text is
-      # unchanged.
-      def set_permanent(index : Int32, text : String) : Nil
+      # Appends a permanent right-aligned section (Qt's `addPermanentWidget`,
+      # specialized to a text label) and returns its `Section` handle, through
+      # which it can be updated in place.
+      def add_permanent(text : String) : Section
+        @permanent << text
+        rebuild_permanent
+        Section.new self, @permanent.size - 1
+      end
+
+      # Handles for every permanent section, in order — the item-object face of
+      # the bar (`bar.permanent_sections[0].text = "…"`).
+      def permanent_sections : Array(Section)
+        Array(Section).new(@permanent.size) { |i| Section.new(self, i) }
+      end
+
+      # The live text at *index*, for `Section#text`.
+      protected def permanent_at(index : Int32) : String?
+        return unless index >= 0
+        @permanent[index]?
+      end
+
+      # Rewrites the section at *index*; out of range (or unchanged) is a no-op.
+      # Reached through `Section#text=`, which is the public spelling.
+      protected def rewrite_permanent(index : Int32, text : String) : Nil
         return unless 0 <= index < @permanent.size
         return if @permanent[index] == text
         @permanent[index] = text

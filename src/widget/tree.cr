@@ -68,7 +68,7 @@ module Crysterm
         # which the first `Tree#add` then honors.
         def expanded=(value : Bool) : Bool
           if t = @tree
-            t.set_expanded self, value
+            t.apply_node_expanded self, value
           else
             @expanded = value
           end
@@ -416,18 +416,23 @@ module Crysterm
       # Expands *node* (a no-op for a leaf or an already-expanded node), refreshes
       # the view, and emits `Event::Expanded`.
       def expand(node : Node) : Nil
-        set_expanded node, true
+        apply_node_expanded node, true
       end
 
       # Collapses *node*, refreshes the view, and emits `Event::Collapsed`.
       def collapse(node : Node) : Nil
-        set_expanded node, false
+        apply_node_expanded node, false
       end
 
       # Sets *node*'s expanded state, rebuilds the flattened view, and emits
       # `Event::Expanded`/`Event::Collapsed`. A no-op for a leaf or an unchanged
       # state. The single funnel every expand/collapse path goes through.
-      def set_expanded(node : Node, expanded : Bool) : Nil
+      #
+      # Not public: the public spellings are `Node#expanded=` / `#expand` /
+      # `#collapse` / `#toggle`, which all land here. A public
+      # `set_expanded(node, bool)` beside `Node#expanded=` was a fourth way to
+      # say the same thing.
+      protected def apply_node_expanded(node : Node, expanded : Bool) : Nil
         return if node.leaf? || node.expanded? == expanded
         if expanded
           apply_expanded node, true, Crysterm::Event::Expanded

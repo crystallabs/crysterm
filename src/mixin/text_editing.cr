@@ -36,6 +36,19 @@ module Crysterm
       # this false so finishing leaves focus put.
       property? rewind_on_done : Bool = true
 
+      # Greyed-out prompt shown while the buffer is empty, like Qt's
+      # `QLineEdit#placeholderText` / `QPlainTextEdit#placeholderText`. It is
+      # purely visual: `#value` stays empty. Honored by every text widget
+      # (`LineEdit`, `PlainTextEdit`, `TextEdit`), which is why it lives here
+      # rather than on the single-line field.
+      property placeholder_text : String = ""
+
+      # Whether the placeholder — not the (empty) buffer — is what should be
+      # drawn right now.
+      def placeholder_visible? : Bool
+        !@placeholder_text.empty? && value.empty?
+      end
+
       # The buffer's text — Qt's `QLineEdit#text` / `QPlainTextEdit#toPlainText`,
       # and the name to reach for on a text widget.
       #

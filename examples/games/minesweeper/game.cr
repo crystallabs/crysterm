@@ -165,7 +165,7 @@ class Minesweeper
       height: @rows + 2,
       title: " MINESWEEPER ",
       parse_tags: true,
-      style: Style.new(fg: "white", border: true, margin: :top, shadow: true)
+      style: Style.new(fg: "white", border: true, margin: Margin.top, shadow: true)
 
     @status = StatusBar.new \
       parent: frame,

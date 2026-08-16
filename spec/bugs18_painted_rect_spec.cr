@@ -107,7 +107,7 @@ describe "BUGS18 B18-40: MenuBar#open in a scrolled container" do
     lp = bar.lpos.not_nil!
     lp.yi.should eq bar.atop - k # painted above the layout row
 
-    bar.open 0
+    bar.open_menu 0
     menu = bar.menus[0]
     menu.visible?.should be_true
     # Guards against `atop + aheight`, which would drop the menu k rows below

@@ -95,12 +95,10 @@ module Crysterm
         frames : Array(String)? = nil,
         spinner : Spinner? = nil,
         single_step : Int32? = nil,
-        step : Int32? = nil,
         **box,
       )
-        # `single_step:` is the blessed spelling; `step:` stays accepted as a
-        # compatibility alias, `single_step:` winning when both are given.
-        @single_step = single_step || step || 1
+        # `single_step:` is the Qt-parity spelling and the only one accepted.
+        @single_step = single_step || 1
 
         box["content"]?.try do |c|
           @orig_text = c

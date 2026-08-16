@@ -11,7 +11,7 @@ include Crysterm
 describe "Mixin::ActionBar#render content origin" do
   it "places the first item at the content origin (not double-inset) under left padding" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.style.padding = Crysterm::Padding.new 4, 0, 0, 0
     bar.items = ["a", "b", "c"]
     s.repaint
@@ -25,7 +25,7 @@ describe "Mixin::ActionBar#render content origin" do
 
   it "keeps successive items packed by their own widths from the content origin" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.style.padding = Crysterm::Padding.new 4, 0, 0, 0
     bar.items = ["a", "b"]
     s.repaint

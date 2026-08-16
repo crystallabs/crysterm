@@ -1,12 +1,11 @@
 require "../../chat/diff"
-require "../question"
-require "../message"
+require "../message_box"
 
 module Crysterm
   class Widget
     module Chat
       # Chat-flavored permission/confirmation prompts: thin presenters over
-      # the stock `Question`/`Message` dialogs. `Question` already carries the
+      # the stock `MessageBox` dialog. `MessageBox` already carries the
       # OK/Cancel button pair, the y/n/Enter/Escape accelerator and the
       # `DialogButtonBox`-backed multi-choice form, so these helpers only
       # build, size and style — the result protocol and key wiring are
@@ -17,15 +16,15 @@ module Crysterm
       # `popup` CSS class for theming.
       module Dialogs
         # Pops a yes/no confirmation over *window* and delivers the answer to
-        # *block* (`Question#ask` semantics: Enter/`y`/OK → `true`,
+        # *block* (`MessageBox#open` semantics: Enter/`y`/OK → `true`,
         # Escape/`q`/`n`/Cancel → `false`). Returns the dialog; size defaults
-        # fit the text and are overridable via *opts* (any `Question.new`
+        # fit the text and are overridable via *opts* (any `MessageBox.new`
         # keyword).
         def self.confirm(window : ::Crysterm::Window, text : String, *,
                          ok : String = "Yes", cancel : String = "No",
-                         **opts, &block : Bool ->) : Question
+                         **opts, &block : Bool ->) : MessageBox
           q = build_question window, text, ok, cancel, opts
-          q.ask(text) { |answer| block.call answer }
+          q.open(text) { |answer| block.call answer }
           q
         end
 
@@ -36,7 +35,7 @@ module Crysterm
         def self.confirm_diff(window : ::Crysterm::Window, text : String,
                               diff : String, *, context : Int32? = nil,
                               ok : String = "Yes", cancel : String = "No",
-                              **opts, &block : Bool ->) : Question
+                              **opts, &block : Bool ->) : MessageBox
           # One parse/trim: the tagged body and the plain sizing form are two
           # projections of the same classified lines. Sizing uses the untagged
           # form — tag markup occupies no cells.
@@ -44,42 +43,42 @@ module Crysterm
           body = "#{text}\n\n#{ls.join('\n', &.styled)}"
           plain = "#{text}\n\n#{ls.join('\n', &.text)}"
           q = build_question window, plain, ok, cancel, opts
-          q.ask(body) { |answer| block.call answer }
+          q.open(body) { |answer| block.call answer }
           q
         end
 
-        # Pops a row of *choices* (a `DialogButtonBox` per `Question#ask_choices`)
+        # Pops a row of *choices* (a `DialogButtonBox` per `MessageBox#open`'s `choices:` form)
         # and delivers the picked 0-based index — `nil` when dismissed with
         # Escape — to *block*.
         def self.choose(window : ::Crysterm::Window, text : String,
                         choices : Array(String), *, default : Int32 = 0,
-                        **opts, &block : Int32? ->) : Question
+                        **opts, &block : Int32? ->) : MessageBox
           q = build_question window, text, nil, nil, opts
-          q.ask_choices(text, choices: choices, default: default) { |idx| block.call idx }
+          q.open(text, choices: choices, default: default) { |idx| block.call idx }
           q
         end
 
-        # Pops a transient notice via `Message`: dismissed on *time* elapsing,
+        # Pops a transient notice via `MessageBox`: dismissed on *time* elapsing,
         # or on the next keypress when *time* is nil/zero.
         def self.notice(window : ::Crysterm::Window, text : String,
                         time : Time::Span? = ::Crysterm::Config.message_display_time,
-                        **opts) : Message
-          # `Message` already defaults to tag-parsing + shrink-to-fit, so only
+                        **opts) : MessageBox
+          # `MessageBox` already defaults to tag-parsing + shrink-to-fit, so only
           # placement is supplied here.
           merged = {parent: window, top: "center", left: "center"}.merge(opts)
-          m = Message.new(**merged)
+          m = MessageBox.new(**merged)
           m.add_css_class "popup"
-          m.display text, time
+          m.open text, time
           m
         end
 
-        # Builds the shared centered, tag-parsing, `popup`-classed `Question`,
+        # Builds the shared centered, tag-parsing, `popup`-classed `MessageBox`,
         # sized to *measure* unless *opts* override.
-        private def self.build_question(window, measure : String, ok, cancel, opts) : Question
+        private def self.build_question(window, measure : String, ok, cancel, opts) : MessageBox
           width, height = fit window, measure
           merged = {parent: window, top: "center", left: "center",
                     width: width, height: height, parse_tags: true}.merge(opts)
-          q = Question.new(ok, cancel, **merged)
+          q = MessageBox.new(ok, cancel, **merged)
           q.add_css_class "popup"
           q
         end

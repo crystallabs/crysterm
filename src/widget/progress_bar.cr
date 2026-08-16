@@ -11,7 +11,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ProgressBar screenshot](../../tests/widget/progressbar/progressbar.5s.apng)
     # <!-- /widget-examples:capture -->
-    class ProgressBar < Input
+    class ProgressBar < AbstractInteractive
       include Mixin::RangeText
       include Mixin::TrackGeometry
 
@@ -94,29 +94,38 @@ module Crysterm
       # be driven by either). Kept as `keys`/`mouse` rather than folded into one
       # `enabled?`: they toggle independently, and `enabled?` already carries Qt's
       # distinct widget enabled/disabled meaning.
-      property? keys : Bool = true
+      #
+      # Both default **off**: Qt's `QProgressBar` is a read-only `NoFocus`
+      # indicator — the interactive value control is `QSlider` — so a progress
+      # bar neither takes focus nor edits its value unless asked to. Opt in with
+      # `keys: true` (arrow keys step the value, and the bar becomes focusable)
+      # and/or `mouse: true` (click/drag sets it).
+      property? keys : Bool = false
       property? mouse : Bool = false
+
+      # Not focusable by default: `Mixin::Interactive` (via `AbstractInteractive`)
+      # sets `@input = true` for the text widgets, which would derive a `Strong`
+      # focus policy here. A read-only indicator must be skipped by Tab. Passing
+      # `keys: true` re-enables focus through the ordinary `keys?` derivation in
+      # `#focus_policy`.
+      @input = false
 
       @value : Int32 = 0
 
       def initialize(
-        percent : Int32? = nil,
         value : Int32? = nil,
         @minimum = 0,
         @maximum = 100,
         single_step : Int32? = nil,
-        step : Int32? = nil,
         @text_visible = false,
         @format = "%p%",
-        @keys = true,
+        @keys = false,
         @mouse = false,
         @orientation = @orientation,
         **input,
       )
-        # `single_step:` is the blessed Qt-parity spelling; `step:` is accepted
-        # as a compatibility alias for consistency with the other ranged
-        # widgets, `single_step:` winning when both are given.
-        @single_step = single_step || step || 5
+        # `single_step:` is the Qt-parity spelling and the only one accepted.
+        @single_step = single_step || 5
 
         super **input
 
@@ -126,12 +135,15 @@ module Crysterm
         # `minimum`, matching Qt's `setRange`.
         @maximum = @minimum if @maximum < @minimum
 
-        # `value` (domain units) takes precedence over `percent`; default to the
-        # minimum (empty bar).
+        # `value` is the one constructor spelling of the bar's state (domain
+        # units, Qt's `QProgressBar#value`); default to the minimum (empty bar).
+        # `#percent` stays a full read/write property — it is the derived 0..100
+        # *view* of `#value`, not a second way to seed it — so a caller wanting
+        # to start at a percentage assigns `bar.percent = 50` after
+        # construction, and there is no silent precedence between two
+        # constructor arguments naming the same state.
         if value
           self.value = value
-        elsif percent
-          self.percent = percent
         else
           @value = @minimum
         end

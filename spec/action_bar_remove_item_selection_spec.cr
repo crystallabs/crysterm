@@ -8,7 +8,7 @@ private def abr_render(s)
   s.repaint
 end
 
-# `Mixin::ActionBar#remove_item` (command model behind `Widget::ListBar`,
+# `Mixin::ActionBar#remove_item` (command model behind `Widget::CommandBar`,
 # `MenuBar`, `ToolBar`) must keep the selection cursor on the same logical
 # command when an earlier command is removed: commands at and after the
 # deletion shift down by one, so `selected` (= `left_base + left_offset`) must
@@ -17,7 +17,7 @@ end
 describe "Mixin::ActionBar#remove_item selection alignment" do
   it "slides the cursor down when an earlier command is removed" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c", "d"]
     abr_render s
     bar.current_index = 2 # "c"
@@ -32,7 +32,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
 
   it "keeps the last selected command valid after removing an earlier one" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
     bar.current_index = 2 # "c" (the last command)
@@ -46,7 +46,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
 
   it "leaves the cursor untouched when a later command is removed" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
     bar.current_index = 0 # "a"
@@ -59,7 +59,7 @@ describe "Mixin::ActionBar#remove_item selection alignment" do
 
   it "still selects the prior command when the selected one itself is removed" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
     abr_render s
     bar.current_index = 2 # "c"

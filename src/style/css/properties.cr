@@ -809,7 +809,7 @@ module Crysterm
           # Negative padding is an invalid CSS declaration; clamp each resolved
           # side to >= 0 (margin, which shares parse_sides, keeps negatives).
           l, t, r, b = sides
-          Padding.new(Math.max(0, l), Math.max(0, t), Math.max(0, r), Math.max(0, b))
+          Padding.ltrb(Math.max(0, l), Math.max(0, t), Math.max(0, r), Math.max(0, b))
         else
           Padding.default
         end

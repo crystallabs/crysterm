@@ -294,11 +294,28 @@ module Crysterm
         # fallbacks; an inline `@style` (returned above) is never touched. These
         # fallbacks are no-ops under any theme (`css_styled`).
         st = per_state_style
+        # The programmatic `styles.checked` slot: while the widget reports
+        # `#style_checked?`, an own checked style replaces a result that would
+        # otherwise fall back to `normal`. An explicitly-set slot for the
+        # current state still wins (the more specific choice), and under CSS
+        # the cascade owns checked styling via `[checked]` rules (this branch
+        # is only reached un-cascaded).
+        if style_checked? && @styles.own_checked? && (@state.normal? || !@styles.own?(@state))
+          st = @styles.checked
+        end
         case @state
         when .focused?  then focus_highlight_fallback st
         when .selected? then selection_highlight_fallback st
         else                 st
         end
+      end
+
+      # Whether the widget is in its checked state for styling purposes —
+      # consulted by `#resolve_style` for the `styles.checked` slot, parallel
+      # to CSS's `[checked]` attribute. Checkable controls override this with
+      # `checkable? && checked?`.
+      def style_checked? : Bool
+        false
       end
 
       # Whether this widget should carry a default structural border at the

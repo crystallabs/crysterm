@@ -44,8 +44,8 @@ module Crysterm
       # The action backing each button box (absent for plain buttons/separators).
       @item_actions = {} of Widget::Box => Action
 
-      def initialize(**listbar)
-        super(**listbar.merge(keys: true))
+      def initialize(**command_bar)
+        super(**command_bar.merge(keys: true))
         # Window chrome: the window's Tab/Shift+Tab cycle steps over the bar by
         # default (as in Qt, a tool bar is reached by click or its actions'
         # accelerators, not the Tab chain). A click still focuses it, and

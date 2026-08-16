@@ -40,8 +40,8 @@ module Crysterm
 
           @style = Style.new reverse: true
           # Padding.new order is (left, top, right, bottom).
-          style_pl2 = Style.new reverse: true, padding: Padding.new(2, 0, 0, 0)
-          style_pr2 = Style.new reverse: true, padding: Padding.new(0, 0, 2, 0)
+          style_pl2 = Style.new reverse: true, padding: Padding.left(2)
+          style_pr2 = Style.new reverse: true, padding: Padding.right(2)
 
           section_width = "100%-#{title_width + info_width}"
 

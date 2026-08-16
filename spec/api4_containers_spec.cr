@@ -113,16 +113,17 @@ describe "API4 container/menu additions" do
   end
 
   describe "Widget::Wizard#count (A4-40)" do
-    it "is an alias of #page_count" do
+    it "counts pages through Mixin::PagedContainer" do
       win = headless_screen(40, 20, default_quit_keys: true)
       wiz = Widget::Wizard.new parent: win, width: 50, height: 16
-      wiz.count.should eq wiz.page_count
       wiz.count.should eq 0
+      wiz.pages.size.should eq 0
 
       wiz.add_page "Intro", Widget::Box.new(content: "Welcome")
       wiz.add_page "Details", Widget::Box.new(content: "Info")
       wiz.count.should eq 2
-      wiz.count.should eq wiz.page_count
+      wiz.pages.size.should eq 2
+      wiz.current_index.should eq 0
     end
   end
 

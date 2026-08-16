@@ -26,7 +26,6 @@ module Crysterm
       # <!-- /widget-examples:capture -->
       class ProgressBar < ::Crysterm::Widget::ProgressBar
         def initialize(
-          percent : Int32? = nil,
           value : Int32? = nil,
           minimum = 0,
           maximum = 100,
@@ -40,7 +39,6 @@ module Crysterm
         )
           super(
             **input,
-            percent: percent,
             value: value,
             minimum: minimum,
             maximum: maximum,

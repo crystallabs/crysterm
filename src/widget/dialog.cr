@@ -4,7 +4,7 @@ module Crysterm
   class Widget
     # Abstract base for the dialog family, modeled after Qt's `QDialog`.
     #
-    # `ColorDialog`, `Message`, `Question`/`Prompt` and `Wizard` derive this,
+    # `ColorDialog`, `MessageBox`, `InputDialog` and `Wizard` derive this,
     # mirroring Qt where every standard dialog is a `QDialog` subclass.
     # (`DialogButtonBox` does *not*: Qt's `QDialogButtonBox` is a plain
     # `QWidget`, so it stays a `Box`.)
@@ -83,9 +83,10 @@ module Crysterm
       end
 
       # Shared presenter step: shows the dialog on top of its siblings with the
-      # modal input grab taken. Both `#open` and the concrete dialogs'
-      # block-based presenters (`ColorDialog#get_color`, `Question#ask`/
-      # `#ask_choices`, `Prompt#read_input`) funnel through here, so no
+      # modal input grab taken. Every dialog presents through the one verb
+      # `#open` — the no-argument form here and the concrete dialogs'
+      # block-based overloads (`ColorDialog#open`, `MessageBox#open`,
+      # `InputDialog#open`) — and all of them funnel through here, so no
       # presenter can show a "modal" dialog that leaves the widgets beneath it
       # clickable. `#done` (and `#destroy`) release the grab on every close
       # path.
@@ -95,13 +96,14 @@ module Crysterm
         self.modal = true
       end
 
-      # Shared prelude for the block-based presenters
-      # (`Question#ask`/`#ask_choices`, `Prompt#read_input`): sets the body to
-      # *text* (falling back to `@text`), shows the dialog modally, and primes
-      # `#result` to `Rejected` so a dismissal without an answer reads as
-      # rejected. Each presenter's own button/key wiring follows this call.
+      # Shared prelude for the block-based `#open` overloads
+      # (`MessageBox`'s question forms, `InputDialog#open`): sets the body to
+      # *text* (falling back to the content the dialog was built with), shows
+      # the dialog modally, and primes `#result` to `Rejected` so a dismissal
+      # without an answer reads as rejected. Each form's own button/key wiring
+      # follows this call.
       protected def begin_modal_content(text : String?) : Nil
-        set_content(text || @text)
+        set_content(text || content)
         # On top with the modal grab taken (`#show_modal`), so widgets beneath
         # the open dialog aren't clickable; every close path runs `#done`, which
         # releases the grab.
@@ -112,7 +114,19 @@ module Crysterm
       # Shows the dialog modally and returns **immediately** (Qt's
       # `QDialog#open`); the outcome arrives later on `Event::Finished` (or
       # `Accepted`/`Rejected`). This is the form to use from an event handler.
+      #
+      # Every dialog presents through this one verb: the concrete dialogs add
+      # block-taking `#open` *overloads* (a body text, a callback) on top of it
+      # rather than each inventing its own presentation name.
       def open : Nil
+        present_modal
+      end
+
+      # The body of the no-argument `#open`, callable from a subclass's own
+      # `#open` overload (which cannot reach it through `super`, the signatures
+      # not matching): prime `#result`, show modally, focus, install the
+      # Enter/Escape accelerator, render.
+      protected def present_modal : Nil
         @result = Code::Rejected.to_i
         show_modal
         focus

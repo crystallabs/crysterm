@@ -188,11 +188,11 @@ end
 describe "Message keypress-dismiss subscription cleanup (F2 #44)" do
   it "removes the window keypress handler on destroy" do
     s = headless_screen(80, 24)
-    msg = Crysterm::Widget::Message.new parent: s, width: 20, height: 3
+    msg = Crysterm::Widget::MessageBox.new parent: s, width: 20, height: 3
 
     before = s.handlers(Crysterm::Event::KeyPress).size
     # `display(text, nil)` arms a keypress-dismiss handler on the window.
-    msg.display("hi", nil) { }
+    msg.open("hi", nil) { }
     s.handlers(Crysterm::Event::KeyPress).size.should eq before + 1
 
     msg.destroy

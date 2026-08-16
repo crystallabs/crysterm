@@ -15,7 +15,7 @@ Crysterm::WidgetExample.run("ScrollableText",
   }) do |window|
   window.stylesheet = "ScrollableText { border: solid; color: #c0caf5; }"
   st = ScrollableText.new \
-    parent: window, top: "center", left: "center", width: 44, height: 9, scrollbar: true, keys: true,
+    parent: window, top: "center", left: "center", width: 44, height: 9, scrollbar_policy: :as_needed, keys: true,
     content: (1..40).map { |i| "Scrollable text line #{i}" }.join("\n")
   st.focus
 end

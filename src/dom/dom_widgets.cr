@@ -61,7 +61,7 @@ module Crysterm
       end
     end
 
-    # Action bars (ListBar / MenuBar / ToolBar) own their children the same way
+    # Action bars (CommandBar / MenuBar / ToolBar) own their children the same way
     # item views do: `#add_item` macro-builds one `Box` per command, so
     # serializing those boxes as `<w-box>` children would reload them as dead
     # lookalikes with an empty command model. Instead the command *model* is

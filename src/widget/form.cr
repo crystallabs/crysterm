@@ -254,7 +254,7 @@ module Crysterm
       private def field_value(el : Widget) : FieldValue?
         case el
         # Match `Mixin::TextEditing`, not `PlainTextEdit`: `LineEdit` is a
-        # sibling (`< Input`) that only shares the buffer via this mixin.
+        # sibling (`< AbstractInteractive`) that only shares the buffer via this mixin.
         when Mixin::TextEditing then el.value
           # `RadioButton`/`CheckBox` are siblings (both `< AbstractButton`), so
           # each needs its own arm.

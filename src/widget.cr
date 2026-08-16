@@ -299,6 +299,15 @@ module Crysterm
     # damage frame, addressing the overlap union-find. Transient scratch.
     protected property damage_idx : Int32 = -1
 
+    # Opts this widget into an unconditional repaint every frame under damage
+    # tracking — for a widget whose painted output changes without any tracked
+    # setter or style write (a custom `#paint` reading external state, a
+    # painter proc animating). Scoped to this widget's subtree, so one animated
+    # widget doesn't force the whole window to
+    # `OptimizationFlag::None`. Default off; one flag read per widget per
+    # selective frame.
+    property? repaints_every_frame : Bool = false
+
     # Schedules a coalesced repaint of this widget ↔ `QWidget::update()`. Safe
     # to call from any state-changing setter, and the thing to call after an
     # in-place change the tracked setters don't see (e.g. mutating a `Style`
@@ -649,9 +658,8 @@ module Crysterm
       @layout = @layout,
       layout_hint : Crysterm::Layout::Hint | Shorthands? = @layout_hint,
 
-      scrollbar : Bool? = nil,
-      @scrollbar_policy = @scrollbar_policy,
-      @horizontal_scrollbar_policy = @horizontal_scrollbar_policy,
+      scrollbar_policy : ScrollBarPolicy | Shorthands = @scrollbar_policy,
+      horizontal_scrollbar_policy : ScrollBarPolicy | Shorthands = @horizontal_scrollbar_policy,
       # TODO Make it configurable which side it appears on etc.
       @track = @track,
       # These scroll/track properties stay on the widget, not in `Style`: Qt keeps
@@ -670,6 +678,7 @@ module Crysterm
       @always_scroll = @always_scroll,
       # hover_bg=nil,
       @draggable = @draggable,
+      @repaints_every_frame = @repaints_every_frame,
       focused = false,
       @focus_on_click = @focus_on_click,
       @keys = @keys,
@@ -708,6 +717,8 @@ module Crysterm
 
       self.align = align
       self.overflow = overflow
+      self.scrollbar_policy = scrollbar_policy
+      self.horizontal_scrollbar_policy = horizontal_scrollbar_policy
       # Through the setter, so a bare `Border::Region` (`layout_hint: :top`) is
       # wrapped into a `Border::Hint`.
       self.layout_hint = layout_hint
@@ -762,12 +773,6 @@ module Crysterm
       # on(AddHandlerEvent) { |wrapper| }
       on(Crysterm::Event::Resize) { process_content }
       on(Crysterm::Event::Attached) { process_content }
-
-      # `scrollbar: true/false` sugar maps onto `#scrollbar_policy` (`true` ⇒
-      # `AsNeeded`, `false` ⇒ `AlwaysOff`); `nil` leaves the default.
-      unless scrollbar.nil?
-        self.scrollbar = scrollbar
-      end
 
       if @scrollable
         @_scroll_index_wired = true

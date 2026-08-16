@@ -21,7 +21,7 @@ private def make_fixture
   # Container at the window origin with asymmetric padding so every inset
   # (ileft=1, itop=2, iright=4, ibottom=3) is distinct.
   cont = Widget::Box.new parent: s, left: 0, top: 0, width: 40, height: 20,
-    style: Crysterm::Style.new(padding: Crysterm::Padding.new(1, 2, 4, 3))
+    style: Crysterm::Style.new(padding: Crysterm::Padding.ltrb(1, 2, 4, 3))
   {s, cont}
 end
 

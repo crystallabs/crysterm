@@ -79,7 +79,7 @@ describe "BUGS5 SpinBox typed entry on a wrap box (bug 2)" do
 
   it "still wraps on single-step overshoot (stepping past a bound)" do
     s = headless_screen(80, 24)
-    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, step: 1, value: 100, wrapping: true
+    sb = Crysterm::Widget::SpinBox.new parent: s, minimum: 0, maximum: 100, single_step: 1, value: 100, wrapping: true
     sb.step_up
     sb.value.should eq 0 # stepping (not typing) past the top still wraps
   end

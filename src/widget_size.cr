@@ -70,6 +70,7 @@ module Crysterm
         val = Dim.from val, size: true
         return if @{{ dim.id }} == val
         @{{ dim.id }} = val
+        css_note_geometry_write {{ dim.id }}: val
         update
         emit ::Crysterm::Event::Resize
       end
@@ -154,7 +155,14 @@ module Crysterm
     # Only an explicitly sized axis is affected: an `auto` (`nil`) size fills its
     # slot and a `#shrink_to_fit?` size is derived from content that is already
     # measured inside the insets, so on both the distinction has nothing to act on.
-    property box_sizing : BoxSizing = BoxSizing::BorderBox
+    getter box_sizing : BoxSizing = BoxSizing::BorderBox
+
+    # :ditto: — folds the write into the CSS geometry snapshot.
+    def box_sizing=(value : BoxSizing) : BoxSizing
+      @box_sizing = value
+      css_note_geometry_write box_sizing: value
+      value
+    end
 
     # :ditto: — accepts the CSS spellings (`"content-box"`, `:border_box`, ...).
     def box_sizing=(value : String | Symbol) : BoxSizing
@@ -212,6 +220,7 @@ module Crysterm
         @{{ dim.id }} = val
         @size_constrained = !(@min_width.nil? && @max_width.nil? &&
                               @min_height.nil? && @max_height.nil?)
+        css_note_geometry_write {{ dim.id }}: val
         update
         emit ::Crysterm::Event::Resize
       end

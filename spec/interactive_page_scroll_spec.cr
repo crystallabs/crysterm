@@ -9,7 +9,7 @@ include Crysterm
 describe "Mixin::Interactive page scroll with non-Int height" do
   it "pages down with Ctrl-D when height is a percentage" do
     s = headless_screen(80, 24)
-    input = Crysterm::Widget::Input.new(
+    input = Crysterm::Widget::AbstractInteractive.new(
       parent: s,
       width: "100%",
       height: "100%",
@@ -33,7 +33,7 @@ describe "Mixin::Interactive page scroll with non-Int height" do
 
   it "pages back up with Ctrl-U / Ctrl-B" do
     s = headless_screen(80, 24)
-    input = Crysterm::Widget::Input.new(
+    input = Crysterm::Widget::AbstractInteractive.new(
       parent: s,
       width: "100%",
       height: "100%",

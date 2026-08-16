@@ -1,5 +1,5 @@
 require "./box"
-require "./list_bar"
+require "./command_bar"
 require "../mixin/paged_container"
 require "../mixin/sub_style"
 
@@ -7,7 +7,7 @@ module Crysterm
   class Widget
     # Tabbed container, modeled after Qt's `QTabWidget`.
     #
-    # Shows a tab bar (a `Widget::ListBar`) along the top — or the bottom, with
+    # Shows a tab bar (a `Widget::CommandBar`) along the top — or the bottom, with
     # `#tab_position` — and a stack of pages filling the rest; selecting a tab
     # (arrow keys, a click, or programmatically) raises the matching page and
     # hides the others. Tab/Shift+Tab are left to the window's focus
@@ -43,11 +43,11 @@ module Crysterm
       end
 
       # The tab bar. (Built in `initialize` after `super`, hence `getter!`.)
-      getter! tab_bar : ListBar
+      getter! tab_bar : CommandBar
 
       # The tab titles, parallel to `#pages`. A copy: the live array backs the
       # bar's items, so mutating it directly would leave the two out of sync
-      # (retitle via `#set_tab_text`, add/remove via `#add_tab`/`#remove_tab`).
+      # (retitle via `tabs[i].text =`, add/remove via `#add_tab`/`#remove_tab`).
       def tab_titles : Array(String)
         @tab_titles.dup
       end
@@ -134,7 +134,7 @@ module Crysterm
 
         super **box
 
-        @tab_bar = ListBar.new(
+        @tab_bar = CommandBar.new(
           parent: self,
           top: @tab_position.top? ? 0 : nil,
           bottom: @tab_position.bottom? ? 0 : nil,
@@ -342,14 +342,65 @@ module Crysterm
         i
       end
 
-      # The title of the tab at *index*, or `nil` when out of range (Qt's `tabText`).
-      def tab_text(index : Int) : String?
-        return if index < 0
+      # One tab of a `TabWidget` — a live handle onto the tab at `#index`,
+      # through which its title is read and rewritten:
+      #
+      # ```
+      # tabs[1].text = "Bee"
+      # ```
+      #
+      # Replaces the old `#tab_text(i)` / `#set_tab_text(i, title)` getter/setter
+      # pair (Qt's `tabText`/`setTabText`, which exist there only because C++ has
+      # no such handle). A handle is a *view*: it holds an index, not a copy, so
+      # it goes stale if tabs are added, removed or moved around it — take a
+      # fresh one from `#tabs` after any such change.
+      struct Tab
+        # The owning widget and this tab's position in it.
+        getter owner : TabWidget
+        getter index : Int32
+
+        def initialize(@owner, @index)
+        end
+
+        # This tab's title (Qt's `tabText`).
+        def text : String
+          @owner.title_at(@index) || ""
+        end
+
+        # Retitles this tab, refreshing the bar (Qt's `setTabText`).
+        def text=(title : String) : String
+          @owner.retitle @index, title
+          title
+        end
+
+        # The page this tab shows, or `nil` if the handle is stale.
+        def page : Widget?
+          @owner.pages[@index]?
+        end
+      end
+
+      # Handles for every tab, in order — the item-object face of the widget
+      # (`tabs[i].text = "…"`). Rebuilt per call; see `Tab` on staleness.
+      def tabs : Array(Tab)
+        Array(Tab).new(@tab_titles.size) { |i| Tab.new(self, i) }
+      end
+
+      # The tab at *index*, or `nil` when out of range. Negative indices never
+      # count from the end.
+      def tab(index : Int) : Tab?
+        return unless 0 <= index < @tab_titles.size
+        Tab.new(self, index.to_i)
+      end
+
+      # The live title at *index* (no `#tab_titles` copy), for `Tab#text`.
+      protected def title_at(index : Int) : String?
+        return unless index >= 0
         @tab_titles[index]?
       end
 
-      # Retitles the tab at *index* (Qt's `setTabText`); out of range is a no-op.
-      def set_tab_text(index : Int, title : String) : Nil
+      # Retitles the tab at *index*; out of range is a no-op. Reached through
+      # `Tab#text=`, which is the public spelling.
+      protected def retitle(index : Int, title : String) : Nil
         return unless 0 <= index < @tab_titles.size
         return if @tab_titles[index] == title
         @tab_titles[index] = title
@@ -361,7 +412,7 @@ module Crysterm
       # Rebuilds the bar's items (re-deriving each title through
       # `#display_title`, so a `#tabs_closable=` toggle is picked up too) and
       # restores the current-tab highlight, which a rebuild resets. Shared by
-      # `#set_tab_text` and `#tabs_closable=`.
+      # `#retitle` (i.e. `Tab#text=`) and `#tabs_closable=`.
       private def refresh_bar_titles : Nil
         rebuild_bar
         @switching = true

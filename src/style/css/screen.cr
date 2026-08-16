@@ -126,12 +126,62 @@ module Crysterm
       css
     end
 
-    # Assigns an already-parsed stylesheet (or clears it with `nil`).
+    # Assigns an already-parsed stylesheet (or clears it with `nil` — which
+    # also drops any `#add_stylesheet` layers).
     def stylesheet=(sheet : CSS::Stylesheet?) : CSS::Stylesheet?
       @css_stylesheet = sheet
+      @css_extra_stylesheets.clear if sheet.nil?
       restyle
       @css_last_document = nil
       sheet
+    end
+
+    # Additional author-tier stylesheets layered over `#stylesheet` (a later
+    # sheet wins equal-specificity ties). Composition for a theme fragment or
+    # a component's rules that shouldn't replace the main sheet.
+    @css_extra_stylesheets = [] of CSS::Stylesheet
+
+    # Adds a stylesheet on top of the current one(s) without replacing them.
+    # Returns the parsed sheet. Cleared by `self.stylesheet = nil`.
+    def add_stylesheet(css : String) : CSS::Stylesheet
+      add_stylesheet CSS::Stylesheet.parse(css)
+    end
+
+    # :ditto:
+    def add_stylesheet(sheet : CSS::Stylesheet) : CSS::Stylesheet
+      @css_extra_stylesheets << sheet
+      restyle
+      @css_last_document = nil
+      # The `var()` merge derives from the sheet set; force its rebuild.
+      @css_variables = nil
+      @css_resolved = nil
+      sheet
+    end
+
+    # Reused collection of `{sheet, owner}` pairs for every widget in the tree
+    # carrying its own stylesheet (`Widget#stylesheet=`). Rebuilt per cascade;
+    # also consulted (one cascade stale at worst) by the `css_dynamic_state?`/
+    # `css_has_relational?`/`css_media_active?` probes.
+    @css_widget_sheets_cache = [] of Tuple(CSS::Stylesheet, Widget)
+
+    # A widget's own stylesheet set changed: force the next cascade (the CSS
+    # document text doesn't encode sheets, so the byte-identical skip must not
+    # swallow it).
+    def css_widget_sheets_changed : Nil
+      restyle
+      @css_last_document = nil
+    end
+
+    # Rebuilds `@css_widget_sheets_cache` from the current tree.
+    private def collect_css_widget_sheets : Array(Tuple(CSS::Stylesheet, Widget))
+      list = @css_widget_sheets_cache
+      list.clear
+      @children.each do |top|
+        top.self_and_each_descendant do |w|
+          w.css_stylesheets.each { |sheet| list << {sheet, w} }
+        end
+      end
+      list
     end
 
     # Whether `#load_stylesheet` automatically starts hot-reloading the loaded
@@ -248,6 +298,8 @@ module Crysterm
     # `#restyle_subtree` falls back to a full recompute.
     def css_has_relational? : Bool
       return true if @css_stylesheet.try(&.has_relational?)
+      return true if @css_extra_stylesheets.any?(&.has_relational?)
+      return true if @css_widget_sheets_cache.any?(&.[0].has_relational?)
       CSS.default_stylesheet.has_relational?
     end
 
@@ -272,6 +324,8 @@ module Crysterm
     # no recascade (the per-state styles are precomputed).
     def css_dynamic_state? : Bool
       return true if @css_stylesheet.try(&.dynamic_state?)
+      return true if @css_extra_stylesheets.any?(&.dynamic_state?)
+      return true if @css_widget_sheets_cache.any?(&.[0].dynamic_state?)
       CSS.default_stylesheet.dynamic_state?
     end
 
@@ -311,9 +365,13 @@ module Crysterm
     def apply_stylesheet : Nil
       author = @css_stylesheet
       default = CSS.default_stylesheet
-      # CSS is active whenever either an author or the default (theme)
-      # stylesheet has rules; with neither, widgets keep their programmatic look.
-      if (author.nil? || author.rules.empty?) && default.rules.empty?
+      widget_sheets = collect_css_widget_sheets
+      # CSS is active whenever an author sheet (window-level or `add_stylesheet`
+      # layer), a widget's own sheet, or the default (theme) stylesheet has
+      # rules; with none, widgets keep their programmatic look.
+      if (author.nil? || author.rules.empty?) && default.rules.empty? &&
+         @css_extra_stylesheets.all?(&.rules.empty?) &&
+         widget_sheets.all?(&.[0].rules.empty?)
         # No active rules: nothing to cascade. But a previous cascade's widgets
         # must not keep their computed styles — assigning a stylesheet restyles
         # everything, so clearing it must too. The cascade's reset-to-pristine
@@ -369,14 +427,16 @@ module Crysterm
       @css_last_document = document
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       doc = css_parsed_document(document)
-      # `Cascade.apply` folds the default stylesheet in beneath the author one;
-      # with no author sheet, the default (theme) runs by itself.
       variables, resolved = css_var_caches(author, default, generation)
-      if author
-        CSS::Cascade.apply author, self, doc, scope, variables, resolved
-      else
-        CSS::Cascade.apply_sheets [{default, CSS::Cascade::TIER_DEFAULT}], self, doc, scope, variables, resolved
-      end
+      # Sheet list, lowest tier first: default (theme), then the window-level
+      # author sheet plus any `add_stylesheet` layers, then each widget's own
+      # sheets — the latter scoped to their owner's subtree.
+      sheets = Array(Tuple(CSS::Stylesheet, Int32, Widget?)).new(2 + @css_extra_stylesheets.size + widget_sheets.size)
+      sheets << {default, CSS::Cascade::TIER_DEFAULT, nil}
+      author.try { |sheet| sheets << {sheet, CSS::Cascade::TIER_AUTHOR, nil} }
+      @css_extra_stylesheets.each { |sheet| sheets << {sheet, CSS::Cascade::TIER_AUTHOR, nil} }
+      widget_sheets.each { |(sheet, owner)| sheets << {sheet, CSS::Cascade::TIER_WIDGET, owner} }
+      CSS::Cascade.apply_sheets sheets, self, doc, scope, variables, resolved
       @css_widgets_styled = true
       clear_css_dirty
     end
@@ -395,6 +455,11 @@ module Crysterm
       variables = {} of String => String
       variables.merge! default.variables
       author.try { |sheet| variables.merge! sheet.variables }
+      # `add_stylesheet` layers merge over the main author sheet (later wins);
+      # `add_stylesheet` nils the caches, so this rebuild sees every layer.
+      # Widget-scoped sheets' variables are deliberately absent: the merge is
+      # document-global, and a subtree-scoped `--x` would leak tree-wide.
+      @css_extra_stylesheets.each { |sheet| variables.merge! sheet.variables }
       resolved = {} of String => String
       @css_variables = variables
       @css_resolved = resolved
@@ -581,6 +646,8 @@ module Crysterm
     # so a resize must re-run the cascade to re-evaluate their conditions.
     def css_media_active? : Bool
       return true if @css_stylesheet.try(&.has_media?)
+      return true if @css_extra_stylesheets.any?(&.has_media?)
+      return true if @css_widget_sheets_cache.any?(&.[0].has_media?)
       CSS.default_stylesheet.has_media?
     end
 

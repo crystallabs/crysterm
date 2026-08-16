@@ -31,7 +31,7 @@ describe "Menu Space on checkable rows" do
   it "toggles the highlighted checkable action without closing the menu" do
     s = headless_screen(80, 24)
     bar, menu, wrap, _ = checkable_menu(s)
-    bar.open 0
+    bar.open_menu 0
     menu.select_first_action # highlight "Wrap"
 
     press_char menu, ' '
@@ -47,7 +47,7 @@ describe "Menu Space on checkable rows" do
   it "keeps Enter as activate-and-close, even on a checkable row" do
     s = headless_screen(80, 24)
     bar, menu, wrap, _ = checkable_menu(s)
-    bar.open 0
+    bar.open_menu 0
     menu.select_first_action
 
     press menu, Tput::Key::Enter
@@ -59,7 +59,7 @@ describe "Menu Space on checkable rows" do
   it "keeps Space as activate-and-close on a non-checkable row" do
     s = headless_screen(80, 24)
     bar, menu, _wrap, plain_fired = checkable_menu(s)
-    bar.open 0
+    bar.open_menu 0
     menu.select_first_action
     press menu, Tput::Key::Down # onto "Reload"
 

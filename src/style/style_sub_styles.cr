@@ -7,14 +7,26 @@ module Crysterm
     # Each subelement below is styled individually; if undefined, it defaults to
     # the main/parent style. Keep the list sorted alphabetically.
 
-    # Declares a nested sub-`Style` *slot*: a `setter` plus a getter that falls
+    # Declares a nested sub-`Style` *slot*: a `setter`, a getter that falls
     # back to *fallback* (`self` for most slots, `cell` for the alternate row)
-    # when the slot was never explicitly assigned.
+    # when the slot was never explicitly assigned, and a `?` reader returning
+    # only an explicitly-assigned sub-style.
+    #
+    # The fallback getter follows the base style *live* (render paths depend
+    # on that), so a write through it (`style.title.fg = ...`) with the slot
+    # unset lands on the base style. To address only the slot, assign a
+    # `Style` to the setter, or read the `?` variant and handle `nil`.
     private macro sub_style_accessor(name, fallback = "self")
       setter {{ name.id }} : Style?
 
       def {{ name.id }}
         @{{ name.id }} || {{ fallback.id }}
+      end
+
+      # The explicitly-assigned `{{ name.id }}` sub-style, or `nil` when unset
+      # — never the `{{ fallback.id }}` fallback the plain getter returns.
+      def {{ name.id }}? : Style?
+        @{{ name.id }}
       end
     end
 
@@ -27,7 +39,7 @@ module Crysterm
     sub_style_accessor item
 
     # Style used for the numeric/letter prefix shown before each
-    # `Widget::ListBar` command (e.g. the `1` in `1:open`). Defaults to `self`.
+    # `Widget::CommandBar` command (e.g. the `1` in `1:open`). Defaults to `self`.
     sub_style_accessor prefix
 
     # Style used for a `Widget::Menu` separator rule (Qt's `QMenu::separator`).

@@ -18,7 +18,7 @@ class X
       style: Style.new(bg: "blue", scrollbar: Style.new(bg: "red"), track: Style.new(fill_char: '▒')),
       track: true,
       input_on_focus: true,
-      scrollbar: true
+      scrollbar_policy: :as_needed
 
     s.append i
 

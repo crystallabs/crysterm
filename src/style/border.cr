@@ -1247,7 +1247,11 @@ module Crysterm
         # alias (`:right`, `:horizontal`, ...) — one cell on the named side(s).
         SidedGeometry.new_from_side value
       in Int
-        Border.new value, value, value, value
+        new value, value, value, value
+      in Tuple(Int32, Int32), Tuple(Int32, Int32, Int32, Int32)
+        # CSS shorthand orders: `{vertical, horizontal}` / `{top, right,
+        # bottom, left}`.
+        SidedGeometry.from_tuple_arms value
       end
     end
 

@@ -15,7 +15,7 @@ box = ScrollableBox.new(
   parent: s,
   scrollable: true,
   always_scroll: true,
-  scrollbar: true,
+  scrollbar_policy: :as_needed,
   height: 10,
   width: 30,
   top: "center",

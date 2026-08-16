@@ -27,13 +27,13 @@ module Crysterm
     #
     # On Ok it emits `Event::Activated` (the chosen `"#rrggbb"` hex) and
     # `Event::Accepted`; on Cancel/Escape it emits `Event::Rejected`. Either way
-    # it closes through `Dialog#done`. `#get_color` delivers the hex (or `nil` when
+    # it closes through `Dialog#done`. `#open` delivers the hex (or `nil` when
     # cancelled) to a block, restoring the previously-focused widget.
     #
     # ```
     # dialog = Widget::ColorDialog.new parent: window, top: "center", left: "center",
     #   width: 56, height: 20, style: Style.new(border: true)
-    # dialog.get_color { |hex| theme.accent = hex if hex }
+    # dialog.open { |hex| theme.accent = hex if hex }
     # ```
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
@@ -168,7 +168,7 @@ module Crysterm
       def self.pick(window : ::Crysterm::Window, **opts, &block : String? -> Nil) : ColorDialog
         # 56x20 is the smallest size whose children don't spill past the border.
         cd = new(**{parent: window, top: :center, left: :center, width: 56, height: 20}.merge(opts))
-        cd.get_color(&block)
+        cd.open(&block)
         cd
       end
 
@@ -176,13 +176,13 @@ module Crysterm
       # cancel). Saves and later restores focus, takes the modal input grab
       # (Qt's `QColorDialog::getColor` is modal), and installs the modal Enter
       # (accept) / Escape (reject) accelerator.
-      def get_color(&block : String? -> Nil) : Nil
+      def open(&block : String? -> Nil) : Nil
         @callback = block
-        # Save the focus to restore on close *before* `#open` shows the dialog,
-        # then delegate the rest — `Dialog#open` is exactly this tail (prime
+        # Save the focus to restore on close *before* showing the dialog, then
+        # delegate the rest — `#present_modal` is exactly this tail (prime
         # `#result`, show modally, focus, install the accelerator, render).
         window.save_focus
-        open
+        present_modal
       end
 
       # Confirms the current color (Ok / Enter).
@@ -581,7 +581,7 @@ module Crysterm
       # The modal grab keeps that click from also activating whatever is beneath
       # it; the window-level `Event::Mouse`, emitted before hit-testing, still
       # delivers the coordinates here. While the dialog itself is modal
-      # (`#get_color`/`#open`) it already holds that grab — don't double-add,
+      # (either `#open` form) it already holds that grab — don't double-add,
       # or the matching `end_eyedropper` removal would silently drop the
       # dialog's own modal grab mid-session (add_popup_grab is set-semantics).
       private def begin_eyedropper : Nil

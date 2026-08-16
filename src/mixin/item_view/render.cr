@@ -23,9 +23,10 @@ module Crysterm
         return without_border(style.item) unless selected
         # Fuse the selected style's two transforms (strip border, force
         # reverse-video at the unstyled floor) into a single `#dup`.
-        # `styles.selected` itself is never mutated in place, and nothing is
-        # cached across frames.
-        base = styles.selected
+        # The slot itself is never mutated in place, and nothing is cached
+        # across frames. `#[]` (not the materializing named getter): this is a
+        # per-render fallback read, not a write.
+        base = styles[:selected]
         strip = base.border.any?
         reverse = !selection_visibly_styled?
         return base unless strip || reverse

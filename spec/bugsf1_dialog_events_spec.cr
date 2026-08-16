@@ -13,7 +13,7 @@ include Crysterm
 #     accelerator stands down once a focused dialog button has consumed the key
 #     (otherwise Cancel focused + Enter → BOTH Rejected AND Accepted).
 #
-#  Finding 16 (src/widget/question.cr): `Question#ask`'s window-level KeyPress
+#  Finding 16 (src/widget/question.cr): `MessageBox#open`'s window-level KeyPress
 #     handler fires alongside the buttons' Press handlers; without the
 #     `done_called` latch in `done` and the key handler bailing on
 #     `e.accepted?`, Enter on a focused button invokes the user callback twice.
@@ -95,7 +95,7 @@ describe "BUGS-F1 finding 17: ColorDialog Enter with a focused button fires once
     cd.on(Crysterm::Event::Accepted) { accepted += 1 }
     cd.on(Crysterm::Event::Rejected) { rejected += 1 }
 
-    cd.get_color { }
+    cd.open { }
     s.repaint
 
     # Focus the Cancel button so it consumes/accepts the Enter itself.
@@ -114,10 +114,10 @@ end
 describe "BUGS-F1 finding 16: Question callback fires once on Enter over a focused button" do
   it "invokes the user callback exactly once" do
     s = headless_screen(80, 24)
-    q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
+    q = Crysterm::Widget::MessageBox.new parent: s, top: 0, left: 0, width: 40, height: 8
 
     count = 0
-    q.ask("Sure?") { |_data| count += 1 }
+    q.open("Sure?") { |_data| count += 1 }
     s.repaint
 
     # Focus the Ok button; its Enter → Press → done, and the window-level key

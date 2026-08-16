@@ -18,7 +18,7 @@ module Crysterm
     #
     # A concrete subclass:
     #
-    # * fixes the record type, e.g. `class FolderList < SelectableList(Folder)`
+    # * fixes the record type, e.g. `class FolderList < RecordList(Folder)`
     #   (Crystal forbids naming a *nested* type in a class's own superclass
     #   clause, so each record class is declared at `Pine` scope and re-exposed
     #   under its nested name with an `alias`),
@@ -131,16 +131,6 @@ module Crysterm
         end
         super
       end
-    end
-  end
-end
-
-module Crysterm
-  class Widget
-    module Pine
-      # Back-compat name: the generic record list began life Pine-branded, and
-      # both suites' widgets still subclass it under this name.
-      alias SelectableList = RecordList
     end
   end
 end

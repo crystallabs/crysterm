@@ -104,7 +104,7 @@ describe "BUGS-F2 finding 34: TrackGeometry vertical offset uses painted coords"
     # uses `@wrapped_lines.size`); the slider is a child that moves with the scroll.
     content = (0...30).map { |i| "line#{i}" }.join("\n")
     box = Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20,
-      height: 12, scrollbar: false, content: content
+      height: 12, scrollbar_policy: :always_off, content: content
     sl = Widget::Slider.new parent: box, top: 15, left: 0, width: 3, height: 8,
       orientation: Tput::Orientation::Vertical, minimum: 0, maximum: 100, value: 0
     s.repaint
@@ -156,7 +156,7 @@ describe "BUGS-F2 finding 48: table separators honor ileft, not a hardcoded 1" d
     s = headless_screen(80, 24)
     t = Widget::Table.new parent: s, top: 0, left: 0,
       rows: [["AA", "BB"], ["CC", "DD"]],
-      style: Style.new(border: true, padding: Padding.new(2, 0, 0, 0)) # left: 2
+      style: Style.new(border: true, padding: Padding.ltrb(2, 0, 0, 0)) # left: 2
     s.repaint
 
     t.ileft.should eq 3 # border 1 + padding 2

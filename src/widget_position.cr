@@ -41,6 +41,7 @@ module Crysterm
         val = Dim.from val
         return if @{{ side.id }} == val
         @{{ side.id }} = val
+        css_note_geometry_write {{ side.id }}: val
         update
         emit ::Crysterm::Event::Move
       end

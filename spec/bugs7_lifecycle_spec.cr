@@ -23,7 +23,7 @@ describe "BUGS7 ColorDialog teardown outside accept/cancel" do
     s = headless_screen(40, 20, default_quit_keys: true)
     dlg = Widget::ColorDialog.new parent: s
     called = 0
-    dlg.get_color { |_| called += 1 }
+    dlg.open { |_| called += 1 }
     s.emit Crysterm::Event::KeyPress, enter_key
     called.should eq 1 # Enter -> accept -> finish -> callback
   end
@@ -32,7 +32,7 @@ describe "BUGS7 ColorDialog teardown outside accept/cancel" do
     s = headless_screen(40, 20, default_quit_keys: true)
     dlg = Widget::ColorDialog.new parent: s
     called = 0
-    dlg.get_color { |_| called += 1 }
+    dlg.open { |_| called += 1 }
 
     dlg.destroy
     s.emit Crysterm::Event::KeyPress, enter_key # handler must be gone
@@ -86,7 +86,7 @@ describe "BUGS7 page-less Wizard does not complete" do
   it "advance is a no-op with zero pages" do
     s = headless_screen(40, 20, default_quit_keys: true)
     wiz = Widget::Wizard.new parent: s
-    wiz.page_count.should eq 0
+    wiz.count.should eq 0
     completes = 0
     wiz.on(Crysterm::Event::Completed) { completes += 1 }
 

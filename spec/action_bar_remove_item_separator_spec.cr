@@ -15,7 +15,7 @@ end
 describe "Mixin::ActionBar#remove_item separator skipping" do
   it "skips back over a separator when the selected command is removed" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.add_item "a"
     bar.add_separator
     bar.add_item "b"
@@ -35,7 +35,7 @@ describe "Mixin::ActionBar#remove_item separator skipping" do
 
   it "falls forward to the next selectable command when only separators precede" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.add_separator
     bar.add_item "a" # first selectable (auto-selected)
     bar.add_item "b"

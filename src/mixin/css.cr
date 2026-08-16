@@ -45,6 +45,62 @@ module Crysterm
         end
       end
 
+      # Shared empty list for the (overwhelmingly common) widget with no own
+      # stylesheet. Never mutate.
+      EMPTY_STYLESHEETS = [] of ::Crysterm::CSS::Stylesheet
+
+      @css_stylesheets : Array(::Crysterm::CSS::Stylesheet)?
+
+      # This widget's own stylesheet (Qt's `QWidget#styleSheet`), or `nil`.
+      # With `#add_stylesheet` composition in play, the first sheet.
+      def stylesheet : ::Crysterm::CSS::Stylesheet?
+        @css_stylesheets.try &.first?
+      end
+
+      # Assigns this widget's own stylesheet from CSS source text. Its rules
+      # apply to this widget and its descendants only, above window-level
+      # author rules and below the inline `@style` (state rules above inline,
+      # like the window level's) — Qt's "the nearer style sheet wins".
+      # `var(...)` in a widget sheet resolves against the window/default
+      # sheets' custom properties (a widget sheet's own `--x` definitions are
+      # not consulted).
+      def stylesheet=(css : String) : String
+        @css_stylesheets = [::Crysterm::CSS::Stylesheet.parse(css)]
+        note_own_stylesheet_change
+        css
+      end
+
+      # :ditto: — an already-parsed sheet, or `nil` to clear.
+      def stylesheet=(sheet : ::Crysterm::CSS::Stylesheet?) : ::Crysterm::CSS::Stylesheet?
+        @css_stylesheets = sheet ? [sheet] : nil
+        note_own_stylesheet_change
+        sheet
+      end
+
+      # Adds a stylesheet on top of any the widget already carries (same
+      # subtree scope and tier; among the widget's own sheets a later one wins
+      # ties). Returns the parsed sheet.
+      def add_stylesheet(css : String) : ::Crysterm::CSS::Stylesheet
+        add_stylesheet ::Crysterm::CSS::Stylesheet.parse(css)
+      end
+
+      # :ditto:
+      def add_stylesheet(sheet : ::Crysterm::CSS::Stylesheet) : ::Crysterm::CSS::Stylesheet
+        (@css_stylesheets ||= [] of ::Crysterm::CSS::Stylesheet) << sheet
+        note_own_stylesheet_change
+        sheet
+      end
+
+      # All of this widget's own stylesheets, in application order; a shared
+      # empty list when none. The window's cascade collects these per apply.
+      def css_stylesheets : Array(::Crysterm::CSS::Stylesheet)
+        @css_stylesheets || EMPTY_STYLESHEETS
+      end
+
+      private def note_own_stylesheet_change : Nil
+        window?.try &.css_widget_sheets_changed
+      end
+
       # Optional, user-facing semantic id, matched by `#id` CSS selectors.
       # Separate from the internal `#uid`; see the module docs.
       getter css_id : String?

@@ -37,7 +37,12 @@ module Crysterm
 
         # Per-command global hotkeys (matched against the pressed character).
         # When set, the first entry also becomes the displayed `prefix`.
-        property keys : Array(String)?
+        #
+        # Spelled `shortcuts`, not `keys`: on `Widget` (and every bar
+        # constructor) `keys:` is the `Bool` "does this take keyboard input"
+        # flag, so the same word meant two unrelated things one nesting level
+        # apart.
+        property shortcuts : Array(String)?
 
         # The `Box` rendering this command, assigned by `#add_item`.
         property widget : Widget::Box?
@@ -67,13 +72,14 @@ module Crysterm
           !separator? && !embedded?
         end
 
-        # Window-level subscription for this command's global hotkeys (`#keys`).
+        # Window-level subscription for this command's global hotkeys
+        # (`#shortcuts`).
         # A `Subscription` captures the *window it was installed on* at subscribe
         # time, so `#off` removes it from that exact window regardless of the
         # bar's later `window?` — no leak after a reparent/detach.
         property key_handler : ::Crysterm::Subscription?
 
-        def initialize(@text, @callback = nil, *, @prefix = nil, @keys = nil)
+        def initialize(@text, @callback = nil, *, @prefix = nil, @shortcuts = nil)
         end
       end
 
@@ -91,17 +97,20 @@ module Crysterm
         @ritems
       end
 
-      # The bar's item model: its `Command`s, in order. Symmetric with the
-      # `#items=(Array(Command))` setter, so `bar.items += [cmd]` reads, appends
-      # and writes back end-to-end. This is the model, NOT the backing `Box`
-      # widgets — those are `#item_boxes`. `#commands` is the same array under its
-      # domain name.
-      def items : Array(Command)
-        @commands
+      # The bar's item model as **label strings**, in order — the same type
+      # `Mixin::ItemView#items` answers with, so `#items` means one thing across
+      # the whole toolkit. Symmetric with `#items=(Array(String))`, so
+      # `bar.items += ["x"]` reads, appends and writes back end-to-end. This is
+      # the model, NOT the backing `Box` widgets — those are `#item_boxes`.
+      #
+      # For the richer per-command objects (callback, hotkeys, prefix,
+      # separator flag) reach for `#commands`, which `#items=` also accepts.
+      def items : Array(String)
+        @ritems
       end
 
-      # The commands, parallel to `#item_boxes`. Same array as `#items` under its
-      # domain name.
+      # The bar's `Command`s, parallel to `#item_boxes` and to `#items` — the
+      # full command model behind the labels.
       getter commands = [] of Command
 
       # Index of the left-most fully-visible item (for horizontal scrolling).
@@ -267,20 +276,20 @@ module Crysterm
         self.items = [] of Command
       end
 
-      # Appends a command given as plain text plus optional callback/hotkeys.
+      # Appends a command given as plain text plus optional callback/shortcuts.
       #
       # The block overload below is the preferred way to attach an action; the
       # positional `callback` `Proc` param is kept mainly for forwarding an
       # already-built `Proc`.
-      def add_item(text : String, callback : Proc(Nil)? = nil, *, keys : Array(String)? = nil)
-        add_item Command.new text, callback, keys: keys
+      def add_item(text : String, callback : Proc(Nil)? = nil, *, shortcuts : Array(String)? = nil)
+        add_item Command.new text, callback, shortcuts: shortcuts
       end
 
       # :ditto:
       #
       # Preferred over passing a positional `Proc`: `bar.add_item("Quit") { ... }`.
-      def add_item(text : String, *, keys : Array(String)? = nil, &callback : -> Nil)
-        add_item Command.new text, callback, keys: keys
+      def add_item(text : String, *, shortcuts : Array(String)? = nil, &callback : -> Nil)
+        add_item Command.new text, callback, shortcuts: shortcuts
       end
 
       # Appends a non-selectable separator and returns its `Command` (Qt's
@@ -342,9 +351,9 @@ module Crysterm
 
           # A per-command hotkey doubles as the displayed prefix, and is not an
           # auto prefix — it must not be renumbered.
-          cmd.keys.try do |keys|
-            if keys[0]?
-              cmd.prefix = keys[0]
+          cmd.shortcuts.try do |shortcuts|
+            if shortcuts[0]?
+              cmd.prefix = shortcuts[0]
               cmd.auto_prefix = false
             end
           end
@@ -371,7 +380,7 @@ module Crysterm
         # `state_style.visible` in place, so the render scroll loop would toggle a
         # single shared flag and never hide scrolled-off items.
         item.styles.normal = style.item.dup
-        item.styles.selected = styles.selected.dup
+        item.styles.selected = styles[:selected].dup
 
         cmd.widget = item
         @ritems.push clean_tags cmd.text
@@ -598,19 +607,19 @@ module Crysterm
       end
 
       # Installs *cmd*'s global-hotkey handler on the current window, if the bar
-      # is attached and the command actually has keys + a callback. Idempotent:
+      # is attached and the command actually has shortcuts + a callback. Idempotent:
       # `Subscription#on` cancels any prior handler first, so a re-install after
       # a detach/attach can't stack duplicates.
       private def install_command_hotkey(cmd : Command) : Nil
         return unless w = window?
-        keys = cmd.keys
-        return unless keys && cmd.callback
+        shortcuts = cmd.shortcuts
+        return unless shortcuts && cmd.callback
         sub = (cmd.key_handler ||= ::Crysterm::Subscription.new)
         sub.on(w, ::Crysterm::Event::KeyPress) do |e|
           # Don't act on a character another widget already consumed (a focused
           # editor typing the hotkey char).
           next if e.accepted?
-          if keys.includes? e.char.to_s
+          if shortcuts.includes? e.char.to_s
             # Handled: accept *before* triggering (matching
             # `KeyShortcuts#on_key`) so the key stops propagating to other
             # window-level handlers and to `Application`'s default quit keys

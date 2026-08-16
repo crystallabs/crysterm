@@ -29,8 +29,8 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
   it "does not fire a hotkey a focused widget already consumed" do
     s = headless_screen(80, 24)
     fired = 0
-    bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
+    bar = Crysterm::Widget::CommandBar.new parent: s
+    bar.add_item("quit", -> { fired += 1; nil }, shortcuts: ["q"])
     s.repaint
 
     # A pre-accepted 'q' (e.g. typed into a LineEdit that consumed it) must not
@@ -44,8 +44,8 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
   it "fires the hotkey for an unconsumed matching character" do
     s = headless_screen(80, 24)
     fired = 0
-    bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
+    bar = Crysterm::Widget::CommandBar.new parent: s
+    bar.add_item("quit", -> { fired += 1; nil }, shortcuts: ["q"])
     s.repaint
 
     emit_kp(s, 'q')
@@ -55,8 +55,8 @@ describe "BUGS-F2 #8 ActionBar per-command hotkeys" do
   it "uninstalls the hotkey on detach and reinstalls it on re-attach" do
     s = headless_screen(80, 24)
     fired = 0
-    bar = Crysterm::Widget::ListBar.new parent: s
-    bar.add_item("quit", -> { fired += 1; nil }, keys: ["q"])
+    bar = Crysterm::Widget::CommandBar.new parent: s
+    bar.add_item("quit", -> { fired += 1; nil }, shortcuts: ["q"])
     s.repaint
 
     emit_kp(s, 'q')
@@ -78,7 +78,7 @@ describe "BUGS-F2 #15 ActionBar#current_index= before first render moves the cur
   it "sets `selected` to the target index so Enter fires the right command" do
     s = headless_screen(80, 24)
     fired = [] of Int32
-    bar = Crysterm::Widget::ListBar.new parent: s
+    bar = Crysterm::Widget::CommandBar.new parent: s
     bar.add_item("zero", -> { fired << 0; nil })
     bar.add_item("one", -> { fired << 1; nil })
     bar.add_item("two", -> { fired << 2; nil })
@@ -137,7 +137,7 @@ end
 describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
   it "accepts a navigation key it consumed" do
     s = headless_screen(80, 24)
-    input = Crysterm::Widget::Input.new(
+    input = Crysterm::Widget::AbstractInteractive.new(
       parent: s, width: "100%", height: "100%",
       scrollable: true, keys: true, vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))
@@ -150,7 +150,7 @@ describe "BUGS-F2 #30 Mixin::Interactive accepts handled keys" do
 
   it "leaves an unrelated key unaccepted (propagates to ancestors)" do
     s = headless_screen(80, 24)
-    input = Crysterm::Widget::Input.new(
+    input = Crysterm::Widget::AbstractInteractive.new(
       parent: s, width: "100%", height: "100%",
       scrollable: true, keys: true, vi_keys: true,
       content: (1..60).map { |i| "line #{i}" }.join('\n'))

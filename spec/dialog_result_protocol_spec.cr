@@ -107,14 +107,14 @@ describe Crysterm::Widget::Dialog do
 end
 
 describe "Dialog subclasses report their outcome" do
-  it "Question#ask emits Accepted/Finished alongside its block" do
+  it "MessageBox#open emits Accepted/Finished alongside its block" do
     w = headless_screen
-    q = Crysterm::Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
+    q = Crysterm::Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
     answer = nil.as(Bool?)
     log = [] of String
     q.on(Crysterm::Event::Accepted) { log << "accepted" }
     q.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }
-    q.ask("Sure?") { |data| answer = data }
+    q.open("Sure?") { |data| answer = data }
 
     w.emit Crysterm::Event::KeyPress.new('\r', ::Tput::Key::Enter)
 
@@ -123,13 +123,13 @@ describe "Dialog subclasses report their outcome" do
     q.result.should eq 1
   end
 
-  it "Question#ask emits Rejected/Finished on a negative answer" do
+  it "MessageBox#open emits Rejected/Finished on a negative answer" do
     w = headless_screen
-    q = Crysterm::Widget::Question.new parent: w, top: 0, left: 0, width: 40, height: 8
+    q = Crysterm::Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 8
     log = [] of String
     q.on(Crysterm::Event::Rejected) { log << "rejected" }
     q.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }
-    q.ask("Sure?") { }
+    q.open("Sure?") { }
 
     w.emit Crysterm::Event::KeyPress.new('\0', ::Tput::Key::Escape)
 
@@ -137,13 +137,13 @@ describe "Dialog subclasses report their outcome" do
     q.result.should eq 0
   end
 
-  it "Prompt#read_input reports Accepted with the submitted value" do
+  it "InputDialog#open reports Accepted with the submitted value" do
     w = headless_screen
-    p = Crysterm::Widget::Prompt.new parent: w, top: 0, left: 0, width: 40, height: 8
+    p = Crysterm::Widget::InputDialog.new parent: w, top: 0, left: 0, width: 40, height: 8
     value = nil.as(String?)
     finished = nil.as(Int32?)
     p.on(Crysterm::Event::Finished) { |e| finished = e.result }
-    p.read_input("Name?") { |data| value = data }
+    p.open("Name?") { |data| value = data }
 
     # `#accept` submits the embedded field rather than closing behind its back,
     # so the typed text still reaches the callback.
@@ -155,13 +155,13 @@ describe "Dialog subclasses report their outcome" do
     p.result.should eq 1
   end
 
-  it "Prompt#reject reports Rejected and a nil value" do
+  it "InputDialog#reject reports Rejected and a nil value" do
     w = headless_screen
-    p = Crysterm::Widget::Prompt.new parent: w, top: 0, left: 0, width: 40, height: 8
+    p = Crysterm::Widget::InputDialog.new parent: w, top: 0, left: 0, width: 40, height: 8
     called = false
     value = "unset".as(String?)
     p.on(Crysterm::Event::Rejected) { called = true }
-    p.read_input("Name?") { |data| value = data }
+    p.open("Name?") { |data| value = data }
 
     p.reject
 
@@ -172,13 +172,13 @@ describe "Dialog subclasses report their outcome" do
 
   it "Message reports Accepted once dismissed, and #accept runs the display callback" do
     w = headless_screen
-    m = Crysterm::Widget::Message.new parent: w, top: 0, left: 0, width: 40, height: 5
+    m = Crysterm::Widget::MessageBox.new parent: w, top: 0, left: 0, width: 40, height: 5
     ran = false
     finished = nil.as(Int32?)
     m.on(Crysterm::Event::Finished) { |e| finished = e.result }
     # No timeout: normally dismissed by the next keypress. `#accept` must take
     # the same path (callback + result), not close behind `#display`'s back.
-    m.display("hi", nil) { ran = true }
+    m.open("hi", nil) { ran = true }
 
     m.accept
 
@@ -196,7 +196,7 @@ describe "Dialog subclasses report their outcome" do
     cd.on(Crysterm::Event::Activated) { |e| log << "action=#{e.value}" }
     cd.on(Crysterm::Event::Accepted) { log << "accepted" }
     cd.on(Crysterm::Event::Finished) { |e| log << "finished=#{e.result}" }
-    cd.get_color { }
+    cd.open { }
 
     cd.accept
 

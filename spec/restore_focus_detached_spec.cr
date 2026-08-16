@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # `Window#save_focus` remembers the focused widget so `#restore_focus` can
-# return to it later (used by dialogs: `Widget::Message`, `Question`, `Prompt`,
+# return to it later (used by dialogs: `Widget::MessageBox`, `Question`, `InputDialog`,
 # `FileManager`, `ColorDialog`). If the saved widget is removed from the screen
 # before restore, its `screen` becomes nil. `restore_focus` used to call
 # `Widget#focus` unconditionally, dereferencing `screen` (`screen?.not_nil!`)

@@ -27,8 +27,9 @@ module Crysterm
     class Table < AbstractItemView
       include TableLayout
 
-      # The table data, as rows of string cells. Read-only; assign through
-      # `#rows=`, which rebuilds the view.
+      # The table data, as rows of string cells. Replace wholesale through
+      # `#rows=`, or write one cell with `#[]=` — both rebuild the view.
+      # Mutating the returned arrays directly bypasses that rebuild.
       getter rows : Array(Array(String))
 
       # Whether every other body row is painted with `style.alternate_row` instead
@@ -106,10 +107,77 @@ module Crysterm
       end
 
       # Replaces the table data and rebuilds the rendered content. Must go through
-      # here rather than assigning `@rows`: that would bypass `#reload_rows`,
+      # here rather than assigning `@rows`: that would bypass the rebuild,
       # leaving the column widths, the pinned `@width` and the content describing
       # the old data while `#paint` sized the box from the new row count.
       def rows=(rows)
+        @rows = normalize_rows rows
+        rebuild_from_rows
+      end
+
+      # ---- Cell model (Qt's `QTableWidget`) -----------------------------------
+
+      # Number of rows held, **including** the header row at index 0 — the same
+      # thing `#rows.size` reports, so the two can't disagree. (Qt's
+      # `QTableWidget#rowCount` excludes the header because there the header is
+      # a separate widget; a `Table`'s header is simply its first row, as in the
+      # sibling `ListTable`.)
+      def row_count : Int32
+        @rows.size
+      end
+
+      # Number of columns — the widest row's cell count, which is also the
+      # number of columns actually laid out.
+      def column_count : Int32
+        @rows.max_of?(&.size) || 0
+      end
+
+      # The cell at *row*/*col*, or `nil` when either index is out of range
+      # (row 0 is the header row).
+      def [](row : Int, col : Int) : String?
+        @rows[row]?.try &.[col]?
+      end
+
+      # Replaces a single cell and repaints. Only the cell is written — the row
+      # arrays are mutated in place and the content/column widths recomputed
+      # from them, so updating one cell no longer means copying the whole table
+      # through `#rows=`. Out-of-range indices are a no-op, as is writing the
+      # value already there.
+      def []=(row : Int, col : Int, value : String) : String
+        r = @rows[row]?
+        return value unless r && 0 <= col < r.size
+        return value if r[col] == value
+        r[col] = value
+        rebuild_from_rows
+        update!
+        value
+      end
+
+      # The header row's labels — row 0 of `#rows`, the row `style.header`
+      # paints (mirroring `ListTable`, whose header is likewise row 0 of its
+      # model). Empty when the table has no rows at all.
+      def header_labels : Array(String)
+        @rows[0]? || [] of String
+      end
+
+      # Replaces the header row, keeping every body row. On an empty table this
+      # *adds* the header row. Rebuilds column widths and content.
+      def header_labels=(labels : Array(String)) : Array(String)
+        row = labels.map(&.to_s)
+        if @rows.empty?
+          @rows << row
+        else
+          @rows[0] = row
+        end
+        rebuild_from_rows
+        update!
+        labels
+      end
+
+      # Recomputes the column widths, the pinned width and the rendered content
+      # from the current `@rows`, *without* re-normalizing (i.e. re-allocating)
+      # them. Shared by `#rows=` and the in-place cell writers.
+      protected def rebuild_from_rows : Nil
         # One-way width pin: for a content-sized table, clear the self-pinned
         # width before remeasuring so `compute_column_widths` sizes columns from
         # content again (its slack branch keys off a non-nil `@width`). Without
@@ -118,10 +186,13 @@ module Crysterm
         # table keeps its `@width` and its slack-distribution behaviour.
         @width = nil if @content_sized
 
-        unless reload_rows rows
-          # Empty/column-less data must empty the view too: `reload_rows` has
-          # already replaced `@rows`, so keeping the old content would show rows
-          # the model no longer holds.
+        invalidate_column_widths
+        compute_column_widths
+
+        if @maxes.empty?
+          # Empty/column-less data must empty the view too: `@rows` has already
+          # been replaced, so keeping the old content would show rows the model
+          # no longer holds.
           set_content ""
           return
         end

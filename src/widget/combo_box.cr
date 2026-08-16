@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_interactive"
 require "./abstract_item_view"
 require "../mixin/item_view"
 require "../mixin/popup"
@@ -28,7 +28,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![ComboBox screenshot](../../tests/widget/combo_box/combo_box.5s.apng)
     # <!-- /widget-examples:capture -->
-    class ComboBox < Input
+    class ComboBox < AbstractInteractive
       # Pop-up lifecycle: open flag, modal grab, outside-click dismissal,
       # teardown. Requires `#popup_widget` and `#hide_popup`.
       include Mixin::Popup

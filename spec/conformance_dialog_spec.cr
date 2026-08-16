@@ -3,10 +3,10 @@ require "./spec_helper"
 include Crysterm
 
 # Shared behavioral conformance for the modal dialog family (`ColorDialog`,
-# `Question`, `Prompt`, `Wizard`). The dialogs are
+# `MessageBox`, `InputDialog`, `Wizard`). The dialogs are
 # deliberately heterogeneous (some deliver results via emitted events, some via
 # block callbacks; the accept/cancel gesture is a window-level Enter/Escape for
-# most but the embedded field's submit/cancel for `Prompt`), so the adapter's
+# most but the embedded field's submit/cancel for `InputDialog`), so the adapter's
 # `accept`/`cancel` closures encapsulate each one's canonical gesture and the
 # script asserts the *outcome*: an accept path and a cancel path both exist and
 # fire. Focus save/restore is a capability flag — `Wizard` intentionally does not
@@ -60,7 +60,7 @@ describe "Modal dialog conformance (B8)" do
     cd = Crysterm::Widget::ColorDialog.new parent: s, width: 50, height: 18
     accepted = false
     cancelled = false
-    cd.get_color { |color| color ? (accepted = true) : (cancelled = true) }
+    cd.open { |color| color ? (accepted = true) : (cancelled = true) }
     DialogHandle.new(
       accept: -> { s.emit enter_key; nil },
       cancel: -> { s.emit escape_key; nil },
@@ -70,14 +70,14 @@ describe "Modal dialog conformance (B8)" do
     )
   end
 
-  it_behaves_like_a_modal_dialog "Question", saves_focus: true do
+  it_behaves_like_a_modal_dialog "MessageBox", saves_focus: true do
     s = headless_screen
     victim = Crysterm::Widget::Box.new parent: s
     s.focus victim
-    q = Crysterm::Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
+    q = Crysterm::Widget::MessageBox.new parent: s, top: 0, left: 0, width: 40, height: 8
     accepted = false
     cancelled = false
-    q.ask("Sure?") { |data| data ? (accepted = true) : (cancelled = true) }
+    q.open("Sure?") { |data| data ? (accepted = true) : (cancelled = true) }
     DialogHandle.new(
       accept: -> { s.emit enter_key; nil },
       cancel: -> { s.emit escape_key; nil },
@@ -87,16 +87,16 @@ describe "Modal dialog conformance (B8)" do
     )
   end
 
-  it_behaves_like_a_modal_dialog "Prompt", saves_focus: true do
+  it_behaves_like_a_modal_dialog "InputDialog", saves_focus: true do
     s = headless_screen
     victim = Crysterm::Widget::Box.new parent: s
     s.focus victim
-    pr = Crysterm::Widget::Prompt.new parent: s, top: 0, left: 0, width: 40, height: 8
+    pr = Crysterm::Widget::InputDialog.new parent: s, top: 0, left: 0, width: 40, height: 8
     accepted = false
     cancelled = false
-    pr.read_input("Name?") { |data| data ? (accepted = true) : (cancelled = true) }
+    pr.open("Name?") { |data| data ? (accepted = true) : (cancelled = true) }
     DialogHandle.new(
-      # Prompt has no window-level accelerator: Enter/Escape are the embedded
+      # InputDialog has no window-level accelerator: Enter/Escape are the embedded
       # LineEdit's submit/cancel (which is what accept/cancel resolve to).
       accept: -> { pr.line_edit.value = "x"; pr.line_edit.submit; nil },
       cancel: -> { pr.line_edit.cancel; nil },

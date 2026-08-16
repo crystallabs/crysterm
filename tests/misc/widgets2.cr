@@ -50,7 +50,7 @@ spin = Widget::SpinBox.new parent: gb, top: 2, left: 9, width: 13, height: 1,
   minimum: 0, maximum: 25, value: 0, suffix: " pcs"
 Widget::Box.new parent: gb, top: 4, left: 2, width: 7, height: 1, content: "Ratio:"
 dspin = Widget::DoubleSpinBox.new parent: gb, top: 4, left: 9, width: 13, height: 1,
-  minimum: 0.0, maximum: 1.0, step: 0.04, value: 0.0
+  minimum: 0.0, maximum: 1.0, single_step: 0.04, value: 0.0
 
 # --- Dial (with an LCDNumber readout) ----------------------------------------
 

@@ -14,6 +14,28 @@ module Crysterm
     # Background color (color of cell). See `#fg` for the accepted forms.
     getter bg : Int32?
 
+    # CSS-vocabulary alias of `#fg` (`color`), reading and writing the same
+    # value.
+    def color : Int32?
+      fg
+    end
+
+    # :ditto:
+    def color=(value : (Int32 | String)?)
+      self.fg = value
+    end
+
+    # CSS-vocabulary alias of `#bg` (`background-color`), reading and writing
+    # the same value.
+    def background_color : Int32?
+      bg
+    end
+
+    # :ditto:
+    def background_color=(value : (Int32 | String)?)
+      self.bg = value
+    end
+
     # SGR text-attribute booleans. The plain `property?` setters this generates
     # are re-wrapped below to track explicit assignment in `specified_mask`,
     # regardless of include order.
@@ -582,7 +604,7 @@ module Crysterm
 
     Colorizable.color_setter gridline_color
 
-    def border=(value : Bool | BorderType | Border | Side | Symbol | Int32?)
+    def border=(value : BorderValue)
       @specified_mask |= SPEC_BORDER
       @border = Border.from value
     end
@@ -591,7 +613,7 @@ module Crysterm
     # are all 0, which renders nothing and expands the widget by nothing.
     getter border : Border { Border.new 0 }
 
-    def padding=(value : Bool | Padding | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32)?)
+    def padding=(value : PaddingValue)
       @specified_mask |= SPEC_PADDING
       @padding = Padding.from value
     end
@@ -604,7 +626,7 @@ module Crysterm
 
     # Element's outer spacing. Unlike `padding`/`border`, which are inner insets,
     # margin offsets and shrinks the element itself within its allotted slot.
-    def margin=(value : Bool | Margin | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32)?)
+    def margin=(value : MarginValue)
       @specified_mask |= SPEC_MARGIN
       @margin = Margin.from value
     end
@@ -613,7 +635,7 @@ module Crysterm
     getter margin : Margin { Margin.default }
 
     # Should element drop shadow?
-    def shadow=(value : Bool | Shadow | Side | Symbol | Float64 | Int32?)
+    def shadow=(value : ShadowValue)
       @specified_mask |= SPEC_SHADOW
       @shadow = Shadow.from value
     end
@@ -698,12 +720,28 @@ module Crysterm
       self.shadow = Shadow.new(ratio: :half) unless @shadow.try(&.any?)
     end
 
+    # The value forms the box setters (and constructor arguments) coerce
+    # through each type's `.from`.
+    alias BorderValue = (Bool | BorderType | Border | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32))?
+    # :ditto:
+    alias PaddingValue = (Bool | Padding | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32))?
+    # :ditto:
+    alias MarginValue = (Bool | Margin | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32))?
+    # :ditto:
+    alias ShadowValue = (Bool | Shadow | Side | Symbol | Float64 | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32))?
+    # A color argument: native `0xRRGGBB` int, `"#rrggbb"`/named string, or
+    # `nil` (unset).
+    alias ColorValue = (Int32 | String)?
+
+    # Every parameter is typed with its setter's union, so a wrong argument
+    # type errors on the named parameter here rather than surfacing as a
+    # no-overload failure inside a `.from` coercion.
     def initialize(
       *,
-      border = nil,
-      padding = nil,
-      margin = nil,
-      shadow = nil,
+      border : BorderValue = nil,
+      padding : PaddingValue = nil,
+      margin : MarginValue = nil,
+      shadow : ShadowValue = nil,
       @scrollbar = @scrollbar,
       @track = @track,
       @sub_line = @sub_line,
@@ -728,29 +766,29 @@ module Crysterm
       @header = @header,
       @cell = @cell,
       @label = @label,
-      fg = nil,
-      bg = nil,
-      bold = nil,
-      italic = nil,
-      underline = nil,
-      blink = nil,
-      reverse = nil,
-      strike = nil,
-      visible = nil,
+      fg : ColorValue = nil,
+      bg : ColorValue = nil,
+      bold : Bool? = nil,
+      italic : Bool? = nil,
+      underline : Bool? = nil,
+      blink : Bool? = nil,
+      reverse : Bool? = nil,
+      strike : Bool? = nil,
+      visible : Bool? = nil,
       opacity : Float64? = nil,
-      fill_char = nil,
-      draw_over_border = nil,
-      z_index = nil,
-      tint = nil,
-      tint_alpha = nil,
-      gridline_color = nil,
-      background_image = nil,
-      background_size = nil,
-      transitions = nil,
-      animation = nil,
-      tab_size = nil,
-      tab_char = nil,
-      fill = nil,
+      fill_char : Char? = nil,
+      draw_over_border : Bool? = nil,
+      z_index : Int32? = nil,
+      tint : ColorValue = nil,
+      tint_alpha : Float64? = nil,
+      gridline_color : ColorValue = nil,
+      background_image : String? = nil,
+      background_size : BackgroundSize? = nil,
+      transitions : Hash(String, Tuple(Time::Span, Easing))? = nil,
+      animation : AnimationSpec? = nil,
+      tab_size : Int32? = nil,
+      tab_char : String? = nil,
+      fill : Bool? = nil,
       @glyph : String? = nil,
       @glyph_ascii : String? = nil,
       @glyph_unicode : String? = nil,
@@ -758,8 +796,8 @@ module Crysterm
       @glyph_open : String? = nil,
       @glyph_close : String? = nil,
       @glyphs : String? = nil,
-      light = nil,
-      look = nil,
+      light : (Light | Light::Direction | Symbol)? = nil,
+      look : (Look | Symbol)? = nil,
     )
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
       # to its `#rrggbb` string (each call type — String, Int, Nil — resolves to

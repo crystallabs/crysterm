@@ -54,6 +54,7 @@ module Crysterm
     def align=(value : Tput::AlignFlag)
       return value if value == @align
       @align = value
+      css_note_geometry_write align: value
       @_content_version += 1
       update
       value

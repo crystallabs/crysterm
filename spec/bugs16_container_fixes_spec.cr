@@ -183,7 +183,7 @@ describe "BUGS16 B16-44: ProgressBar#handle_key_press accepts its handled keys" 
   it "does not double-act on an ancestor's bubbled-key handler" do
     s = headless_screen(80, 24)
     pb = Widget::ProgressBar.new parent: s, top: 0, left: 0, width: 20, height: 1,
-      value: 50, minimum: 0, maximum: 100, single_step: 5
+      value: 50, minimum: 0, maximum: 100, single_step: 5, keys: true
     pb.focus
     ancestor_hits = 0
     s.on(Crysterm::Event::KeyPress) { |e| ancestor_hits += 1 unless e.accepted? }

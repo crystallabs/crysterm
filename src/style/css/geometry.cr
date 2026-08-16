@@ -19,6 +19,7 @@ module Crysterm
       max_height : Dim | Int32 | String?,
       align : Tput::AlignFlag,
       gap : Int32?,
+      layout : Layout?,
       layout_chrome : Bool,
       fixed : Bool,
       box_sizing : Widget::BoxSizing,
@@ -39,8 +40,46 @@ module Crysterm
         min_height: @min_height, max_height: @max_height,
         align: @align,
         gap: layout.try(&.spacing),
+        layout: @layout,
         layout_chrome: @layout_chrome, fixed: @fixed, box_sizing: @box_sizing,
         password_character: as?(Widget::LineEdit).try(&.password_character))
+    end
+
+    # Suspended-folding flag: true while the cascade (or the restore below) is
+    # itself writing geometry through the public setters, so those writes
+    # don't fold into the snapshot as if they were the user's.
+    @css_geometry_syncing = false
+
+    # :nodoc: — cascade-internal. Runs the block with snapshot folding
+    # (`css_note_geometry_write`) suspended.
+    def css_geometry_sync(& : ->) : Nil
+      @css_geometry_syncing = true
+      begin
+        yield
+      ensure
+        @css_geometry_syncing = false
+      end
+    end
+
+    # Folds a programmatic geometry write into the pristine snapshot: with CSS
+    # geometry active, a user's new value becomes the pre-CSS baseline for
+    # that field, so the cascade's reset pass restores to it instead of
+    # resurrecting the value it replaced — no manual
+    # `reset_css_base_geometry` needed. No-op while no snapshot exists (CSS
+    # never wrote geometry here) or while the cascade itself is writing.
+    # Called by the change-guarded geometry setters.
+    protected def css_note_geometry_write(**field) : Nil
+      return if @css_geometry_syncing
+      snap = @css_base_geometry
+      return unless snap
+      @css_base_geometry = snap.copy_with(**field)
+    end
+
+    # :nodoc: — `Layout#spacing=`'s entry to the fold above: the `gap` snapshot
+    # field lives on the container widget, but `Layout` is not a `Widget` and
+    # can't reach the protected method.
+    def css_note_gap_write(value : Int32?) : Nil
+      css_note_geometry_write gap: value
     end
 
     # Restores the pristine pre-CSS geometry (no-op when CSS never wrote any).
@@ -49,6 +88,7 @@ module Crysterm
     def restore_css_base_geometry : Nil
       snap = @css_base_geometry
       return unless snap
+      @css_geometry_syncing = true
       self.width = snap.width
       self.height = snap.height
       self.top = snap.top
@@ -60,11 +100,14 @@ module Crysterm
       self.min_height = snap.min_height
       self.max_height = snap.max_height
       self.align = snap.align
+      self.layout = snap.layout
       self.layout_chrome = snap.layout_chrome
       self.fixed = snap.fixed
       self.box_sizing = snap.box_sizing
       snap.gap.try { |g| layout.try(&.spacing=(g)) }
       snap.password_character.try { |c| as?(Widget::LineEdit).try(&.password_character=(c)) }
+    ensure
+      @css_geometry_syncing = false
     end
 
     # Drops the pristine geometry snapshot so it is recaptured from the current
@@ -85,6 +128,7 @@ module Crysterm
                        "width", "height", "top", "left", "right", "bottom",
                        "min-width", "max-width", "min-height", "max-height",
                        "text-align", "vertical-align", "gap", "spacing",
+                       "display", "flex-direction", "grid-template-columns",
                        "lineedit-password-character"}
 
       # Whether *property* is a geometry property handled here.
@@ -175,6 +219,8 @@ module Crysterm
           TextAlign.valign_flag(Case.fold_keyword(value.strip)).try do |f|
             widget.align = (widget.align & ~Tput::AlignFlag::Vertical_Mask) | f
           end
+        when "display", "flex-direction", "grid-template-columns"
+          apply_layout_engine widget, property, value
         when "spacing", "gap"
           # Inter-child spacing of the widget's layout: CSS's `gap`, spelled
           # `spacing` in Qt — both accepted. Engines that don't honor it ignore
@@ -185,6 +231,43 @@ module Crysterm
           # `lineedit-password-character`). No-op on any other widget type.
           widget.as?(Widget::LineEdit).try do |t|
             password_char(value).try { |c| t.password_character = c }
+          end
+        end
+      end
+
+      # The layout-engine declarations. `display`'s container keywords install
+      # the matching engine (`flex` → `Layout::Box`, `grid` → `Layout::Grid`)
+      # — idempotently, so a re-cascade doesn't discard a live engine (and its
+      # spacing/orientation) for a fresh one; any already-installed `Box`/
+      # `Grid` (a `VBox`, a configured `Grid`) satisfies the declaration
+      # as-is. `none`/visibility keywords are the `Style` side, handled by
+      # `Properties`; other `display` values install nothing.
+      # `flex-direction` sets a `Layout::Box`'s orientation (`row`/`column`;
+      # the `-reverse` variants map to the same orientation — the engines have
+      # no reversed order). `grid-template-columns`' track COUNT sets a
+      # `Layout::Grid`'s column count; per-track sizes have no cell-grid
+      # mapping and are not honored. The axis declarations are no-ops unless
+      # the matching engine is installed.
+      private def self.apply_layout_engine(widget : Widget, property : String, value : String) : Nil
+        case property
+        when "display"
+          case Case.fold_keyword(value.strip)
+          when "flex"
+            widget.layout = Layout::Box.new unless widget.layout.is_a?(Layout::Box)
+          when "grid"
+            widget.layout = Layout::Grid.new unless widget.layout.is_a?(Layout::Grid)
+          end
+        when "flex-direction"
+          widget.layout.as?(Layout::Box).try do |box|
+            case Case.fold_keyword(value.strip)
+            when "row", "row-reverse"       then box.orientation = Tput::Orientation::Horizontal
+            when "column", "column-reverse" then box.orientation = Tput::Orientation::Vertical
+            end
+          end
+        when "grid-template-columns"
+          widget.layout.as?(Layout::Grid).try do |grid|
+            n = value.split.size
+            grid.columns = n if n > 0
           end
         end
       end

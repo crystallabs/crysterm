@@ -98,12 +98,12 @@ end
 describe "BUGS15 44: Slider paints its track in the content region (padding respected)" do
   it "does not paint the track over the horizontal padding cells" do
     s = headless_screen(80, 30)
-    # padding: 0 2 (top/bottom 0, left/right 2) — Padding.new(left, top, right, bottom).
+    # padding: 0 2 (top/bottom 0, left/right 2) — Padding.vh(0, 2).
     # Set via the constructor style so it survives the per-frame style resolution.
     sl = Widget::Slider.new parent: s, top: 0, left: 0, width: 24, height: 1,
       minimum: 0, maximum: 100, value: 50,
       track_char: '-', handle_char: '#',
-      style: Crysterm::Style.new(padding: Crysterm::Padding.new(2, 0, 2, 0))
+      style: Crysterm::Style.new(padding: Crysterm::Padding.ltrb(2, 0, 2, 0))
     s.repaint
 
     lp = sl.lpos.not_nil!

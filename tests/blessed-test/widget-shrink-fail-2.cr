@@ -19,7 +19,7 @@ tab = ScrollableBox.new \
   keys: true,
   vi_keys: true,
   always_scroll: true,
-  scrollbar: true
+  scrollbar_policy: :as_needed
 
 # NOTE: blessed used `require('util').inspect(process, null, 6)`, which is
 # Node-only and unportable. We pretty-print a sample Crystal object instead.

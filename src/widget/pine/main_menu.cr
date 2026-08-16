@@ -49,7 +49,7 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![MainMenu screenshot](../../../tests/widget/pine/main_menu/main_menu.5s.apng)
       # <!-- /widget-examples:capture -->
-      class MainMenu < SelectableList(MenuOption)
+      class MainMenu < RecordList(MenuOption)
         # Nested-name alias for the record type.
         alias Option = ::Crysterm::Widget::Pine::MenuOption
 

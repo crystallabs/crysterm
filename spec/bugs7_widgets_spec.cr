@@ -54,7 +54,7 @@ describe "BUGS7 ActionBar#remove_item renumbers auto prefixes" do
   it "renumbers auto prefixes and keeps number-key selection in step" do
     s = uni_window 40, 3
     fired = [] of String
-    bar = Widget::ListBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
+    bar = Widget::CommandBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
       auto_command_keys: true
     bar.add_item("open") { fired << "open" }
     bar.add_item("save") { fired << "save" }

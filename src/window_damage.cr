@@ -259,8 +259,9 @@ module Crysterm
 
     # Marks every top-level subtree containing a widget whose persistent style
     # source changed — by identity or in place (`Widget#painted_style_stale?`) —
-    # since its last paint. An O(all widgets) integer-compare walk, far cheaper
-    # than the repaint it saves; run per selective attempt only.
+    # or that opted into `repaints_every_frame?`, since its last paint. An
+    # O(all widgets) integer-compare walk, far cheaper than the repaint it
+    # saves; run per selective attempt only.
     #
     # Known limit: a widget that never repaints (e.g. hidden) while its style
     # keeps mutating in place stays stale and re-marks its subtree every
@@ -268,9 +269,9 @@ module Crysterm
     # which is the pre-existing behavior for untrackable scenes.
     private def damage_sweep_style_revisions : Nil
       @children.each do |top|
-        stale = top.painted_style_stale?
+        stale = top.painted_style_stale? || top.repaints_every_frame?
         unless stale
-          top.each_descendant { |w| stale = true if w.painted_style_stale? }
+          top.each_descendant { |w| stale = true if w.painted_style_stale? || w.repaints_every_frame? }
         end
         @damage_dirty_roots << top if stale
       end

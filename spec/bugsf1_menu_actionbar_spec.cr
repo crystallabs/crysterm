@@ -54,7 +54,7 @@ end
 describe "BUGS-F1 #9 ActionBar items don't share one mutable Style" do
   it "keeps scrolled-off items hidden when the bar overflows" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 20
+    bar = Crysterm::Widget::CommandBar.new parent: s, top: 0, left: 0, width: 20
     bar.items = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"]
     s.repaint
 
@@ -76,7 +76,7 @@ end
 describe "BUGS-F1 #51 ActionBar command width ignores tag markup" do
   it "sizes a tagged command to its rendered width, not its markup length" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 40
+    bar = Crysterm::Widget::CommandBar.new parent: s, top: 0, left: 0, width: 40
     bar.auto_prefix = false
     plain = bar.add_item "File"
     tagged = bar.add_item "{bold}File{/bold}"

@@ -75,7 +75,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
   it "matches :only-child on the sole real child of a scrollable box" do
     screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
-    box.scrollbar = true # emits trailing <w-scrollbar>/<w-track> nodes
+    box.scrollbar_policy = :as_needed # emits trailing <w-scrollbar>/<w-track> nodes
     only = Widget::Button.new
     box.append only
     screen.append box
@@ -91,7 +91,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
   it "keeps :last-child working while slot rules still target the pseudo-nodes" do
     screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
-    box.scrollbar = true
+    box.scrollbar_policy = :as_needed
     b1 = Widget::Button.new
     b2 = Widget::Button.new
     b3 = Widget::Button.new
@@ -118,7 +118,7 @@ describe "BUGS6 structural pseudo-classes vs sub-element pseudo-nodes (fix #1)" 
   it "does not regress forward :nth-child positions" do
     screen = headless_screen(default_quit_keys: true)
     box = Widget::Box.new
-    box.scrollbar = true
+    box.scrollbar_policy = :as_needed
     a = Widget::Button.new
     b = Widget::Button.new
     c = Widget::Button.new

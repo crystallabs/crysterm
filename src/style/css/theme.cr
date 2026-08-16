@@ -211,7 +211,7 @@ module Crysterm
         /* Bars and chrome */
         MenuBar, ToolBar { background-color: var(--muted-dark); color: var(--text); }
         StatusBar { background-color: var(--muted-dark); color: var(--text); }
-        ListBar::prefix { color: var(--info); }
+        CommandBar::prefix { color: var(--info); }
 
         /* Tooltips */
         ToolTip { background-color: var(--warning); color: var(--warning-fg); z-index: 10; opacity: 0.96; }

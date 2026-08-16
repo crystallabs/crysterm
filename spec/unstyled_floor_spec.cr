@@ -67,9 +67,9 @@ require "./spec_helper"
       row_has_reverse?(s, 0, 0, list.awidth.not_nil! - 1).should be_false
     end
 
-    it "shows a ListBar's selected item via reverse-video" do
+    it "shows a CommandBar's selected item via reverse-video" do
       s = floor_screen
-      lb = Crysterm::Widget::ListBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
+      lb = Crysterm::Widget::CommandBar.new parent: s, top: 0, left: 0, width: 40, height: 1,
         keys: true, mouse: true
       lb.items = %w[File Edit View]
       lb.focus

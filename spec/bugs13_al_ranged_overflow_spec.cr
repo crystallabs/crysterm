@@ -36,7 +36,7 @@ describe "BUGS13 M12: SpinBox stepping saturates instead of overflowing" do
   it "survives PageUp when step * 10 overflows Int32" do
     s = headless_screen(40, 10)
     spin = Widget::SpinBox.new parent: s, top: 0, left: 0, width: 10, height: 1,
-      minimum: 0, maximum: Int32::MAX, value: 0, step: Int32::MAX // 2
+      minimum: 0, maximum: Int32::MAX, value: 0, single_step: Int32::MAX // 2
     # The `@step * 10` delta saturates instead of overflowing, and the step
     # clamps to the range bound.
     spin.emit Crysterm::Event::KeyPress.new('\0', Tput::Key::PageUp)

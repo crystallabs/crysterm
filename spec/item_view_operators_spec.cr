@@ -50,7 +50,7 @@ end
 describe "Mixin::ActionBar operator aliases" do
   it "appends a command via #<< with a String" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 40, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 40, height: 1
     bar << "one"
     bar << "two"
     bar.count.should eq 2
@@ -58,7 +58,7 @@ describe "Mixin::ActionBar operator aliases" do
 
   it "removes a command via #>> with its index" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 40, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 40, height: 1
     bar << "one"
     bar << "two"
     bar >> 0
@@ -67,7 +67,7 @@ describe "Mixin::ActionBar operator aliases" do
 
   it "still appends a *child widget* via #<<(Widget), not a command" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 40, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 40, height: 1
     before = bar.count
     box = Crysterm::Widget::Box.new width: 5, height: 1, content: "child"
     bar << box

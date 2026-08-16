@@ -18,10 +18,10 @@ include Crysterm
 describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-25)" do
   it "matches A > B:last-child::slot (child-then-descendant shape the engine can't compile)" do
     screen = headless_screen(default_quit_keys: true)
-    parent = Widget::Box.new(scrollbar: true)
+    parent = Widget::Box.new(scrollbar_policy: :as_needed)
     screen.append parent
-    c1 = Widget::Box.new(parent: parent, scrollbar: true)
-    c2 = Widget::Box.new(parent: parent, scrollbar: true)
+    c1 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
+    c2 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
     without_default_theme do
       screen.stylesheet = "Box > Box:last-child::scrollbar { color: red; }"
       screen.apply_stylesheet
@@ -36,10 +36,10 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
     # The parent's own scrollbar emits trailing <w-scrollbar>/<w-track> nodes
     # after the real children; matching the host in the full document would let
     # them steal the last-child slot.
-    parent = Widget::Box.new(scrollbar: true)
+    parent = Widget::Box.new(scrollbar_policy: :as_needed)
     screen.append parent
-    c1 = Widget::Box.new(parent: parent, scrollbar: true)
-    c2 = Widget::Box.new(parent: parent, scrollbar: true)
+    c1 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
+    c2 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
     c1.add_css_class "pane"
     c2.add_css_class "pane"
     without_default_theme do
@@ -53,10 +53,10 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
 
   it "matches :nth-last-child on a slot subject counting only real siblings" do
     screen = headless_screen(default_quit_keys: true)
-    parent = Widget::Box.new(scrollbar: true)
+    parent = Widget::Box.new(scrollbar_policy: :as_needed)
     screen.append parent
-    c1 = Widget::Box.new(parent: parent, scrollbar: true)
-    c2 = Widget::Box.new(parent: parent, scrollbar: true)
+    c1 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
+    c2 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
     without_default_theme do
       screen.stylesheet = "Box > Box:nth-last-child(2)::scrollbar { color: red; }"
       screen.apply_stylesheet
@@ -68,13 +68,13 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
 
   it "reaches slots of widgets nested under the matched host (descendant semantics)" do
     screen = headless_screen(default_quit_keys: true)
-    wrap = Widget::Box.new(scrollbar: true)
+    wrap = Widget::Box.new(scrollbar_policy: :as_needed)
     screen.append wrap
-    a = Widget::Box.new(parent: wrap, scrollbar: true)
+    a = Widget::Box.new(parent: wrap, scrollbar_policy: :as_needed)
     b = Widget::Box.new(parent: wrap)
     a.add_css_class "sect"
     b.add_css_class "sect"
-    inner = Widget::Box.new(parent: b, scrollbar: true)
+    inner = Widget::Box.new(parent: b, scrollbar_policy: :as_needed)
     without_default_theme do
       # The `::slot` lowering inserts a descendant combinator, so the rule
       # also styles scrollbars nested anywhere under the matched last child.
@@ -88,10 +88,10 @@ describe "BUGS16 backward structural pseudos on sub-element slot subjects (B16-2
 
   it "keeps widget-subject backward pseudos and slot-subject rules independent" do
     screen = headless_screen(default_quit_keys: true)
-    parent = Widget::Box.new(scrollbar: true)
+    parent = Widget::Box.new(scrollbar_policy: :as_needed)
     screen.append parent
-    c1 = Widget::Box.new(parent: parent, scrollbar: true)
-    c2 = Widget::Box.new(parent: parent, scrollbar: true)
+    c1 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
+    c2 = Widget::Box.new(parent: parent, scrollbar_policy: :as_needed)
     without_default_theme do
       screen.stylesheet = <<-CSS
         Box > Box:last-child { color: blue; }

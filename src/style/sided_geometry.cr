@@ -89,32 +89,21 @@ module Crysterm
         @left = @top = @right = @bottom = all
       end
 
-      # Positional order is **LTRB** (left, top, right, bottom) — *not* CSS's
-      # clockwise-from-top TRBL. For CSS-ordered input use `.from` with a tuple
-      # (`{v, h}` or `{t, r, b, l}`).
-      def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
+      # Positional order is LTRB — but two side orders exist in the wild (CSS
+      # shorthands are TRBL/VH), so outside callers must name the order via
+      # `.ltrb`/`.trbl`/`.vh`/the per-side constructors, or use `.from`.
+      protected def initialize(@left : Int, @top : Int, @right : Int, @bottom : Int)
       end
+
+      SidedGeometry.named_constructors
     end
 
-    # The full surface of a zero-defaulting integer box (`Padding`, `Margin`):
-    # the per-side properties and integer constructors, `.default`, and `.from`.
-    macro zero_box
-      # A fresh zero box (all sides 0). Must never be a shared singleton: boxes
-      # are mutated in place by the per-side CSS longhands (`padding-left`, ...),
-      # so one widget's edit would leak into every other style.
-      def self.default : self
-        new 0
-      end
-
-      SidedGeometry.sided_properties
-
-      # Named constructors spelling out the coercion order at the call site —
-      # an explicit alternative to the positional 4-`Int` constructor (LTRB)
-      # and to `.from`'s TRBL/VH tuple forms, for callers who'd rather name the
-      # order than remember it.
-
-      # LTRB — the same order as the positional 4-`Int` constructor; a named
-      # spelling of `new(l, t, r, b)`.
+    # Named constructors spelling out the side order (or the side itself) at
+    # the call site — the public alternative to the protected positional
+    # 4-`Int` constructor, whose bare argument order is ambiguous against
+    # CSS's TRBL.
+    macro named_constructors
+      # LTRB (left, top, right, bottom) order.
       def self.ltrb(left : Int, top : Int, right : Int, bottom : Int) : self
         new left, top, right, bottom
       end
@@ -129,6 +118,43 @@ module Crysterm
       def self.vh(v : Int, h : Int) : self
         new h, v, h, v
       end
+
+      # Per-side constructors: *amount* on the named side(s), 0 elsewhere.
+      {% for side in %w[left top right bottom horizontal vertical] %}
+        def self.{{ side.id }}(amount : Int = 1) : self
+          %s = SidedGeometry.sides Side::{{ side.camelcase.id }}, amount
+          new %s[:left], %s[:top], %s[:right], %s[:bottom]
+        end
+      {% end %}
+
+      # All four sides at *amount*.
+      def self.all(amount : Int = 1) : self
+        new amount, amount, amount, amount
+      end
+    end
+
+    # The CSS tuple-shorthand arms of a box `.from`: `{v, h}` (2-value) and
+    # `{t, r, b, l}` (4-value, clockwise from top).
+    macro from_tuple_arms(value)
+      case {{ value }}
+      in Tuple(Int32, Int32)
+        vh {{ value }}[0], {{ value }}[1]
+      in Tuple(Int32, Int32, Int32, Int32)
+        trbl {{ value }}[0], {{ value }}[1], {{ value }}[2], {{ value }}[3]
+      end
+    end
+
+    # The full surface of a zero-defaulting integer box (`Padding`, `Margin`):
+    # the per-side properties and integer constructors, `.default`, and `.from`.
+    macro zero_box
+      # A fresh zero box (all sides 0). Must never be a shared singleton: boxes
+      # are mutated in place by the per-side CSS longhands (`padding-left`, ...),
+      # so one widget's edit would leak into every other style.
+      def self.default : self
+        new 0
+      end
+
+      SidedGeometry.sided_properties
 
       def self.from(value)
         case value

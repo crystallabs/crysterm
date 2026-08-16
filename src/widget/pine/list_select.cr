@@ -50,7 +50,7 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![ListSelect screenshot](../../../tests/widget/pine/list_select/list_select.5s.apng)
       # <!-- /widget-examples:capture -->
-      class ListSelect(T) < SelectableList(T)
+      class ListSelect(T) < RecordList(T)
         # Whether the picker is in multi-select (checkbox) mode.
         getter? multi : Bool
 

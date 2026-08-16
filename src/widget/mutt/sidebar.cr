@@ -62,7 +62,7 @@ module Crysterm
       #
       # The divider Mutt draws between the sidebar and the main area is left to
       # the surrounding layout, so the widget stays purely a list.
-      class Sidebar < ::Crysterm::Widget::Pine::SelectableList(Mailbox)
+      class Sidebar < ::Crysterm::Widget::RecordList(Mailbox)
         # Nested-name alias for the record type.
         alias Mailbox = ::Crysterm::Widget::Mutt::Mailbox
 

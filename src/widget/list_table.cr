@@ -356,7 +356,7 @@ module Crysterm
       # a plain `List` uses `style.item` instead. `Style#cell` falls back to the
       # list's own style when no `cell:` is given.
       def item_render_style(selected : Bool) : Style
-        without_border(selected ? styles.selected : style.cell)
+        without_border(selected ? styles[:selected] : style.cell)
       end
 
       # --- column-level horizontal scrolling ---------------------------------

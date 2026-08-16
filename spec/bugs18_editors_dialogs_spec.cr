@@ -15,8 +15,8 @@ include Crysterm
 # B18-43: ComboBox accepted Escape/Backspace/Enter/Up even when the key did
 #         nothing (popup closed, empty buffer/options), starving an enclosing
 #         Dialog's Enter/Escape accelerator.
-# B18-44: `ColorDialog#get_color` (and `Question#ask`/`#ask_choices`,
-#         `Prompt#read_input`) showed the "modal" dialog without taking the
+# B18-44: `ColorDialog#get_color` (and `MessageBox#open`'s question forms,
+#         `InputDialog#open`) showed the "modal" dialog without taking the
 #         modal input grab `Dialog#open` takes — widgets beneath stayed
 #         clickable.
 
@@ -209,7 +209,7 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
     s.dispatch_mouse b18ed_down(2, 22)
     clicked.should eq 1
 
-    cd.get_color { }
+    cd.open { }
     cd.modal?.should be_true
     s.popup_grab_active?.should be_true
     s.repaint
@@ -227,7 +227,7 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
   it "an eyedropper round-trip does not drop the dialog's modal grab" do
     s = headless_screen(60, 24)
     cd = Widget::ColorDialog.new parent: s, top: 0, left: 0, width: 50, height: 18
-    cd.get_color { }
+    cd.open { }
     s.repaint
     pick = cd.children.find! do |c|
       c.is_a?(Widget::Button) && c.content.includes?("Pick")
@@ -245,10 +245,10 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
     s.popup_grab_active?.should be_false
   end
 
-  it "Question#ask holds the grab until answered" do
+  it "MessageBox#open holds the grab until answered" do
     s = headless_screen(60, 24)
-    q = Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
-    q.ask("Sure?") { }
+    q = Widget::MessageBox.new parent: s, top: 0, left: 0, width: 40, height: 8
+    q.open("Sure?") { }
     q.modal?.should be_true
     s.popup_grab_active?.should be_true
     s.emit Crysterm::Event::KeyPress.new('y')
@@ -256,10 +256,10 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
     s.popup_grab_active?.should be_false
   end
 
-  it "Question#ask_choices holds the grab until dismissed" do
+  it "MessageBox#open (choices) holds the grab until dismissed" do
     s = headless_screen(60, 24)
-    q = Widget::Question.new parent: s, top: 0, left: 0, width: 40, height: 8
-    q.ask_choices("Pick one", choices: ["A", "B"]) { }
+    q = Widget::MessageBox.new parent: s, top: 0, left: 0, width: 40, height: 8
+    q.open("Pick one", choices: ["A", "B"]) { }
     q.modal?.should be_true
     s.popup_grab_active?.should be_true
     s.emit b18ed_key ::Tput::Key::Escape
@@ -267,10 +267,10 @@ describe "BUGS18 B18-44: block-based dialog presenters take the modal grab" do
     s.popup_grab_active?.should be_false
   end
 
-  it "Prompt#read_input takes the grab and #done releases it" do
+  it "InputDialog#open takes the grab and #done releases it" do
     s = headless_screen(60, 24)
-    p = Widget::Prompt.new parent: s, content: "Name?"
-    p.read_input { }
+    p = Widget::InputDialog.new parent: s, content: "Name?"
+    p.open { }
     p.modal?.should be_true
     s.popup_grab_active?.should be_true
     p.reject

@@ -28,7 +28,6 @@ colors = [0xe05050, 0x50e050, 0x5080e0, 0xe0c050, 0xc050e0]
   pb = ProgressBar.new \
     parent: s,
     top: 2 + i, left: 2, width: 46, height: 1,
-    percent: 0,
     style: Style.new(fg: colors[i], bg: 0x303030,
       indicator: Style.new(fg: colors[i]))
   step = i + 1
@@ -63,6 +62,6 @@ end
 
 # Live FPS overlay (bottom-left): counts the frames the doorbell coalesces
 # these fibers' render bursts into.
-Fps.new parent: s
+FPS.new parent: s
 
 s.exec

@@ -48,8 +48,8 @@ module Crysterm
         dialog_button "Cancel", width, bottom: bottom, right: right, focus_on_click: false, shrink_to_fit: true
       end
 
-      # Geometry for the one-call class presenters (`Question.ask`,
-      # `Prompt.read`): centered on *window*, sized to *text* — wide enough for
+      # Geometry for the one-call class presenters (`MessageBox.ask`,
+      # `InputDialog.read`): centered on *window*, sized to *text* — wide enough for
       # its longest line plus the frame, tall enough for its lines plus the
       # field/button rows (*extra_rows*) — clamped to sane minimums and to the
       # window. The presenters `merge` caller keywords over this, so any part

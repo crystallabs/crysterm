@@ -11,7 +11,7 @@ private def alpha_content_bg(padding : Int32)
 
   st = Crysterm::Style.new(bg: "blue")
   st.opacity = 0.5
-  st.padding = Crysterm::Padding.new(padding, padding, padding, padding) if padding > 0
+  st.padding = Crysterm::Padding.new(padding) if padding > 0
 
   b = Crysterm::Widget::Box.new parent: s, top: 2, left: 2, width: 20, height: 6,
     style: st, content: ""

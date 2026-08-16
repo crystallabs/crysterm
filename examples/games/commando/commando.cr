@@ -212,11 +212,11 @@ class Commando
   @state : State = :title
 
   def initialize
-    # Full-motion scene mutated without raising dirty-marks — damage tracking
-    # (the default) would see idle frames and freeze on a selective repaint;
-    # `OptimizationFlag::None` repaints the whole buffer every frame, exactly
-    # as in `quicktro.cr`.
-    @window = Window.new title: "commando.cr", optimization: OptimizationFlag::None
+    # Damage tracking (the default) stays on: the one widget whose cells
+    # change without tracked setters — the play field, painted by its
+    # `painter` proc — opts in via `repaints_every_frame`, so the rest of the
+    # UI (status bar, overlays) keeps selective repaints.
+    @window = Window.new title: "commando.cr"
 
     # The cabinet: one frame holding the two stacked regions this game has — the
     # play field above, the status bar below. `Window` is not a `Widget`, so the
@@ -235,6 +235,7 @@ class Commando
     @field = Field.new \
       parent: frame,
       width: WORLD_W + 2,
+      repaints_every_frame: true,
       style: Style.new(fg: "white", bg: "#101410",
         border: Border.new(BorderType::Solid, fg: "#6a6a72"))
     @field.painter = ->(f : Field) { draw_scene f }

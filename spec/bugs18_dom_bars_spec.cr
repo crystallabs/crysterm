@@ -1,7 +1,7 @@
 require "./spec_helper"
 
 # Regression specs for BUGS18 B18-105: the layout-DOM serializer/loader treated
-# ActionBar-family bars (ListBar / MenuBar / ToolBar) as ordinary containers —
+# ActionBar-family bars (CommandBar / MenuBar / ToolBar) as ordinary containers —
 # a snapshot serialized their macro-built item boxes as `<w-box>` children, and
 # a reload rebuilt those as plain dead widgets with an empty command model (a
 # lookalike but completely dead bar). Via `Widget#dom_owns_children?`,
@@ -15,15 +15,15 @@ require "./spec_helper"
   include Crysterm
 
   describe "BUGS18 B18-105 layout-DOM round-trip for ActionBar bars" do
-    it "serializes a ListBar's command model as an items attribute, not <w-box> children" do
+    it "serializes a CommandBar's command model as an items attribute, not <w-box> children" do
       s = headless_screen(80, 24, default_quit_keys: true)
-      bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
+      bar = Widget::CommandBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
       bar.add_item("Open") { }
       bar.add_item("Save") { }
       bar.add_item("Quit") { }
 
       html = s.to_layout_html
-      html.should contain %(<w-listbar)
+      html.should contain %(<w-commandbar)
       html.should contain %(items="Open\nSave\nQuit")
       # The bar is childless in the markup — its item boxes are model-owned,
       # not reconstructable children, and no command may leak out as a dead
@@ -31,16 +31,16 @@ require "./spec_helper"
       html.should_not contain "<w-box"
     end
 
-    it "reloads a ListBar with a live command model and no orphan dead child boxes" do
+    it "reloads a CommandBar with a live command model and no orphan dead child boxes" do
       s = headless_screen(80, 24, default_quit_keys: true)
-      bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
+      bar = Widget::CommandBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
       bar.add_item("Open") { }
       bar.add_item("Save") { }
       bar.add_item("Quit") { }
 
       s2 = headless_screen(80, 24, default_quit_keys: true)
       s2.load_layout s.to_layout_html
-      bar2 = s2.children.first.as(Widget::ListBar)
+      bar2 = s2.children.first.as(Widget::CommandBar)
 
       # Live model, not ghosts: commands/item_boxes must be populated rather
       # than two dead plain Boxes carrying the labels.
@@ -62,7 +62,7 @@ require "./spec_helper"
 
     it "keeps the round-trip idempotent: serialize -> load -> serialize" do
       s = headless_screen(80, 24, default_quit_keys: true)
-      bar = Widget::ListBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
+      bar = Widget::CommandBar.new(parent: s, top: 0, left: 0, width: 60, height: 1)
       bar.add_item("Open") { }
       bar.add_item("Quit") { }
 
@@ -78,14 +78,14 @@ require "./spec_helper"
       # nothing else. The loader must not attach them as dead children.
       s.load_layout <<-HTML
         <w-window>
-          <w-listbar id="bar" width="60" height="1" items="Open\nQuit">
+          <w-commandbar id="bar" width="60" height="1" items="Open\nQuit">
             <w-box content="1:Open"></w-box>
             <w-box content="2:Quit"></w-box>
-          </w-listbar>
+          </w-commandbar>
         </w-window>
         HTML
 
-      bar = s.find_by_id("bar").not_nil!.as(Widget::ListBar)
+      bar = s.find_by_id("bar").not_nil!.as(Widget::CommandBar)
       bar.item_texts.should eq %w[Open Quit]
       # Only the two model-backed item boxes — the ghost <w-box> nodes were
       # skipped, not appended on top.

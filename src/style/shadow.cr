@@ -271,7 +271,34 @@ module Crysterm
         # default — consistent with `Border`/`Padding`/`Margin`.
         v = value.to_i32
         Shadow.new(v, v, v, v)
+      in Tuple(Int32, Int32)
+        # CSS 2-value shorthand `{vertical, horizontal}`.
+        vh value[0], value[1]
+      in Tuple(Int32, Int32, Int32, Int32)
+        # CSS 4-value shorthand `{top, right, bottom, left}` (clockwise from
+        # top).
+        trbl value[0], value[1], value[2], value[3]
       end
+    end
+
+    # Named constructors spelling out the side order at the call site, matching
+    # `Padding`/`Margin`/`Border` (see `SidedGeometry.named_constructors`).
+    # Explicit sides pin manual placement (no light auto-placement).
+
+    # LTRB (left, top, right, bottom) order.
+    def self.ltrb(left : Int, top : Int, right : Int, bottom : Int) : self
+      new left.to_i32, top.to_i32, right.to_i32, bottom.to_i32
+    end
+
+    # TRBL — CSS's clockwise-from-top 4-value shorthand order.
+    def self.trbl(top : Int, right : Int, bottom : Int, left : Int) : self
+      ltrb left, top, right, bottom
+    end
+
+    # VH — CSS's 2-value shorthand order: *v* for top/bottom, *h* for
+    # left/right.
+    def self.vh(v : Int, h : Int) : self
+      ltrb h, v, h, v
     end
 
     def initialize(@opacity : Float64)

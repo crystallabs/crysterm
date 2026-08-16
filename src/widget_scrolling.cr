@@ -45,6 +45,7 @@ module Crysterm
     def fixed=(value : Bool) : Bool
       return value if value == @fixed
       @fixed = value
+      css_note_geometry_write fixed: value
       reset_clip_ancestor_cache
       value
     end
@@ -60,6 +61,14 @@ module Crysterm
     # flex cell.
     property? layout_chrome = false
 
+    # :ditto: — folds the write into the CSS geometry snapshot (`position:` is
+    # a snapshotted geometry property).
+    def layout_chrome=(value : Bool) : Bool
+      @layout_chrome = value
+      css_note_geometry_write layout_chrome: value
+      value
+    end
+
     # When a scrollable widget shows its scroll bar — Qt's `Qt::ScrollBarPolicy`.
     enum ScrollBarPolicy
       # Show the bar only while the content overflows the viewport (Qt default).
@@ -72,18 +81,20 @@ module Crysterm
 
     # When this widget's scroll bar chrome is shown (vertical only for now). Base
     # widgets default to `AlwaysOff`; scrollable widgets override to `AsNeeded`.
+    #
+    # This is the *only* knob for scroll-bar visibility: the legacy boolean
+    # `scrollbar:` constructor argument (and its `#scrollbar=` setter) are gone.
     property scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
+
+    # :ditto: — `Symbol` shorthand form (`w.scrollbar_policy = :always_off`),
+    # matching `#overflow=`/`#align=`.
+    def scrollbar_policy=(value : ::Crystallabs::Helpers::Enums::Shorthands) : ScrollBarPolicy
+      self.scrollbar_policy = ::Crystallabs::Helpers::Enums.from(ScrollBarPolicy, value)
+    end
 
     # Whether the scroll bar is enabled at all (policy not `AlwaysOff`).
     def scrollbar? : Bool
       !scrollbar_policy.always_off?
-    end
-
-    # Boolean sugar over `#scrollbar_policy`: `true` ⇒ `AsNeeded`, `false` ⇒
-    # `AlwaysOff`.
-    def scrollbar=(v : Bool) : Bool
-      @scrollbar_policy = v ? ScrollBarPolicy::AsNeeded : ScrollBarPolicy::AlwaysOff
-      v
     end
 
     # Qt `QAbstractScrollArea#verticalScrollBarPolicy`: alias of `#scrollbar_policy`.
@@ -99,6 +110,11 @@ module Crysterm
     # Qt `QAbstractScrollArea#horizontalScrollBarPolicy`. Defaults to `AlwaysOff`
     # on the base widget, so horizontal scrolling is opt-in per widget.
     property horizontal_scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
+
+    # :ditto: — `Symbol` shorthand form.
+    def horizontal_scrollbar_policy=(value : ::Crystallabs::Helpers::Enums::Shorthands) : ScrollBarPolicy
+      self.horizontal_scrollbar_policy = ::Crystallabs::Helpers::Enums.from(ScrollBarPolicy, value)
+    end
 
     # Thickness of the scroll bars, in cells — the **single source of truth** so
     # no part of the toolkit assumes a width of `1`. The vertical bar is

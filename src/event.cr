@@ -351,6 +351,16 @@ module Crysterm
     # `Widget::DoubleSpinBox`). Mirrors Qt's `valueChanged(double)` signal.
     event DoubleValueChanged, value : Float64
 
+    # Emitted when a floating-point ranged widget's `[minimum, maximum]` bounds
+    # change (e.g. `Widget::DoubleSpinBox`) — the `Float64` counterpart of
+    # `Event::RangeChanged`, paired with `Event::DoubleValueChanged`.
+    #
+    # The payload is a concrete type per event class (the `event` macro
+    # generates one class per signal), so the numeric signals come in `Int32` /
+    # `Float64` pairs rather than as one generic event; `Mixin::RangedValue`
+    # routes each instantiation to its own pair.
+    event DoubleRangeChanged, minimum : Float64, maximum : Float64
+
     # Emitted by `Widget::Graph::HeatMap` when the pointer hovers a different
     # grid cell, carrying that cell's zero-based `row`/`col` and its `value`.
     # Fires only on a cell change, not on every motion report.

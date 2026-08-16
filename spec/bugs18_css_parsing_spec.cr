@@ -127,19 +127,19 @@ describe "BUGS18 CSS parsing fixes" do
   # silently dropping it at every margin consumer gated on `any?`.
   describe "SidedGeometry#any? with negative sides" do
     it "is true for a lone negative side (sum <= 0)" do
-      Margin.new(0, -1, 0, 0).any?.should be_true
+      Margin.ltrb(0, -1, 0, 0).any?.should be_true
     end
 
     it "is true for sides that cancel to zero" do
-      Margin.new(-2, 0, 2, 0).any?.should be_true
+      Margin.ltrb(-2, 0, 2, 0).any?.should be_true
     end
 
     it "is false when every side is genuinely zero" do
-      Margin.new(0, 0, 0, 0).any?.should be_false
+      Margin.new(0).any?.should be_false
     end
 
     it "is true when the sum happens to be positive (control case)" do
-      Margin.new(-1, 0, 3, 0).any?.should be_true
+      Margin.ltrb(-1, 0, 3, 0).any?.should be_true
     end
 
     it "reflects a negative margin-top applied through the CSS cascade" do

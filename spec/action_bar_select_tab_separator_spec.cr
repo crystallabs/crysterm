@@ -16,7 +16,7 @@ end
 describe "Mixin::ActionBar#select_item separator guard" do
   it "is a no-op when the target tab is a separator" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
                  Crysterm::Mixin::ActionBar::Command.new("b")]
 

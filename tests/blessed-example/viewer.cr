@@ -52,11 +52,11 @@ sidebar = Widget::Box.new parent: root, width: 25,
   layout_hint: Layout::Border::Hint.new(:left)
 
 chooser = List.new parent: sidebar, items: files, mouse: true, vi_keys: true,
-  scrollbar: true, top: 0, left: 0, width: "100%", height: "50%-1",
+  scrollbar_policy: :as_needed, top: 0, left: 0, width: "100%", height: "50%-1",
   label: " Image ", style: Style.new(border: true)
 
 # The Fit selector: a single line — the label "Fit" followed by the four options
-# laid out in a row, the active one inverted. (A ListBar pads each item too wide
+# laid out in a row, the active one inverted. (A CommandBar pads each item too wide
 # to fit four options plus a label in 25 cells, so this is a compact custom row.)
 FITS = [{"1:1", M::Fit::None}, {"stretch", M::Fit::Stretch}, {"fit", M::Fit::Contain}, {"zoom", M::Fit::Cover}]
 fit_names = FITS.map { |(n, _)| n }

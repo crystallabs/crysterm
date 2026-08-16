@@ -46,7 +46,7 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![Setup screenshot](../../../tests/widget/pine/setup/setup.5s.apng)
       # <!-- /widget-examples:capture -->
-      class Setup < SelectableList(SetupOption)
+      class Setup < RecordList(SetupOption)
         # Nested-name alias for the record type.
         alias Option = ::Crysterm::Widget::Pine::SetupOption
 

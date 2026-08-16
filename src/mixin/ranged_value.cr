@@ -95,9 +95,8 @@ module Crysterm
       # `RangeBounds`, included above.
 
       # Qt's `singleStep`: the amount a single line-step (arrow key, wheel notch)
-      # moves the value by. Constructors take it as `single_step:` — the blessed
-      # Qt-parity spelling — with `step:` kept as a compatibility alias
-      # (`single_step:` wins when both are given).
+      # moves the value by. Constructors take it as `single_step:` — the
+      # Qt-parity spelling, and the only one they accept.
       def single_step : T
         @single_step
       end
@@ -322,11 +321,17 @@ module Crysterm
         emit Crysterm::Event::ValueChanged, @value
       end
 
-      # Emits the range-change signal on an actual change. Defaults to the `Int32`
-      # `Event::RangeChanged`; a `Float64` control overrides it to a no-op, there
-      # being no `Float64` range event.
+      # Emits the range-change signal on an actual change, routed to whichever
+      # event this instantiation owns: `Event::RangeChanged` (`Int32`) or
+      # `Event::DoubleRangeChanged` (`Float64`), mirroring the
+      # `ValueChanged`/`DoubleValueChanged` pair. A hook rather than a plain
+      # `emit` so a widget with a different range protocol can still override.
       protected def emit_range_change : Nil
-        emit Crysterm::Event::RangeChanged, @minimum, @maximum
+        {% if T == Float64 %}
+          emit Crysterm::Event::DoubleRangeChanged, @minimum, @maximum
+        {% else %}
+          emit Crysterm::Event::RangeChanged, @minimum, @maximum
+        {% end %}
       end
 
       # Subscribes *block* to the value-change signal (Qt-style block-signal

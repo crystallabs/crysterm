@@ -431,7 +431,7 @@ module Crysterm
         # return if self(block).done?
 
         # Capture the `read_input(&callback)` block before it's cleared below so
-        # it's actually invoked (see end of method) — needed by `Widget::Prompt`,
+        # it's actually invoked (see end of method) — needed by `Widget::InputDialog`,
         # whose hide/teardown lives in the callback.
         callback = @_callback
 

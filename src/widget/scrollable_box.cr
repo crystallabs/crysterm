@@ -25,8 +25,7 @@ module Crysterm
 
       @scrollable = true
       # Show a real `ScrollBar` automatically when the content overflows (Qt's
-      # default `AsNeeded`). Opt out with `scrollbar_policy: AlwaysOff` (or the
-      # legacy `scrollbar: false`).
+      # default `AsNeeded`). Opt out with `scrollbar_policy: :always_off`.
       @scrollbar_policy = ScrollBarPolicy::AsNeeded
 
       # A scrollable widget that can't be scrolled from the keyboard is not a

@@ -16,7 +16,7 @@ end
 describe "Mixin::ActionBar leading-separator auto-selection" do
   it "selects the first real command when the bar opens with a separator" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = [separator, Crysterm::Mixin::ActionBar::Command.new("a"),
                  Crysterm::Mixin::ActionBar::Command.new("b")]
 
@@ -34,7 +34,7 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
 
   it "still selects index 0 for an ordinary leading command" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = ["a", "b", "c"]
 
     bar.current_index.should eq 0
@@ -43,7 +43,7 @@ describe "Mixin::ActionBar leading-separator auto-selection" do
 
   it "does not re-select on a separator added after the first command" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, width: 80, height: 1
+    bar = Crysterm::Widget::CommandBar.new parent: s, width: 80, height: 1
     bar.items = [Crysterm::Mixin::ActionBar::Command.new("a"), separator,
                  Crysterm::Mixin::ActionBar::Command.new("b")]
 

@@ -4,12 +4,12 @@ module Crysterm
   module Mixin
     # The "is interactive" concern — a focusable widget that accepts keyboard
     # input and scrolls its viewport with the arrow/paging keys. Normally
-    # obtained by subclassing `Widget::Input` (`Box` + this mixin); included
+    # obtained by subclassing `Widget::AbstractInteractive` (`Box` + this mixin); included
     # directly by a widget that must root in a different base.
     #
     # Sets the widget interactive (`@input`) and shrink-to-content
     # (`@shrink_to_fit`). NOTE the latter *flips the base sizing default*:
-    # every includer (all of `Widget::Input`'s subclasses) shrinks to its
+    # every includer (all of `Widget::AbstractInteractive`'s subclasses) shrinks to its
     # content unless constructed with `shrink_to_fit: false` — the reason a
     # full-pane editor spells `shrink_to_fit: false, width: "100%",
     # height: "100%"` explicitly.

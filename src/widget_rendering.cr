@@ -57,6 +57,7 @@ module Crysterm
       return value if value == @layout
       @layout.try(&.container=(nil))
       @layout = value
+      css_note_geometry_write layout: value
       value.try(&.container=(self))
       # The outgoing engine's assignments must not shadow the children's own
       # specs under the new engine (or under manual placement, for `nil`) —

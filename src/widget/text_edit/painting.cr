@@ -16,8 +16,24 @@ module Crysterm
           _type_scroll
         end
         ret = base_render with_children
-        paint_document(ret) if ret
+        if ret
+          # An empty document with a `#placeholder_text` draws the placeholder
+          # instead of the (blank) document — Qt's
+          # `QPlainTextEdit#placeholderText`, honored on the rich editor too.
+          placeholder_visible? ? paint_placeholder(ret) : paint_document(ret)
+        end
         ret
+      end
+
+      # Draws `#placeholder_text` on the first interior row. Deliberately not
+      # routed through `paint_document`: the placeholder is not in the
+      # document, has no blocks/formats, and must never be selectable.
+      private def paint_placeholder(coords) : Nil
+        x = coords.xi + ileft
+        y = coords.yi + itop
+        xl = coords.xl - iright
+        return if xl <= x || y >= coords.yl
+        draw_text_run y, x, @placeholder_text, xl
       end
 
       # Writes the visible document rows straight into the window's cell

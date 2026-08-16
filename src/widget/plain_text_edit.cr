@@ -47,12 +47,15 @@ module Crysterm
         input_on_focus = false,
         max_length = nil,
         read_only = false,
+        placeholder_text = nil,
         document : TextDocument? = nil,
         **input,
       )
         adopt_document document, input["content"]? || "", max_length, read_only
 
         super **(input.merge({keys: true}))
+
+        placeholder_text.try { |v| @placeholder_text = v }
 
         finish_document_setup input_on_focus: input_on_focus, install_enter: !!input["keys"]?
       end
@@ -83,6 +86,18 @@ module Crysterm
 
       protected def reset_document_caches : Nil
         @_display_value = nil
+      end
+
+      # Re-syncs the shown text: with an empty document the placeholder *is*
+      # the displayed content, and `#sync_display`'s dedup keys off the
+      # document text alone, which a placeholder change leaves untouched.
+      def placeholder_text=(value : String) : String
+        return value if value == @placeholder_text
+        @placeholder_text = value
+        @_display_value = nil
+        sync_display
+        update!
+        value
       end
 
       private def wire_document : Nil
@@ -117,11 +132,13 @@ module Crysterm
       end
 
       # Pushes the document's plain text into `set_content` whenever it changed.
+      # An empty document with a `#placeholder_text` shows the placeholder
+      # instead (Qt's `QPlainTextEdit#placeholderText`); the value stays empty.
       private def sync_display : Nil
         v = buf_text
         return if v == @_display_value
         @_display_value = v
-        set_content v
+        set_content(v.empty? && !@placeholder_text.empty? ? @placeholder_text : v)
         _type_scroll
         _update_cursor
       end

@@ -9,7 +9,7 @@ include Crysterm
 #     `focus_on_click: false` opt-out. On a mouse click of a dialog button (built
 #     with `focus_on_click: false`) this stole focus off a live `LineEdit` read,
 #     whose read-time Blur handler ended the read as a cancel — so clicking
-#     "OK" on a `Prompt` discarded the typed text and behaved like Cancel.
+#     "OK" on a `InputDialog` discarded the typed text and behaved like Cancel.
 #     `#press` now focuses only when `#focus_on_click?`.
 #
 #  BUG 2 (doc fix in src/widget/button.cr): `getter? default` was documented as
@@ -57,13 +57,13 @@ describe "BUGS6 AbstractButton#press honors focus_on_click (bug 1)" do
     a.focused?.should be_false
   end
 
-  it "clicking OK on a Prompt submits the typed text instead of cancelling" do
+  it "clicking OK on an InputDialog submits the typed text instead of cancelling" do
     s = headless_screen(80, 24)
-    prompt = Crysterm::Widget::Prompt.new parent: s, content: "Name?"
+    prompt = Crysterm::Widget::InputDialog.new parent: s, content: "Name?"
 
     got_data : String? = nil
     called = false
-    prompt.read_input do |data|
+    prompt.open do |data|
       called = true
       got_data = data
     end

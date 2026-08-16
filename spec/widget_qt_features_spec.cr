@@ -558,11 +558,11 @@ describe Crysterm::Widget::SpinBox do
   end
 end
 
-describe Crysterm::Widget::Message::Severity do
+describe Crysterm::Widget::MessageBox::Severity do
   it "provides a colored icon prefix per severity" do
-    Crysterm::Widget::Message::Severity::None.prefix.should eq ""
-    Crysterm::Widget::Message::Severity::Warning.prefix.includes?("⚠").should be_true
-    Crysterm::Widget::Message::Severity::Critical.prefix.includes?("red-fg").should be_true
+    Crysterm::Widget::MessageBox::Severity::None.prefix.should eq ""
+    Crysterm::Widget::MessageBox::Severity::Warning.prefix.includes?("⚠").should be_true
+    Crysterm::Widget::MessageBox::Severity::Critical.prefix.includes?("red-fg").should be_true
   end
 end
 
@@ -662,10 +662,10 @@ describe Crysterm::Widget::Menu do
   end
 end
 
-describe Crysterm::Widget::ListBar do
+describe Crysterm::Widget::CommandBar do
   it "creates separators and skips them when moving" do
     s = headless_screen(80, 24)
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true,
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true,
       top: 0, left: 0, width: 40, height: 1
     bar.add_item "a"
     bar.add_separator
@@ -877,7 +877,7 @@ describe Crysterm::Widget::Splitter do
     b = Crysterm::Widget::Box.new
     sp.add_widget a
     sp.add_widget b
-    sp.set_divider_position 0, 10
+    sp.dividers[0].position = 10
 
     sp.panes[0].should be(a)
     sp.panes[1].should be(b)
@@ -891,10 +891,10 @@ describe Crysterm::Widget::Splitter do
     sp = Crysterm::Widget::Splitter.new parent: s, width: 40, height: 10
     sp.add_widget Crysterm::Widget::Box.new
     sp.add_widget Crysterm::Widget::Box.new
-    sp.set_divider_position 0, 9999
-    sp.divider_position(0).should eq 38 # width - 2
-    sp.set_divider_position 0, -5
-    sp.divider_position(0).should eq 1
+    sp.dividers[0].position = 9999
+    sp.dividers[0].position.should eq 38 # width - 2
+    sp.dividers[0].position = -5
+    sp.dividers[0].position.should eq 1
   end
 
   it "splits vertically by height" do
@@ -905,7 +905,7 @@ describe Crysterm::Widget::Splitter do
     b = Crysterm::Widget::Box.new
     sp.add_widget a
     sp.add_widget b
-    sp.set_divider_position 0, 8
+    sp.dividers[0].position = 8
     a.height_spec.should eq 8
     sp.dividers[0].top.should eq 8
     b.top.should eq 9
@@ -937,11 +937,11 @@ describe "ComboBox cleanup" do
   end
 end
 
-describe "ListBar auto_command_keys" do
+describe "CommandBar auto_command_keys" do
   it "selects a tab by number through the focused bar's key handler" do
     s = headless_screen(80, 24)
     fired = [] of Int32
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true, auto_command_keys: true
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true, auto_command_keys: true
     bar.add_item("one") { fired << 0 }
     bar.add_item("two") { fired << 1 }
     bar.add_item("three") { fired << 2 }
@@ -952,13 +952,13 @@ describe "ListBar auto_command_keys" do
   end
 end
 
-describe "ListBar hotkey cleanup" do
+describe "CommandBar hotkey cleanup" do
   it "stops a removed command's global hotkey from firing" do
     s = headless_screen(80, 24)
     fired = 0
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true
     bar.add_item("keep") { }
-    item = bar.add_item("quit", keys: ["q"]) { fired += 1 }
+    item = bar.add_item("quit", shortcuts: ["q"]) { fired += 1 }
 
     s.emit Crysterm::Event::KeyPress, 'q'
     fired.should eq 1
@@ -971,8 +971,8 @@ describe "ListBar hotkey cleanup" do
   it "detaches all hotkeys when the bar is destroyed" do
     s = headless_screen(80, 24)
     fired = 0
-    bar = Crysterm::Widget::ListBar.new parent: s, keys: true
-    bar.add_item("quit", keys: ["q"]) { fired += 1 }
+    bar = Crysterm::Widget::CommandBar.new parent: s, keys: true
+    bar.add_item("quit", shortcuts: ["q"]) { fired += 1 }
     bar.destroy
     s.emit Crysterm::Event::KeyPress, 'q'
     fired.should eq 0
@@ -1056,14 +1056,14 @@ describe "Splitter multi-pane" do
 
     sp.panes.size.should eq 3
     sp.dividers.size.should eq 2
-    sp.divider_position(0).should be < sp.divider_position(1)
+    sp.dividers[0].position.should be < sp.dividers[1].position
     a.width_spec.should eq 9
     b.width_spec.should eq 9
     sp.dividers[0].left.should eq 9
     sp.dividers[1].left.should eq 19
 
-    sp.set_divider_position 0, 5
-    sp.divider_position(0).should eq 5
+    sp.dividers[0].position = 5
+    sp.dividers[0].position.should eq 5
     a.width_spec.should eq 5
   end
 
@@ -1083,8 +1083,8 @@ describe "Splitter multi-pane" do
 
     sp.sizes = [5, 10] # a short vector leaves the rest as they are
     sp.sizes.should eq [5, 10, 14]
-    sp.divider_position(0).should eq 5
-    sp.divider_position(1).should eq 16
+    sp.dividers[0].position.should eq 5
+    sp.dividers[1].position.should eq 16
     a.width_spec.should eq 5
     b.width_spec.should eq 10
 
@@ -1117,16 +1117,16 @@ describe "Splitter multi-pane" do
     sp.add_widget c
 
     # Pin both dividers near the right edge of the wide splitter.
-    sp.set_divider_position 0, 23
-    sp.set_divider_position 1, 35
+    sp.dividers[0].position = 23
+    sp.dividers[1].position = 35
 
     # Shrink far below where the dividers were pinned and relayout.
     sp.width = 12
-    sp.set_divider_position 1, sp.divider_position(1)
+    sp.dividers[1].position = sp.dividers[1].position
 
     # Dividers stay ordered and inside the new 12-cell span (each pane >= 1 cell).
-    sp.divider_position(0).should be < sp.divider_position(1)
-    sp.divider_position(1).should be <= 10 # total(12) - 2
+    sp.dividers[0].position.should be < sp.dividers[1].position
+    sp.dividers[1].position.should be <= 10 # total(12) - 2
     a.width_spec.as(Int32).should be >= 1
     b.width_spec.as(Int32).should be >= 1
   end
@@ -1312,7 +1312,7 @@ describe Crysterm::Widget::DoubleSpinBox do
   it "formats to decimals and steps by a float step" do
     s = headless_screen(80, 24)
     d = Crysterm::Widget::DoubleSpinBox.new parent: s, minimum: 0.0, maximum: 10.0,
-      value: 1.5, step: 0.5, decimals: 2
+      value: 1.5, single_step: 0.5, decimals: 2
     d.formatted_value.should eq "1.50"
     changes = [] of Float64
     d.on(Crysterm::Event::DoubleValueChanged) { |e| changes << e.value }
@@ -1452,7 +1452,7 @@ describe Crysterm::Widget::ScrollBar do
   it "single_step aliases step" do
     s = headless_screen(80, 24)
     sb = Crysterm::Widget::ScrollBar.new parent: s, minimum: 0, maximum: 10, value: 0,
-      step: 1, width: 1, height: 5
+      single_step: 1, width: 1, height: 5
     sb.single_step.should eq 1
     sb.single_step = 3
     sb.single_step.should eq 3
@@ -1518,12 +1518,12 @@ describe "Widget::ScrollBarPolicy (auto show/hide)" do
     box.scrollbar_widget.try(&.visible?).should_not be_true
   end
 
-  it "legacy scrollbar: true/false maps to a policy" do
+  it "legacy scrollbar_policy: :as_needed/false maps to a policy" do
     s = headless_screen(80, 24)
-    on = Crysterm::Widget::Box.new parent: s, scrollbar: true, width: 10, height: 5
+    on = Crysterm::Widget::Box.new parent: s, scrollbar_policy: :as_needed, width: 10, height: 5
     on.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AsNeeded
     on.scrollbar?.should be_true
-    off = Crysterm::Widget::ScrollableBox.new parent: s, scrollbar: false, width: 10, height: 5
+    off = Crysterm::Widget::ScrollableBox.new parent: s, scrollbar_policy: :always_off, width: 10, height: 5
     off.scrollbar_policy.should eq Crysterm::Widget::ScrollBarPolicy::AlwaysOff
   end
 
@@ -2150,12 +2150,12 @@ describe Crysterm::Widget::MenuBar do
     sel = -> { bar.item_boxes.map(&.state.selected?) }
     sel.call.should eq [false, false] # nothing marked at startup
 
-    bar.open 0
+    bar.open_menu 0
     bar.open_index.should eq 0
     bar.menus[0].visible?.should be_true
     sel.call.should eq [true, false]
 
-    bar.open 1 # switching closes the previous
+    bar.open_menu 1 # switching closes the previous
     bar.open_index.should eq 1
     bar.menus[0].visible?.should be_false
     bar.menus[1].visible?.should be_true
@@ -2172,7 +2172,7 @@ describe Crysterm::Widget::MenuBar do
     fired = 0
     fm = bar.add_menu "File"
     fm.add_action("Quit") { fired += 1 }
-    bar.open 0
+    bar.open_menu 0
     fm.current_index = 0
     fm.activate_selected
     fired.should eq 1
@@ -2184,7 +2184,7 @@ describe Crysterm::Widget::MenuBar do
     bar.add_menu "File", [Crysterm::Action.new("New")]
     bar.add_menu "Edit", [Crysterm::Action.new("Cut")]
     bar.add_menu "Help", [Crysterm::Action.new("About")]
-    bar.open 0
+    bar.open_menu 0
     bar.menus[0].handle_key_press keypress('\0', Tput::Key::Right) # File -> Edit
     bar.open_index.should eq 1
     bar.menus[1].handle_key_press keypress('\0', Tput::Key::Left) # Edit -> File
@@ -2202,7 +2202,7 @@ describe Crysterm::Widget::MenuBar do
     s.repaint
 
     # Activate a top-level entry: its title highlights and the menu opens.
-    bar.open 0
+    bar.open_menu 0
     bar.open_index.should eq 0
     bar.item_boxes[0].state.selected?.should be_true
     fm.visible?.should be_true
@@ -2331,7 +2331,7 @@ describe "MenuBar rendering (regression)" do
     fm.add_action("Open") { }
 
     s.children.includes?(fm).should be_true # in the render tree, not just screened
-    bar.open 0
+    bar.open_menu 0
     fm.visible?.should be_true
     fm.items.size.should eq 2
     fm.item_boxes.all?(&.visible?).should be_true
@@ -2362,7 +2362,7 @@ describe "Input grab (modal pop-ups)" do
     move.call 60, 12
     over.should eq 1 # hover reaches the box normally
 
-    menubar.open 0
+    menubar.open_menu 0
     s.popup_grab_active?.should be_true
     move.call bar_x.call(0), 0 # park hover on the bar
     move.call 60, 12           # hover the box again, now while the menu is open

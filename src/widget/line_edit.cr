@@ -1,4 +1,4 @@
-require "./input"
+require "./abstract_interactive"
 require "../mixin/input_history"
 require "../mixin/text_editing"
 
@@ -14,7 +14,7 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![LineEdit screenshot](../../tests/widget/lineedit/lineedit.5s.apng)
     # <!-- /widget-examples:capture -->
-    class LineEdit < Input
+    class LineEdit < AbstractInteractive
       include Mixin::TextEditing
       include Mixin::TextEditing::FlatBuffer
       # Shell-style Up/Down input history (`#history`, `#history_keys?`,
@@ -50,15 +50,35 @@ module Crysterm
 
       # Mask character shown for each hidden character in the `Password` echo
       # modes (Qt's `lineedit-password-character`). Defaults to `*`.
-      property password_character : Char = '*'
+      getter password_character : Char = '*'
 
-      # Greyed-out prompt shown while the box is empty, like Qt's
-      # `QLineEdit#placeholderText`. It is purely visual: `#value` stays empty.
-      property placeholder_text : String = ""
+      # :ditto: — folds the write into the CSS geometry snapshot (the property
+      # is CSS-addressable, so it shares the snapshot/restore contract).
+      def password_character=(value : Char) : Char
+        @password_character = value
+        css_note_geometry_write password_character: value
+        value
+      end
+
+      # `#placeholder_text` (the greyed-out prompt shown while the box is empty)
+      # comes from `Mixin::TextEditing`, shared with the multi-line editors.
+
+      # Acceptance predicate for the entered text — Qt's `QLineEdit#validator` /
+      # `hasAcceptableInput`. `#submit` refuses to finish a read while it
+      # returns `false`, so an invalid line simply keeps the field (and any
+      # dialog hosting it) open. `nil` accepts anything.
+      property validator : Proc(String, Bool)? = nil
+
+      # Whether the current value passes `#validator` (Qt's
+      # `QLineEdit#hasAcceptableInput`). Always true with no validator set.
+      def acceptable_input? : Bool
+        (v = @validator) ? v.call(@value) : true
+      end
 
       def initialize(
         echo_mode : EchoMode? = nil,
         placeholder_text = nil,
+        validator = nil,
         parse_tags = false,
         input_on_focus = true,
         max_length = nil,
@@ -74,6 +94,7 @@ module Crysterm
 
         echo_mode.try { |v| @echo_mode = v }
         placeholder_text.try { |v| @placeholder_text = v }
+        validator.try { |v| @validator = v }
       end
 
       # Positional contents convenience — Qt's `QLineEdit(contents)`: the
@@ -249,6 +270,11 @@ module Crysterm
       # not reading. This is the real Enter-key behavior — the key handler calls
       # it directly rather than forging a synthetic keypress.
       def submit
+        # A rejected line does not finish the read: the field stays in edit
+        # mode (and a hosting `InputDialog` stays open) until the value is
+        # acceptable or the read is cancelled. Nothing is recorded in the
+        # history either — an invalid line was never entered.
+        return unless acceptable_input?
         # A non-kill action breaks the consecutive-kill run (emacs semantics);
         # the mixin's `super` normally does this, but Enter returns early.
         # Runs even outside an active read: history must record the line

@@ -50,7 +50,7 @@ module Crysterm
       # <!-- widget-examples:capture v1 -->
       # ![AddressBook screenshot](../../../tests/widget/pine/address_book/address_book.5s.apng)
       # <!-- /widget-examples:capture -->
-      class AddressBook < SelectableList(Contact)
+      class AddressBook < RecordList(Contact)
         # Nested-name alias for the record type.
         alias Contact = ::Crysterm::Widget::Pine::Contact
 

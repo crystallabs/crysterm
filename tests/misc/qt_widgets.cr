@@ -222,7 +222,7 @@ dtedit = Widget::DateTimeEdit.new \
 Widget::Box.new parent: datespage, top: 7, left: 1, width: 8, height: 1, content: "Ratio:"
 dspin = Widget::DoubleSpinBox.new \
   parent: datespage, top: 7, left: 9, width: 10, height: 1,
-  minimum: 0.0, maximum: 1.0, step: 0.05, value: 0.25
+  minimum: 0.0, maximum: 1.0, single_step: 0.05, value: 0.25
 
 dateedit.on(Event::DateChanged) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}" }
 timeedit.on(Event::DateChanged) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}" }
@@ -309,7 +309,7 @@ pickbtn = Widget::Button.new \
   parent: extraspage, top: 7, left: 10, width: 6, height: 1,
   content: "Pick", align: :center, focus_on_click: true
 open_picker = -> do
-  colordlg.get_color do |color|
+  colordlg.open do |color|
     if color
       swatch.style.bg = color
       status.show_message " color = #{color}"

@@ -6,15 +6,15 @@ include Crysterm
 # Destroying the message before the timeout must invalidate that pending fiber
 # (via the generation bump), so the stale timeout can't dismiss/callback against
 # the torn-down widget — the timed counterpart of the keypress-dismiss cleanup.
-describe Crysterm::Widget::Message do
+describe Crysterm::Widget::MessageBox do
   it "invalidates a pending timed-dismissal after destroy" do
     s = headless_screen(80, 24)
-    msg = Crysterm::Widget::Message.new parent: s, width: 20, height: 3
+    msg = Crysterm::Widget::MessageBox.new parent: s, width: 20, height: 3
 
     ran = false
     # A long timeout so the real fiber never fires during the test; the fiber
     # captures generation 1 (the first `#display`).
-    msg.display("hi", 5.seconds) { ran = true }
+    msg.open("hi", 5.seconds) { ran = true }
 
     msg.destroy
 

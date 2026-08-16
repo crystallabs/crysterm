@@ -176,7 +176,7 @@ module Superconf
 
   # -- Widget defaults -------------------------------------------------------
   option "message.display_time", 3.seconds,
-    description: "Default time Widget::Message stays on screen before dismissing",
+    description: "Default time Widget::MessageBox stays on screen before dismissing",
     validate: ->(t : Time::Span) { t > Time::Span.zero }
   option "loading.interval", 0.2.seconds,
     description: "Default Widget::Loading spinner frame interval",

@@ -22,11 +22,11 @@ private def f1_mouse(action, x, y, button = ::Tput::Mouse::Button::Left)
 end
 
 describe "BUGS-F1 finding 20: alias_previous defines the requested alias" do
-  it "supports Widget::Message#display block-less overload" do
+  it "supports Widget::MessageBox#display block-less overload" do
     s = headless_screen(80, 24)
-    m = Crysterm::Widget::Message.new parent: s
+    m = Crysterm::Widget::MessageBox.new parent: s
     # `-1.seconds` selects the keypress-dismissal path (no timer fiber).
-    m.display("saved", -1.seconds)
+    m.open("saved", -1.seconds)
     m.visible?.should be_true
   end
 
@@ -91,12 +91,12 @@ end
 describe "BUGS-F1 finding 37: a stale message timer does not dismiss a later message" do
   it "no-ops end_it from a superseded generation" do
     s = headless_screen(80, 24)
-    m = Crysterm::Widget::Message.new parent: s
+    m = Crysterm::Widget::MessageBox.new parent: s
 
     calls = [] of Int32
     # Long timers so the spawned fibers never fire during the test.
-    m.display("a", 100.seconds) { calls << 1 }
-    m.display("b", 100.seconds) { calls << 2 }
+    m.open("a", 100.seconds) { calls << 1 }
+    m.open("b", 100.seconds) { calls << 2 }
     m.visible?.should be_true
 
     # The first message's timer (generation 1) fires late: it must not dismiss
@@ -195,7 +195,7 @@ describe "BUGS-F1 finding 52: set_label update path honors padding" do
   it "keeps the label position stable across a second set_label" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 6,
-      style: Style.new(border: true, padding: Padding.new(2, 0, 2, 0))
+      style: Style.new(border: true, padding: Padding.ltrb(2, 0, 2, 0))
 
     box.set_label "A"
     first = box.label_widget.not_nil!.left

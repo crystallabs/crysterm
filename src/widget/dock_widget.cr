@@ -245,11 +245,11 @@ module Crysterm
       def floor_border_value : Bool | Border
         return true if floating? # full frame for a detached pane
         case @area
-        in .left?     then Border.new(0, 0, 1, 0) # content is to the right
-        in .right?    then Border.new(1, 0, 0, 0) # content is to the left
-        in .top?      then Border.new(0, 0, 0, 1) # content is below
-        in .bottom?   then Border.new(0, 1, 0, 0) # content is above
-        in .floating? then true                   # handled above; keep exhaustive
+        in .left?     then Border.right  # content is to the right
+        in .right?    then Border.left   # content is to the left
+        in .top?      then Border.bottom # content is below
+        in .bottom?   then Border.top    # content is above
+        in .floating? then true          # handled above; keep exhaustive
         end
       end
 

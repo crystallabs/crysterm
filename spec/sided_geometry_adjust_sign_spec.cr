@@ -22,7 +22,7 @@ module Crysterm
   describe SidedGeometry do
     describe "#adjust" do
       it "sign = 1 (default) insets — shrinks the rectangle inward" do
-        border = Border.new(1, 1, 1, 1)              # left/top/right/bottom = 1
+        border = Border.new(1)                       # left/top/right/bottom = 1
         xi, xl, yi, yl = border.adjust(0, 10, 0, 10) # default sign = 1
         {xi, xl, yi, yl}.should eq({1, 9, 1, 9})
         (xl - xi).should eq 8 # width 10 -> 8: shrank
@@ -30,7 +30,7 @@ module Crysterm
       end
 
       it "sign = -1 outsets — grows the rectangle outward" do
-        border = Border.new(1, 1, 1, 1)
+        border = Border.new(1)
         xi, xl, yi, yl = border.adjust(0, 10, 0, 10, -1)
         {xi, xl, yi, yl}.should eq({-1, 11, -1, 11})
         (xl - xi).should eq 12 # width 10 -> 12: grew
@@ -38,7 +38,7 @@ module Crysterm
       end
 
       it "the mutating overload insets in place with the default sign" do
-        border = Border.new(2, 3, 2, 3) # left=2 top=3 right=2 bottom=3
+        border = Border.ltrb(2, 3, 2, 3) # left=2 top=3 right=2 bottom=3
         pos = AdjustPos.new(0, 20, 0, 20)
         border.adjust(pos)
         pos.xi.should eq 2               # left inward

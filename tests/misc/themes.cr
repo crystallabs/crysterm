@@ -142,7 +142,7 @@ end
 tick = 0
 s.every(0.25.seconds) do
   case tick % 10
-  when 1 then children.each &.menubar.open(0)
+  when 1 then children.each &.menubar.open_menu(0)
   when 3
     children.each &.menubar.close
     children.each &.lang.focus

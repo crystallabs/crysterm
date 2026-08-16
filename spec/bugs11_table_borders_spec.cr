@@ -26,7 +26,7 @@ describe "BUGS11 #20 Table#draw_borders honors vertical padding" do
     s.alloc
     t = Crysterm::Widget::Table.new(parent: s, left: 0, top: 0,
       rows: [["Name", "Email"], ["Alice", "a@x"]],
-      style: Crysterm::Style.new(border: true, padding: Padding.new(0, 1, 0, 1)))
+      style: Crysterm::Style.new(border: true, padding: Padding.ltrb(0, 1, 0, 1)))
     s.repaint
 
     lp = t.lpos.not_nil!

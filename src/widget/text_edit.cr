@@ -182,12 +182,15 @@ module Crysterm
         input_on_focus = false,
         max_length = nil,
         read_only = false,
+        placeholder_text = nil,
         document : TextDocument? = nil,
         **input,
       )
         adopt_document document, input["content"]? || "", max_length, read_only
 
         super **(input.merge({keys: true}))
+
+        placeholder_text.try { |v| @placeholder_text = v }
 
         finish_document_setup input_on_focus: input_on_focus, install_enter: !!input["keys"]?
       end

@@ -17,7 +17,7 @@ describe "drag ghost on a padded screen" do
       output: IO::Memory.new,
       error: IO::Memory.new,
       width: 40, height: 20)
-    s.padding = Crysterm::Padding.new(3, 2, 0, 0) # left=3, top=2
+    s.padding = Crysterm::Padding.ltrb(3, 2, 0, 0) # left=3, top=2
 
     source = Widget::Box.new parent: s, left: 5, top: 5, width: 6, height: 3
     source.drag_mode = :transfer; source.draggable = true # transfer source -> gets a ghost

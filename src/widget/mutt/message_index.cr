@@ -60,7 +60,7 @@ module Crysterm
       #
       # The selected row is drawn reverse. Navigate with the arrow keys; Enter
       # activates the message (runs its `callback` and emits `Event::ItemActivated`).
-      class MessageIndex < ::Crysterm::Widget::Pine::SelectableList(Message)
+      class MessageIndex < ::Crysterm::Widget::RecordList(Message)
         # Nested-name alias for the record type.
         alias Message = ::Crysterm::Widget::Mutt::Message
 

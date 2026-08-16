@@ -71,10 +71,13 @@ describe "CSS inheritance into materialized states" do
       screen.stylesheet = "Form { color: yellow; }"
       screen.apply_stylesheet
 
-      # `focused` lazily falls back to the same `normal` object (not a distinct
-      # inherited-into copy), which already carries the inherited color.
-      inner.styles.focused.should be inner.styles.normal
-      inner.styles.focused.fg.should eq rgb("yellow")
+      # The focused slot lazily falls back to the same `normal` object (not a
+      # distinct inherited-into copy), which already carries the inherited
+      # color. Asserted via the non-materializing `#[]`/`own_*?` forms — the
+      # copy-on-write named getter would materialize the slot.
+      inner.styles.own_focused?.should be_false
+      inner.styles[WidgetState::Focused].should be inner.styles.normal
+      inner.styles[WidgetState::Focused].fg.should eq rgb("yellow")
     end
   end
 end

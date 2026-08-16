@@ -2,7 +2,7 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-listbar.js
 #
-# Demonstrates the interactive `Widget::ListBar`: a horizontal bar of
+# Demonstrates the interactive `Widget::CommandBar`: a horizontal bar of
 # selectable commands with keyboard (and vi_keys) navigation, mouse clicks,
 # per-command hotkeys, and `auto_command_keys` (number keys select tabs).
 # Selecting a command updates the box in the top-right corner.
@@ -22,7 +22,7 @@ class X
       shrink_to_fit: true,
       content: "..."
 
-    bar = ListBar.new \
+    bar = CommandBar.new \
       bottom: 0,
       left: 3,
       right: 3,
