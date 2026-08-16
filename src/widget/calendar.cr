@@ -23,7 +23,9 @@ module Crysterm
     # * **Year** — click the year for a pop-up menu of nearby years, or wheel
     #   over it.
     #
-    # Home/End jump the selection to the first/last day of the shown month.
+    # `#show_month_menu` / `#show_year_menu` open the same pop-ups
+    # programmatically. Home/End jump the selection to the first/last day of
+    # the shown month.
     #
     # ### Qt-modeled options
     #
@@ -588,6 +590,19 @@ module Crysterm
         end
       end
 
+      # Opens the month pop-up menu, as a click on the nav bar's month name
+      # would — the programmatic counterpart of `ComboBox#show_popup` (Qt has
+      # no such API), for tests and self-driving demos. The open menu is
+      # reachable via `#month_menu`.
+      def show_month_menu : Nil
+        open_month_menu @nav_month_range.begin
+      end
+
+      # :ditto: — the year pop-up (`#year_menu`), as a click on the year would.
+      def show_year_menu : Nil
+        open_year_menu @nav_year_range.begin
+      end
+
       private def open_year_menu(col : Int32) : Nil
         # The full list is far taller than the window; cap visible rows to the
         # space below the nav bar so the dropdown scrolls in-window.
@@ -613,9 +628,9 @@ module Crysterm
         # assignment is what scrolls the selected row into view — so the long
         # year list opens on the current year instead of at its top.
         menu.current_index = index
-        # Falls back to layout coords (not a bail) when unrendered. This branch
-        # is currently unreachable — `popup_nav_menu` is only entered via
-        # `handle_mouse`, which already bailed on a nil `@lpos`.
+        # Falls back to layout coords (not a bail) when unrendered: the mouse
+        # path can't get here with a nil `@lpos` (`handle_mouse` bails first),
+        # but `#show_month_menu`/`#show_year_menu` can run pre-render.
         ox, oy = painted_content_origin? || {aleft + ileft, atop + itop}
         menu.popup ox + col, oy + 1
       end

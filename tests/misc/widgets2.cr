@@ -6,7 +6,8 @@
 #   * Dial      — a rotary dial doing full turns, mirrored by an LCDNumber
 #   * Table     — fixed-grid table whose numeric cells update live
 #   * Tree      — a node hierarchy expanding and collapsing branches
-#   * Calendar  — a month view with the selected day stepping through
+#   * Calendar  — a month view: the selected day steps through while the
+#                 month and year drop-downs each pop open for a moment
 #
 # Everything runs off one master clock: a 50-beat (5.0 s) cycle that divides
 # the 5 s capture exactly and ends in the state it started in, so the looping
@@ -113,8 +114,9 @@ Widget::Box.new parent: s, top: 23, left: 0, width: "100%", height: 1, parse_tag
 # One 50-beat cycle (0.1 s per beat = 5.0 s) drives every cell; each widget's
 # state is a pure function of `t = tick % 50`, so the scene is periodic and the
 # capture loop is seamless: the combo commits "Tokyo Night" and then commits
-# "Breeze" back, the tree closes every branch it opened, and the sweeps are
-# triangles or sawtooths.
+# "Breeze" back, the tree closes every branch it opened, the calendar dismisses
+# both of its nav drop-downs unchanged, and the sweeps are triangles or
+# sawtooths.
 popup = -> { combo.popup_widget.as?(Widget::ComboBox::Popup) }
 tick = 0
 s.every(0.1.seconds) do
@@ -153,8 +155,22 @@ s.every(0.1.seconds) do
   when 38 then tree.collapse docs
   end
 
-  # Calendar: the selected day advances every other beat, 1st → 25th.
+  # Calendar: the selected day advances every other beat, 1st → 25th, and each
+  # nav drop-down pops open for a moment — the highlight walks a couple of rows,
+  # then dismisses unchanged, so the page (and the cycle) end where they began.
+  # Both sessions sit in beats where the combo's popup is closed, so its focus
+  # is only borrowed while nothing else is animating a popup.
   cal.selected_date = Time.utc(2026, 6, 1 + (t // 2))
+  case t
+  when 18 then cal.show_month_menu
+  when 20 then cal.month_menu.try &.hover_item 6 # highlight July …
+  when 22 then cal.month_menu.try &.hover_item 7 # … then August
+  when 24 then cal.month_menu.try &.hide_popup
+  when 40 then cal.show_year_menu
+  when 42 then cal.year_menu.try &.hover_item 101 # highlight 2027 …
+  when 44 then cal.year_menu.try &.hover_item 103 # … then 2029
+  when 46 then cal.year_menu.try &.hide_popup
+  end
 end
 
 # Focused from the very first frame — the clock only re-asserts it — so a
