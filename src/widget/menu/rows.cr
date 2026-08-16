@@ -381,6 +381,12 @@ module Crysterm
           Unicode.width(Glyphs[Glyphs::Role::CheckboxChecked, tier]),
           Unicode.width(Glyphs[Glyphs::Role::CheckboxUnchecked, tier]))
         column = acts.any? { |a| !a.separator? && a.checkable? } ? marker_w + 1 : 0
+        # The icon slot is measured like the check column: the widest visible
+        # icon plus a gap, shared by every row — so icon-less entries (and
+        # narrower icons) indent to the same label column instead of sitting
+        # flush left. Vanishes entirely when no visible item carries an icon.
+        icon_w = acts.max_of? { |a| a.separator? ? 0 : (ic = a.icon) ? str_width(ic) : 0 } || 0
+        icon_col = icon_w.zero? ? 0 : icon_w + 1
         lefts = acts.map do |a|
           next "" if a.separator?
           prefix = if column == 0
@@ -393,7 +399,13 @@ module Crysterm
                    else
                      " " * column
                    end
-          icon = (i = a.icon) ? "#{i} " : ""
+          icon = if icon_col == 0
+                   ""
+                 elsif ic = a.icon
+                   "#{ic}#{" " * (icon_col - str_width(ic))}"
+                 else
+                   " " * icon_col
+                 end
           # A `&` mnemonic in the label renders underlined (the row's box is
           # tag-parsing then — see `#sync_items`); plain labels stay raw.
           "#{prefix}#{icon}#{Mnemonic.tagged(a.text)[0]}"

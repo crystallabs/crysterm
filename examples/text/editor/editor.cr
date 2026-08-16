@@ -60,15 +60,15 @@ win.menu_bar = menubar
 msg = ->(t : String) { status.show_message " #{t}" }
 
 file = menubar.add_menu "File"
-file.add_action("📄 New") { ed.text = ""; msg.call "new buffer" }
-file.add_action("📂 Open") { ed.text = SAMPLE; msg.call "opened sample.txt" }
-file.add_action("💾 Save") { mod_section.text = "✔ saved"; msg.call "saved sample.txt" }
+file.add_action("New", icon: "📄") { ed.text = ""; msg.call "new buffer" }
+file.add_action("Open", icon: "📂") { ed.text = SAMPLE; msg.call "opened sample.txt" }
+file.add_action("Save", icon: "💾") { mod_section.text = "✔ saved"; msg.call "saved sample.txt" }
 file.add_separator
 file.add_action("Quit") { s.quit }
 
 edit = menubar.add_menu "Edit"
-edit.add_action("↶ Undo") { ed.undo; msg.call "undo" }
-edit.add_action("↷ Redo") { ed.redo; msg.call "redo" }
+edit.add_action("Undo", icon: "↶") { ed.undo; msg.call "undo" }
+edit.add_action("Redo", icon: "↷") { ed.redo; msg.call "redo" }
 
 menubar.add_menu("Help").add_action("About") { msg.call "Crysterm editor — full Unicode" }
 

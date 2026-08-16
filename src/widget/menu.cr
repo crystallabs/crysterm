@@ -172,16 +172,19 @@ module Crysterm
       end
 
       # Creates an `Action` labeled *text*, appends it, and returns it (Qt's
-      # `QMenu#addAction(text)`).
-      def add_action(text : String) : Action
-        action = Action.new text
+      # `QMenu#addAction(text)`; with *icon* also given, `#addAction(icon, text)`).
+      # Prefer *icon* over embedding the glyph in *text*: only a real
+      # `Action#icon` joins the menu's shared icon column, aligning labels
+      # across icon-ful and icon-less entries.
+      def add_action(text : String, icon : String? = nil) : Action
+        action = Action.new text, icon: icon
         self << action
         action
       end
 
       # :ditto: — also connecting *block* to the action's `Event::Triggered`.
-      def add_action(text : String, &block : ->) : Action
-        action = add_action text
+      def add_action(text : String, icon : String? = nil, &block : ->) : Action
+        action = add_action text, icon
         action.on_triggered { block.call }
         action
       end

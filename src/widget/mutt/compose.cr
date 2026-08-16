@@ -147,8 +147,9 @@ module Crysterm
         def refresh
           rows = [] of String
           # Mutt right-justifies the field labels so the colons line up, unlike
-          # Pine's left-justified `To      :`.
-          FIELDS.each { |f| rows << "{bold}#{"#{f}:".rjust(9)}{/bold} #{@headers[f]}" }
+          # Pine's left-justified `To      :`. Header values are user-typed
+          # text on a tag-parsing menu, so escape their braces.
+          FIELDS.each { |f| rows << "{bold}#{"#{f}:".rjust(9)}{/bold} #{Widget.escape_tags(@headers[f])}" }
           rows << separator
           @attachments.each_with_index { |a, i| rows << format_attachment(a, i) }
           @menu.items = rows
@@ -163,7 +164,8 @@ module Crysterm
 
         # Formats one attachment row, Mutt-style.
         private def format_attachment(a : Attachment, index : Int32) : String
-          "  #{(index + 1).to_s.rjust(2)} #{a.filename.ljust(24)} [#{a.mime_type}, #{Crysterm::Formatting.human_size(a.size)}]"
+          # Filenames are external data on a tag-parsing menu: escape braces.
+          "  #{(index + 1).to_s.rjust(2)} #{Widget.escape_tags(a.filename).ljust(24)} [#{a.mime_type}, #{Crysterm::Formatting.human_size(a.size)}]"
         end
       end
     end

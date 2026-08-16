@@ -58,7 +58,7 @@ module Crysterm
 
         super **list.merge({parse_tags: true})
 
-        set_label @cwd if @path_label
+        set_label Widget.escape_tags(@cwd) if @path_label
       end
 
       # Reloads the listing for `cwd` (defaulting to the current directory).
@@ -102,12 +102,15 @@ module Crysterm
             nil
           end
 
+          # Filenames are external data on a tags-enabled list: escape them so
+          # a name containing `{`/`}` renders literally instead of as markup.
+          shown = Widget.escape_tags(name)
           if name == ".." || (info && info.directory?)
-            dirs << {name: name, text: "{light-blue-fg}#{name}{/light-blue-fg}/"}
+            dirs << {name: name, text: "{light-blue-fg}#{shown}{/light-blue-fg}/"}
           elsif info && info.symlink?
-            files << {name: name, text: "{light-cyan-fg}#{name}{/light-cyan-fg}@"}
+            files << {name: name, text: "{light-cyan-fg}#{shown}{/light-cyan-fg}@"}
           else
-            files << {name: name, text: name}
+            files << {name: name, text: shown}
           end
         end
 
@@ -125,7 +128,7 @@ module Crysterm
         # Announce a directory change (label + `DirectoryChanged`) on *every* path
         # that lands somewhere new, so no caller can leave a stale path label.
         if @cwd != prev_cwd
-          set_label @cwd if @path_label
+          set_label Widget.escape_tags(@cwd) if @path_label
           emit Crysterm::Event::DirectoryChanged, @cwd, prev_cwd
         end
 

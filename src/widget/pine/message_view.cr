@@ -38,15 +38,18 @@ module Crysterm
         # same widget can show a plain text pane (e.g. Help) by passing only a
         # `body`.
         def set_message(*, from = "", to = "", date = "", subject = "", body = "")
+          # Headers and body are message data on a tag-parsing pane (only the
+          # widget's own `{bold}` field names are markup), so escape their
+          # braces rather than letting a message inject tags.
           content = String.build do |s|
             any_header = false
             {"Date" => date, "From" => from, "To" => to, "Subject" => subject}.each do |name, value|
               next if value.empty?
-              s << header(name, value) << '\n'
+              s << header(name, Widget.escape_tags(value)) << '\n'
               any_header = true
             end
             s << '\n' if any_header
-            s << body
+            s << Widget.escape_tags(body)
           end
           reset_and_set_content content
         end
