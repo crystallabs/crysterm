@@ -161,7 +161,7 @@ module Crysterm
     alias BoxLayout = Crysterm::Layout::Box
     alias HBoxLayout = Crysterm::Layout::HBox
     alias VBoxLayout = Crysterm::Layout::VBox
-    alias BorderLayout = Crysterm::Layout::Border
+    alias BorderLayout = Crysterm::Layout::Dock
     alias StackLayout = Crysterm::Layout::Stack
     alias StackedLayout = Crysterm::Layout::Stack
     alias FormLayout = Crysterm::Layout::Form

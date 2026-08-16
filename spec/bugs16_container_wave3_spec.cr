@@ -5,7 +5,7 @@ include Crysterm
 # B16-45 — `DockWidget#area=` to `Floating` skipped `toggle_floating`'s
 # bookkeeping: the docked anchors (`right`/`bottom`) survived and fought the
 # drag handler, `@prev_area` was never recorded (a later re-dock went to
-# `Left` regardless of origin), and no `Event::Float` fired.
+# `Left` regardless of origin), and no `Event::TopLevelChanged` fired.
 describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeeping" do
   it "pins geometry, records prev_area, and emits Float" do
     s = headless_screen(80, 24)
@@ -16,7 +16,7 @@ describe "BUGS16 B16-45: DockWidget#area= Floating performs the float bookkeepin
     dock.right.should_not be_nil # docked anchor from relayout
 
     states = [] of Bool
-    dock.on(Crysterm::Event::Float) { |e| states << e.value }
+    dock.on(Crysterm::Event::TopLevelChanged) { |e| states << e.floating }
 
     dock.area = Widget::DockWidget::Area::Floating
     dock.floating?.should be_true

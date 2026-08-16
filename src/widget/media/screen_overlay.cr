@@ -102,7 +102,7 @@ module Crysterm
       # mid-move.
       protected def on_listener_detached(e : ::Crysterm::Event::Detached) : Nil
         teardown_overlay_listeners
-        clear_overlay e.object.as?(::Crysterm::Window)
+        clear_overlay e.window
       end
 
       # Registers the overlay listeners now when a window is resolvable, else

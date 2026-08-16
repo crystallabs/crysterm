@@ -137,14 +137,14 @@ describe Crysterm::Layout::Radial do
   end
 end
 
-describe Crysterm::Layout::Border do
+describe Crysterm::Layout::Dock do
   it "docks edges (top/bottom span width, left/right span remaining height) and fills center" do
     s = headless_screen(default_quit_keys: true)
     b = Widget::Box.new parent: s, left: 0, top: 0, width: 40, height: 12,
-      layout: Layout::Border.new
-    Widget::Box.new parent: b, height: 1, layout_hint: Layout::Border::Hint.new(:top)
-    Widget::Box.new parent: b, height: 1, layout_hint: Layout::Border::Hint.new(:bottom)
-    Widget::Box.new parent: b, width: 10, layout_hint: Layout::Border::Hint.new(:left)
+      layout: Layout::Dock.new
+    Widget::Box.new parent: b, height: 1, layout_hint: Layout::Dock::Hint.new(:top)
+    Widget::Box.new parent: b, height: 1, layout_hint: Layout::Dock::Hint.new(:bottom)
+    Widget::Box.new parent: b, width: 10, layout_hint: Layout::Dock::Hint.new(:left)
     Widget::Box.new parent: b # center (no hint)
 
     coords = render_children s, b
@@ -163,9 +163,9 @@ describe Crysterm::Layout::Border do
     # doubly owned) and the center got a negative height (-2). Each edge must
     # take only what remains: header 0..3, footer 4..5, center collapses to 0.
     b = Widget::Box.new parent: s, left: 0, top: 0, width: 20, height: 6,
-      layout: Layout::Border.new
-    top = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Border::Hint.new(:top)
-    bottom = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Border::Hint.new(:bottom)
+      layout: Layout::Dock.new
+    top = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Dock::Hint.new(:top)
+    bottom = Widget::Box.new parent: b, height: 4, layout_hint: Layout::Dock::Hint.new(:bottom)
     center = Widget::Box.new parent: b # center
 
     s.repaint

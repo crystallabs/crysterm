@@ -250,7 +250,7 @@ module Crysterm
         @wrapped_lines.rtof.clear
       end
       update
-      emit(Crysterm::Event::ContentChanged)
+      emit(Crysterm::Event::ContentSet)
     end
 
     # The content as *rendered*: the original ("fake") lines after tag parsing,

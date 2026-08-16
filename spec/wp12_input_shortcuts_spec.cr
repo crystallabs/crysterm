@@ -265,8 +265,8 @@ describe "WP-12 app loop, input, shortcuts" do
       s.layout = eng
       root = s.layout_root.not_nil!
       s.children.includes?(root).should be_true
-      root.width_spec.should eq "100%"
-      root.height_spec.should eq "100%"
+      root.width_spec.as(Crysterm::Dim).matches?("100%").should be_true
+      root.height_spec.as(Crysterm::Dim).matches?("100%").should be_true
       s.layout.should be eng
 
       eng2 = Crysterm::Layout::Box.new :horizontal

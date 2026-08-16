@@ -44,10 +44,10 @@ describe "BUGS11 border layout reserves the edge child's margin box (fix #26)" d
   it "keeps a top-margined header from overlapping the center region" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
 
     header = Widget::Box.new parent: box, height: 2,
-      layout_hint: Layout::Border::Hint.new(:top),
+      layout_hint: Layout::Dock::Hint.new(:top),
       style: Style.new(margin: Margin.new(left: 0, top: 1, right: 0, bottom: 0))
     center = Widget::Box.new parent: box
 

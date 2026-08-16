@@ -9,7 +9,7 @@ module Crysterm
     # `#title` plus (when enabled) a float toggle and a close button. A
     # `Widget::MainWindow` arranges docks by their `#area` (`Left`/`Right`/`Top`/
     # `Bottom`); a `Floating` dock is positioned freely and can be dragged by its
-    # title bar. Emits `Event::Close` when closed and `Event::Float` (with the new
+    # title bar. Emits `Event::Close` when closed and `Event::TopLevelChanged` (with the new
     # floating state) when floated/re-docked.
     #
     # ```
@@ -52,7 +52,7 @@ module Crysterm
       # `floatable` gates the button/gesture, not programmatic moves — but a
       # float transition performs the same bookkeeping: geometry pinning (so
       # leftover docked anchors don't fight the drag handler), `@prev_area`
-      # for the float button's re-dock, and `Event::Float`.
+      # for the float button's re-dock, and `Event::TopLevelChanged`.
       def area=(value : Area) : Area
         return value if @area == value
         was_floating = @area.floating?
@@ -69,7 +69,7 @@ module Crysterm
         @area = value
         refresh_buttons
         invalidate_frame_style
-        emit ::Crysterm::Event::Float, floating? if value.floating? != was_floating
+        emit ::Crysterm::Event::TopLevelChanged, floating? if value.floating? != was_floating
         # `#update`, not `window?.try &.update`: a pure area move (e.g.
         # Left→Right) can leave the woken frame with nothing marked dirty
         # under `DamageTracking` — `#refresh_buttons`' writes may be no-ops
@@ -283,7 +283,7 @@ module Crysterm
       end
 
       # Toggles between `Floating` and the last docked area, emitting
-      # `Event::Float` with the new state. A `MainWindow` re-lays-out on the next
+      # `Event::TopLevelChanged` with the new state. A `MainWindow` re-lays-out on the next
       # frame; a floating dock keeps its current position.
       #
       # `restore` (default true, used by the ⇕ button) puts the dock back at its
@@ -311,7 +311,7 @@ module Crysterm
         # `floor_border_value` depends on `@area`, so drop the frame-memoized
         # style and let it re-sync on the next `#style` read.
         invalidate_frame_style
-        emit ::Crysterm::Event::Float, floating?
+        emit ::Crysterm::Event::TopLevelChanged, floating?
         # `#update`: usually saved by `#apply_rect`/`#freeze_rect`'s
         # geometry writes marking dirty on their own, but not guaranteed for
         # every path (see `#area=` above) — cheap and correct to mark here too.

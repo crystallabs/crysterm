@@ -1,20 +1,20 @@
 module Crysterm
   module Reactive
-    # A derived signal: its value is produced by a block over other signals, and
-    # it recomputes automatically when any of those change. Being a `SignalBase`,
+    # A derived property: its value is produced by a block over other properties, and
+    # it recomputes automatically when any of those change. Being a `PropertyBase`,
     # it is itself readable and trackable, so derivations chain.
     #
     # Recomputation is an internal `Effect`, so the dependency set is discovered
-    # and re-tracked the same way. `Event::Changed` is emitted only when the
+    # and re-tracked the same way. `Event::ReactiveChanged` is emitted only when the
     # result actually changes, so an equal recompute wakes nothing downstream.
     #
     # ```
-    # n = Crysterm::Reactive::Signal.new 2
+    # n = Crysterm::Reactive::Property.new 2
     # doubled = Crysterm::Reactive::Computed(Int32).new { n.value * 2 }
     # doubled.value # => 4
     # n.value = 5   # doubled recomputes to 10 and emits Changed
     # ```
-    class Computed(T) < SignalBase
+    class Computed(T) < PropertyBase
       @value : T
       getter? disposed = false
 
@@ -50,15 +50,15 @@ module Crysterm
           elsif @value != v
             @value = v
             # Tracking suspended: the internal effect is the active scope, so
-            # listeners' signal reads would otherwise register as dependencies
+            # listeners' property reads would otherwise register as dependencies
             # of this computed.
-            Reactive.untracked { emit ::Crysterm::Event::Changed }
+            Reactive.untracked { emit ::Crysterm::Event::ReactiveChanged }
           end
         end
       end
 
       # Reads the current derived value, registering a dependency if read inside
-      # an effect/computed (same tracking as `Signal#value`).
+      # an effect/computed (same tracking as `Property#value`).
       def value : T
         register_read
         @value
@@ -80,12 +80,12 @@ module Crysterm
     end
 
     # Creates a `Computed` deriving its value from *block*. Factory beside
-    # `Reactive.signal`/`Reactive.effect`, completing the family — and, unlike
+    # `Reactive.property`/`Reactive.effect`, completing the family — and, unlike
     # `Computed(T).new`, infers `T` from the block's return type instead of
     # requiring it spelled out at the call site.
     #
     # ```
-    # n = Crysterm::Reactive.signal 2
+    # n = Crysterm::Reactive.property 2
     # doubled = Crysterm::Reactive.computed { n.value * 2 }
     # doubled.value # => 4
     # ```

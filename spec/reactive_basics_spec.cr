@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# Phase-1 reactivity: `Reactive::Signal` + `Reactive.bind` + `Reactive.batch`.
-# Signals emit `Event::Changed`; `bind` is a managed permanent subscription that
+# Phase-1 reactivity: `Reactive::Property` + `Reactive.bind` + `Reactive.batch`.
+# Properties emit `Event::ReactiveChanged`; `bind` is a managed permanent subscription that
 # assigns a widget property and schedules a repaint; `batch` dedups binding runs
 # across a burst of writes.
 
@@ -22,9 +22,9 @@ private def repaint_scheduled?(s : Crysterm::Window, w : Crysterm::Widget)
   s.@damage_dirty_roots.includes? w
 end
 
-describe Crysterm::Reactive::Signal do
+describe Crysterm::Reactive::Property do
   it "reads and writes a value" do
-    s = Crysterm::Reactive::Signal.new 3
+    s = Crysterm::Reactive::Property.new 3
     s.value.should eq 3
     s.value = 7
     s.value.should eq 7
@@ -32,9 +32,9 @@ describe Crysterm::Reactive::Signal do
   end
 
   it "emits Changed only on an actual change (change-guarded)" do
-    s = Crysterm::Reactive::Signal.new 0
+    s = Crysterm::Reactive::Property.new 0
     n = 0
-    s.on(Crysterm::Event::Changed) { n += 1 }
+    s.on(Crysterm::Event::ReactiveChanged) { n += 1 }
     s.value = 0 # unchanged: no emit
     n.should eq 0
     s.value = 1
@@ -44,7 +44,7 @@ describe Crysterm::Reactive::Signal do
   end
 
   it "update replaces the value via a block" do
-    s = Crysterm::Reactive::Signal.new 10
+    s = Crysterm::Reactive::Property.new 10
     s.update { |v| v + 5 }
     s.value.should eq 15
   end
@@ -54,18 +54,18 @@ describe "Crysterm::Reactive.bind" do
   it "runs once immediately and again on every change" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, top: 0, left: 0, width: 20, height: 3
-    count = Crysterm::Reactive::Signal.new 0
+    count = Crysterm::Reactive::Property.new 0
     Crysterm::Reactive.bind(box, count) { box.content = "Count: #{count.value}" }
     box.content.should eq "Count: 0" # initial run
     count.value = 5
     box.content.should eq "Count: 5" # reactive update
   end
 
-  it "watches multiple signals" do
+  it "watches multiple properties" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    a = Crysterm::Reactive::Signal.new "x"
-    b = Crysterm::Reactive::Signal.new 1
+    a = Crysterm::Reactive::Property.new "x"
+    b = Crysterm::Reactive::Property.new 1
     Crysterm::Reactive.bind(box, a, b) { box.content = "#{a.value}#{b.value}" }
     box.content.should eq "x1"
     a.value = "y"
@@ -74,10 +74,10 @@ describe "Crysterm::Reactive.bind" do
     box.content.should eq "y2"
   end
 
-  it "schedules a repaint on the owner window when a bound signal changes" do
+  it "schedules a repaint on the owner window when a bound property changes" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, top: 0, left: 0, width: 20, height: 3
-    count = Crysterm::Reactive::Signal.new 0
+    count = Crysterm::Reactive::Property.new 0
     Crysterm::Reactive.bind(box, count) { box.content = "n=#{count.value}" }
     scr.repaint
     scr.@damage_dirty_roots.clear
@@ -90,7 +90,7 @@ describe "Crysterm::Reactive.bind" do
   it "disposes automatically when the owner is destroyed" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    count = Crysterm::Reactive::Signal.new 0
+    count = Crysterm::Reactive::Property.new 0
     binding = Crysterm::Reactive.bind(box, count) { box.content = "v#{count.value}" }
     box.content.should eq "v0"
 
@@ -105,7 +105,7 @@ describe "Crysterm::Reactive.batch" do
   it "runs a binding once for multiple writes inside the batch" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    count = Crysterm::Reactive::Signal.new 0
+    count = Crysterm::Reactive::Property.new 0
     runs = 0
     Crysterm::Reactive.bind(box, count) { runs += 1; box.content = "#{count.value}" }
     runs.should eq 1 # initial run at bind time
@@ -123,7 +123,7 @@ describe "Crysterm::Reactive.batch" do
   it "still runs synchronously outside a batch" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    count = Crysterm::Reactive::Signal.new 0
+    count = Crysterm::Reactive::Property.new 0
     runs = 0
     Crysterm::Reactive.bind(box, count) { runs += 1; box.content = "#{count.value}" }
     count.value = 1

@@ -61,7 +61,7 @@ require "pnggif"
 require "./mixin/*"
 
 require "./action"
-require "./shortcut_map"
+require "./action_accelerators"
 require "./action_group"
 
 require "./window"
@@ -91,7 +91,7 @@ require "./events"
 
 # Reactive state (signals + bindings). Must follow the widgets: `bind` references
 # `Widget`/`Window`.
-require "./reactive/signal"
+require "./reactive/property"
 require "./reactive/batch"
 require "./reactive/binding"
 require "./reactive/bind"

@@ -63,12 +63,12 @@ describe "BUGS16 B16-03: non-active sibling realloc leaves the shared tty alone"
       # must not end with `tput.clear` on the SHARED tty, which would erase
       # the active window's frame behind its back. It must write nothing at all.
       size = ::Crysterm::Size.new(a.awidth - 4, a.aheight - 2)
-      b.emit ::Crysterm::Event::Resize.new size
+      b.emit ::Crysterm::Event::DeviceResize, size
       sleep 80.milliseconds
       out.to_s.should eq ""
 
       # The device-active window still clears and repaints on its own resize.
-      a.emit ::Crysterm::Event::Resize.new size
+      a.emit ::Crysterm::Event::DeviceResize, size
       wait_until { out.to_s.includes? "AAA16" }
     ensure
       a.destroy

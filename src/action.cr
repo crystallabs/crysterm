@@ -288,7 +288,7 @@ module Crysterm
     end
 
     # Windows this action is currently registered on (in the window's shared
-    # `ShortcutMap`).
+    # `ActionAccelerators`).
     @shortcut_windows = Set(::Crysterm::Window).new
 
     # Per-window host widget supplied at install time, used to gate
@@ -376,7 +376,7 @@ module Crysterm
             self.checked = !checked?
           end
         end
-        emit Crysterm::Event::Triggered, checked?
+        emit Crysterm::Event::Triggered, checked?, self
       in .hover?
         emit Crysterm::Event::Hovered
       end

@@ -1,9 +1,9 @@
 module Crysterm
   module Reactive
-    # A live connection from one or more `Signal`s to a side effect (typically a
+    # A live connection from one or more `Property`s to a side effect (typically a
     # widget property assignment). Created by `Reactive.bind`.
     #
-    # It holds one `Event::Changed` subscription per watched signal, plus a
+    # It holds one `Event::ReactiveChanged` subscription per watched property, plus a
     # `Destroy` subscription on the owner, so it tears down with the widget. This
     # is the **permanent-registration** model: the watched set is fixed for the
     # binding's life. Dynamic dependency sets are the re-tracking `Effect`.
@@ -13,12 +13,12 @@ module Crysterm
       @subs = ::Crysterm::Subscriptions.new
       getter? disposed = false
 
-      def initialize(@owner : ::Crysterm::Widget, @block : ->)
+      def initialize(@owner : ::EventHandler, @block : ->)
       end
 
-      # Subscribes this binding to *signal*'s changes.
-      def watch(signal : SignalBase) : Nil
-        @subs.on(signal, ::Crysterm::Event::Changed) { fire }
+      # Subscribes this binding to *property*'s changes.
+      def watch(property : PropertyBase) : Nil
+        @subs.on(property, ::Crysterm::Event::ReactiveChanged) { fire }
       end
 
       # Hooks auto-dispose to the owner's `Event::Destroy`, routed through
@@ -29,7 +29,7 @@ module Crysterm
         @subs.auto_dispose(@owner) { dispose }
       end
 
-      # A watched signal changed: run now, or defer to the flush under an explicit
+      # A watched property changed: run now, or defer to the flush under an explicit
       # `Reactive.batch` (so a burst of writes runs this binding once) or an
       # in-flight propagation wave (so a binding watching `Computed`s runs once,
       # after the wave settles, on a consistent set of derived values).
@@ -44,9 +44,10 @@ module Crysterm
 
       # Executes the side effect, then asks the owner to repaint. The request is
       # coalescing (it rings the render doorbell), so many bindings firing in one
-      # turn still collapse into a single frame.
+      # turn still collapse into a single frame, and is a no-op for a non-paintable
+      # owner (see `Reactive.request_repaint`).
       #
-      # It goes through `Widget#update!` — which marks the owner damaged
+      # A widget owner goes through `Widget#update!` — which marks it damaged
       # *and* rings the doorbell — rather than the bare doorbell, because the
       # block's mutation may be one damage tracking cannot observe (an in-place
       # `Style` write, a plain ivar the widget renders from). A doorbell-only
@@ -59,12 +60,12 @@ module Crysterm
       # The block runs untracked: bindings never legitimately track (the watched
       # set is fixed via `#watch`), and the bind-time initial run can happen
       # while an enclosing `Effect` is the active scope — without suspension its
-      # signal reads would graft this binding's fixed dependency set onto that
+      # property reads would graft this binding's fixed dependency set onto that
       # effect's dynamic one, re-running (and re-binding) it on every change.
       def run : Nil
         return if disposed?
         Reactive.untracked { @block.call }
-        @owner.update!
+        Reactive.request_repaint @owner
       end
 
       # Cancels every subscription. Idempotent.

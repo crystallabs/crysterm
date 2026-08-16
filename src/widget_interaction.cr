@@ -2,7 +2,7 @@ module Crysterm
   class Widget
     # module Interaction
 
-    include Mixin::KeyShortcuts
+    include Mixin::KeyBindings
     include Mixin::ActionShortcutHost
     include Mixin::SyntheticInput
 

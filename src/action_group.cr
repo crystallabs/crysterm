@@ -18,7 +18,7 @@ module Crysterm
   #   menu.add_action a
   # end
   # group.actions.first.checked = true
-  # group.on(Crysterm::Event::Triggered) { view.mode = group.checked_action.try &.text }
+  # group.on(Crysterm::Event::Triggered) { |e| view.mode = e.action.text }
   # ```
   #
   # NOTE `Mixin::ExclusiveGroup` is the *widget*-side counterpart (it excludes
@@ -76,10 +76,12 @@ module Crysterm
       action.checkable = true if exclusive?
       subs = @subs[action] = Subscriptions.new
       # Relay the member's activation as the group's own signal, carrying the
-      # post-activation checked state.
+      # post-activation checked state *and* the member that fired (Qt's
+      # `QActionGroup::triggered(QAction*)`), so a group-level handler can act on
+      # the specific action without consulting `#checked_action`.
       subs.on(action, ::Crysterm::Event::Triggered) do |e|
         enforce_exclusivity action
-        emit ::Crysterm::Event::Triggered, e.checked
+        emit ::Crysterm::Event::Triggered, e.checked, e.action
       end
       # A member checked programmatically (not via activation) must un-check the
       # rest too, else the group could show two checked entries.

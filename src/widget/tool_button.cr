@@ -145,8 +145,8 @@ module Crysterm
         # diverge by the ancestor's scroll base, and the menu (a window child)
         # is painted exactly where we put it — so layout coords would drop it
         # detached from the visible button. Mirrors MenuBar#menu_y.
-        x, y, _w, h = painted_rect
-        m.popup x, y + h
+        r = painted_rect
+        m.popup r.x, r.y + r.height
       end
 
       def click

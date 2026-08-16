@@ -50,7 +50,7 @@ require "./spec_helper"
 
       ok = s.find_by_id("ok").not_nil!
       ok.should be_a Widget::Button
-      ok.top.should eq "center"
+      ok.top.as(Crysterm::Dim).matches?("center").should be_true
       ok.content.should eq "OK"
       ok.parent.should eq outer
     end

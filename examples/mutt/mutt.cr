@@ -150,7 +150,7 @@ HELP_TEXT = <<-HELP
 # in the center, and a two-row footer (status line + command line) at the
 # bottom. No widget below is given a fixed position.
 
-frame = Widget::Box.new(parent: s, width: "100%", height: "100%", layout: Layout::Border.new)
+frame = Widget::Box.new(parent: s, width: "100%", height: "100%", layout: Layout::Dock.new)
 
 # Top: Mutt's one-line command hint bar (updated per screen).
 helpline = Widget::Box.new(

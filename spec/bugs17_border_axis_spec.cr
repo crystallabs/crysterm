@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression specs for BUGS17 B17-08: Layout::Border kept raw/assigned
+# Regression specs for BUGS17 B17-08: Layout::Dock kept raw/assigned
 # bookkeeping for only the CONSUME axis (@consume_raw/@consume_assigned).
 # Placing a child also overwrites its SPAN axis with a resolved Int32, with
 # no bookkeeping at all -- so re-docking a child to a perpendicular region
@@ -17,9 +17,9 @@ describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
   it "recovers a re-docked child's explicit consume-axis size instead of a stale full-span value" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 24,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
     panel = Widget::Box.new parent: box, width: 30, height: 3,
-      layout_hint: Layout::Border::Hint.new(:top)
+      layout_hint: Layout::Dock::Hint.new(:top)
     Widget::Box.new parent: box # center
 
     s.repaint
@@ -34,7 +34,7 @@ describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
     # which would always mismatch and adopt 80 as the child's "raw" width --
     # swallowing the whole interior; axis-keyed bookkeeping resurfaces the
     # explicit 30.
-    panel.layout_hint = Layout::Border::Hint.new(:left)
+    panel.layout_hint = Layout::Dock::Hint.new(:left)
     s.repaint
     pl2 = panel.lpos.not_nil!
     (pl2.xl - pl2.xi).should eq 30
@@ -43,21 +43,21 @@ describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
   it "round-trips :top -> :left -> :top, restoring the original raw height" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 24,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
     panel = Widget::Box.new parent: box, width: 30, height: 3,
-      layout_hint: Layout::Border::Hint.new(:top)
+      layout_hint: Layout::Dock::Hint.new(:top)
     Widget::Box.new parent: box # center
 
     s.repaint
     pl = panel.lpos.not_nil!
     (pl.yl - pl.yi).should eq 3
 
-    panel.layout_hint = Layout::Border::Hint.new(:left)
+    panel.layout_hint = Layout::Dock::Hint.new(:left)
     s.repaint
     pl2 = panel.lpos.not_nil!
     (pl2.yl - pl2.yi).should eq 24 # height is now the span axis: full remaining height
 
-    panel.layout_hint = Layout::Border::Hint.new(:top)
+    panel.layout_hint = Layout::Dock::Hint.new(:top)
     s.repaint
     pl3 = panel.lpos.not_nil!
     (pl3.yl - pl3.yi).should eq 3 # original raw height recovered, not the stale 24 span
@@ -66,11 +66,11 @@ describe "BUGS17 Border axis-keyed bookkeeping (fix B17-08)" do
   it "leaves a plain single-region layout unchanged (sizes/positions pinned)" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 24,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
     header = Widget::Box.new parent: box, height: 2,
-      layout_hint: Layout::Border::Hint.new(:top)
+      layout_hint: Layout::Dock::Hint.new(:top)
     sidebar = Widget::Box.new parent: box, width: 20,
-      layout_hint: Layout::Border::Hint.new(:left)
+      layout_hint: Layout::Dock::Hint.new(:left)
     center = Widget::Box.new parent: box
 
     s.repaint

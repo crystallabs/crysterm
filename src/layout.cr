@@ -350,7 +350,7 @@ module Crysterm
     # (`Widget#retain_size_when_hidden?`). Qt's `QWidgetItem#isEmpty`.
     #
     # Only the *packing* engines consult this — `Layout::Box` (VBox/HBox),
-    # `Layout::Border` and the `Flow` family (Wrap/Masonry/UniformGrid) —
+    # `Layout::Dock` and the `Flow` family (Wrap/Masonry/UniformGrid) —
     # where "give the space back" is the unambiguous reading and the one Qt's
     # `QBoxLayout` implements. `Layout::Stack` and `Layout::Grid` address
     # their children by slot (page index, cell), so a hidden child there must

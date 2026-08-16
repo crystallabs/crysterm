@@ -10,11 +10,11 @@ module Crysterm
     #
     # ```
     # b = Widget::Box.new parent: window, width: "100%", height: "100%",
-    #   layout: Layout::Border.new
+    #   layout: Layout::Dock.new
     # Widget::Box.new parent: b, height: 1,
-    #   layout_hint: Layout::Border::Hint.new(:top) # header
+    #   layout_hint: Layout::Dock::Hint.new(:top) # header
     # Widget::Box.new parent: b, width: 20,
-    #   layout_hint: Layout::Border::Hint.new(:left) # sidebar
+    #   layout_hint: Layout::Dock::Hint.new(:left) # sidebar
     # Widget::Box.new parent: b                      # center (no hint)
     # ```
     #
@@ -23,9 +23,9 @@ module Crysterm
     # direction is set by the layout. A child with no hint defaults to `Center`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Border screenshot](../../tests/layout/border/border.5s.apng)
+    # ![Border screenshot](../../tests/layout/dock/dock.5s.apng)
     # <!-- /widget-examples:capture -->
-    class Border < Layout
+    class Dock < Layout
       enum Region
         Top
         Bottom

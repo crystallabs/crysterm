@@ -21,7 +21,7 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.top.should eq "50%"
+    a.top.as(Crysterm::Dim).matches?("50%").should be_true
   end
 
   it "ignores a unit mapped to nil (physical units), leaving geometry untouched" do
@@ -110,7 +110,7 @@ describe "CSS geometry units" do
     s.repaint
     # Viewport string is kept on the widget (not baked to cells), re-resolving
     # against the screen every frame.
-    a.width_spec.should eq "50vw"
+    a.width_spec.as(Crysterm::Dim).matches?("50vw").should be_true
     a.awidth.should eq 40  # 50% of 80
     a.aheight.should eq 24 # 100% of 24
     a.atop.should eq 6     # 25% of min(80, 24)
@@ -133,7 +133,7 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint
-    a.width_spec.should eq "50VW" # kept as a (reactive) viewport string, not dropped
+    a.width_spec.as(Crysterm::Dim).matches?("50VW").should be_true # kept as a (reactive) viewport string, not dropped
     a.awidth.should eq 24         # 50% of 80, clamped to max-width (30% of 80 = 24)
     a.aheight.should eq 24        # 100% of 24
     # A viewport constraint is kept unresolved too, so — like a viewport size —

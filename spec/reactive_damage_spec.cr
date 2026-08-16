@@ -80,7 +80,7 @@ describe "reactive repaints under damage tracking" do
     dmg = rx_screen true
     pb = rx_box plain
     db = rx_box dmg
-    color = Crysterm::Reactive::Signal.new 0x000080
+    color = Crysterm::Reactive::Property.new 0x000080
 
     # The blocks mutate the style IN PLACE: nothing there marks the widget
     # dirty, so the repaint the binding schedules is all that can paint it.
@@ -106,7 +106,7 @@ describe "reactive repaints under damage tracking" do
     dmg = rx_screen true
     pb = rx_box plain
     db = rx_box dmg
-    color = Crysterm::Reactive::Signal.new 0x000080
+    color = Crysterm::Reactive::Property.new 0x000080
 
     Crysterm::Reactive.effect(pb) { pb.style.bg = color.value }
     Crysterm::Reactive.effect(db) { db.style.bg = color.value }

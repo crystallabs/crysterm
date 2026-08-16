@@ -130,8 +130,8 @@ describe "BUGS15 55: scroll bars reserve the bottom-right corner" do
 
     # Corner reserved: vertical bar loses the horizontal bar's row, and vice
     # versa, so they never overlap in the corner cell.
-    vb.height_spec.should eq "100%-#{box.scrollbar_height}"
-    hb.width_spec.should eq "100%-#{box.scrollbar_width}"
+    vb.height_spec.as(Crysterm::Dim).matches?("100%-#{box.scrollbar_height}").should be_true
+    hb.width_spec.as(Crysterm::Dim).matches?("100%-#{box.scrollbar_width}").should be_true
   end
 
   it "uses full extent when only one bar is shown" do
@@ -144,6 +144,6 @@ describe "BUGS15 55: scroll bars reserve the bottom-right corner" do
     s.repaint
 
     vb = box.scrollbar_widget.not_nil!
-    vb.height_spec.should eq "100%" # no horizontal bar → no corner reservation
+    vb.height_spec.as(Crysterm::Dim).matches?("100%").should be_true # no horizontal bar → no corner reservation
   end
 end

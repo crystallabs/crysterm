@@ -176,6 +176,27 @@ module Crysterm
         self
       end
 
+      # A detached copy of this event, safe to retain past the handler's own
+      # invocation — the pooled instance is reused by the next report, so
+      # stashing `e` itself (e.g. to compare against the next click) reads
+      # mutated fields. The copy keeps the concrete class (`MouseEnter` snapshots
+      # to a `MouseEnter`), the mouse report (a value type, copied), the delivery
+      # `target` and the current `accepted?` flag; `accept`ing a snapshot has no
+      # effect on dispatch, since dispatch already moved on.
+      #
+      # ```
+      # last = nil.as(Crysterm::Event::Mouse?)
+      # widget.on(Crysterm::Event::Mouse) do |e|
+      #   double = last.try { |l| l.x == e.x && l.y == e.y }
+      #   last = e.snapshot
+      # end
+      # ```
+      def snapshot : self
+        copy = self.class.new @mouse, @target
+        copy.accepted = @accepted
+        copy
+      end
+
       # The kind of action (Down/Up/Move/WheelUp/WheelDown).
       def action : ::Tput::Mouse::Action
         @mouse.action
@@ -290,6 +311,20 @@ module Crysterm
         self
       end
 
+      # A detached copy of this event, safe to retain past the handler's own
+      # invocation — the pooled instance is reused by the next motion report, so
+      # stashing `e` itself reads mutated fields. Keeps the concrete class and
+      # the current `accepted?` flag.
+      #
+      # `#session` still points at the *live* session: it is the gesture's
+      # identity, and its anchor (`#x`/`#y`) and `#data` keep evolving until the
+      # drop. Copy those values out separately if a frozen view is needed.
+      def snapshot : self
+        copy = self.class.new @session
+        copy.accepted = @accepted
+        copy
+      end
+
       # The drag's typed payload + negotiated action.
       def data : ::Crysterm::DragData
         @session.data
@@ -352,6 +387,13 @@ module Crysterm
     # Move source to remove the original vs a Copy source to keep it.
     class DragEnd < DragEvent
       property? dropped : Bool = false
+
+      # :ditto: — also carries `#dropped?` over.
+      def snapshot : self
+        copy = super
+        copy.dropped = @dropped
+        copy
+      end
     end
   end
 end

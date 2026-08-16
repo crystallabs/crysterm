@@ -57,7 +57,7 @@ s = Window.new(
 # transparent terminal profile they render slightly differently, making the
 # menu look like a distinct rectangle rather than part of the screen.
 frame = Widget::Box.new parent: s, width: "100%", height: "100%",
-  layout: Layout::Border.new
+  layout: Layout::Dock.new
 
 # ----------------------------------------------------------------- mock data
 

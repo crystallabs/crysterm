@@ -20,7 +20,7 @@ module Crysterm
 
     # Defines a repaint-on-change property: the repaint sibling of
     # `change_guarded_setter` (which marks dirty + emits) and `reactive_property`
-    # (which fans out to signal subscribers). The generated setter bails when the
+    # (which fans out to reactive subscribers). The generated setter bails when the
     # value is unchanged, otherwise assigns, runs the optional *after* hook, and
     # schedules a repaint via `update!`, returning the new value:
     #
@@ -69,23 +69,23 @@ module Crysterm
       end
     end
 
-    # Declares a signal-backed widget property — the reactive sibling of
-    # `change_guarded_setter`. Given `reactive_property title : String = ""` it
-    # generates:
+    # Declares a `Reactive::Property`-backed widget property — the reactive
+    # sibling of `change_guarded_setter`. Given
+    # `reactive_property title : String = ""` it generates:
     #
-    # * `#title_signal` — the backing `Reactive::Signal(String)`, created lazily
-    #   on first use with the declared default (no allocation until touched).
-    #   Bind against it (`Reactive.bind(dst, obj.title_signal) { … }`).
+    # * `#title_property` — the backing `Reactive::Property(String)`, created
+    #   lazily on first use with the declared default (no allocation until
+    #   touched). Bind against it (`Reactive.bind(dst, obj.title_property) { … }`).
     # * `#title` — reads the value; **tracks** the property as a dependency when
     #   read inside an `Effect`/`Computed`, so `obj.title` participates in
-    #   auto-tracking just like a bare signal read.
-    # * `#title=` — change-guarded assign. On a real change it notifies signal
-    #   subscribers, `update`s, and schedules a repaint of the owning window,
-    #   so a bare `obj.title = "x"` both fans out to bindings/effects and redraws
-    #   the widget itself. Pass *event* to also emit a widget-level event (parity
-    #   with `change_guarded_setter`).
+    #   auto-tracking just like a bare `Reactive::Property#value` read.
+    # * `#title=` — change-guarded assign. On a real change it notifies the
+    #   property's subscribers, `update`s, and schedules a repaint of the owning
+    #   window, so a bare `obj.title = "x"` both fans out to bindings/effects and
+    #   redraws the widget itself. Pass *event* to also emit a widget-level event
+    #   (parity with `change_guarded_setter`).
     #
-    # A default value is required (the signal needs an initial value). Assumes the
+    # A default value is required (the property needs an initial value). Assumes the
     # including type is a `Widget` (uses `update`/`window?`), like
     # `change_guarded_setter`.
     #
@@ -95,22 +95,22 @@ module Crysterm
     macro reactive_property(decl, event = nil)
       {% raise "reactive_property #{decl.var} requires a default value" unless decl.value %}
 
-      @{{ decl.var }} : ::Crysterm::Reactive::Signal({{ decl.type }})?
+      @{{ decl.var }} : ::Crysterm::Reactive::Property({{ decl.type }})?
 
-      def {{ decl.var }}_signal : ::Crysterm::Reactive::Signal({{ decl.type }})
-        @{{ decl.var }} ||= ::Crysterm::Reactive::Signal({{ decl.type }}).new({{ decl.value }})
+      def {{ decl.var }}_property : ::Crysterm::Reactive::Property({{ decl.type }})
+        @{{ decl.var }} ||= ::Crysterm::Reactive::Property({{ decl.type }}).new({{ decl.value }})
       end
 
       def {{ decl.var }} : {{ decl.type }}
-        {{ decl.var }}_signal.value
+        {{ decl.var }}_property.value
       end
 
       def {{ decl.var }}=(val : {{ decl.type }}) : {{ decl.type }}
-        sig = {{ decl.var }}_signal
+        cell = {{ decl.var }}_property
         # Untracked guard read (`#peek`, not `#value`) so a setter called from
         # inside an effect doesn't spuriously depend on the property.
-        return val if sig.peek == val
-        sig.value = val
+        return val if cell.peek == val
+        cell.value = val
         update
         window?.try &.update
         {% if event %} emit ::Crysterm::Event::{{ event.id }} {% end %}

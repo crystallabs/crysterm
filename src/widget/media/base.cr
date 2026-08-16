@@ -763,7 +763,7 @@ module Crysterm
       end
 
       # What `Detached` does. Default is the plain teardown; a sibling that must
-      # also erase something off the departing window (carried on `e.object`)
+      # also erase something off the departing window (carried on `e.window`)
       # overrides — see `Media::ScreenOverlay`, where the ordering is load-bearing.
       protected def on_listener_detached(e : ::Crysterm::Event::Detached) : Nil
         forget_listener_screen

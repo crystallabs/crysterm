@@ -592,6 +592,11 @@ module Crysterm
     # must not steal clicks from a z-indexed widget painted above it — the hit
     # test ranks candidates by effective layer first, breaking ties within a
     # layer by tree order.
+    # `Point` overload of `#widget_at`.
+    def widget_at(point : Point, skip : Widget? = nil) : Widget?
+      widget_at point.x, point.y, skip
+    end
+
     def widget_at(x, y, skip : Widget? = nil) : Widget?
       # Hover memo. A pointer crossing the screen produces far more reports than
       # distinct cells — SGR-Pixels (DEC 1016) emits one per sub-cell step with

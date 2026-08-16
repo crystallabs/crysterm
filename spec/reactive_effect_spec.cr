@@ -18,7 +18,7 @@ end
 
 describe Crysterm::Reactive::Effect do
   it "runs once immediately and re-runs when a read signal changes" do
-    a = Crysterm::Reactive::Signal.new 1
+    a = Crysterm::Reactive::Property.new 1
     seen = [] of Int32
     Crysterm::Reactive.effect { seen << a.value }
     seen.should eq [1]
@@ -29,8 +29,8 @@ describe Crysterm::Reactive::Effect do
   end
 
   it "auto-discovers dependencies without naming them" do
-    a = Crysterm::Reactive::Signal.new 10
-    b = Crysterm::Reactive::Signal.new 20
+    a = Crysterm::Reactive::Property.new 10
+    b = Crysterm::Reactive::Property.new 20
     sum = 0
     Crysterm::Reactive.effect { sum = a.value + b.value }
     sum.should eq 30
@@ -41,9 +41,9 @@ describe Crysterm::Reactive::Effect do
   end
 
   it "re-tracks: drops a dependency it stops reading, picks up a new one" do
-    toggle = Crysterm::Reactive::Signal.new true
-    a = Crysterm::Reactive::Signal.new 1
-    b = Crysterm::Reactive::Signal.new 100
+    toggle = Crysterm::Reactive::Property.new true
+    a = Crysterm::Reactive::Property.new 1
+    b = Crysterm::Reactive::Property.new 100
     log = [] of Int32
     Crysterm::Reactive.effect { log << (toggle.value ? a.value : b.value) }
 
@@ -62,7 +62,7 @@ describe Crysterm::Reactive::Effect do
   end
 
   it "de-dups repeated reads of the same signal within a run" do
-    a = Crysterm::Reactive::Signal.new 1
+    a = Crysterm::Reactive::Property.new 1
     runs = 0
     Crysterm::Reactive.effect { runs += 1; a.value + a.value + a.value }
     runs.should eq 1
@@ -71,7 +71,7 @@ describe Crysterm::Reactive::Effect do
   end
 
   it "stops re-running after dispose" do
-    a = Crysterm::Reactive::Signal.new 1
+    a = Crysterm::Reactive::Property.new 1
     seen = [] of Int32
     eff = Crysterm::Reactive.effect { seen << a.value }
     a.value = 2
@@ -83,8 +83,8 @@ describe Crysterm::Reactive::Effect do
   end
 
   it "runs once per batch regardless of how many reads changed" do
-    a = Crysterm::Reactive::Signal.new 0
-    b = Crysterm::Reactive::Signal.new 0
+    a = Crysterm::Reactive::Property.new 0
+    b = Crysterm::Reactive::Property.new 0
     runs = 0
     Crysterm::Reactive.effect { runs += 1; a.value + b.value }
     runs.should eq 1
@@ -99,7 +99,7 @@ describe Crysterm::Reactive::Effect do
   it "schedules a repaint on the owner window when given one" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    count = Crysterm::Reactive::Signal.new 0
+    count = Crysterm::Reactive::Property.new 0
     Crysterm::Reactive.effect(box) { box.content = "e#{count.value}" }
     scr.repaint
     scr.@damage_dirty_roots.clear
@@ -111,7 +111,7 @@ describe Crysterm::Reactive::Effect do
   it "disposes automatically when its owner widget is destroyed" do
     scr = rx_screen
     box = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    count = Crysterm::Reactive::Signal.new 0
+    count = Crysterm::Reactive::Property.new 0
     eff = Crysterm::Reactive.effect(box) { box.content = "e#{count.value}" }
     box.destroy
     eff.disposed?.should be_true
@@ -122,7 +122,7 @@ end
 
 describe Crysterm::Reactive::Computed do
   it "derives a value and recomputes when a dependency changes" do
-    n = Crysterm::Reactive::Signal.new 2
+    n = Crysterm::Reactive::Property.new 2
     doubled = Crysterm::Reactive::Computed(Int32).new { n.value * 2 }
     doubled.value.should eq 4
     n.value = 5
@@ -130,7 +130,7 @@ describe Crysterm::Reactive::Computed do
   end
 
   it "notifies downstream effects when the derived value changes" do
-    n = Crysterm::Reactive::Signal.new 2
+    n = Crysterm::Reactive::Property.new 2
     doubled = Crysterm::Reactive::Computed(Int32).new { n.value * 2 }
     seen = [] of Int32
     Crysterm::Reactive.effect { seen << doubled.value }
@@ -140,7 +140,7 @@ describe Crysterm::Reactive::Computed do
   end
 
   it "does not notify downstream when the derived value is unchanged" do
-    n = Crysterm::Reactive::Signal.new 3
+    n = Crysterm::Reactive::Property.new 3
     parity = Crysterm::Reactive::Computed(Bool).new { n.value.even? }
     runs = 0
     Crysterm::Reactive.effect { runs += 1; parity.value }
@@ -152,7 +152,7 @@ describe Crysterm::Reactive::Computed do
   end
 
   it "chains computeds" do
-    n = Crysterm::Reactive::Signal.new 1
+    n = Crysterm::Reactive::Property.new 1
     a = Crysterm::Reactive::Computed(Int32).new { n.value + 1 }
     b = Crysterm::Reactive::Computed(Int32).new { a.value * 10 }
     b.value.should eq 20
@@ -161,7 +161,7 @@ describe Crysterm::Reactive::Computed do
   end
 
   it "propagates a first-run raise out of the constructor and leaves the upstream clean" do
-    n = Crysterm::Reactive::Signal.new 1
+    n = Crysterm::Reactive::Property.new 1
     runs = 0
     expect_raises(Exception, "boom") do
       Crysterm::Reactive::Computed(Int32).new do
@@ -180,7 +180,7 @@ describe Crysterm::Reactive::Computed do
   end
 
   it "stops recomputing after dispose, idempotently" do
-    n = Crysterm::Reactive::Signal.new 1
+    n = Crysterm::Reactive::Property.new 1
     c = Crysterm::Reactive::Computed(Int32).new { n.value * 2 }
     c.value.should eq 2
     c.dispose
@@ -192,7 +192,7 @@ describe Crysterm::Reactive::Computed do
   end
 
   it "peek reads without tracking and without forcing a recompute" do
-    n = Crysterm::Reactive::Signal.new 2
+    n = Crysterm::Reactive::Property.new 2
     c = Crysterm::Reactive::Computed(Int32).new { n.value * 2 }
     runs = 0
     Crysterm::Reactive.effect { runs += 1; c.peek }

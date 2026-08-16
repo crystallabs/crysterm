@@ -105,6 +105,25 @@ module Crysterm
   # A property-change event must therefore be past tense, emitted *after* the
   # assignment, and guarded so it fires only on an actual change.
   #
+  # ## Choosing an activation event
+  #
+  # Four events report "something was activated"; they differ by emitter and by
+  # what counts as activation:
+  #
+  # * `Click` — raw mouse only, emitted by the `Window`'s mouse routing on the
+  #   widget under a completed press+release. No keyboard equivalent. Subscribe
+  #   for pointer-specific behavior (a clickable region, a hit-test target).
+  # * `Clicked` — a button's *full activation*, mouse **or** keyboard
+  #   (Space/Enter), emitted by `Widget::AbstractButton` (Qt's `clicked()`).
+  #   This is what a push button's "was it pressed?" handler wants.
+  # * `Triggered` — emitted by an `Action` (never by a widget) when it is
+  #   activated through any of its surfaces: a menu entry, a tool button, or its
+  #   keyboard accelerator. Carries the action's post-activation `checked` state.
+  #   Subscribe on the `Action`, not on the widgets presenting it.
+  # * `Activated` — a widget committed a *chosen value*, carried as `value`
+  #   (a `Widget::ComboBox` entry, a `Widget::ColorDialog` hex, a Pine key
+  #   prompt's key). Subscribe when the payload — not the gesture — is the point.
+  #
   # Events currently unused have been commented. Uncomment on first use.
   module Event
     include EventHandler
@@ -127,11 +146,15 @@ module Crysterm
       end
     end
 
-    # Emitted when widget is attached to a screen directly or somewhere in its ancestry
-    event Attached, object : EventHandler
+    # Emitted when widget is attached to a screen directly or somewhere in its
+    # ancestry. `window` is the window just joined.
+    event Attached, window : Crysterm::Window
 
-    # Emitted when widget is detached from a screen directly or somewhere in its ancestry
-    event Detached, object : EventHandler
+    # Emitted when widget is detached from a screen directly or somewhere in its
+    # ancestry. `window` is the window just left — by the time this fires the
+    # widget's own `#window?`/`#parent` are already nulled, so teardown that
+    # needs the departing window must read it here.
+    event Detached, window : Crysterm::Window
 
     # Emitted when widget gains a new parent
     event Reparented, widget : Widget?
@@ -169,8 +192,8 @@ module Crysterm
     event ScreenRemoved, screen : Crysterm::Screen
 
     # Emitted when widget focuses. Requires terminal supporting the focus protocol.
-    # `previous` is the widget that previously held focus (`nil` if none).
-    event FocusIn, previous : Widget? = nil
+    # `previous_focused` is the widget that previously held focus (`nil` if none).
+    event FocusIn, previous_focused : Widget? = nil
 
     # Emitted when widget goes out of focus. Requires terminal supporting the focus protocol.
     # `next_focused` is the widget taking focus (`nil` if focus is being cleared).
@@ -188,9 +211,22 @@ module Crysterm
     # # Emitted on a warning event
     # event Warning, message : String
 
-    # Emitted when screen is resized. `size` is Crysterm's own `Size` record
-    # (the single geometry vocabulary), not tput's mutable class.
-    event Resize, size : Crysterm::Size? = nil
+    # Emitted when the emitter's size changed: by a `Widget` whose geometry or
+    # size constraints were reassigned, by a `Window` after its device resized
+    # (then fanned out to every descendant), and on `GlobalEvents` by the
+    # SIGWINCH trap as the process-wide "a terminal changed size" signal.
+    #
+    # Parameterless: a widget-level emit happens at assignment time, before any
+    # layout pass has resolved the new geometry, so there is no size to carry
+    # yet. The terminal's new size rides on `DeviceResize`.
+    event Resize
+
+    # Emitted on a `Window` when its device (terminal) reported a new size.
+    # `size` is that size — Crysterm's own `Size` record (the single geometry
+    # vocabulary), not tput's mutable class — and is always present. The window
+    # resizes its `Screen` from it and then emits the parameterless `Resize`
+    # on itself and every descendant.
+    event DeviceResize, size : Crysterm::Size
 
     # Emitted when the user pastes text and bracketed paste (DEC 2004) is
     # enabled (`Window#enable_bracketed_paste`). `content` is the pasted text
@@ -243,8 +279,11 @@ module Crysterm
     # # Emitted at the end of drawing. Currently disabled/unused.
     # # event Draw
 
-    # Emitted after Widget's content is defined
-    event ContentChanged
+    # Emitted after a `Widget`'s own content string is (re)set — by
+    # `#content=`/`#set_content` and by the incremental append path. Carries no
+    # payload; read `#content` off the sender. Distinct from the document-side
+    # `ContentsChanged`, which reports an edit *range* inside a `TextDocument`.
+    event ContentSet
 
     # Emitted after Widget's content is parsed
     event ContentParsed
@@ -267,6 +306,12 @@ module Crysterm
     # `enabled`, `checkable`, `checked`, `visible`) changes, so any widget
     # presenting the action can refresh. Mirrors Qt's `QAction::changed()`.
     event Changed
+
+    # Emitted by a `Reactive::Property`/`Reactive::Computed` when its value
+    # changed — the reactive layer's own notification, kept distinct from
+    # `Changed` so an object that is both an action host and a reactive owner
+    # can tell the two apart. Carries no payload: read `#value` off the sender.
+    event ReactiveChanged
 
     # A granular change to a `Reactive::ObservableList`. `op` says what happened;
     # `index`/`count` locate it (`0` for `Reset`).
@@ -496,8 +541,13 @@ module Crysterm
 
     # Emitted when an `Action` is triggered (Qt's `QAction::triggered(bool)`).
     # `checked` is the action's state *after* activation; always `false` for a
-    # non-checkable action.
-    event Triggered, checked : Bool = false
+    # non-checkable action. `action` is the action that fired — preserved when an
+    # `ActionGroup` relays the event, so a group-level subscriber knows which
+    # member activated (Qt's `QActionGroup::triggered(QAction*)`).
+    #
+    # Both fields are mandatory: only `Action#activate` and `ActionGroup`'s relay
+    # emit this, and both always know the state and the originating action.
+    event Triggered, checked : Bool, action : Crysterm::Action
 
     # Emitted when a Widget or Action are hovered
     event Hovered
@@ -523,9 +573,9 @@ module Crysterm
     # own UI (the title-bar `✕`). Mirrors Qt's close-event/`visibilityChanged`.
     event Close
 
-    # Emitted when a `Widget::DockWidget` is floated or re-docked. `value` is
+    # Emitted when a `Widget::DockWidget` is floated or re-docked. `floating` is
     # whether it is now floating (Qt's `QDockWidget#topLevelChanged`).
-    event Float, value : Bool
+    event TopLevelChanged, floating : Bool
 
     # Emitted by a dialog (e.g. `Widget::DialogButtonBox`, `Widget::ColorDialog`)
     # when the user activates an accepting control (Ok/Yes/Save/…). Mirrors Qt's

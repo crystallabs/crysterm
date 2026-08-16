@@ -7,7 +7,7 @@ module Crysterm
     # This is the one shape `Mixin::WindowLifecycle` explicitly cannot serve
     # (see its docs): the teardown needs the window being *left*, and by the time
     # `Detached` fires `parent`/`window` are already nulled — so the departing
-    # window must be taken from the event payload (`e.object`), never from
+    # window must be taken from the event payload (`e.window`), never from
     # `window?`. Getting that wrong silently strands accelerators firing on a
     # window the host has left.
     #
@@ -35,7 +35,7 @@ module Crysterm
         on(::Crysterm::Event::Attached) { install_action_shortcuts }
         # `window?` is already nil here — the window being left rides in the
         # event payload.
-        on(::Crysterm::Event::Detached) { |e| uninstall_action_shortcuts e.object.as?(::Crysterm::Window) }
+        on(::Crysterm::Event::Detached) { |e| uninstall_action_shortcuts e.window }
       end
 
       # Installs every owned action's accelerator on the host's window.

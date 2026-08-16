@@ -1032,6 +1032,11 @@ module Crysterm
     #
     # The region is half-open: `[xi, xl) × [yi, yl)` — `xl`/`yl` are one PAST
     # the last column/row cleared.
+    # `Rectangle` overload of `#clear_region`.
+    def clear_region(rect : Rectangle, *, force : Bool = false)
+      clear_region rect.xi, rect.xl, rect.yi, rect.yl, force: force
+    end
+
     def clear_region(xi, xl, yi, yl, *, force : Bool = false)
       fill_region @default_attr, ' ', xi, xl, yi, yl, force: force
     end
@@ -1147,6 +1152,11 @@ module Crysterm
     #
     # The region is half-open: `[xi, xl) × [yi, yl)` — `xl`/`yl` are one PAST
     # the last column/row filled.
+    # `Rectangle` overload of `#fill_region`.
+    def fill_region(attr, ch, rect : Rectangle, *, force : Bool = false)
+      fill_region attr, ch, rect.xi, rect.xl, rect.yi, rect.yl, force: force
+    end
+
     def fill_region(attr, ch, xi, xl, yi, yl, *, force : Bool = false)
       each_region_row(xi, xl, yi, yl) do |line, attrs, x, xend|
         chars = line.chars
@@ -1216,6 +1226,11 @@ module Crysterm
     # So pick the glyph whose *solid* half faces AWAY from the widget: `▄` shadows
     # the top half (bottom-edge shadow), `▀` the bottom, `▐` the left half
     # (right-edge shadow), `▌` the right.
+    # `Rectangle` overload of `#blend_region`.
+    def blend_region(alpha, rect : Rectangle, glyph : Char? = nil)
+      blend_region alpha, rect.xi, rect.xl, rect.yi, rect.yl, glyph
+    end
+
     def blend_region(alpha, xi, xl, yi, yl, glyph : Char? = nil)
       each_region_row(xi, xl, yi, yl) do |line, attrs, x, xend|
         if glyph
@@ -1255,6 +1270,11 @@ module Crysterm
     # Tints every cell in the region toward `color` by `alpha` (`0` = unchanged,
     # `1` = fully `color`) — the color overlay behind `style.tint`. Like
     # `#blend_region` but toward an arbitrary color instead of black.
+    # `Rectangle` overload of `#tint_region`.
+    def tint_region(alpha, color, rect : Rectangle)
+      tint_region alpha, color, rect.xi, rect.xl, rect.yi, rect.yl
+    end
+
     def tint_region(alpha, color, xi, xl, yi, yl)
       each_region_row(xi, xl, yi, yl) do |line, attrs, x, xend|
         while x < xend

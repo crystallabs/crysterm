@@ -2,7 +2,7 @@ module Crysterm
   class Window
     # File related to interaction on the display
 
-    include Mixin::KeyShortcuts
+    include Mixin::KeyBindings
     include Mixin::SyntheticInput
 
     # `Mixin::SyntheticInput` backend: a window-level synthetic key takes the

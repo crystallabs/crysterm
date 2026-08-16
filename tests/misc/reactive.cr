@@ -1,6 +1,6 @@
 # FEATURE: Reactive programming.
 #
-# A `Reactive::Signal` is an observable value cell. Widgets subscribe to it
+# A `Reactive::Property` is an observable value cell. Widgets subscribe to it
 # with `Reactive.bind` (explicit dependencies) or `Reactive.effect`
 # (dependencies auto-tracked from what the block reads), and
 # `Reactive.computed` derives new signals from existing ones.
@@ -18,7 +18,7 @@ s = Window.new title: "Reactive"
 
 # The single piece of application state. (Starts mid-wave so even the very
 # first frame shows the widgets tracking a live value.)
-level = Reactive::Signal.new 62
+level = Reactive::Property.new 62
 
 # Signals derived from `level`, recomputed only when it changes.
 status = Reactive.computed do
@@ -53,7 +53,7 @@ status_box = Widget::Box.new parent: panel, top: 10, left: 2, width: 58, height:
 
 Widget::Box.new parent: panel, top: 12, left: 2, width: 58, height: 5, parse_tags: true,
   style: Style.new(fg: "#8a93a8", bg: "#10141c"),
-  content: "level = Reactive::Signal.new 0\n" \
+  content: "level = Reactive::Property.new 0\n" \
            "Reactive.bind(bar, level) { bar.value = level.value }\n" \
            "status = Reactive.computed { … level.value … }\n\n" \
            "s.every(0.1s) { level.value = sine(t) }   # that's all"

@@ -37,8 +37,8 @@ require "http/client"
       s2 = headless_screen(80, 24)
       s2.load_layout html
       loaded = s2.find_by_id("anchored").not_nil!
-      loaded.right.should eq "50%"
-      loaded.bottom.should eq "center"
+      loaded.right.as(Crysterm::Dim).matches?("50%").should be_true
+      loaded.bottom.as(Crysterm::Dim).matches?("center").should be_true
 
       # And the pair is a fixed point: the second serialization still carries the
       # anchors.

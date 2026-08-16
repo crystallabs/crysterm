@@ -117,7 +117,7 @@ describe "BUGS18 B18-40: MenuBar#open in a scrolled container" do
     # layout aleft here — no horizontal scroll). The item box has no own `lpos`
     # once the tall spacer scrolls it (its render folds into the bar), so anchor
     # on `#painted_rect`, exactly what `MenuBar#title_x` reads.
-    menu.aleft.should eq bar.item_boxes[0].painted_rect[0]
+    menu.aleft.should eq bar.item_boxes[0].painted_rect.x
   end
 end
 

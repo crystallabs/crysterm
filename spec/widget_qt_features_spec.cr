@@ -1959,7 +1959,7 @@ describe Crysterm::Widget::DockWidget do
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "F",
       area: Crysterm::Widget::DockWidget::Area::Right
     states = [] of Bool
-    dock.on(Crysterm::Event::Float) { |e| states << e.value }
+    dock.on(Crysterm::Event::TopLevelChanged) { |e| states << e.floating }
     dock.toggle_floating
     dock.floating?.should be_true
     dock.toggle_floating

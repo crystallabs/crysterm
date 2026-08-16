@@ -55,7 +55,7 @@ term = Terminal.new(
 )
 
 # Mirror the child's title reports (OSC 0/2) onto the host window/terminal.
-term.on(Event::ContentChanged) { window.title = term.title }
+term.on(Event::ContentSet) { window.title = term.title }
 
 # The child ended: leave with its exit status. `at_exit` (in crysterm.cr)
 # restores the terminal — cooks the tty, leaves the alt-screen — on the way

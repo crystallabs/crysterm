@@ -96,8 +96,8 @@ module Crysterm
     # must keep its index.
     property? retain_size_when_hidden : Bool = false
 
-    # Docks this widget to a `Layout::Border` region, wrapping *region* in a
-    # `Layout::Border::Hint`:
+    # Docks this widget to a `Layout::Dock` region, wrapping *region* in a
+    # `Layout::Dock::Hint`:
     #
     # ```
     # Widget::Box.new parent: frame, height: 1, layout_hint: :top
@@ -107,13 +107,13 @@ module Crysterm
     # same shorthand forms as `#align`/`#overflow` (`:top`, `"top"`). The
     # `Layout::Hint` overload serves engines with richer hints (Grid's
     # cell+span, flex grow).
-    def layout_hint=(region : Crysterm::Layout::Border::Region) : Crysterm::Layout::Hint?
-      self.layout_hint = Crysterm::Layout::Border::Hint.new region
+    def layout_hint=(region : Crysterm::Layout::Dock::Region) : Crysterm::Layout::Hint?
+      self.layout_hint = Crysterm::Layout::Dock::Hint.new region
     end
 
     # :ditto:
     def layout_hint=(region : ::Crystallabs::Helpers::Enums::Shorthands) : Crysterm::Layout::Hint?
-      self.layout_hint = ::Crystallabs::Helpers::Enums.from Crysterm::Layout::Border::Region, region
+      self.layout_hint = ::Crystallabs::Helpers::Enums.from Crysterm::Layout::Dock::Region, region
     end
 
     # A parent always renders before its children, so a child may reuse the

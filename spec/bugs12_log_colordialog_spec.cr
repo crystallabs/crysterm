@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression specs:
 #
-#  Finding 30 (src/widget/log.cr): `Log` wired its `Event::ContentChanged` handler
+#  Finding 30 (src/widget/log.cr): `Log` wired its `Event::ContentSet` handler
 #     as `def set_content(e)`, whose unrestricted 1-arg signature SHADOWED
 #     `Widget#set_content(content = "", ...)`. So `log.content = "x"` (and any
 #     1-arg `set_content`) dispatched to the handler — which only calls
@@ -28,7 +28,7 @@ describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" 
     log = Crysterm::Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 5
 
     log.content = "hello world"
-    # A shadowed setter dispatches to the ContentChanged handler (update!
+    # A shadowed setter dispatches to the ContentSet handler (update!
     # only), leaving @content empty.
     log.content.should eq "hello world"
   end
@@ -41,13 +41,13 @@ describe "BUGS12 finding 30: Log#set_content no longer shadows the content API" 
     log.content.should eq "second"
   end
 
-  it "still re-renders on a ContentChanged event via the renamed handler" do
+  it "still re-renders on a ContentSet event via the renamed handler" do
     s = headless_screen(100, 40)
     log = Crysterm::Widget::Log.new parent: s, top: 0, left: 0, width: 30, height: 5
-    # The renamed handler is what ContentChanged is wired to; invoking it directly
+    # The renamed handler is what ContentSet is wired to; invoking it directly
     # must not raise and must be a plain (event-arg) method, distinct from the
     # content setter.
-    log.handle_set_content(Crysterm::Event::ContentChanged.new).should be_nil
+    log.handle_set_content(Crysterm::Event::ContentSet.new).should be_nil
   end
 end
 

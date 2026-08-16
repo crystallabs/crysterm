@@ -21,9 +21,9 @@ THEME_DIR = File.join __DIR__, "..", "..", "data", "css"
 
 # --- state -------------------------------------------------------------------
 
-count = Reactive::Signal.new 0
-mode = Reactive::Signal.new true    # picks which value the info panel shows
-theme = Reactive::Signal.new "dark" # names the stylesheet to load
+count = Reactive::Property.new 0
+mode = Reactive::Property.new true    # picks which value the info panel shows
+theme = Reactive::Property.new "dark" # names the stylesheet to load
 
 # Values derived from count, recomputed only when count changes.
 doubled = Reactive::Computed(Int32).new { count.value * 2 }
@@ -74,7 +74,7 @@ end
 # Set the status property from count, then show it. The effect finds count as a
 # dependency on its own.
 Reactive.effect(status) { status.status = count.value.even? ? "EVEN #{count.value}" : "ODD #{count.value}" }
-Reactive.bind(status, status.status_signal) { status.content = "{center}Parity: #{status.status}{/center}" }
+Reactive.bind(status, status.status_property) { status.content = "{center}Parity: #{status.status}{/center}" }
 
 # Reads count when mode is true, doubled when false. Flipping mode changes which
 # value this depends on — the dependency set is rebuilt on each run.

@@ -25,7 +25,7 @@ describe "Reactive glitch-free propagation" do
   # that fires during a write's propagation wave must NOT flush the deferred
   # queue mid-wave.
   it "does not flush a batch closed inside an open propagation wave" do
-    sig = Crysterm::Reactive::Signal.new 1
+    sig = Crysterm::Reactive::Property.new 1
     c1 = Crysterm::Reactive::Computed(Int32).new { sig.value * 10 }
     c2 = Crysterm::Reactive::Computed(Int32).new { sig.value * 100 }
 
@@ -34,7 +34,7 @@ describe "Reactive glitch-free propagation" do
     runs.should eq [{10, 100}]
 
     # A user listener on c1 opens and closes an (empty) batch mid-wave.
-    c1.on(Crysterm::Event::Changed) { Crysterm::Reactive.batch { } }
+    c1.on(Crysterm::Event::ReactiveChanged) { Crysterm::Reactive.batch { } }
 
     sig.value = 2
     # Exactly one run, on the fully-settled pair. The impossible half-updated
@@ -49,7 +49,7 @@ describe "Reactive glitch-free propagation" do
     scr = rx_screen
     w = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
 
-    n = Crysterm::Reactive::Signal.new 1
+    n = Crysterm::Reactive::Property.new 1
     a = Crysterm::Reactive::Computed(Int32).new { n.value }
     b = Crysterm::Reactive::Computed(Int32).new { n.value }
 

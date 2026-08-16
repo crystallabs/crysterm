@@ -13,7 +13,7 @@ require "./spec_helper"
 # prefix-clearing half entirely, leaving a half-entered chord prefix armed
 # indefinitely (there is no inter-stroke timeout).
 #
-# Both are handled by one per-window `Action::ShortcutMap` (Qt's `QShortcutMap`
+# Both are handled by one per-window `Action::ActionAccelerators` (Qt's `QShortcutMap`
 # model): all installed sequences are matched together, a chord in progress
 # owns its next stroke, and an already-consumed key still clears the pending
 # prefix without ever firing.

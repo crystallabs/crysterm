@@ -380,7 +380,7 @@ module Crysterm
       # box's *painted* rect (`Widget#painted_rect`), not its layout coords —
       # see `#menu_y`.
       private def title_x(i : Int) : Int32
-        item_boxes[i]?.try(&.painted_rect[0]) || 0
+        item_boxes[i]?.try(&.painted_rect.x) || 0
       rescue
         0
       end
@@ -393,7 +393,7 @@ module Crysterm
       # Mirrors ComboBox#place_popup / DateEdit#position_popup.
       private def menu_y : Int32
         r = painted_rect
-        r[1] + r[3]
+        r.y + r.height
       rescue
         1
       end

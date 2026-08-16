@@ -147,7 +147,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     # whatever is left — so there is no `"100%-3"` height and no `top: "100%-3"`
     # to keep in sync with each other whenever the input box's height changes.
     frame = Box.new parent: @window, width: "100%", height: "100%",
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
 
     # A `Log`: append-only output with sticky-bottom scrolling built in —
     # `scroll_on_input` jumps back to the tail on new output even after a

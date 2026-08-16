@@ -621,7 +621,7 @@ module Crysterm
           next if e.accepted?
           if shortcuts.includes? e.char.to_s
             # Handled: accept *before* triggering (matching
-            # `KeyShortcuts#on_key`) so the key stops propagating to other
+            # `KeyBindings#on_key`) so the key stops propagating to other
             # window-level handlers and to `Application`'s default quit keys
             # ('q' is the doc'd example hotkey!) even if the callback tears
             # the surface down.

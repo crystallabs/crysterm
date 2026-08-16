@@ -64,7 +64,7 @@ end
 
 describe "BUGS14 R4 — glitch-free propagation for a Computed diamond" do
   it "never observes an impossible half-updated pair and runs once per write" do
-    n = Crysterm::Reactive::Signal.new 0
+    n = Crysterm::Reactive::Property.new 0
     even = Crysterm::Reactive::Computed(Bool).new { n.value.even? }
     odd = Crysterm::Reactive::Computed(Bool).new { n.value.odd? }
 
@@ -81,7 +81,7 @@ describe "BUGS14 R4 — glitch-free propagation for a Computed diamond" do
   end
 
   it "runs the effect once for a Computed diamond inside a batch" do
-    n = Crysterm::Reactive::Signal.new 1
+    n = Crysterm::Reactive::Property.new 1
     even = Crysterm::Reactive::Computed(Bool).new { n.value.even? }
     odd = Crysterm::Reactive::Computed(Bool).new { n.value.odd? }
 

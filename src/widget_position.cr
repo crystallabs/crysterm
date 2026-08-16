@@ -665,11 +665,11 @@ module Crysterm
     # painted exactly where it is placed — so layout coords would open it
     # detached from the visible widget. Mirrors ComboBox#place_popup /
     # DateEdit#position_popup / Menu#open_submenu.
-    def painted_rect : {Int32, Int32, Int32, Int32}
+    def painted_rect : Rectangle
       if lp = last_rendered_position?
-        {lp.xi, lp.yi, lp.xl - lp.xi, lp.yl - lp.yi}
+        Rectangle.of_edges lp.xi, lp.yi, lp.xl, lp.yl
       else
-        {aleft, atop, awidth, aheight}
+        Rectangle.new aleft, atop, awidth, aheight
       end
     end
   end

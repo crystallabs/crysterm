@@ -61,7 +61,7 @@ module Crysterm
         # has scrolled up.
         @follow_tail = true
 
-        on Crysterm::Event::ContentChanged, ->handle_set_content(Crysterm::Event::ContentChanged)
+        on Crysterm::Event::ContentSet, ->handle_set_content(Crysterm::Event::ContentSet)
       end
 
       # Appends a line at *level*, honoring `#min_level`, an optional timestamp,

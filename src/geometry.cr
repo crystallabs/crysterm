@@ -23,6 +23,11 @@ module Crysterm
     def -(other : Point) : Point
       Point.new @x - other.x, @y - other.y
     end
+
+    # Both components scaled by *factor* — Qt's `QPoint::operator*`.
+    def *(factor : Int32) : Point
+      Point.new @x * factor, @y * factor
+    end
   end
 
   # A cell extent — Qt's `QSize`.
@@ -48,6 +53,26 @@ module Crysterm
     def expanded_to(other : Size) : Size
       Size.new Math.max(@width, other.width), Math.max(@height, other.height)
     end
+
+    # Componentwise sum — Qt's `QSize::operator+`.
+    def +(other : Size) : Size
+      Size.new @width + other.width, @height + other.height
+    end
+
+    # Componentwise difference — Qt's `QSize::operator-`.
+    def -(other : Size) : Size
+      Size.new @width - other.width, @height - other.height
+    end
+
+    # Both dimensions scaled by *factor* — Qt's `QSize::operator*`.
+    def *(factor : Int32) : Size
+      Size.new @width * factor, @height * factor
+    end
+
+    # Width and height swapped — Qt's `QSize::transposed`.
+    def transposed : Size
+      Size.new @height, @width
+    end
   end
 
   # An axis-aligned rectangle of terminal cells (Qt's `QRect`), returned from
@@ -60,8 +85,9 @@ module Crysterm
   #
   # Both axes are **half-open**: the rectangle covers columns `xi...xl` and rows
   # `yi...yl`, so `xl`/`yl` are one past the last cell and `width == xl - xi`.
-  # `#right`/`#bottom` are exclusive too, *unlike* Qt's `QRect#right`, which
-  # returns the inclusive `x + width - 1`. There is no inclusive variant here.
+  # The exclusive far edges are `#x_end`/`#y_end`; there is deliberately no
+  # `right`/`bottom` reader — Qt's `QRect#right` is the *inclusive*
+  # `x + width - 1`, and a same-named exclusive reader is a landmine.
   # The derived readers shared by every half-open `xi/xl/yi/yl` box — `Rectangle`
   # (the immutable value type) and `RenderedGeometry` (the per-frame mutable
   # backing store). Both carry identical edge semantics, so the size/edge/
@@ -103,15 +129,15 @@ module Crysterm
       yi
     end
 
-    # Right edge, **exclusive** — alias of `#xl`. One past the last covered
-    # column, *not* Qt's inclusive `x + width - 1`.
-    def right : Int32
+    # End column, **exclusive** — alias of `#xl`. One past the last covered
+    # column (there is no inclusive Qt-style `right`; use `x_end - 1`).
+    def x_end : Int32
       xl
     end
 
-    # Bottom edge, **exclusive** — alias of `#yl`. One past the last covered
-    # row; see `#right`.
-    def bottom : Int32
+    # End row, **exclusive** — alias of `#yl`. One past the last covered row;
+    # see `#x_end`.
+    def y_end : Int32
       yl
     end
 
@@ -232,7 +258,7 @@ module Crysterm
 
     # Each edge nudged independently by (*dl*, *dt*, *dr*, *db*) — Qt's
     # `QRect::adjusted(dx1, dy1, dx2, dy2)`. `dr`/`db` move the (exclusive)
-    # `#right`/`#bottom` edge, so `adjusted(0, 0, 1, 1)` grows the rectangle by
+    # `#x_end`/`#y_end` edge, so `adjusted(0, 0, 1, 1)` grows the rectangle by
     # one cell on the far edges, matching Qt's inclusive-corner `adjusted`
     # despite the different edge convention.
     def adjusted(dl : Int32, dt : Int32, dr : Int32, db : Int32) : Rectangle
@@ -297,6 +323,9 @@ module Crysterm
     end
   end
 
+  # Short Qt-style name for `Rectangle`.
+  alias Rect = Rectangle
+
   # A widget's last rendered position: the rectangle it painted into, plus the
   # absolute offsets and insets resolved from it (the `a*`/`i*` fields fill
   # lazily).
@@ -315,8 +344,6 @@ module Crysterm
     # frames" note above), which a value-type `struct` — copied on every
     # assignment — would break. The value-type geometry analogue (Qt's `QRect`)
     # is the `Rectangle` struct; this is the per-frame mutable backing store.
-
-    None = new
 
     # Starting cell on X axis
     property xi : Int32 = 0

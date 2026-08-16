@@ -33,9 +33,9 @@ describe "BUGS17 B17-36 — deferred Binding runs outside the writer effect's sc
     scr = rx_screen
     w = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
 
-    s = Crysterm::Reactive::Signal.new 0
-    other = Crysterm::Reactive::Signal.new 0
-    src = Crysterm::Reactive::Signal.new 0
+    s = Crysterm::Reactive::Property.new 0
+    other = Crysterm::Reactive::Property.new 0
+    src = Crysterm::Reactive::Property.new 0
 
     # Bindings first, effects second (normal app init order). The binding reads
     # both `s` and the unrelated `other`.

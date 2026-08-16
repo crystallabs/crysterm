@@ -24,7 +24,7 @@ describe Crysterm::Widget::Line do
   it "still fills its parent when given no explicit length" do
     s = headless_screen(80, 24)
     h = Crysterm::Widget::HLine.new parent: s, top: 0, left: 0
-    h.width_spec.should eq "100%"
+    h.width_spec.as(Crysterm::Dim).matches?("100%").should be_true
   end
 
   it "still honors the explicit size convenience argument" do

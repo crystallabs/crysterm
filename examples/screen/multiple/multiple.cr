@@ -7,7 +7,7 @@
 # event loop and graceful quit. Windows can also share one `Screen` (device),
 # or migrate between devices with `Window#connect` / `#disconnect`.
 #
-# A shared `Reactive::Signal` is the bridge: assign `value =` in one window
+# A shared `Reactive::Property` is the bridge: assign `value =` in one window
 # and every widget bound to it — in *any* window — updates automatically.
 #
 # Run modes:
@@ -24,7 +24,7 @@ require "../../../src/crysterm"
 include Crysterm
 
 # The shared state: one reactive value, bound into both windows.
-volume = Reactive::Signal.new 40
+volume = Reactive::Property.new 40
 
 # --- Panel builders (identical in both run modes) ----------------------------
 
@@ -95,7 +95,7 @@ s = Window.new title: "Multiple screens"
 
 Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
   content: "{center}{bold}Two screens, one app{/bold} — synced by a shared" \
-           " {#57c7ff-fg}Reactive::Signal{/}{/center}"
+           " {#57c7ff-fg}Reactive::Property{/}{/center}"
 
 left = Widget::Box.new parent: s, top: 2, left: 1, width: 38, height: 20,
   style: Style.new(border: true), label: " Screen 1 "

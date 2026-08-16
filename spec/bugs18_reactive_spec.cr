@@ -34,7 +34,7 @@ describe "BUGS18 B18-93 — Binding runs untracked" do
     scr = rx_screen
     label = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
 
-    sig = Crysterm::Reactive::Signal.new 0
+    sig = Crysterm::Reactive::Property.new 0
     effect_runs = 0
     binding_runs = 0
     Crysterm::Reactive.effect(label) do
@@ -63,7 +63,7 @@ describe "BUGS18 B18-97 — auto-dispose Destroy hooks are removable" do
   it "Binding#dispose unhooks the owner's Destroy auto-dispose handler" do
     scr = rx_screen
     w = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    s = Crysterm::Reactive::Signal.new 0
+    s = Crysterm::Reactive::Property.new 0
 
     before = w.handlers(Crysterm::Event::Destroy).size
     b = Crysterm::Reactive.bind(w, s) { s.value }
@@ -75,7 +75,7 @@ describe "BUGS18 B18-97 — auto-dispose Destroy hooks are removable" do
   it "repeated Binding rebind cycles accumulate no Destroy handlers" do
     scr = rx_screen
     w = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    s = Crysterm::Reactive::Signal.new 0
+    s = Crysterm::Reactive::Property.new 0
 
     before = w.handlers(Crysterm::Event::Destroy).size
     5.times do
@@ -88,7 +88,7 @@ describe "BUGS18 B18-97 — auto-dispose Destroy hooks are removable" do
   it "Binding still auto-disposes when the owner is destroyed" do
     scr = rx_screen
     w = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    s = Crysterm::Reactive::Signal.new 0
+    s = Crysterm::Reactive::Property.new 0
 
     runs = 0
     b = Crysterm::Reactive.bind(w, s) { runs += 1 }
@@ -102,7 +102,7 @@ describe "BUGS18 B18-97 — auto-dispose Destroy hooks are removable" do
   it "Effect#dispose unhooks the owner's Destroy auto-dispose handler" do
     scr = rx_screen
     w = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    s = Crysterm::Reactive::Signal.new 0
+    s = Crysterm::Reactive::Property.new 0
 
     before = w.handlers(Crysterm::Event::Destroy).size
     eff = Crysterm::Reactive.effect(w) { s.value }
@@ -114,7 +114,7 @@ describe "BUGS18 B18-97 — auto-dispose Destroy hooks are removable" do
   it "Effect still auto-disposes when the owner is destroyed" do
     scr = rx_screen
     w = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    s = Crysterm::Reactive::Signal.new 0
+    s = Crysterm::Reactive::Property.new 0
 
     runs = 0
     eff = Crysterm::Reactive.effect(w) do

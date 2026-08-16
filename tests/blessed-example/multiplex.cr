@@ -10,7 +10,7 @@ require "../../src/crysterm"
 #   * Ctrl-Q to kill all the shells and quit.
 #
 # A shell's window title (OSC 0/2) updates the terminal's label
-# (`Event::ContentChanged`, new title in `terminal.title`).
+# (`Event::ContentSet`, new title in `terminal.title`).
 
 include Crysterm
 include Crysterm::Widgets
@@ -52,7 +52,7 @@ terminals = [topleft, topright, bottomleft, bottomright]
 terminals.each do |term|
   term.draggable = true
   # Reflect the child's window title on the label.
-  term.on(Event::ContentChanged) do
+  term.on(Event::ContentSet) do
     if title = term.title
       window.title = title
       term.label = " #{title} "

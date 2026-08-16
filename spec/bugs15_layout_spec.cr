@@ -10,7 +10,7 @@ private def rendered_height(el)
   l.yl - l.yi
 end
 
-# BUGS15 #3 — Layout::Border must not destroy a percent consume-axis size
+# BUGS15 #3 — Layout::Dock must not destroy a percent consume-axis size
 # (frozen at frame 1's cells) nor make a transient clamp permanent.
 # Originally guarded by raw/assigned shadow maps; since the layout-geometry
 # split (plans/SIZE-POLICY-PLAN.md §2.2) the engine never touches the child's
@@ -19,9 +19,9 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
   it "re-resolves a top child's percent height against the live container" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 20,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
     top = Widget::Box.new parent: box, height: "50%",
-      layout_hint: Layout::Border::Hint.new(:top)
+      layout_hint: Layout::Dock::Hint.new(:top)
     Widget::Box.new parent: box # center
 
     s.repaint
@@ -37,9 +37,9 @@ describe "BUGS15 border layout keeps the child-owned consume axis (fix #3)" do
   it "does not make a transient clamp of an Int height sticky" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 40, height: 20,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
     top = Widget::Box.new parent: box, height: 8,
-      layout_hint: Layout::Border::Hint.new(:top)
+      layout_hint: Layout::Dock::Hint.new(:top)
     Widget::Box.new parent: box # center
 
     s.repaint
@@ -63,9 +63,9 @@ describe "BUGS15 border layout reserves the span-axis margin (fix #31)" do
   it "keeps a left-margined top bar inside the container's right edge" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 80, height: 10,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
     header = Widget::Box.new parent: box, height: 1,
-      layout_hint: Layout::Border::Hint.new(:top),
+      layout_hint: Layout::Dock::Hint.new(:top),
       style: Style.new(margin: Margin.new(left: 2, top: 0, right: 0, bottom: 0))
     Widget::Box.new parent: box # center
 

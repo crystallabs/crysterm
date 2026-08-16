@@ -4,8 +4,9 @@ module Crysterm
   # sequences together, drives multi-keystroke chords, and gates firing on
   # context/focus. The `Action` data model itself (properties, activation,
   # menus) lives in `action.cr`; this file holds only the accelerator state
-  # machine. (Not named `action_shortcuts.cr` — that name belongs to
-  # `src/mixin/action_shortcuts.cr`, the widget-side `key ... do` DSL.)
+  # machine. The widget-side lifecycle that installs/withdraws these
+  # accelerators as its host attaches and detaches is
+  # `Mixin::ActionShortcutHost` (`src/mixin/action_shortcuts.cr`).
   class Action
     # Shared per-window shortcut dispatch state (mirroring Qt's `QShortcutMap`):
     # every action installed on a window, the window's single half-entered chord
@@ -14,7 +15,7 @@ module Crysterm
     # in progress consumes its completing stroke ahead of any other action's
     # fresh single-stroke match, and so that a key consumed elsewhere still
     # clears the prefix. See `Action.dispatch_shortcut`.
-    private class ShortcutMap
+    private class ActionAccelerators
       # Installed actions, in installation order (which breaks ties between
       # identical sequences: the earlier-installed action fires).
       getter actions = [] of Action
@@ -38,14 +39,14 @@ module Crysterm
     # The shared per-window shortcut arbiters: created on the first
     # `#install_shortcut` for a window, dropped again when its last action is
     # uninstalled.
-    @@shortcut_maps = {} of ::Crysterm::Window => ShortcutMap
+    @@accelerators = {} of ::Crysterm::Window => ActionAccelerators
 
     # Installs a window-level accelerator so this action fires when its shortcut
     # is pressed. *host* is the widget the action is presented in, used to gate
     # `Widget`-context shortcuts on focus. Idempotent per window; no-op without
     # a shortcut.
     #
-    # All actions installed on a window share one `ShortcutMap` (a single
+    # All actions installed on a window share one `ActionAccelerators` (a single
     # window-level `KeyPress` handler), so their sequences are matched together
     # — see `Action.dispatch_shortcut`.
     def install_shortcut(window : ::Crysterm::Window, host : Widget? = nil) : Nil
@@ -56,8 +57,8 @@ module Crysterm
       end
       return if @shortcuts.empty?
       return unless @shortcut_windows.add? window
-      map = @@shortcut_maps[window]? || begin
-        m = @@shortcut_maps[window] = ShortcutMap.new
+      map = @@accelerators[window]? || begin
+        m = @@accelerators[window] = ActionAccelerators.new
         m.subscription.on(window, ::Crysterm::Event::KeyPress) do |e|
           Action.dispatch_shortcut window, e
         end
@@ -73,26 +74,26 @@ module Crysterm
     def uninstall_shortcut(window : ::Crysterm::Window) : Nil
       @shortcut_host_by_window.delete window
       return unless @shortcut_windows.delete window
-      map = @@shortcut_maps[window]? || return
+      map = @@accelerators[window]? || return
       map.actions.delete self
       unless map.pending.empty? || map.actions.any?(&.shortcut_continues?(map.pending))
         map.pending.clear
       end
       if map.actions.empty?
         map.subscription.off
-        @@shortcut_maps.delete window
+        @@accelerators.delete window
       end
     end
 
     # Uninstalls every action's shortcut for *window*, dropping the window's
-    # shared `ShortcutMap` (with its window-level `KeyPress` subscription) from
+    # shared `ActionAccelerators` (with its window-level `KeyPress` subscription) from
     # the class-level registry. The `Window#destroy` teardown seam: without it a
-    # destroyed window with installed actions stays pinned by `@@shortcut_maps`
+    # destroyed window with installed actions stays pinned by `@@accelerators`
     # forever. Idempotent — with no entry for *window* it is a no-op, so
     # a repeated destroy (or a destroy after a manual `#uninstall_shortcut` of
     # the last action) is safe.
     def self.uninstall_shortcuts(window : ::Crysterm::Window) : Nil
-      map = @@shortcut_maps[window]? || return
+      map = @@accelerators[window]? || return
       # `#uninstall_shortcut` mutates `map.actions` (and the last action's
       # uninstall drops the map itself and `off`s its subscription), so iterate
       # a snapshot.
@@ -114,11 +115,11 @@ module Crysterm
     #
     # A key that neither extends the prefix nor begins a fresh shortcut clears
     # it (no inter-stroke timeout) — and so does a key already `accept`ed by an
-    # earlier handler (the focused widget's key walk, `KeyShortcuts`, …), which
+    # earlier handler (the focused widget's key walk, `KeyBindings`, …), which
     # can only ever clear, never fire. A consumed key is `accept`ed so it
     # doesn't also reach the focused widget.
     protected def self.dispatch_shortcut(window : ::Crysterm::Window, e : ::Crysterm::Event::KeyPress) : Nil
-      map = @@shortcut_maps[window]? || return
+      map = @@accelerators[window]? || return
       if e.accepted?
         map.pending.clear
         return
@@ -154,7 +155,7 @@ module Crysterm
     # registered). Otherwise a proper prefix of any passing action holds
     # *candidate* as the window's pending chord. Returns whether *candidate*
     # engaged a shortcut; when it did, the event is `accept`ed.
-    private def self.advance_shortcut(window : ::Crysterm::Window, map : ShortcutMap, e : ::Crysterm::Event::KeyPress, candidate : KeySequence) : Bool
+    private def self.advance_shortcut(window : ::Crysterm::Window, map : ActionAccelerators, e : ::Crysterm::Event::KeyPress, candidate : KeySequence) : Bool
       holds = false
       map.actions.each do |a|
         exact, prefix = a.shortcut_candidate window, e, candidate

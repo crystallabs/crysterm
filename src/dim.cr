@@ -19,8 +19,11 @@ module Crysterm
   # unwrapped; `Dim.cells` exists for code that wants to be explicit.
   struct Dim
     # What the value means; `Auto` (stretch/unanchored) is spelled `nil` at
-    # the property level, not as a `Dim`.
+    # the property level — `Dim.auto` exists for `Dim`-typed slots and
+    # normalizes to `nil` through `Dim.from` at assignment.
     enum Kind : UInt8
+      # Auto (stretch/unanchored) — the `Dim` spelling of a `nil` spec.
+      Auto
       # A fixed cell count.
       Cells
       # A percentage of the parent's content extent, plus/minus a cell offset.
@@ -61,6 +64,12 @@ module Crysterm
       new Kind::Cells, n
     end
 
+    # Auto (stretch/unanchored) — usable where a `Dim` is required;
+    # property assignment normalizes it to the stored `nil`.
+    def self.auto : Dim
+      new Kind::Auto
+    end
+
     # *pct* percent of the parent's content extent, plus *offset* cells
     # (negative to subtract): `Dim.percent(50, -2)` ↔ `"50%-2"`.
     def self.percent(pct : Number, offset : Int32 = 0) : Dim
@@ -94,6 +103,10 @@ module Crysterm
       new Kind::Viewport, 0, pct.to_f64, ViewportAxis::Max
     end
 
+    def auto? : Bool
+      @kind.auto?
+    end
+
     def cells? : Bool
       @kind.cells?
     end
@@ -125,9 +138,16 @@ module Crysterm
       case value
       in Int32, Nil then value
       in Dim
-        # A fixed cell count is canonically stored as a bare `Int32`, so
-        # `w.width_spec == 5` and `5 == w.width_spec` both hold however it was spelled.
-        value.cells? ? value.offset : value
+        # A fixed cell count is canonically stored as a bare `Int32` (so
+        # `w.width_spec == 5` holds however it was spelled); `Dim.auto` is
+        # canonically stored as `nil`.
+        if value.cells?
+          value.offset
+        elsif value.auto?
+          nil
+        else
+          value
+        end
       in String then parse value, size: size
       in Symbol
         case value
@@ -157,17 +177,41 @@ module Crysterm
         return cells n
       end
 
-      # Viewport units. The `'v'` scan keeps the regex off non-viewport
-      # values.
-      if (str.includes?('v') || str.includes?('V')) && (m = str.strip.match(VIEWPORT_RE))
-        pct = m[1].to_f? || return
-        axis = case m[2].downcase
-               when "vw"   then ViewportAxis::Width
-               when "vh"   then ViewportAxis::Height
-               when "vmin" then ViewportAxis::Min
-               else             ViewportAxis::Max
-               end
-        return new Kind::Viewport, 0, pct, axis
+      # CSS's `auto` keyword; `Dim.from` normalizes it on to the stored `nil`.
+      return auto if str.strip == "auto"
+
+      # Viewport units, with an optional `±N` cell offset (`"50vw"`,
+      # `"50vh+2"`). The `'v'` scan keeps the regex off non-viewport values.
+      if str.includes?('v') || str.includes?('V')
+        body = str.strip
+        off = 0
+        # Split a trailing `±N` (scan from 1, like the percent form below, so a
+        # leading sign stays with the number).
+        vsep = -1
+        i = 1
+        while i < body.bytesize
+          b = body.to_slice.unsafe_fetch(i)
+          if b == '+'.ord || b == '-'.ord
+            vsep = i
+            break
+          end
+          i += 1
+        end
+        head = vsep == -1 ? body : body[0, vsep]
+        if m = head.match(VIEWPORT_RE)
+          if vsep != -1
+            off = parse_offset(body, vsep + 1) || return
+            off = -off if body.to_slice.unsafe_fetch(vsep) == '-'.ord
+          end
+          pct = m[1].to_f? || return
+          axis = case m[2].downcase
+                 when "vw"   then ViewportAxis::Width
+                 when "vh"   then ViewportAxis::Height
+                 when "vmin" then ViewportAxis::Min
+                 else             ViewportAxis::Max
+                 end
+          return new Kind::Viewport, off, pct, axis
+        end
       end
 
       # The 50% position alias: `"center"`, optionally with a `±N` cell
@@ -265,6 +309,8 @@ module Crysterm
     # `Viewport` values need the window size — use `#resolve_viewport`.
     def resolve(against : Int32) : Int32
       case @kind
+      in .auto?
+        raise ArgumentError.new "An auto Dim has no resolved extent — auto is decided by the widget/layout, not the spec"
       in .cells?
         @offset
       in .percent?, .center?
@@ -294,30 +340,56 @@ module Crysterm
               in .min?    then Math.min(window_width, window_height)
               in .max?    then Math.max(window_width, window_height)
               end
-      Crysterm.saturate_cells_round(basis * @percent / 100.0)
+      v = Crysterm.saturate_cells_round(basis * @percent / 100.0)
+      return v if @offset == 0
+      (v.to_i64 + @offset).clamp(-1_000_000_000_i64, 1_000_000_000_i64).to_i32
     end
 
-    # A `Dim` equals the `Int32`/`String`/`Symbol` spelling it was parsed
-    # from, so `w.width_spec.should eq "50%"`-style comparisons keep working after
-    # the parse-at-assignment normalization.
-    def ==(other : Int32) : Bool
-      cells? && @offset == other
+    # This value with *n* more cells: `Dim.percent(50) + 2` ↔ `"50%+2"`, and
+    # `Dim.cells(5) + 2` is 7 cells. Raises `ArgumentError` on an auto value
+    # (auto has no cell offset to adjust).
+    def +(n : Int32) : Dim
+      raise ArgumentError.new "Cannot offset an auto Dim" if auto?
+      Dim.new @kind, add_offset(n), @percent, @viewport_axis
     end
 
-    # :ditto:
-    def ==(other : String) : Bool
-      self == Dim.parse?(other)
+    # This value with *n* fewer cells: `Dim.percent(100) - 2` ↔ `"100%-2"`.
+    def -(n : Int32) : Dim
+      self + -n
     end
 
-    # :ditto:
-    def ==(other : Symbol) : Bool
-      other == :center && center? && @offset == 0
+    # `@offset + n` with the same ±1e9 saturation convention as the resolvers,
+    # so chained arithmetic can't overflow checked `Int32`.
+    private def add_offset(n : Int32) : Int32
+      (@offset.to_i64 + n).clamp(-1_000_000_000_i64, 1_000_000_000_i64).to_i32
+    end
+
+    # Whether this value denotes the same geometry as *other*, accepting any
+    # property spelling (`Dim`, `Int32` cells, `String`, `:center`, `nil` =
+    # auto). The comparison normalizes both sides through `Dim.from`, so
+    # `Dim.percent(50).matches?("50%")` and `Dim.cells(5).matches?(5)` hold.
+    # `==` itself stays plain structural equality — a `Dim` never equals a
+    # `String`, keeping `hash`/`==` consistent for Set/Hash membership.
+    # Returns `false` (never raises) on a malformed `String`/`Symbol`.
+    def matches?(other : Dim | Int32 | String | Symbol | Nil) : Bool
+      o = begin
+        Dim.from other
+      rescue ArgumentError
+        return false
+      end
+      case o
+      in Int32 then cells? && @offset == o
+      in Nil   then auto?
+      in Dim   then Dim.from(self) == o
+      end
     end
 
     # Emits the canonical source spelling (`"50%+5"`, `"center-3"`, `"7"`,
     # `"50vw"`), so DOM/HTML serialization round-trips through `Dim.parse`.
     def to_s(io : IO) : Nil
       case @kind
+      in .auto?
+        io << "auto"
       in .cells?
         io << @offset
       in .percent?
@@ -335,6 +407,7 @@ module Crysterm
         in .min?    then "vmin"
         in .max?    then "vmax"
         end
+        emit_offset io
       end
     end
 

@@ -10,7 +10,7 @@ module Crysterm
     # For a shortcut shared between menus/toolbars — with enable/disable state,
     # chords, and focus contexts — use `Action` with `shortcut:` instead; this
     # is the lightweight single-handler form.
-    module KeyShortcuts
+    module KeyBindings
       # Runs *block* whenever one of *keys* is pressed. Each key is a `Char`
       # (`'q'`), a `Tput::Key` member (`Crysterm::Key` is its project-wide
       # alias), or that member's `Symbol` shorthand (`:escape`, `:ctrl_q`).

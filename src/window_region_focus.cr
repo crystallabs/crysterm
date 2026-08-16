@@ -112,7 +112,7 @@ module Crysterm
       end
       regions.sort_by! do |w|
         r = w.painted_rect
-        {r[1], r[0]}
+        {r.y, r.x}
       end
     end
 

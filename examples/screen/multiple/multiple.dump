@@ -1,6 +1,6 @@
 w=80 h=24
 +--------------------------------------------------------------------------------+
-|           Two screens, one app — synced by a shared Reactive::Signal           |
+|           Two screens, one app — synced by a shared Reactive::Property           |
 |                                                                                |
 | ┌─ Screen 1 ─────────────────────────┐  ┌─ Screen 2 ─────────────────────────┐ |
 | │                                    │  │                                    │ |

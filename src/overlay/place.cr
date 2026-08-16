@@ -96,6 +96,16 @@ module Crysterm
     # See `.place` for *prefer*/*point*. The bounds are the window's absolute
     # content box; a `Window` sits at the screen origin, so `aleft == ileft +
     # left`, hence the result converts back by subtracting the window insets.
+    # `Rectangle` overload of `.place_child` — the shape `Widget#painted_rect`
+    # returns.
+    def self.place_child(child : Widget,
+                         anchor : Rectangle,
+                         size : Tuple(Int32, Int32),
+                         prefer : Array(Side),
+                         point : Tuple(Int32, Int32)? = nil) : Nil
+      place_child child, {anchor.x, anchor.y, anchor.width, anchor.height}, size, prefer, point
+    end
+
     def self.place_child(child : Widget,
                          anchor : Tuple(Int32, Int32, Int32, Int32),
                          size : Tuple(Int32, Int32),

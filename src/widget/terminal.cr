@@ -161,7 +161,7 @@ module Crysterm
         @dattr = style_to_attr style
         em = TerminalEmulator.new cols, rows, @dattr
         em.on_refresh = -> { update!; nil }
-        em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::ContentChanged; nil }
+        em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::ContentSet; nil }
         @emulator = em
 
         if handler = @handler

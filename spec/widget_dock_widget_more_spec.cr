@@ -10,7 +10,7 @@ describe Crysterm::Widget::DockWidget do
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "X",
       area: Crysterm::Widget::DockWidget::Area::Left, floatable: false
     floats = 0
-    dock.on(Crysterm::Event::Float) { floats += 1 }
+    dock.on(Crysterm::Event::TopLevelChanged) { floats += 1 }
     dock.toggle_floating
     dock.floating?.should be_false # stayed docked
     floats.should eq 0             # no Float event emitted

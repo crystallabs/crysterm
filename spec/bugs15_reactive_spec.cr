@@ -18,8 +18,8 @@ include Crysterm
 describe "BUGS15 reactive regressions" do
   describe "#68 flush re-entrancy (run-once guarantee)" do
     it "runs a later-queued effect once when an earlier effect writes a signal (plain write)" do
-      a = Crysterm::Reactive::Signal.new 0
-      s = Crysterm::Reactive::Signal.new 0
+      a = Crysterm::Reactive::Property.new 0
+      s = Crysterm::Reactive::Property.new 0
 
       e2_runs = 0
       e2_seen = {0, 0}
@@ -39,8 +39,8 @@ describe "BUGS15 reactive regressions" do
     end
 
     it "runs a later-queued effect once when an earlier effect writes a signal (batched write)" do
-      a = Crysterm::Reactive::Signal.new 0
-      s = Crysterm::Reactive::Signal.new 0
+      a = Crysterm::Reactive::Property.new 0
+      s = Crysterm::Reactive::Property.new 0
 
       e2_runs = 0
       Crysterm::Reactive::Effect.new { s.value = a.value + 100 }
@@ -57,9 +57,9 @@ describe "BUGS15 reactive regressions" do
     end
 
     it "runs the leaf of a 3-deep chain exactly once per write" do
-      a = Crysterm::Reactive::Signal.new 0
-      b = Crysterm::Reactive::Signal.new 0
-      c = Crysterm::Reactive::Signal.new 0
+      a = Crysterm::Reactive::Property.new 0
+      b = Crysterm::Reactive::Property.new 0
+      c = Crysterm::Reactive::Property.new 0
 
       # Chain a→b→c built from leaf effects that write during the flush. Both
       # writers are woken by the original `a` write (the c-writer reads `a`
@@ -92,8 +92,8 @@ describe "BUGS15 reactive regressions" do
 
   describe "#74 mid-run dispose" do
     it "leaves zero Changed handlers on signals read after the dispose point" do
-      s1 = Crysterm::Reactive::Signal.new 0
-      s2 = Crysterm::Reactive::Signal.new 0
+      s1 = Crysterm::Reactive::Property.new 0
+      s2 = Crysterm::Reactive::Property.new 0
 
       do_dispose = false
       eff : Crysterm::Reactive::Effect? = nil
@@ -103,20 +103,20 @@ describe "BUGS15 reactive regressions" do
         s2.value
       end
 
-      s1.handlers(Crysterm::Event::Changed).size.should eq 1
-      s2.handlers(Crysterm::Event::Changed).size.should eq 1
+      s1.handlers(Crysterm::Event::ReactiveChanged).size.should eq 1
+      s2.handlers(Crysterm::Event::ReactiveChanged).size.should eq 1
 
       do_dispose = true
       s1.value = 1
 
       eff.try(&.disposed?).should be_true
-      s1.handlers(Crysterm::Event::Changed).size.should eq 0
-      s2.handlers(Crysterm::Event::Changed).size.should eq 0
+      s1.handlers(Crysterm::Event::ReactiveChanged).size.should eq 0
+      s2.handlers(Crysterm::Event::ReactiveChanged).size.should eq 0
     end
 
     it "does not run again after a mid-run dispose" do
-      s1 = Crysterm::Reactive::Signal.new 0
-      s2 = Crysterm::Reactive::Signal.new 0
+      s1 = Crysterm::Reactive::Property.new 0
+      s2 = Crysterm::Reactive::Property.new 0
 
       runs = 0
       do_dispose = false

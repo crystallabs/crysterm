@@ -142,7 +142,7 @@ class Minesweeper
     # filling whatever is left in between. Nothing below is placed at a
     # hand-computed coordinate, and no region has to reserve room for another.
     frame = Box.new parent: @window, width: "100%", height: "100%",
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
 
     # The play area: whatever the two bars leave over. The board is the only
     # thing in it, so this box carries no engine of its own — the board sits in

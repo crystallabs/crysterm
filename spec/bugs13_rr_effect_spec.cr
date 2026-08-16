@@ -16,9 +16,9 @@ include Crysterm
 
 describe "BUGS13 R4 — Changed emits run outside the emitter's tracking scope" do
   it "does not make a listener's signal read a dependency of the writing effect" do
-    a = Crysterm::Reactive::Signal.new 0
-    b = Crysterm::Reactive::Signal.new 0
-    s = Crysterm::Reactive::Signal.new 0
+    a = Crysterm::Reactive::Property.new 0
+    b = Crysterm::Reactive::Property.new 0
+    s = Crysterm::Reactive::Property.new 0
 
     runs = 0
     Crysterm::Reactive::Effect.new do
@@ -30,7 +30,7 @@ describe "BUGS13 R4 — Changed emits run outside the emitter's tracking scope" 
     # A plain listener that reads another signal. Under the bug, this read
     # happened with the effect on the scope stack, silently subscribing the
     # effect to `b`.
-    s.on(Crysterm::Event::Changed) { b.value }
+    s.on(Crysterm::Event::ReactiveChanged) { b.value }
 
     a.value = 10 # re-run the effect; s changes; the listener reads b
     runs.should eq 2
@@ -40,8 +40,8 @@ describe "BUGS13 R4 — Changed emits run outside the emitter's tracking scope" 
   end
 
   it "does not make a Changed listener's read a dependency of a Computed" do
-    n = Crysterm::Reactive::Signal.new 1
-    other = Crysterm::Reactive::Signal.new 0
+    n = Crysterm::Reactive::Property.new 1
+    other = Crysterm::Reactive::Property.new 0
 
     computes = 0
     c = Crysterm::Reactive::Computed(Int32).new do
@@ -51,7 +51,7 @@ describe "BUGS13 R4 — Changed emits run outside the emitter's tracking scope" 
     computes.should eq 1 # the internal effect's first (tracked) run primes the value
 
     # Listener reading an unrelated signal during the computed's Changed emit.
-    c.on(Crysterm::Event::Changed) { other.value }
+    c.on(Crysterm::Event::ReactiveChanged) { other.value }
 
     n.value = 2 # recompute + emit; listener reads `other`
     computes.should eq 2
@@ -64,8 +64,8 @@ end
 
 describe "BUGS13 R6 — a raising effect body keeps its previous dependencies" do
   it "stays subscribed to deps it did not re-read before the raise" do
-    a = Crysterm::Reactive::Signal.new 0
-    fail_flag = Crysterm::Reactive::Signal.new false
+    a = Crysterm::Reactive::Property.new 0
+    fail_flag = Crysterm::Reactive::Property.new false
 
     runs = 0
     values = [] of Int32
@@ -98,8 +98,8 @@ describe "BUGS13 R6 — a raising effect body keeps its previous dependencies" d
   end
 
   it "does not permanently freeze a Computed whose block raised once" do
-    flag = Crysterm::Reactive::Signal.new false
-    x = Crysterm::Reactive::Signal.new 1
+    flag = Crysterm::Reactive::Property.new false
+    x = Crysterm::Reactive::Property.new 1
 
     c = Crysterm::Reactive::Computed(Int32).new do
       raise "boom" if flag.value
@@ -118,8 +118,8 @@ describe "BUGS13 R6 — a raising effect body keeps its previous dependencies" d
   end
 
   it "keeps deps under a batch, where the exception is deferred to the flush" do
-    a = Crysterm::Reactive::Signal.new 0
-    fail_flag = Crysterm::Reactive::Signal.new false
+    a = Crysterm::Reactive::Property.new 0
+    fail_flag = Crysterm::Reactive::Property.new false
 
     runs = 0
     Crysterm::Reactive::Effect.new do

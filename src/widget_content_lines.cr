@@ -279,7 +279,7 @@ module Crysterm
       # Mirror the full path: mark for repaint and emit the same events.
       update
       emit Crysterm::Event::ContentParsed
-      emit Crysterm::Event::ContentChanged
+      emit Crysterm::Event::ContentSet
       true
     end
   end

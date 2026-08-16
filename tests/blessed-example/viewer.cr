@@ -44,12 +44,12 @@ window = Window.new title: "viewer.cr", force_unicode: true
 window.enable_mouse
 
 root = Widget::Box.new parent: window, top: 0, left: 0, width: "100%", height: "100%",
-  layout: Layout::Border.new
+  layout: Layout::Dock.new
 
 # Left column: fixed 25 cells. Children are positioned by hand so the Fit row is
 # exactly one line, with the two lists taking the halves above and below it.
 sidebar = Widget::Box.new parent: root, width: 25,
-  layout_hint: Layout::Border::Hint.new(:left)
+  layout_hint: Layout::Dock::Hint.new(:left)
 
 chooser = List.new parent: sidebar, items: files, mouse: true, vi_keys: true,
   scrollbar_policy: :as_needed, top: 0, left: 0, width: "100%", height: "50%-1",
@@ -67,7 +67,7 @@ backends = Tree.new parent: sidebar, mouse: true, vi_keys: true,
   top: "50%", left: 0, width: "100%", height: "50%",
   label: " Render Method ", style: Style.new(border: true)
 
-viewer_box = Widget::Box.new parent: root, layout_hint: Layout::Border::Hint.new(:center),
+viewer_box = Widget::Box.new parent: root, layout_hint: Layout::Dock::Hint.new(:center),
   style: Style.new(border: true)
 
 # --- viewer state ----------------------------------------------------------

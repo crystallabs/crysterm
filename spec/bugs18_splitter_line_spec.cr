@@ -89,12 +89,12 @@ describe "BUGS18 B18-52: Line#orientation= axis swap" do
   it "moves a default horizontal line's length to the vertical axis and back" do
     s = headless_screen(80, 24)
     l = Crysterm::Widget::HLine.new parent: s, top: 5
-    l.width_spec.should eq "100%"
+    l.width_spec.as(Crysterm::Dim).matches?("100%").should be_true
     l.height_spec.should be_nil
 
     l.orientation = Tput::Orientation::Vertical
     l.width_spec.should be_nil
-    l.height_spec.should eq "100%"
+    l.height_spec.as(Crysterm::Dim).matches?("100%").should be_true
 
     # One column wide, not a full-area slab of glyphs.
     s.repaint
@@ -102,7 +102,7 @@ describe "BUGS18 B18-52: Line#orientation= axis swap" do
     (lp.xl - lp.xi).should eq 1
 
     l.orientation = Tput::Orientation::Horizontal
-    l.width_spec.should eq "100%"
+    l.width_spec.as(Crysterm::Dim).matches?("100%").should be_true
     l.height_spec.should be_nil
   end
 

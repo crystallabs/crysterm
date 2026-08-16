@@ -36,7 +36,7 @@ module Crysterm
 
           # Docks the right zone against the far edge; its dash fill continues the
           # parent's, so the bar reads as one dashed line at any width.
-          @layout = Crysterm::Layout::Border.new
+          @layout = Crysterm::Layout::Dock.new
 
           @right_zone = Widget::Box.new(
             height: h,
@@ -44,7 +44,7 @@ module Crysterm
             align: {:vcenter, :right},
             style: Style.new(reverse: true, fill_char: '-'),
             content: right,
-            layout_hint: Crysterm::Layout::Border::Hint.new(:right),
+            layout_hint: Crysterm::Layout::Dock::Hint.new(:right),
           )
           append @right_zone
         end

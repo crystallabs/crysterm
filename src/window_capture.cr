@@ -46,6 +46,11 @@ module Crysterm
     # gif = screen.capture format: "gif", duration: 3.seconds, fps: 15
     # spawn { screen.capture path: "demo.mp4", duration: 10.seconds }
     # ```
+    # `Rectangle` overload of `#capture` (`rect` covers `[xi, xl) × [yi, yl)`).
+    def capture(rect : Rectangle, **opts) : Bytes?
+      capture rect.xi, rect.xl, rect.yi, rect.yl, **opts
+    end
+
     def capture(xi = 0, xl = awidth, yi = 0, yl = aheight, *,
                 path : String? = nil,
                 format : String? = nil,
@@ -257,6 +262,11 @@ module Crysterm
     # text = screen.dump             # -> String
     # screen.dump path: "frame.dump" # writes the file
     # ```
+    # `Rectangle` overload of `#dump`.
+    def dump(rect : Rectangle, *, path : String? = nil) : String?
+      dump rect.xi, rect.xl, rect.yi, rect.yl, path: path
+    end
+
     def dump(xi = 0, xl = awidth, yi = 0, yl = aheight, *, path : String? = nil) : String?
       xi, xl, yi, yl = clamp_capture_region xi, xl, yi, yl
 

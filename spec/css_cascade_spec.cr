@@ -473,7 +473,7 @@ describe "CSS cascade" do
 
     box.width_spec.should eq 40 # bare int -> cells
     box.height_spec.should eq 10
-    box.left.should eq "center" # keyword -> passthrough string
+    box.left.as(Crysterm::Dim).matches?("center").should be_true # keyword -> passthrough string
     box.top.should eq 5
     # `text-align` replaces only the horizontal bits; the widget's default
     # vertical alignment survives.

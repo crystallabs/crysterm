@@ -302,12 +302,12 @@ describe "BUGS13 C14: resize repaints only the device-active window" do
       # The resize reaches every window on the device; creation order would
       # repaint b LAST (dropping the activated a behind it). A non-active
       # window only reallocs — it must emit nothing.
-      b.emit ::Crysterm::Event::Resize.new size
+      b.emit ::Crysterm::Event::DeviceResize, size
       sleep 80.milliseconds
       out.to_s.includes?("BBB14").should be_false
 
       # The device-active window does repaint, so the raise survives the resize.
-      a.emit ::Crysterm::Event::Resize.new size
+      a.emit ::Crysterm::Event::DeviceResize, size
       wait_until { out.to_s.includes? "AAA14" }
       out.to_s.includes?("BBB14").should be_false
     ensure

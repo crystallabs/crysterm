@@ -25,7 +25,7 @@ describe "CSS invalidation" do
 
     b.remove_css_class "wide"
     s.apply_stylesheet
-    b.width_spec.should eq "100%"                                   # programmatic value back
+    b.width_spec.as(Crysterm::Dim).matches?("100%").should be_true                                   # programmatic value back
     b.min_width.should be_nil                                       # unconstrained again
     b.align.should eq(Tput::AlignFlag::Top | Tput::AlignFlag::Left) # default alignment back
   end

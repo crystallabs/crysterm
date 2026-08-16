@@ -4,8 +4,8 @@ include Crysterm
 
 # API4 Area 5/6 mechanical text/reactive/input additions:
 #
-# - Reactive.computed/.signal factories (A4-46/A4-47)
-# - SignalBase#on_change (A4-48)
+# - Reactive.computed/.property factories (A4-46/A4-47)
+# - PropertyBase#on_change (A4-48)
 # - TextCursor#insert_html/#insert_markdown, #column_number (A4-50/A4-51)
 # - ObservableList#delete (A4-53)
 # - TextList#remove_item (A4-54)
@@ -18,7 +18,7 @@ end
 
 describe "Reactive.computed" do
   it "infers T from the block and stays reactive" do
-    n = Crysterm::Reactive::Signal.new 3
+    n = Crysterm::Reactive::Property.new 3
     doubled = Crysterm::Reactive.computed { n.value * 2 }
     doubled.should be_a Crysterm::Reactive::Computed(Int32)
     doubled.value.should eq 6
@@ -27,19 +27,19 @@ describe "Reactive.computed" do
   end
 end
 
-describe "Reactive.signal" do
-  it "builds a Signal(T) seeded with the given value" do
-    s = Crysterm::Reactive.signal "hi"
-    s.should be_a Crysterm::Reactive::Signal(String)
+describe "Reactive.property" do
+  it "builds a Property(T) seeded with the given value" do
+    s = Crysterm::Reactive.property "hi"
+    s.should be_a Crysterm::Reactive::Property(String)
     s.value.should eq "hi"
     s.value = "bye"
     s.value.should eq "bye"
   end
 end
 
-describe "SignalBase#on_change" do
-  it "fires on Signal value changes, exposing the new value via #value" do
-    s = Crysterm::Reactive::Signal.new 1
+describe "PropertyBase#on_change" do
+  it "fires on Property value changes, exposing the new value via #value" do
+    s = Crysterm::Reactive::Property.new 1
     seen = [] of Int32
     s.on_change { seen << s.value }
     s.value = 2
@@ -49,7 +49,7 @@ describe "SignalBase#on_change" do
   end
 
   it "is inherited by Computed" do
-    n = Crysterm::Reactive::Signal.new 1
+    n = Crysterm::Reactive::Property.new 1
     c = Crysterm::Reactive.computed { n.value * 10 }
     seen = [] of Int32
     c.on_change { seen << c.value }

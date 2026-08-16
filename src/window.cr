@@ -366,6 +366,7 @@ module Crysterm
       handle ::Crysterm::Event::Detached
       handle ::Crysterm::Event::Destroy
       handle ::Crysterm::Event::Resize
+      handle ::Crysterm::Event::DeviceResize
 
       emit ::Crysterm::Event::Attached, self
 
@@ -454,13 +455,17 @@ module Crysterm
       handle_detached(e)
     end
 
-    def handle_resize(e)
+    # The device reported a new size: resize the `Screen` to it, then run the
+    # ordinary resize reaction by emitting the parameterless `Event::Resize` on
+    # self (which `#handle_resize` picks up and fans out to descendants).
+    def handle_device_resize(e)
       # A pinned axis ignores the terminal's reported size; only unpinned axes
       # follow it (an inline window pins height, tracks width).
-      e.size.try do |size|
-        @screen.resize(size.width, size.height)
-      end
+      @screen.resize(e.size.width, e.size.height)
+      emit ::Crysterm::Event::Resize
+    end
 
+    def handle_resize(e)
       # Keep an inline region on-screen if the terminal shrank: clamp the anchor
       # so `offset + aheight` still fits. Best-effort — a precise re-anchor would
       # need a fresh `report_cursor`, which can't run while the input loop is
@@ -833,7 +838,7 @@ module Crysterm
       disconnect
 
       # Uninstall every action shortcut installed on this window: the
-      # class-level `Action` shortcut registry (`@@shortcut_maps`) holds the
+      # class-level `Action` shortcut registry (`@@accelerators`) holds the
       # window and its window-level `KeyPress` subscription, so without this a
       # destroyed window with installed actions stays pinned forever.
       # Idempotent — a no-op when nothing is (or is no longer) installed.

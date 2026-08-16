@@ -49,7 +49,7 @@ class Pong
     # gives the field whatever is left — no `"100%-1"` arithmetic to keep in sync
     # with the bar, and nothing pinned to a fixed coordinate.
     frame = Box.new parent: @window, width: "100%", height: "100%",
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
 
     # Play field. It keeps `Layout::Manual` (no engine installed): the paddles,
     # net and ball are *sprites* whose coordinates are the game state, pushed

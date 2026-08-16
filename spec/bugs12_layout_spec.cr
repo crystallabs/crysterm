@@ -45,10 +45,10 @@ describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)"
   it "keeps a top-margined bottom child within the container's interior" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
 
     footer = Widget::Box.new parent: box, height: 2,
-      layout_hint: Layout::Border::Hint.new(:bottom),
+      layout_hint: Layout::Dock::Hint.new(:bottom),
       style: Style.new(margin: Margin.new(left: 0, top: 1, right: 0, bottom: 0))
     Widget::Box.new parent: box # center
 
@@ -65,10 +65,10 @@ describe "BUGS12 border layout accounts for margin shift on far edges (fix #37)"
   it "keeps a left-margined right child within the container's interior" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 10,
-      layout: Layout::Border.new
+      layout: Layout::Dock.new
 
     sidebar = Widget::Box.new parent: box, width: 4,
-      layout_hint: Layout::Border::Hint.new(:right),
+      layout_hint: Layout::Dock::Hint.new(:right),
       style: Style.new(margin: Margin.new(left: 1, top: 0, right: 0, bottom: 0))
     Widget::Box.new parent: box # center
 

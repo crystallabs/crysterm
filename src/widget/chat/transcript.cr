@@ -231,7 +231,7 @@ module Crysterm
 
           @collapse_threshold = collapse_threshold
 
-          on ::Crysterm::Event::ContentChanged, ->handle_content_changed(::Crysterm::Event::ContentChanged)
+          on ::Crysterm::Event::ContentSet, ->handle_content_set(::Crysterm::Event::ContentSet)
           if @keys
             on ::Crysterm::Event::KeyPress, ->handle_chat_key_press(::Crysterm::Event::KeyPress)
           end
@@ -468,7 +468,7 @@ module Crysterm
           e.accept
         end
 
-        def handle_content_changed(e)
+        def handle_content_set(e)
           update!
         end
 

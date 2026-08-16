@@ -5,7 +5,7 @@ module Crysterm
       abstract def run : Nil
     end
 
-    # Batching groups a burst of signal writes so each affected binding runs
+    # Batching groups a burst of property writes so each affected binding runs
     # once, at the end of the batch, instead of on every intermediate write.
     # Outside a batch, bindings run synchronously on write; batching is an
     # optional *binding-run* dedup, not a prerequisite for correct rendering.
@@ -19,12 +19,12 @@ module Crysterm
     @@pending_set = Set(Deferrable).new
 
     # Depth of the active *propagation wave* — the synchronous cascade a single
-    # `Signal#value=` sets off. Distinct from `@@batch_depth`: a wave is implicit
+    # `Property#value=` sets off. Distinct from `@@batch_depth`: a wave is implicit
     # (opened by every write), a batch explicit. Both defer leaf `Effect`s.
     @@wave_depth = 0
 
     # Whether a `flush` drain is in progress. A drained item's `run` may write a
-    # signal, whose wave-close calls `flush` re-entrantly; that nested call must
+    # property, whose wave-close calls `flush` re-entrantly; that nested call must
     # no-op — the active outer drain picks up any newly enqueued work — or items
     # still awaiting their turn would run twice.
     @@flushing = false
@@ -37,13 +37,13 @@ module Crysterm
     # Whether downstream leaf `Effect` runs must be deferred: either an explicit
     # `batch` or an in-flight propagation wave is open. Deferring until the wave
     # settles is what makes propagation glitch-free — an effect reading two
-    # `Computed`s over a shared upstream `Signal` runs once, after *both* have
+    # `Computed`s over a shared upstream `Property` runs once, after *both* have
     # recomputed, never on a half-updated pair.
     def self.deferring? : Bool
       @@batch_depth > 0 || @@wave_depth > 0
     end
 
-    # Runs *block* — the synchronous notification set off by one `Signal#value=` —
+    # Runs *block* — the synchronous notification set off by one `Property#value=` —
     # as a single propagation wave. `Computed`s recompute eagerly inside the wave
     # so their values settle, while dependent leaf `Effect`s are enqueued and
     # flushed once the outermost wave closes (unless a `batch` is still open,
@@ -92,7 +92,7 @@ module Crysterm
     #
     # Re-entrancy-safe: the drain works on the live queue, removing each item
     # from the dedup set only as it is taken. An item still awaiting its turn
-    # thus stays in the set, so a signal write performed by a drained item's
+    # thus stays in the set, so a property write performed by a drained item's
     # `run` cannot re-enqueue it (`enqueue`'s `add?` dedups) — it runs exactly
     # once, in its original position. Genuinely new work woken by such a write
     # is appended to the live queue and drained by this same call; the nested

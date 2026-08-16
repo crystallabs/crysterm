@@ -1,60 +1,61 @@
 require "event_handler"
 
 module Crysterm
-  # Reactive state primitives — signals and bindings that let application state
+  # Reactive state primitives — properties and bindings that let application state
   # drive widgets declaratively.
   #
-  # The one notification mechanism is `event_handler`: a `Signal` is an emitter
-  # that fires `Event::Changed`, and a binding (`Reactive.bind`) is a managed
+  # The one notification mechanism is `event_handler`: a `Property` is an emitter
+  # that fires `Event::ReactiveChanged`, and a binding (`Reactive.bind`) is a managed
   # subscription to it. There is no second dispatch model.
   module Reactive
-    # Non-generic base carrying the event-emitter machinery, so `Signal(T)`
+    # Non-generic base carrying the event-emitter machinery, so `Property(T)`
     # inherits `on`/`emit`/`off` without re-instantiating `EventHandler` per type
-    # parameter, and so a heterogeneous set of signals can be watched through one
+    # parameter, and so a heterogeneous set of properties can be watched through one
     # reference.
-    abstract class SignalBase
+    abstract class PropertyBase
       include EventHandler
 
-      # Registers this signal as a dependency of the running `Effect`/`Computed`,
+      # Registers this property as a dependency of the running `Effect`/`Computed`,
       # if any — the single place the read-tracking contract lives. Called at the
-      # top of every concrete `#value` reader (`Signal#value`, `Computed#value`).
+      # top of every concrete `#value` reader (`Property#value`, `Computed#value`).
       # A no-op outside a tracking scope.
       protected def register_read : Nil
         Reactive.current?.try &.track(self)
       end
 
-      # Subscribes *block* to this signal's `Event::Changed` — sugar over
-      # `on(Event::Changed) { ... }`, hiding the internal event class. Inherited
-      # by `Signal`/`Computed`, so either can be watched without touching `on`
+      # Subscribes *block* to this property's `Event::ReactiveChanged` — sugar over
+      # `on(Event::ReactiveChanged) { ... }`, hiding the internal event class. Inherited
+      # by `Property`/`Computed`, so either can be watched without touching `on`
       # directly.
       #
-      # `Event::Changed` carries no payload (unlike e.g. `Event::TextChanged`),
+      # `Event::ReactiveChanged` carries no payload (unlike e.g. `Event::TextChanged`),
       # so *block* takes none — call `#value`/`#peek` inside it for the new
-      # value.
+      # value. Returns the `EventHandler::Subscription`, so the watch can be
+      # cancelled with `sub.off`.
       #
       # ```
-      # count = Crysterm::Reactive::Signal.new 0
+      # count = Crysterm::Reactive::Property.new 0
       # count.on_change { puts "now #{count.value}" }
       # count.value = 5 # => "now 5"
       # ```
-      def on_change(&block : ->) : Nil
-        on(::Crysterm::Event::Changed) { block.call }
+      def on_change(&block : ->) : ::EventHandler::Subscription
+        on(::Crysterm::Event::ReactiveChanged) { block.call }
       end
     end
 
     # An observable value cell. Reading `#value` returns the current value;
-    # assigning a *different* value emits `Event::Changed` (the single
-    # notification model), waking any bindings watching this signal.
+    # assigning a *different* value emits `Event::ReactiveChanged` (the single
+    # notification model), waking any bindings watching this property.
     #
     # Change-guarded: assigning an `==` value is a no-op — no emit, no repaint.
     #
     # ```
-    # count = Crysterm::Reactive::Signal.new 0
+    # count = Crysterm::Reactive::Property.new 0
     # count.value     # => 0
-    # count.value = 5 # emits Event::Changed
+    # count.value = 5 # emits Event::ReactiveChanged
     # count.value = 5 # no-op (unchanged)
     # ```
-    class Signal(T) < SignalBase
+    class Property(T) < PropertyBase
       @value : T
 
       def initialize(@value : T)
@@ -62,7 +63,7 @@ module Crysterm
 
       # Reads the current value. If a dependency-tracking scope is active (an
       # `Effect`/`Computed` is running), registers that consumer as a dependent
-      # so it re-runs when this signal changes. Outside such a scope, a plain read.
+      # so it re-runs when this property changes. Outside such a scope, a plain read.
       def value : T
         register_read
         @value
@@ -75,11 +76,11 @@ module Crysterm
         # One propagation *wave*: dependent `Computed`s recompute eagerly inside
         # it so their values settle, while each dependent leaf `Effect` is
         # deferred until the wave closes — glitch-free, so an effect reading two
-        # computeds over this signal runs once, on a consistent pair. Tracking is
+        # computeds over this property runs once, on a consistent pair. Tracking is
         # suspended for the emit: a write performed inside an effect/computed
         # would otherwise leave the *writer* on the scope stack, and listeners'
-        # signal reads would register as spurious dependencies of it.
-        Reactive.propagate { Reactive.untracked { emit ::Crysterm::Event::Changed } }
+        # property reads would register as spurious dependencies of it.
+        Reactive.propagate { Reactive.untracked { emit ::Crysterm::Event::ReactiveChanged } }
         v
       end
 
@@ -98,15 +99,15 @@ module Crysterm
       end
     end
 
-    # Creates a `Signal` seeded with *value*. Factory beside `Reactive.effect`/
-    # `Reactive.bind`, so the `signal`/`computed`/`effect` family reads
-    # consistently instead of spelling out `Signal(T).new` on its own.
+    # Creates a `Property` seeded with *value*. Factory beside `Reactive.effect`/
+    # `Reactive.bind`, so the `property`/`computed`/`effect` family reads
+    # consistently instead of spelling out `Property(T).new` on its own.
     #
     # ```
-    # count = Crysterm::Reactive.signal 0
+    # count = Crysterm::Reactive.property 0
     # ```
-    def self.signal(value : T) : Signal(T) forall T
-      Signal.new value
+    def self.property(value : T) : Property(T) forall T
+      Property.new value
     end
   end
 end

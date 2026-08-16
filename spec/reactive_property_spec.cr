@@ -2,10 +2,10 @@ require "./spec_helper"
 
 include Crysterm
 
-# Phase-5 reactivity: the `reactive_property` macro — signal-backed widget
+# Phase-5 reactivity: the `reactive_property` macro — property-backed widget
 # properties. `obj.prop = x` notifies bindings/effects, marks the widget dirty,
 # and schedules a repaint; `obj.prop` read inside an effect auto-tracks; and
-# `obj.prop_signal` is the bindable Signal.
+# `obj.prop_property` is the bindable Reactive::Property.
 
 private class RPBox < Crysterm::Widget::Box
   reactive_property caption : String = "untitled"
@@ -32,13 +32,13 @@ describe "reactive_property" do
     w.caption.should eq "hello"
   end
 
-  it "exposes a stable backing Signal via #<name>_signal" do
+  it "exposes a stable backing Reactive::Property via #<name>_property" do
     scr = rx_screen
     w = RPBox.new parent: scr, width: 20, height: 3
-    w.caption_signal.should be_a Crysterm::Reactive::Signal(String)
-    w.caption_signal.should be w.caption_signal # lazily created once, then reused
+    w.caption_property.should be_a Crysterm::Reactive::Property(String)
+    w.caption_property.should be w.caption_property # lazily created once, then reused
     w.caption = "x"
-    w.caption_signal.value.should eq "x"
+    w.caption_property.value.should eq "x"
   end
 
   it "is trackable: an Effect reading the property re-runs on change" do
@@ -51,11 +51,11 @@ describe "reactive_property" do
     seen.should eq ["untitled", "hello"]
   end
 
-  it "is bindable via its signal" do
+  it "is bindable via its property" do
     scr = rx_screen
     w = RPBox.new parent: scr, width: 20, height: 3
     other = Crysterm::Widget::Box.new parent: scr, width: 20, height: 3
-    Crysterm::Reactive.bind(other, w.caption_signal) { other.content = "cap=#{w.caption}" }
+    Crysterm::Reactive.bind(other, w.caption_property) { other.content = "cap=#{w.caption}" }
     other.content.should eq "cap=untitled"
     w.caption = "x"
     other.content.should eq "cap=x"

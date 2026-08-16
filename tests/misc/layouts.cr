@@ -64,12 +64,12 @@ child p4, "E", height: 1
 
 # Border: each child docked to an edge (or the center) by a Border::Hint.
 p5 = panel root, "Border"
-p5.layout = Layout::Border.new
-child p5, "A", height: 1, layout_hint: Layout::Border::Hint.new(:top)
-child p5, "B", height: 1, layout_hint: Layout::Border::Hint.new(:bottom)
-child p5, "C", width: 6, layout_hint: Layout::Border::Hint.new(:left)
-child p5, "D", width: 6, layout_hint: Layout::Border::Hint.new(:right)
-child p5, "E", layout_hint: Layout::Border::Hint.new(:center)
+p5.layout = Layout::Dock.new
+child p5, "A", height: 1, layout_hint: Layout::Dock::Hint.new(:top)
+child p5, "B", height: 1, layout_hint: Layout::Dock::Hint.new(:bottom)
+child p5, "C", width: 6, layout_hint: Layout::Dock::Hint.new(:left)
+child p5, "D", width: 6, layout_hint: Layout::Dock::Hint.new(:right)
+child p5, "E", layout_hint: Layout::Dock::Hint.new(:center)
 
 # Wrap: fixed-size children flow left-to-right and wrap onto new lines.
 p6 = panel root, "Wrap"
