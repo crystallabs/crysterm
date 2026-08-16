@@ -1993,7 +1993,7 @@ describe Crysterm::Widget::DockWidget do
     s.stylesheet = "DockWidget::title { background-color: #334455; color: #ffffff; } " \
                    "DockWidget::close-button, DockWidget::float-button { background-color: transparent; }"
     dock = Crysterm::Widget::DockWidget.new parent: s, title: "Panes",
-      area: Crysterm::Widget::DockWidget::Area::Floating
+      floating: true
     dock.top = 1; dock.left = 1; dock.width = 20; dock.height = 6
     dock.widget = Crysterm::Widget::Box.new content: "x"
     s.repaint

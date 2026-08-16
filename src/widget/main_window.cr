@@ -1,3 +1,4 @@
+require "../layout/dock"
 require "./box"
 require "./dock_widget"
 
@@ -20,7 +21,7 @@ module Crysterm
     # win.status_bar.show_message "Ready"
     # win.central_widget = Widget::PlainTextEdit.new
     # win.add_tool_bar Widget::ToolBar.new
-    # win.add_dock Widget::DockWidget::Area::Left, Widget::DockWidget.new(title: "Files")
+    # win.add_dock :left, Widget::DockWidget.new(title: "Files")
     # ```
     #
     # Use `#menu_bar?`/`#status_bar?` to ask whether a bar exists without
@@ -32,17 +33,19 @@ module Crysterm
     class MainWindow < Box
       # A main window fills its window by default — in Qt the `QMainWindow`
       # *is* the window — so `MainWindow.new parent: window` alone is the whole
-      # frame. Any geometry passed explicitly still wins.
+      # frame. Any geometry passed explicitly still wins. The slots are
+      # arranged by the window's own `Carve` engine (installed here).
       def initialize(**box)
         super(**{fill: true}.merge(box))
+        self.layout = Carve.new
       end
 
       # The menu bar, constructed (and parented) on first access — like Qt's
       # `menuBar()`, it never returns null.
-      getter menu_bar : MenuBar { MenuBar.new(parent: self) }
+      getter menu_bar : MenuBar { (self.menu_bar = MenuBar.new).as(MenuBar) }
 
       # :ditto:
-      getter status_bar : StatusBar { StatusBar.new(parent: self) }
+      getter status_bar : StatusBar { (self.status_bar = StatusBar.new).as(StatusBar) }
 
       # The menu bar, or `nil` if none has been created — the non-constructing
       # question `#menu_bar` can't ask.
@@ -77,26 +80,52 @@ module Crysterm
         @docks.dup
       end
 
-      # Rows reserved for the menu/status bar when present, and for each tool bar.
-      property menu_height : Int32 = 1
-      property tool_height : Int32 = 1
-      property status_height : Int32 = 1
+      # Rows reserved for the menu/status bar when present, and for each tool
+      # bar. Live setters: the strips carry the height as their carve hint, so
+      # a change re-syncs the hints and repaints.
+      getter menu_height : Int32 = 1
+      getter tool_height : Int32 = 1
+      getter status_height : Int32 = 1
+
+      def menu_height=(value : Int32) : Int32
+        @menu_height = value
+        @menu_bar.try { |b| b.layout_hint = Layout::Dock::Hint.new(:top, size: value) }
+        value
+      end
+
+      def tool_height=(value : Int32) : Int32
+        @tool_height = value
+        @tool_bars.each { |b| b.layout_hint = Layout::Dock::Hint.new(:top, size: value) }
+        value
+      end
+
+      def status_height=(value : Int32) : Int32
+        @status_height = value
+        @status_bar.try { |b| b.layout_hint = Layout::Dock::Hint.new(:bottom, size: value) }
+        value
+      end
 
       # Defines a `<name>=` setter for one of the singular top-level slots
       # (menu/status bar, central widget): detaches the slot's previous
-      # occupant, stores and appends the new widget, and returns it. `nil`
-      # clears the slot, so a bar can be taken away again.
-      private macro def_slot_setter(name, type)
+      # occupant, stores and appends the new widget (stamping the strip's
+      # carve hint, when given), and returns it. `nil` clears the slot, so a
+      # bar can be taken away again.
+      private macro def_slot_setter(name, type, region = nil, size = nil)
         def {{ name.id }}=(w : {{ type.id }}?) : {{ type.id }}?
           @{{ name.id }}.try &.remove_from_parent
           @{{ name.id }} = w
-          append w if w
+          if w
+            append w
+            {% if region %}
+              w.layout_hint = Layout::Dock::Hint.new({{ region }}, size: {{ size.id }})
+            {% end %}
+          end
           w
         end
       end
 
-      def_slot_setter menu_bar, MenuBar
-      def_slot_setter status_bar, StatusBar
+      def_slot_setter menu_bar, MenuBar, :top, @menu_height
+      def_slot_setter status_bar, StatusBar, :bottom, @status_height
       def_slot_setter central_widget, Widget
 
       # Adds *bar* below any tool bars already present (Qt's `addToolBar`), and
@@ -105,6 +134,7 @@ module Crysterm
         return bar if @tool_bars.includes? bar
         @tool_bars << bar
         append bar
+        bar.layout_hint = Layout::Dock::Hint.new(:top, size: @tool_height)
         bar
       end
 
@@ -152,83 +182,110 @@ module Crysterm
         remove_dock dock
       end
 
-      def paint(*, with_children = true)
-        relayout
-        super
+      # Yields each tool bar in add order (no per-frame `Array` copy).
+      protected def each_tool_bar(&) : Nil
+        @tool_bars.each { |t| yield t }
       end
 
-      # Positions every managed slot for the current size. The menu bar and the
-      # tool bars stack in full-width strips down from the top, the status bar
-      # takes one across the bottom; left/right docks span the height between
-      # them; top/bottom docks sit within the remaining central column; the
-      # central widget fills the rest. Floating docks and hidden widgets are left
-      # untouched.
-      #
-      # Reads `@menu_bar`/`@status_bar` (not `#menu_bar`/`#status_bar`) so laying
-      # out never *constructs* the bars it is asking about.
-      private def relayout : Nil
-        top = 0
-        bottom = (sb = @status_bar) && sb.visible? ? @status_height : 0
-        left = 0
-        right = 0
-
-        if (mb = @menu_bar) && mb.visible?
-          set_geo mb, top: top, left: 0, right: 0, height: @menu_height
-          top += @menu_height
-        end
-        # Each tool bar sits below the previous one, the first directly below the
-        # menu bar — or at the very top if there is none.
-        @tool_bars.each do |tb|
-          next unless tb.visible?
-          set_geo tb, top: top, left: 0, right: 0, height: @tool_height
-          top += @tool_height
-        end
-        if (sb = @status_bar) && sb.visible?
-          set_geo sb, bottom: 0, left: 0, right: 0, height: @status_height
-        end
-
-        # Left/right docks span the full height between the top and bottom bars.
-        each_active_dock(DockWidget::Area::Left) do |d|
-          set_geo d, top: top, bottom: bottom, left: left, width: d.dock_size
-          left += d.dock_size
-        end
-        each_active_dock(DockWidget::Area::Right) do |d|
-          set_geo d, top: top, bottom: bottom, right: right, width: d.dock_size
-          right += d.dock_size
-        end
-
-        # Top/bottom docks sit within the column left after the side docks.
-        each_active_dock(DockWidget::Area::Top) do |d|
-          set_geo d, top: top, left: left, right: right, height: d.dock_size
-          top += d.dock_size
-        end
-        each_active_dock(DockWidget::Area::Bottom) do |d|
-          set_geo d, bottom: bottom, left: left, right: right, height: d.dock_size
-          bottom += d.dock_size
-        end
-
-        if cw = @central_widget
-          set_geo cw, top: top, bottom: bottom, left: left, right: right
-        end
+      # Whether *w* is one of the tool bars.
+      protected def tool_bar?(w : Widget) : Bool
+        @tool_bars.includes? w
       end
 
-      # Yields each visible dock in *area* without the per-frame `Array` a
-      # `@docks.select` would allocate.
-      private def each_active_dock(area : DockWidget::Area, &)
-        @docks.each do |d|
-          yield d if d.area == area && d.visible?
-        end
-      end
+      # The main window's own `Layout::Dock` variant: the same edge-consuming
+      # carve, in `QMainWindow`'s two-tier order — bar strips first (menu and
+      # tool bars down from the top, status bar across the bottom), then
+      # left/right docks spanning the height between them, then top/bottom
+      # docks within the remaining column, the central widget filling the
+      # rest. Slots are classified by identity (bars, central) and by their
+      # `Layout::Dock::Hint` (docks); everything else — a floating dock is
+      # `layout_chrome`, painted on top at its own coordinates — renders
+      # unarranged, like under `Layout::Manual`. Being a real engine,
+      # `#spacing`, hidden-slot vacancy and margin boxes all apply.
+      class Carve < Layout::Dock
+        @bars_top = [] of Widget
+        @bars_bottom = [] of Widget
+        @side_left = [] of Widget
+        @side_right = [] of Widget
+        @band_top = [] of Widget
+        @band_bottom = [] of Widget
+        @middle = [] of Widget
+        @unmanaged = [] of Widget
 
-      # Sets a child's geometry, clearing the dimensions not given so stale
-      # anchors from a previous layout can't fight the new ones.
-      private def set_geo(w : Widget, top = nil, bottom = nil, left = nil, right = nil, width = nil, height = nil) : Nil
-        w.top = top
-        w.bottom = bottom
-        w.left = left
-        w.right = right
-        w.width = width
-        w.height = height
+        def arrange(container : Widget, interior : RenderedGeometry) : Nil
+          # Installed only on a `MainWindow` (its constructor); the type guard
+          # (not a cast) keeps the method compilable for every concrete
+          # container type `render_children` may pass.
+          return unless container.is_a?(MainWindow)
+          win = container
+          x0 = 0
+          y0 = 0
+          x1 = interior.width
+          y1 = interior.height
+          @sp_h = clamped_spacing @spacing, x1
+          @sp_v = clamped_spacing @spacing, y1
+
+          @bars_top.clear
+          @bars_bottom.clear
+          @side_left.clear
+          @side_right.clear
+          @band_top.clear
+          @band_bottom.clear
+          @middle.clear
+          @unmanaged.clear
+
+          # Bar strips, in slot order (menu above tool bars regardless of
+          # append order).
+          menu = win.menu_bar?
+          status = win.status_bar?
+          central = win.central_widget
+          @bars_top << menu if menu && slot_occupies?(win, menu)
+          win.each_tool_bar { |tb| @bars_top << tb if slot_occupies?(win, tb) }
+          @bars_bottom << status if status && slot_occupies?(win, status)
+
+          # Docks (by hint region), the central widget, and free children.
+          each_occupying container do |el|
+            next if el.same?(menu) || el.same?(status) || win.tool_bar?(el)
+            if el.same?(central)
+              @middle << el
+            elsif h = el.layout_hint.as?(Hint)
+              case h.region
+              in .left?   then @side_left << el
+              in .right?  then @side_right << el
+              in .top?    then @band_top << el
+              in .bottom? then @band_bottom << el
+              in .center? then @middle << el
+              end
+            else
+              @unmanaged << el
+            end
+          end
+
+          x0, y0, x1, y1 = consume_edge @bars_top, :top, x0, y0, x1, y1
+          x0, y0, x1, y1 = consume_edge @bars_bottom, :bottom, x0, y0, x1, y1
+          x0, y0, x1, y1 = consume_edge @side_left, :left, x0, y0, x1, y1
+          x0, y0, x1, y1 = consume_edge @side_right, :right, x0, y0, x1, y1
+          x0, y0, x1, y1 = consume_edge @band_top, :top, x0, y0, x1, y1
+          x0, y0, x1, y1 = consume_edge @band_bottom, :bottom, x0, y0, x1, y1
+
+          @middle.each do |el|
+            cw = margin_box(x1 - x0, el.mhorizontal)
+            ch = margin_box(y1 - y0, el.mvertical)
+            place_child el, x0, y0, cw, ch
+            render_child el
+          end
+
+          # Unmanaged children keep their own geometry (`Layout::Manual`
+          # semantics), so a plain child of the main window still renders
+          # where it put itself.
+          @unmanaged.each { |el| render_child el }
+        end
+
+        # Whether a bar slot takes a strip this frame: still parented here and
+        # not `#vacant?` (hidden without `retain_size_when_hidden`).
+        private def slot_occupies?(win : MainWindow, el : Widget) : Bool
+          (el.parent.try &.same?(win)) == true && !vacant?(el)
+        end
       end
     end
   end

@@ -36,9 +36,9 @@ module Crysterm
       @row_lefts = [] of String
       @row_rights = [] of String
 
-      # Reused scratch for the separator row-index array handed to `#dock_rows`
+      # Reused scratch for the separator row-index array handed to `#merge_junction_rows`
       # each frame, instead of a throwaway `compact_map`.
-      @dock_rows_buf = [] of Int32
+      @merge_junction_rows_buf = [] of Int32
 
       # `#size_rows` dirty guard: the inner width it last laid out at, and a flag
       # set whenever the rows themselves changed (`#sync_items`). When neither
@@ -236,7 +236,7 @@ module Crysterm
 
       # Renders the menu, then docks its separator rules to the vertical borders
       # so each reads as `├────┤` rather than a detached dash. Reuses the
-      # window's border-docking component (`#dock_rows`); runs after `super`
+      # window's border-docking component (`#merge_junction_rows`); runs after `super`
       # so it re-applies the junctions each frame the border is repainted.
       def paint(*, with_children = true)
         refresh_glyphs
@@ -246,14 +246,14 @@ module Crysterm
         size_separators
         ret = super
         unless @separator_items.empty?
-          buf = @dock_rows_buf
+          buf = @merge_junction_rows_buf
           buf.clear
           @separator_items.each do |itm|
             if yi = itm.@lpos.try &.yi
               buf << yi
             end
           end
-          dock_rows buf
+          merge_junction_rows buf
         end
         ret
       end
@@ -311,7 +311,7 @@ module Crysterm
       # Stretches each separator's `─` rule across the menu's full inner width,
       # sized at render because that's the first point the final width is known.
       # A separator carries no item padding (not tagged `Item`), so it spans the
-      # whole content area and, via `#dock_rows`, joins the borders as `├────┤`.
+      # whole content area and, via `#merge_junction_rows`, joins the borders as `├────┤`.
       private def size_separators : Nil
         return if @separator_items.empty?
         inner = awidth - ihorizontal

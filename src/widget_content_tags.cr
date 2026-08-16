@@ -15,7 +15,7 @@ module Crysterm
     # `{|}` and the alignment tags pass through verbatim for the
     # aligner/wrapper to consume afterwards.
     #
-    # :nodoc: the tag->SGR expander (ex-`_parse_tags`); an internal stage of
+    # :nodoc: the tag->SGR expander; an internal stage of
     # `#process_content`, public only because the tag specs drive it directly.
     def expand_tags(text)
       @expand_tags_left_open = false

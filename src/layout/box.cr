@@ -46,14 +46,14 @@ module Crysterm
       end
 
       # Per-child main-axis stretch factor (proportional share of leftover space),
-      # plus an optional per-child cross-axis `alignment` that overrides the box's
-      # own `#align`.
+      # plus an optional per-child cross-axis `align` that overrides the box's
+      # own `#align` (one spelling for both levels).
       class Hint < Layout::Hint
         property stretch : Int32
         # Cross-axis alignment for *this* child; `nil` defers to the box `#align`.
-        property alignment : Align? = nil
+        property align : Align? = nil
 
-        def initialize(@stretch : Int32 = 1, @alignment : Align? = nil)
+        def initialize(@stretch : Int32 = 1, @align : Align? = nil)
         end
       end
 
@@ -146,7 +146,7 @@ module Crysterm
       # Qt's `QLayout::setAlignment(widget, alignment)`.
       def set_alignment(w : Widget, align : (Align | Shorthands)?) : Nil
         hint = w.layout_hint.as?(Hint) || Hint.new
-        hint.alignment = align.nil? ? nil : ::Crystallabs::Helpers::Enums.from(Align, align)
+        hint.align = align.nil? ? nil : ::Crystallabs::Helpers::Enums.from(Align, align)
         w.layout_hint = hint
         invalidate
       end
@@ -155,14 +155,15 @@ module Crysterm
         return if stretch.nil? && align.nil?
         hint = w.layout_hint.as?(Hint) || Hint.new
         stretch.try { |s| hint.stretch = s }
-        align.try { |a| hint.alignment = ::Crystallabs::Helpers::Enums.from(Align, a) }
+        align.try { |a| hint.align = ::Crystallabs::Helpers::Enums.from(Align, a) }
         w.layout_hint = hint
       end
 
       # Appends a fixed, inert *size*-cell gap to the box — Qt's
       # `QBoxLayout::addSpacing`. The gap is a real `Widget::Spacer` child
       # (non-focusable, invisible to hit-testing, paints nothing) whose
-      # explicit size makes it a fixed main-axis slot in `#measure`. Lives on
+      # explicit main-axis size makes it a fixed main-axis slot in `#measure`
+      # (the cross axis stays free, stretching with the box). Lives on
       # the layout engine — like `Grid#add_widget`, `Form#add_row` and
       # `Stack#current_widget=`, the established home for container-addressing
       # layout mutators — and, like those, raises when the layout isn't
@@ -171,7 +172,12 @@ module Crysterm
       # resize it later.
       def add_spacing(size : Int32) : Widget::Spacer
         c = require_container "Layout::Box#add_spacing"
-        sp = Widget::Spacer.new size
+        # Pin only the main axis, so the gap's cross axis stretches with the
+        # box instead of holding a `size`-cell hole. The zero-stretch hint
+        # keeps the spacer inert (0 cells, not a grow share) if `orientation`
+        # later flips and the pinned axis becomes the cross one.
+        sp = orientation.horizontal? ? Widget::Spacer.new(width: size, height: nil) : Widget::Spacer.new(width: nil, height: size)
+        sp.layout_hint = Hint.new(stretch: 0)
         c.append sp
         sp
       end
@@ -292,7 +298,7 @@ module Crysterm
         cross = cross_extent interior
         main = main_extent interior
 
-        # Cross axis. A per-child `Hint#alignment` overrides the box's `#align`.
+        # Cross axis. A per-child `Hint#align` overrides the box's `#align`.
         # `cross_pos` is always assigned; `cross_w` is the Int32 cross size to
         # write, or `nil` to leave the child's cross size untouched — the
         # nil-release path writes directly, since it must land before
@@ -313,7 +319,7 @@ module Crysterm
           end
           cross_pos = 0
         else
-          # Align moved off Stretch (or a per-child `Hint#alignment` overrides
+          # Align moved off Stretch (or a per-child `Hint#align` overrides
           # a still-Stretch box): the child keeps its own cross size this
           # frame, so quietly drop any stale layout assignment from a Stretch
           # frame before `a_cross_size` resolves the spec — otherwise the
@@ -357,14 +363,12 @@ module Crysterm
           # strand up to `total_grow - 1` columns at the far edge.
           s =
             if @total_grow > 0
-              # `@avail * @grow_seen` overflows `Int32` well before either
-              # factor reaches `Int32::MAX`, so the share math runs in
-              # `Int64`; the result is always within `0..@avail`, so the
-              # narrowing back to `Int32` is safe.
-              avail64 = @avail.to_i64
-              before = (avail64 * @grow_seen) // @total_grow
+              # `Layout.weighted_fence` runs the share math in `Int64`; the
+              # result is always within `0..@avail`, so the narrowing back to
+              # `Int32` is safe.
+              before = Layout.weighted_fence @avail, @total_grow, @grow_seen
               @grow_seen += stretch_of el
-              ((avail64 * @grow_seen) // @total_grow - before).to_i32
+              Layout.weighted_fence(@avail, @total_grow, @grow_seen) - before
             else
               0
             end
@@ -439,10 +443,10 @@ module Crysterm
         ((el.layout_hint.as?(Hint)).try(&.stretch) || 1).clamp(0, 1_000_000)
       end
 
-      # This child's cross-axis alignment: its `Hint#alignment` when set, else the
+      # This child's cross-axis alignment: its `Hint#align` when set, else the
       # box's own `#align`.
       private def align_of(el : Widget) : Align
-        (el.layout_hint.as?(Hint)).try(&.alignment) || @align
+        (el.layout_hint.as?(Hint)).try(&.align) || @align
       end
 
       # Generates a mirror-image main/cross axis-dispatch pair from one

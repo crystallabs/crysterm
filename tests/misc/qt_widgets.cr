@@ -52,7 +52,7 @@ include Crysterm::Widgets
 s = Window.new title: "Qt-like Widgets"
 # Join touching/overlapping borders into seamless junctions (├ ┬ ┼ …), e.g.
 # where a submenu's left border overlaps its parent's right border.
-s.dock_borders = true
+s.border_junctions = true
 
 # --- Main window frame -------------------------------------------------------
 

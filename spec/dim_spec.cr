@@ -89,12 +89,12 @@ describe Crysterm::Dim do
     end
   end
 
-  describe "compat equality" do
-    it "equals the spellings it was parsed from" do
-      (Crysterm::Dim.parse("50%+5") == "50%+5").should be_true
-      (Crysterm::Dim.parse("center") == :center).should be_true
-      Crysterm::Dim.parse?("half", size: true).should be_nil   # the Blessed alias is gone
-      (Crysterm::Dim.parse("center") == "50%").should be_false # center pulls back half own size
+  describe "#matches?" do
+    it "matches the spellings it was parsed from" do
+      Crysterm::Dim.parse("50%+5").matches?("50%+5").should be_true
+      Crysterm::Dim.parse("center").matches?(:center).should be_true
+      Crysterm::Dim.parse?("half", size: true).should be_nil        # the Blessed alias is gone
+      Crysterm::Dim.parse("center").matches?("50%").should be_false # center pulls back half own size
     end
   end
 

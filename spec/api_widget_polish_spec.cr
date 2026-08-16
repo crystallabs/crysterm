@@ -2,8 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# API.md §2.5-§2.8, Wave 2 package A3 — the widget-subclass parity/overlap/
-# constructor cleanups:
+# The widget-subclass parity/overlap/constructor cleanups:
 #
 # * §2.5 `placeholder_text` hoisted to `Mixin::TextEditing`; `validator` moved
 #   from the prompt dialog onto `LineEdit`; `DateTimeEdit` gained

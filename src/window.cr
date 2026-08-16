@@ -21,6 +21,7 @@ require "./window_rows"
 require "./window_capture"
 require "./window_connection"
 require "./window_inline"
+require "./window_prompt"
 
 module Crysterm
   # The surface — the `QWindow` / top-level `QWidget` analogue. Owns the cell
@@ -294,8 +295,8 @@ module Crysterm
       @title = @title,
       width : Int32? = nil,
       height : Int32? = nil,
-      @dock_borders = @dock_borders,
-      @dock_contrast = @dock_contrast,
+      @border_junctions = @border_junctions,
+      @junction_contrast = @junction_contrast,
       @always_propagated_keys = @always_propagated_keys,
       @always_propagated_chars = @always_propagated_chars,
       @propagate_keys = @propagate_keys,

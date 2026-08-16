@@ -15,7 +15,7 @@ module Crysterm
     #   layout_hint: Layout::Dock::Hint.new(:top) # header
     # Widget::Box.new parent: b, width: 20,
     #   layout_hint: Layout::Dock::Hint.new(:left) # sidebar
-    # Widget::Box.new parent: b                      # center (no hint)
+    # Widget::Box.new parent: b                    # center (no hint)
     # ```
     #
     # An edge child must carry a size in the direction it consumes (a `Top`
@@ -37,7 +37,13 @@ module Crysterm
       class Hint < Layout::Hint
         property region : Region
 
-        def initialize(@region : Region)
+        # Consume-axis size override (height for `Top`/`Bottom`, width for
+        # `Left`/`Right`), taking precedence over the child's own resolved
+        # size. `nil` reads the child (`aheight`/`awidth`); meaningless for
+        # `Center` (both axes are the remaining rect).
+        property size : Int32?
+
+        def initialize(@region : Region, @size : Int32? = nil)
         end
       end
 
@@ -62,12 +68,22 @@ module Crysterm
       @bucket_right = [] of Widget
       @bucket_center = [] of Widget
 
+      # `#spacing`, clamped per arrange against the axis it separates bands
+      # on (see `Layout#clamped_spacing`); consumed by `#consume_edge`.
+      @sp_h = 0
+      @sp_v = 0
+
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         # Working rect in interior-local coordinates.
         x0 = 0
         y0 = 0
         x1 = interior.width
         y1 = interior.height
+
+        # Inter-band spacing: each consumed edge band advances the working
+        # rect by an extra gap toward the center.
+        @sp_h = clamped_spacing @spacing, x1
+        @sp_v = clamped_spacing @spacing, y1
 
         # Fill the five reused buckets in child order, then process them
         # top/bottom→left/right→center below.
@@ -130,19 +146,23 @@ module Crysterm
           if vertical
             # Consume height off the near/far edge; span the remaining width.
             mh = el.mvertical
-            ch = el.aheight.clamp(0, margin_box(y1 - y0, mh))
+            ch = (hint_size(el) || el.aheight).clamp(0, margin_box(y1 - y0, mh))
             cw = margin_box(x1 - x0, el.mhorizontal)
             place_child el, x0, (far ? y1 - ch - mh : y0), cw, ch
             render_child el
-            far ? (y1 -= ch + mh) : (y0 += ch + mh)
+            # The consumed band plus the inter-band gap, clamped so spacing
+            # can't invert the working rect.
+            adv = Math.min(ch + mh + @sp_v, y1 - y0)
+            far ? (y1 -= adv) : (y0 += adv)
           else
             # Consume width off the near/far edge; span the remaining height.
             mw = el.mhorizontal
-            cw = el.awidth.clamp(0, margin_box(x1 - x0, mw))
+            cw = (hint_size(el) || el.awidth).clamp(0, margin_box(x1 - x0, mw))
             ch = margin_box(y1 - y0, el.mvertical)
             place_child el, (far ? x1 - cw - mw : x0), y0, cw, ch
             render_child el
-            far ? (x1 -= cw + mw) : (x0 += cw + mw)
+            adv = Math.min(cw + mw + @sp_h, x1 - x0)
+            far ? (x1 -= adv) : (x0 += adv)
           end
         end
         {x0, y0, x1, y1}
@@ -150,6 +170,12 @@ module Crysterm
 
       private def region_of(el : Widget) : Region
         (el.layout_hint.as?(Hint)).try(&.region) || Region::Center
+      end
+
+      # The child's `Hint#size` consume-axis override, or nil to read the
+      # child's own resolved size.
+      private def hint_size(el : Widget) : Int32?
+        el.layout_hint.as?(Hint).try &.size
       end
     end
   end

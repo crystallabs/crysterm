@@ -37,7 +37,7 @@ def build_child(theme_file : String?) : ChildApp
   w = Window.new \
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: CELL_W, height: CELL_H, alternate: false, default_quit_keys: false
-  w.dock_borders = true
+  w.border_junctions = true
   w.load_stylesheet File.join(CSS_DIR, theme_file) if theme_file
 
   menubar = Widget::MenuBar.new parent: w, top: 0, left: 0, width: "100%", height: 1

@@ -95,14 +95,15 @@ module Crysterm
             # than the stretched interior), which equals the painted edge in
             # steady state. Widen to Int64 and clamp to the interior so
             # a pathological extent can't overflow the checked Int32 sum.
-            bottom = (l.eff_top.as(Int).to_i64 + l.mtop + occupied_height(l) + l.mbottom).clamp(0_i64, interior.height.to_i64).to_i32
+            bottom = (l.eff_top.as(Int).to_i64 + l.mtop + occupied_height(l) + l.mbottom + @sp_v).clamp(0_i64, interior.height.to_i64).to_i32
           else
             left = lp.xi - xi
             # The drawn bottom edge (`lp.yl - yi`) glues `el` flush beneath it;
             # add back its bottom margin so gravitation doesn't collapse to
             # zero, matching the horizontal chain's additive convention
             # (`flow_place`'s `last.mright`).
-            bottom = (lp.yl - yi) + l.mbottom
+            # `@sp_v` keeps the inter-row gap under gravitation too.
+            bottom = (lp.yl - yi) + l.mbottom + @sp_v
           end
           @prev_row << {left, bottom}
         end

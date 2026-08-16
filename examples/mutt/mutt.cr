@@ -419,21 +419,26 @@ compose.menu.on(Event::ItemActivated) do
 end
 
 # `m`: fresh message. Mutt asks To, then Subject, then opens the editor.
+#
+# Two questions in a row, written as two statements: `Window#prompt` parks the
+# calling fiber until the user answers (`nil` when cancelled) instead of
+# handing the answer to a callback, so the sequence stays flat. It must not run
+# on the fiber delivering input — which is the one this key handler is on —
+# hence the `spawn`.
 start_compose = ->(e : Event::KeyPress?) do
+  e.try &.accept
   draft_to = ""
   draft_cc = ""
   draft_bcc = ""
   draft_subject = ""
   draft_body = ""
   draft_attachments = [] of Attachment
-  open_prompt.call "To: ", "", e, ->(to : String) do
-    draft_to = to
-    open_prompt.call "Subject: ", "", nil, ->(subj : String) do
-      draft_subject = subj
+  spawn do
+    if (to = s.prompt "To: ") && (subject = s.prompt "Subject: ")
+      draft_to = to
+      draft_subject = subject
       open_editor.call ""
-      nil
     end
-    nil
   end
   nil
 end

@@ -2,9 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# API.md §1.5 / §1.6 / §1.7 / §1.8 / §1.2 core-object-model polish.
-#
-# Covers the surface added or reshaped by the [M]/[L] sweep:
+# Core-object-model polish. Covers the surface added or reshaped by it:
 #   * `Widget#text` / `#text=` (the getter `set_text` never had; plain-text
 #     semantics — inline SGR stripped, tags kept literal)
 #   * `Widget#lift` (the `#lower` counterpart, spelled `lift` because `raise`

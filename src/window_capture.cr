@@ -51,7 +51,7 @@ module Crysterm
       capture rect.xi, rect.xl, rect.yi, rect.yl, **opts
     end
 
-    def capture(xi = 0, xl = awidth, yi = 0, yl = aheight, *,
+    def capture(xi : Number = 0, xl : Number = awidth, yi : Number = 0, yl : Number = aheight, *,
                 path : String? = nil,
                 format : String? = nil,
                 duration : Time::Span? = nil,
@@ -267,7 +267,7 @@ module Crysterm
       dump rect.xi, rect.xl, rect.yi, rect.yl, path: path
     end
 
-    def dump(xi = 0, xl = awidth, yi = 0, yl = aheight, *, path : String? = nil) : String?
+    def dump(xi : Number = 0, xl : Number = awidth, yi : Number = 0, yl : Number = aheight, *, path : String? = nil) : String?
       xi, xl, yi, yl = clamp_capture_region xi, xl, yi, yl
 
       text = Dump.text(self, xi, xl, yi, yl)

@@ -1,6 +1,6 @@
 module Crysterm
-  # Docking behavior when borders don't have the same color
-  enum DockContrast
+  # Junction-merge behavior when borders don't have the same color
+  enum JunctionContrast
     Ignore # Just render, colors on adjacent cells will be different
     Skip   # Do not perform docking (leave default look)
     Blend  # Blend/mix colors for as smooth a transition as possible
@@ -32,7 +32,7 @@ module Crysterm
   # were emitted — only rows with *horizontal* segments need collecting, since
   # vertical segments are picked up when a horizontal stop crosses them — then
   # call `dock` to re-evaluate every relevant cell on those rows.
-  module Docking
+  module Junctions
     extend self
 
     # Collection of helper chars for drawing borders and their angles.
@@ -166,10 +166,10 @@ module Crysterm
 
     # Re-evaluates and docks every angle character found on each of the `stops`
     # rows of `lines`. `width` is the number of columns to scan per row, and
-    # `dock_contrast` controls how cells with differing colors/attributes are
-    # treated (see `DockContrast`). With *ascii* the ASCII line chars `+`/`-`/`|`
+    # `junction_contrast` controls how cells with differing colors/attributes are
+    # treated (see `JunctionContrast`). With *ascii* the ASCII line chars `+`/`-`/`|`
     # are merged too, and every junction resolves to its ASCII rendition.
-    def dock(lines, stops, width, dock_contrast : DockContrast, *, ascii : Bool = false)
+    def merge(lines, stops, width, junction_contrast : JunctionContrast, *, ascii : Bool = false)
       sorted = @@sorted_stops
       sorted.clear
       # Skip negative stop rows: `lines[y]?` treats a negative index as counting
@@ -188,7 +188,7 @@ module Crysterm
         x = 0
         while x < n
           if angle? chars.unsafe_fetch(x), ascii
-            chars.unsafe_put(x, angle_at(lines, row, x, y, dock_contrast, ascii: ascii))
+            chars.unsafe_put(x, angle_at(lines, row, x, y, junction_contrast, ascii: ascii))
             # Mirror `Cell#char=`, which drops any cluster overlay on the cell.
             row.delete_grapheme x
             row.mark_dirty x
@@ -200,14 +200,14 @@ module Crysterm
 
     # Returns the appropriate joining/angle character for the cell at (`x`, `y`)
     # in `lines`, based on which of its four neighbors also hold line-drawing
-    # characters. `dock_contrast` decides what happens when a neighbor's
+    # characters. `junction_contrast` decides what happens when a neighbor's
     # attribute differs from this cell's.
-    def angle_at(lines, x, y, dock_contrast : DockContrast, *, ascii : Bool = false)
-      angle_at lines, lines[y], x, y, dock_contrast, ascii: ascii
+    def angle_at(lines, x, y, junction_contrast : JunctionContrast, *, ascii : Bool = false)
+      angle_at lines, lines[y], x, y, junction_contrast, ascii: ascii
     end
 
     # :ditto: — *row* is the already-resolved `lines[y]`.
-    def angle_at(lines, row, x, y, dock_contrast : DockContrast, *, ascii : Bool = false)
+    def angle_at(lines, row, x, y, junction_contrast : JunctionContrast, *, ascii : Bool = false)
       # Two separate accumulators: `recip` is the arms contributed by neighbors
       # that *reciprocate* (point back at this cell — a real connection), and
       # `preserve` is the cell's own arms that merely sit beside a present line
@@ -228,7 +228,7 @@ module Crysterm
        {0, -1, BITWISE_D_ANGLE, BITWISE_U_ANGLE},
        {1, 0, BITWISE_L_ANGLE, BITWISE_R_ANGLE},
        {0, 1, BITWISE_U_ANGLE, BITWISE_D_ANGLE} }.each do |(dx, dy, opp_bit, bit)|
-        result = neighbor_angle lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast, ascii
+        result = neighbor_angle lines, row, x, y, dx, dy, opp_bit, bit, attr, junction_contrast, ascii
         return ch if result.nil?
         recip |= result
 
@@ -320,7 +320,7 @@ module Crysterm
     # it does not participate, or `nil` to signal the caller to abort docking
     # (`Skip` with a contrasting neighbor). For `Blend`, the cell's
     # attribute is blended with the neighbor's as a side effect.
-    private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, dock_contrast, ascii : Bool = false)
+    private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, junction_contrast, ascii : Bool = false)
       return 0 unless cell = neighbor_cell(lines, x, y, dx, dy)
       nrow, nx = cell
 
@@ -328,10 +328,10 @@ module Crysterm
 
       nattr = nrow.attrs.unsafe_fetch(nx)
       if nattr != attr
-        case dock_contrast
-        when DockContrast::Skip
+        case junction_contrast
+        when JunctionContrast::Skip
           return
-        when DockContrast::Blend
+        when JunctionContrast::Blend
           # Blend into the cell's *current* attr, not the captured original: a
           # junction can border more than one contrasting color, and each must
           # accumulate rather than overwrite the last. (The contrast test above
@@ -345,7 +345,7 @@ module Crysterm
           cur = row.attrs.unsafe_fetch(x)
           blended = Colors.blend(nattr, cur)
           row.attrs.unsafe_put(x, Attr.pack(Attr.flags(cur), Attr.fg(blended), Attr.bg(blended)))
-          # when DockContrast::Ignore
+          # when JunctionContrast::Ignore
           #  Note: ::Ignore needs no custom handler/code; it works as-is.
         end
       end

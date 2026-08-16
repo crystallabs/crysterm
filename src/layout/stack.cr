@@ -15,6 +15,9 @@ module Crysterm
     # ![Stack screenshot](../../tests/layout/stack/stack.5s.apng)
     # <!-- /widget-examples:capture -->
     class Stack < Layout
+      # The inherited `Layout#spacing` has no meaning for stacked pages and is
+      # ignored.
+
       # Index of the child to show. Clamped to the available children at render.
       # Change-guarded so switching pages repaints the container.
       layout_property current_index, Int32
@@ -22,13 +25,8 @@ module Crysterm
       def initialize(@current_index : Int32 = 0)
       end
 
-      # Number of pages — the arrangeable children `#arrange` addresses by
-      # `#current_index` (layout-excluded chrome doesn't count). Zero when the
-      # layout isn't installed on a container.
-      def count : Int32
-        c = container
-        c ? arrangeable_count(c) : 0
-      end
+      # `Layout#count` under its page reading: the pages `#arrange` addresses
+      # by `#current_index`.
 
       # The page currently shown — the child at `#current_index`, clamped exactly
       # as `#arrange` clamps it. Nil when there are no pages / no container.
@@ -38,17 +36,11 @@ module Crysterm
         widget current_index.clamp(0, n - 1)
       end
 
-      # The page (arrangeable child) at *index* in page order, or nil when out of
-      # range or not installed on a container.
+      # The page (arrangeable child) at *index* in page order, or nil when out
+      # of range or not installed on a container — Qt's
+      # `QStackedLayout::widget`, an alias of `Layout#item_at`.
       def widget(index : Int32) : Widget?
-        c = container
-        return if c.nil? || index < 0
-        i = 0
-        each_arrangeable(c) do |el|
-          return el if i == index
-          i += 1
-        end
-        nil
+        item_at index
       end
 
       # Sets the page currently shown to *w* — Qt's
@@ -56,16 +48,8 @@ module Crysterm
       # arrangeable children and sets `#current_index` to it; a no-op when *w*
       # isn't one of them (or the layout isn't installed on a container).
       def current_widget=(w : Widget) : Nil
-        c = container
-        return unless c
-        i = 0
-        each_arrangeable(c) do |el|
-          if el == w
-            self.current_index = i
-            return
-          end
-          i += 1
-        end
+        i = index_of w
+        self.current_index = i if i >= 0
       end
 
       def arrange(container : Widget, interior : RenderedGeometry) : Nil

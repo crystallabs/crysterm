@@ -171,7 +171,7 @@ module Crysterm
         # marker redraw) and carries the new state on `Event::Triggered` —
         # except re-selecting the checked member of an exclusive `ActionGroup`,
         # which `#activate` keeps checked (Qt semantics).
-        action.activate
+        action.trigger
 
         # A leaf fired from within a submenu closes the whole chain back to the
         # top-level menu; fired directly on a top-level popup dismisses it.

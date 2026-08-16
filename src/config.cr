@@ -20,10 +20,43 @@ module Crysterm
   Superconf.env_prefix = "CRYSTERM_"
   Superconf.app_name = "crysterm"
 
+  # The CLI flag that loads an extra config file. Namespaced: an application's
+  # own parser is free to own the generic `--config`.
+  CONFIG_FLAG = "--crysterm-config"
+
+  # The CLI flag that dumps the resolved configuration and exits, in an optional
+  # format (`yaml|json|env|pretty|report`). Namespaced like `CONFIG_FLAG`.
+  DUMP_CONFIG_FLAG = "--crysterm-dump-config"
+
   # Applies external configuration sources (config file, env vars, CLI), in
   # precedence order. Doing nothing keeps every option at its registered default.
-  def self.configure!(file : String? = nil, *, env : Bool = true, args : Bool = true) : Nil
-    Superconf.configure!(file, env: env, args: args)
+  #
+  # `ARGV` is read but never modified — the application's own option parser sees
+  # exactly the arguments the user typed, including any Crysterm consumed. And
+  # the two file/dump built-ins are only recognized under their namespaced
+  # spellings, `CONFIG_FLAG` and `DUMP_CONFIG_FLAG`: a bare `--config` /
+  # `--dump-config` in `ARGV` belongs to the application and is passed over.
+  def self.configure!(file : String? = nil, *, env : Bool = true, args : Bool = true, argv : Array(String) = ARGV) : Nil
+    Superconf.configure! file, env: env, args: false
+    Superconf.load_args namespaced_argv(argv), consume: false if args
+  end
+
+  # A copy of *argv* speaking Superconf's built-in flag names: the namespaced
+  # spellings are translated to the generic ones Superconf registers, and any
+  # genuinely generic `--config`/`--dump-config` is dropped so Superconf does not
+  # claim the application's own flag. Every other argument is passed through
+  # untouched (registered options keep their own derived flags).
+  private def self.namespaced_argv(argv : Array(String)) : Array(String)
+    argv.compact_map do |arg|
+      name = arg.split('=', 2).first
+      if name == CONFIG_FLAG || name == DUMP_CONFIG_FLAG
+        arg.sub "--crysterm-", "--"
+      elsif name == "--config" || name == "--dump-config"
+        nil
+      else
+        arg
+      end
+    end
   end
 end
 

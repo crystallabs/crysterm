@@ -48,10 +48,77 @@ module Crysterm
 
       # `#spacing` (inter-cell spacing) is inherited from `Layout`.
 
+      # Per-track stretch factors and minimum extents, keyed by column/row
+      # index (Qt's `setColumnStretch`/`setColumnMinimumWidth` family). With
+      # neither set on an axis, tracks divide the interior evenly. Otherwise
+      # each track gets its minimum (0 when unset) and the leftover is carved
+      # proportionally to the stretch factors — a track with no stretch entry
+      # counts as 0 once any stretch is set, so "sidebar 20 cells, rest
+      # flexible" is `set_column_minimum_width(0, 20); set_column_stretch(1, 1)`.
+      # All-zero stretch falls back to an equal split of the leftover, so the
+      # grid still fills its interior.
+      @column_stretches = {} of Int32 => Int32
+      @row_stretches = {} of Int32 => Int32
+      @column_minimums = {} of Int32 => Int32
+      @row_minimums = {} of Int32 => Int32
+
+      # Sets the stretch factor of column *column* — Qt's
+      # `QGridLayout::setColumnStretch`.
+      def set_column_stretch(column : Int32, stretch : Int32) : Nil
+        @column_stretches[column] = stretch
+        invalidate
+      end
+
+      # Sets the stretch factor of row *row* — Qt's `QGridLayout::setRowStretch`.
+      def set_row_stretch(row : Int32, stretch : Int32) : Nil
+        @row_stretches[row] = stretch
+        invalidate
+      end
+
+      # Sets the minimum width of column *column*, in cells — Qt's
+      # `QGridLayout::setColumnMinimumWidth`.
+      def set_column_minimum_width(column : Int32, width : Int32) : Nil
+        @column_minimums[column] = width
+        invalidate
+      end
+
+      # Sets the minimum height of row *row*, in cells — Qt's
+      # `QGridLayout::setRowMinimumHeight`.
+      def set_row_minimum_height(row : Int32, height : Int32) : Nil
+        @row_minimums[row] = height
+        invalidate
+      end
+
+      # The stretch factor of column *column* (0 when unset) — Qt's
+      # `QGridLayout::columnStretch`.
+      def column_stretch(column : Int32) : Int32
+        @column_stretches[column]? || 0
+      end
+
+      # :ditto: for rows.
+      def row_stretch(row : Int32) : Int32
+        @row_stretches[row]? || 0
+      end
+
+      # The minimum width of column *column* (0 when unset) — Qt's
+      # `QGridLayout::columnMinimumWidth`.
+      def column_minimum_width(column : Int32) : Int32
+        @column_minimums[column]? || 0
+      end
+
+      # :ditto: for rows.
+      def row_minimum_height(row : Int32) : Int32
+        @row_minimums[row]? || 0
+      end
+
       # Per-arrange scratch, cleared rather than reallocated so a re-render
       # allocates nothing. Not retained past `#arrange`.
       @occupied = Set({Int32, Int32}).new
       @placements = [] of Tuple(Widget, Int32, Int32, Int32, Int32)
+      # Cumulative track offsets over the gapless inner extent (`n + 1`
+      # entries), rebuilt per arrange by `#compute_axis_offsets`.
+      @col_offsets = [] of Int32
+      @row_track_offsets = [] of Int32
 
       def initialize(@columns : Int32 = 2, @rows : Int32? = nil, @spacing : Int32 = 0)
       end
@@ -60,10 +127,10 @@ module Crysterm
       # `QGridLayout::addWidget(QWidget*, int, int, int, int)`. Raises when
       # the layout isn't installed on a container yet, matching
       # `Layout::Form#add_row`.
-      def add_widget(w : Widget, row : Int32, col : Int32, row_span : Int32 = 1, col_span : Int32 = 1) : Widget
+      def add_widget(w : Widget, row : Int32, column : Int32, row_span : Int32 = 1, column_span : Int32 = 1) : Widget
         c = require_container "Layout::Grid#add_widget"
         c.append w
-        w.layout_hint = Hint.at(row, col, row_span, col_span)
+        w.layout_hint = Hint.at(row, column, row_span, column_span)
         w
       end
 
@@ -199,6 +266,12 @@ module Crysterm
         inner_w = (w.to_i64 - (cols - 1).to_i64 * @spacing).clamp(0_i64, w.to_i64).to_i32
         inner_h = (h.to_i64 - (nrows - 1).to_i64 * @spacing).clamp(0_i64, h.to_i64).to_i32
 
+        # Track edges over the gapless inner extents: the even `Layout.fence`
+        # carve when no per-track stretch/minimum is set on the axis, else the
+        # minimum-then-weighted carve (see the stretch/minimum docs above).
+        compute_axis_offsets @col_offsets, cols, inner_w, @column_stretches, @column_minimums
+        compute_axis_offsets @row_track_offsets, nrows, inner_h, @row_stretches, @row_minimums
+
         placements.each do |(el, row, column, rs, cs)|
           # Clamp the cell's start/end *to the grid* before deriving the gap
           # terms: gap multipliers taken from a raw off-grid span would add
@@ -207,10 +280,10 @@ module Crysterm
           c1 = (column + cs).clamp(0, cols)
           r0 = row.clamp(0, nrows)
           r1 = (row + rs).clamp(0, nrows)
-          x0 = Layout.fence inner_w, cols, c0
-          x1 = Layout.fence inner_w, cols, c1
-          y0 = Layout.fence inner_h, nrows, r0
-          y1 = Layout.fence inner_h, nrows, r1
+          x0 = @col_offsets[c0]
+          x1 = @col_offsets[c1]
+          y0 = @row_track_offsets[r0]
+          y1 = @row_track_offsets[r1]
           col_gaps = c1 > c0 ? c1 - c0 - 1 : 0
           row_gaps = r1 > r0 ? r1 - r0 - 1 : 0
           # Reserve the child's margin box, mirroring Layout::Box's stretch
@@ -233,6 +306,55 @@ module Crysterm
           width = ((x1.to_i64 - x0.to_i64) + col_gaps.to_i64 * @spacing - el.mhorizontal).clamp(0_i64, w.to_i64).to_i32
           height = ((y1.to_i64 - y0.to_i64) + row_gaps.to_i64 * @spacing - el.mvertical).clamp(0_i64, h.to_i64).to_i32
           place_and_render el, left, top, width, height
+        end
+      end
+
+      # Fills *buf* with the `n + 1` cumulative track edges over *inner*.
+      # Without per-track stretch/minimums this is the even `Layout.fence`
+      # carve. Otherwise each track is its (clamped) minimum plus a
+      # stretch-weighted share of the leftover, both carved by cumulative
+      # rounding (`Layout.weighted_fence`) so the tracks sum to exactly the
+      # allotted extent. Minimums overfilling *inner* degrade to a carve
+      # proportional to the minimums; all-zero stretch degrades to an equal
+      # leftover split (the grid still fills).
+      private def compute_axis_offsets(buf : Array(Int32), n : Int32, inner : Int32,
+                                       stretches : Hash(Int32, Int32), minimums : Hash(Int32, Int32)) : Nil
+        buf.clear
+        if stretches.empty? && minimums.empty?
+          (0..n).each { |i| buf << Layout.fence(inner, n, i) }
+          return
+        end
+
+        mins_total = 0_i64
+        n.times { |i| mins_total += (minimums[i]? || 0).clamp(0, inner) }
+
+        if mins_total >= inner && mins_total > 0
+          # No leftover: the minimums are the weights.
+          cum = 0_i64
+          buf << 0
+          n.times do |i|
+            cum += (minimums[i]? || 0).clamp(0, inner)
+            buf << Layout.weighted_fence(inner, mins_total, cum)
+          end
+          return
+        end
+
+        rem = inner - mins_total.to_i32
+        default_stretch = stretches.empty? ? 1 : 0
+        weights_total = 0_i64
+        n.times { |i| weights_total += (stretches[i]? || default_stretch).clamp(0, 1_000_000) }
+        flat = weights_total == 0 # all-zero stretch: equal split of the leftover
+        weights_total = n.to_i64 if flat
+
+        cum = 0_i64
+        off = 0
+        buf << 0
+        n.times do |i|
+          before = Layout.weighted_fence(rem, weights_total, cum)
+          cum += flat ? 1_i64 : (stretches[i]? || default_stretch).clamp(0, 1_000_000).to_i64
+          share = Layout.weighted_fence(rem, weights_total, cum) - before
+          off += (minimums[i]? || 0).clamp(0, inner) + share
+          buf << off
         end
       end
 

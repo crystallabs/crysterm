@@ -338,7 +338,7 @@ module Crysterm
 
       composite_planes
 
-      apply_docking if @dock_borders
+      apply_junctions if @border_junctions
 
       if @optimization.damage_tracking? && need_bounds
         # Refresh per-subtree bounds and the cost-model caches, and decide whether
@@ -350,14 +350,14 @@ module Crysterm
           @damage_all_area += damage_rect_area(b)
         end
         no_planes = @layer_widgets.empty?
-        @damage_safe = !@frame_used_effects && no_planes && !@dock_borders
+        @damage_safe = !@frame_used_effects && no_planes && !@border_junctions
 
         # Phase 4: a single-plane frame (one z-index, all layer widgets top-level,
         # no out-of-model effects, no docking) can be carried over and selectively
         # re-folded next frame. Record the plane's z and its layer roots so the
         # next frame can validate that the structure is unchanged.
         @damage_plane_safe = false
-        unless no_planes || @frame_used_effects || @dock_borders
+        unless no_planes || @frame_used_effects || @border_junctions
           if @sorted_zs.size == 1 && @layer_widgets.all? { |w| w.parent.nil? }
             @damage_plane_safe = true
             @damage_plane_z = @sorted_zs.first[0]
@@ -410,7 +410,7 @@ module Crysterm
       # The last full frame must be carry-over-safe either as a plain frame or as a
       # single-plane frame (Phase 4). The two are mutually exclusive.
       return false unless @damage_safe || @damage_plane_safe
-      return false if @dock_borders # docking joins across widgets
+      return false if @border_junctions # docking joins across widgets
       return false if awidth != @damage_last_awidth || aheight != @damage_last_aheight
 
       # In-place style mutations (`style.fg = ...`) fire no tracked setter, so

@@ -9,10 +9,12 @@ module Crysterm
   # menus/toolbars keeps them in sync automatically (e.g. a "Bold" toolbar
   # button and menu item share enabled/checked state).
   #
-  # Recommended to create `Action`s as children of the window they're used in.
-  # Add to `Menu` via `#<<(Action)` or `#add`, to `ToolBar` via `#add_action`,
-  # or to `ActionGroup` via `#add_action`; an action must be added to a widget
-  # before use.
+  # Pass `parent:` to give the action an owner widget: it is installed on that
+  # widget (`Widget#add_action`), so its keyboard shortcut goes live on the
+  # widget's window, follows the widget across attach/detach, and goes away with
+  # it. That is ownership only — the parent presents nothing. To *show* the
+  # action, add it to a `Menu` via `#<<(Action)`/`#add`, to a `ToolBar` via
+  # `#add_action`, or to an `ActionGroup` via `#add_action`.
   #
   # NOTE Actions are inspired by `QAction` (https://doc.qt.io/qt-6/qaction.html)
   class Action
@@ -117,7 +119,18 @@ module Crysterm
     # Sets `#checked`, emitting `Event::Toggled` (Qt's `toggled(bool)`) plus
     # `Event::Changed`, only on a real change. `Toggled` fires on any checked
     # change; `Triggered` only on activation.
-    notifying_setter checked, Bool, ::Crysterm::Event::Toggled
+    #
+    # A no-op on a non-checkable action, matching Qt's `QAction::setChecked` —
+    # and matching `#toggle`, which has always no-opped there: an action with no
+    # on/off state must never report one.
+    def checked=(value : Bool) : Bool
+      return value unless checkable?
+      return value if @checked == value
+      @checked = value
+      emit ::Crysterm::Event::Toggled, value
+      notify_changed
+      value
+    end
 
     # Whether this is a non-selectable separator rather than a real action
     # (Qt's `QAction#isSeparator`). Created via `Action.separator`.
@@ -182,14 +195,21 @@ module Crysterm
       spec
     end
 
-    # Parses Qt's textual key-sequence syntax into a `KeySequence`:
-    # comma-separated strokes, each a `+`-joined chord resolved against the
-    # `Tput::Key` members (`"Ctrl+B"` → `CtrlB`, `"F5"` → `F5`,
+    # Parses **shortcut** syntax — Qt's `QKeySequence` textual form — into a
+    # `KeySequence`: comma-separated strokes, each a `+`-joined chord resolved
+    # against the `Tput::Key` members (`"Ctrl+B"` → `CtrlB`, `"F5"` → `F5`,
     # `"Ctrl+PgDn"` → `CtrlPageDown`). Common short names are accepted
-    # (`Esc`, `Del`, `Ins`, `PgUp`, `PgDn`, `Return`). Raises `ArgumentError`
-    # on an unrecognized stroke, naming it. (This is the *shortcut* syntax;
-    # the display-label vocabulary `Event::KeyPress.parse` uses — `"^X"`,
-    # `"Spc"` — is a different, UI-facing language.)
+    # (`Esc`, `Del`, `Ins`, `PgUp`, `PgDn`, `Dn`, `Return`, `Ret`), as is the
+    # caret chord spelling (`"^X"` → `CtrlX`). Raises `ArgumentError` on an
+    # unrecognized stroke, naming it.
+    #
+    # This is one of Crysterm's two key vocabularies. The other is the
+    # **display-label** one read by `Event::KeyPress.parse` — the terse
+    # spellings a key bar prints (`"^X"`, `"PgDn"`) — which is lenient
+    # (`nil` on anything unknown) and describes what is *shown*, not what is
+    # *bound*. The overlapping spellings (caret chords, short key names) parse
+    # the same in both; only this one understands `+`-chords, `,`-sequences and
+    # Qt's long names, and only this one raises.
     def self.parse_key_sequence(spec : String) : KeySequence
       spec.split(',').map { |stroke| parse_key_stroke(stroke.strip) }
     end
@@ -197,16 +217,23 @@ module Crysterm
     # One stroke of `.parse_key_sequence`: `"Ctrl+Shift+F5"` → the matching
     # `Tput::Key` member.
     def self.parse_key_stroke(stroke : String) : KeyStroke
+      stroke = stroke.strip
+      # Caret chord (the display vocabulary's `^X`) — rewritten to the `+` form
+      # so the one resolver below handles both spellings.
+      if stroke.size == 2 && stroke[0] == '^'
+        stroke = "Ctrl+#{stroke[1]}"
+      end
       name = stroke.split('+').join do |part|
         part = part.strip
-        # Qt spelling → Tput::Key member-fragment spelling.
+        # Qt / display spelling → Tput::Key member-fragment spelling.
         case part.downcase
         when "esc"            then "Escape"
         when "del"            then "Delete"
         when "ins"            then "Insert"
         when "pgup"           then "PageUp"
         when "pgdn", "pgdown" then "PageDown"
-        when "return"         then "Enter"
+        when "dn"             then "Down"
+        when "return", "ret"  then "Enter"
         else
           # A single letter upcases (`b` → `B`); multi-char parts keep their
           # tail (`PageDown` stays `PageDown`, `ctrl` → `Ctrl`).
@@ -309,12 +336,18 @@ module Crysterm
     # member.
     protected property group : ActionGroup?
 
-    def initialize(@parent : EventHandler? = nil)
+    # The widget owning this action (Qt's `QObject::parent`), or `nil` for a
+    # free-standing one. Set at construction; the action is installed on it via
+    # `Widget#add_action`.
+    getter parent : Widget?
+
+    def initialize(parent : Widget? = nil)
+      adopt parent
     end
 
     def initialize(
       @text : String,
-      @parent : EventHandler? = nil,
+      parent : Widget? = nil,
       *,
       icon : String? = nil,
       icon_text : String? = nil,
@@ -353,6 +386,18 @@ module Crysterm
       elsif s = shortcut
         @shortcuts = s.is_a?(Array) ? [s] : [[s]]
       end
+      # Last, so the shortcut set above is already in place when the parent
+      # installs the accelerator.
+      adopt parent
+    end
+
+    # Records *parent* as the owner and installs this action on it, so the
+    # shortcut becomes active on the parent's window and follows it across
+    # attach/detach. No-op without a parent.
+    private def adopt(parent : Widget?) : Nil
+      return unless parent
+      @parent = parent
+      parent.add_action self
     end
 
     # Activates the action: emits *event* (defaulting to `Event::Triggered`).
@@ -365,7 +410,10 @@ module Crysterm
     # (Qt's `QAction::activate` suppresses exactly this off-toggle so a radio
     # group always keeps a selection); `#toggle` and `#checked=` are unaffected
     # and can still uncheck it programmatically.
-    def activate(event : ActionEvent = :trigger)
+    #
+    # Internal (Qt keeps `QAction::activate` out of the public API): user code
+    # calls `#trigger`/`#hover`, and the accelerator dispatcher calls those too.
+    protected def activate(event : ActionEvent = :trigger)
       case event
       in .trigger?
         return unless enabled?

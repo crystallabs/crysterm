@@ -102,7 +102,7 @@ module Crysterm
       # to the `Action`-based overload above).
       def add_action(text : String, &block : ->) : Widget::Box
         action = Action.new text
-        action.on(::Crysterm::Event::Triggered) { block.call }
+        action.on_triggered { block.call }
         add_action action
       end
 
@@ -164,7 +164,7 @@ module Crysterm
         # `#activate` toggles a checkable action and fires it (Qt semantics,
         # except re-selecting an exclusive `ActionGroup`'s checked member, which
         # stays checked); the bar must not pre-toggle or it would cancel out.
-        action.activate
+        action.trigger
         refresh
       end
 

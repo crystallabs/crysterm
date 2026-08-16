@@ -40,8 +40,7 @@ module Crysterm
         #
         # Spelled `shortcuts`, not `keys`: on `Widget` (and every bar
         # constructor) `keys:` is the `Bool` "does this take keyboard input"
-        # flag, so the same word meant two unrelated things one nesting level
-        # apart.
+        # flag.
         property shortcuts : Array(String)?
 
         # The `Box` rendering this command, assigned by `#add_item`.

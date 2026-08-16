@@ -148,7 +148,11 @@ module Crysterm
         else
           value
         end
-      in String then parse value, size: size
+      in String
+        # `parse` may yield the `auto` kind; store it as `nil` like the `Dim`
+        # arm does.
+        v = parse value, size: size
+        v.auto? ? nil : v
       in Symbol
         case value
         when :center then center
@@ -170,6 +174,7 @@ module Crysterm
     # Like `.parse`, but returns `nil` on a malformed expression. The
     # render-path fallback for a raw `String` written directly into an ivar —
     # a frame must degrade (to 0), never raise.
+    # ameba:disable Metrics/CyclomaticComplexity
     def self.parse?(str : String, size : Bool = false) : Dim?
       # A bare integer is a cell count (CSS geometry usually converts these
       # before assignment; accept the spelling here too).
@@ -348,14 +353,14 @@ module Crysterm
     # This value with *n* more cells: `Dim.percent(50) + 2` ↔ `"50%+2"`, and
     # `Dim.cells(5) + 2` is 7 cells. Raises `ArgumentError` on an auto value
     # (auto has no cell offset to adjust).
-    def +(n : Int32) : Dim
+    def +(other : Int32) : Dim
       raise ArgumentError.new "Cannot offset an auto Dim" if auto?
-      Dim.new @kind, add_offset(n), @percent, @viewport_axis
+      Dim.new @kind, add_offset(other), @percent, @viewport_axis
     end
 
     # This value with *n* fewer cells: `Dim.percent(100) - 2` ↔ `"100%-2"`.
-    def -(n : Int32) : Dim
-      self + -n
+    def -(other : Int32) : Dim
+      self + -other
     end
 
     # `@offset + n` with the same ±1e9 saturation convention as the resolvers,
@@ -371,7 +376,7 @@ module Crysterm
     # `==` itself stays plain structural equality — a `Dim` never equals a
     # `String`, keeping `hash`/`==` consistent for Set/Hash membership.
     # Returns `false` (never raises) on a malformed `String`/`Symbol`.
-    def matches?(other : Dim | Int32 | String | Symbol | Nil) : Bool
+    def matches?(other : Dim | Int32 | String | Symbol?) : Bool
       o = begin
         Dim.from other
       rescue ArgumentError

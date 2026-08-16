@@ -429,9 +429,7 @@ module Crysterm
       # state. The single funnel every expand/collapse path goes through.
       #
       # Not public: the public spellings are `Node#expanded=` / `#expand` /
-      # `#collapse` / `#toggle`, which all land here. A public
-      # `set_expanded(node, bool)` beside `Node#expanded=` was a fourth way to
-      # say the same thing.
+      # `#collapse` / `#toggle`, which all land here.
       protected def apply_node_expanded(node : Node, expanded : Bool) : Nil
         return if node.leaf? || node.expanded? == expanded
         if expanded

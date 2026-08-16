@@ -94,7 +94,7 @@ def headless_screen(
 end
 
 # Test-only reachers for members whose real setters/methods are `protected` on
-# purpose (API.md §1.7). Reopening the classes puts these in the same namespace,
+# purpose. Reopening the classes puts these in the same namespace,
 # which is what `protected` requires; the specs call the `spec_` spelling so the
 # production surface stays closed.
 class Crysterm::Widget

@@ -342,7 +342,7 @@ module Crysterm
         # inline anchor for `alternate: false` in its initializer.
         alternate: @alternate, auto_grow: @auto_grow, max_height: @max_height,
         padding: @padding, cursor: carried_cursor,
-        dock_borders: @dock_borders, dock_contrast: @dock_contrast,
+        border_junctions: @border_junctions, junction_contrast: @junction_contrast,
         always_propagated_keys: @always_propagated_keys, always_propagated_chars: @always_propagated_chars,
         propagate_keys: @propagate_keys,
         default_quit_keys: @default_quit_keys, tab_navigation: @tab_navigation,

@@ -183,7 +183,7 @@ module Crysterm
     # allocating a fresh one, so steady-state reparsing reuses the same object and
     # its array buffers. When nil a new `CLines` is built.
     #
-    # :nodoc: the wrap engine behind `#wrapped_lines` (ex-`_wrap_content`);
+    # :nodoc: the wrap engine behind `#wrapped_lines`;
     # public only because the wrap specs drive it with an explicit column width.
     def wrap_lines(content, colwidth, into : CLines? = nil, margin : Int32? = nil)
       default_state = @align
@@ -368,7 +368,7 @@ module Crysterm
     # Aligns content, returning just the aligned string. `#aligned_with_width`
     # additionally hands back the result's display width, sparing a re-measure.
     #
-    # :nodoc: (ex-`_align`) — a wrap-pipeline stage, public only for its specs.
+    # :nodoc: a wrap-pipeline stage, public only for its specs.
     def align_line(line, width, align = Tput::AlignFlag::None, align_left_too = false)
       aligned_with_width(line, width, align, align_left_too)[0]
     end

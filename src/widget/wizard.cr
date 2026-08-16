@@ -30,8 +30,8 @@ module Crysterm
       # `#pages`, `#count`, `#current_index`/`#current_index=`,
       # `#current_widget`, `#widget`/`#index_of` and the show/`next_page`/
       # `#previous_page` core all come from here — a wizard *is* a paged
-      # container, so it no longer wraps a `StackedWidget` and reinvents that
-      # vocabulary beside it. Only the genuinely wizard-shaped verbs stay:
+      # container, so it needs no `StackedWidget` wrapper of its own. Only the
+      # genuinely wizard-shaped verbs are defined here:
       # `#back` (previous page, but never wrapping — Back is *disabled* on the
       # first page) and `#advance` (next page, or Finish on the last).
       include Mixin::PagedContainer
@@ -117,9 +117,9 @@ module Crysterm
         add_page "", page
       end
 
-      # Goes to the previous page (no-op on the first). Kept beside the mixin's
-      # `#previous_page` because the wizard semantics differ: Back never wraps
-      # to the last page — it is simply unavailable on the first.
+      # Goes to the previous page (no-op on the first). Distinct from the mixin's
+      # `#previous_page`: Back never wraps to the last page — it is simply
+      # unavailable on the first.
       def back : Nil
         return if current_index <= 0
         self.current_index = current_index - 1

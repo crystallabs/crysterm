@@ -7,7 +7,7 @@ include Crysterm
 # A menu's `#paint` runs `#fit_width`/`#fit_height`/`#size_rows` and re-docks
 # its separators every frame. The derived data is cached instead of rebuilt
 # per frame:
-#   * separator dock-row indices reuse `@dock_rows_buf`.
+#   * separator dock-row indices reuse `@merge_junction_rows_buf`.
 #   * `@visible_actions` / `@row_lefts` / `@row_rights` rebuilt only in
 #     `#sync_items`; `#size_rows` early-returns on an unchanged width.
 #   * `#fit_width`/`#fit_height` read the cached visible-actions array.

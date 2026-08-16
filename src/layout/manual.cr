@@ -16,6 +16,9 @@ module Crysterm
     # ![Manual screenshot](../../tests/layout/manual/manual.5s.apng)
     # <!-- /widget-examples:capture -->
     class Manual < Layout
+      # The inherited `Layout#spacing` has no meaning here (children place
+      # themselves) and is ignored.
+
       DEFAULT = new
 
       # Children resolve their own coordinates against the parent, so this needs

@@ -207,9 +207,8 @@ module Crysterm
     # * *no_tags* — store the content with tag parsing disabled for this widget
     #   (kept as `@_content_no_tags`, so later reparses stay literal too).
     #
-    # Keyword-only past *content*: `set_content "x", true` used to mean
-    # "no_clear", a vestigial flag that has been dropped (stale cells are
-    # cleared centrally by `Window#repaint`).
+    # Options past *content* are keyword-only. Stale cells need no clearing
+    # here: `Window#repaint` clears the buffer centrally each frame.
     def set_content(content = "", *, no_tags = false)
       # Fold deferred appends so the comparison below sees current content.
       fold_content_tail

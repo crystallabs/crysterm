@@ -476,8 +476,11 @@ module Crysterm
 
     # Best-effort budget for each terminal cell-size query. A responsive
     # terminal answers in well under a millisecond; this only bounds the wait
-    # when it stays silent, kept small to never stall startup.
-    CELL_QUERY_TIMEOUT = 150.milliseconds
+    # when it stays silent, kept small to never stall startup. Tunable via
+    # `screen.cell_query_timeout` (`CRYSTERM_SCREEN_CELL_QUERY_TIMEOUT`).
+    def self.cell_query_timeout : Time::Span
+      Config.screen_cell_query_timeout
+    end
 
     # Detects the terminal's cell size in pixels at startup and feeds the
     # derived aspect ratio to the CSS layer. Prefers the `TIOCGWINSZ` ioctl (no
@@ -597,10 +600,10 @@ module Crysterm
     # divided by the device's known size in cells. `nil` if neither answers (or
     # on a non-tty — the query no-ops instantly, so tests/pipes don't block).
     private def query_cell_pixels : {Int32, Int32}?
-      if cp = tput.get_cell_size_pixels(CELL_QUERY_TIMEOUT)
+      if cp = tput.get_cell_size_pixels(Screen.cell_query_timeout)
         return {cp[1], cp[0]} # XTWINOPS reports {height, width}; return {width, height}
       end
-      if @width > 0 && @height > 0 && (px = tput.get_text_area_size_pixels(CELL_QUERY_TIMEOUT))
+      if @width > 0 && @height > 0 && (px = tput.get_text_area_size_pixels(Screen.cell_query_timeout))
         return {px[1] // @width, px[0] // @height} # {width_px ÷ cols, height_px ÷ rows}
       end
       nil

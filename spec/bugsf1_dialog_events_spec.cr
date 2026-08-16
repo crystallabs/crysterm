@@ -13,7 +13,7 @@ include Crysterm
 #     accelerator stands down once a focused dialog button has consumed the key
 #     (otherwise Cancel focused + Enter → BOTH Rejected AND Accepted).
 #
-#  Finding 16 (src/widget/question.cr): `MessageBox#open`'s window-level KeyPress
+#  Finding 16 (src/widget/message_box.cr): `MessageBox#open`'s window-level KeyPress
 #     handler fires alongside the buttons' Press handlers; without the
 #     `done_called` latch in `done` and the key handler bailing on
 #     `e.accepted?`, Enter on a focused button invokes the user callback twice.

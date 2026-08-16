@@ -15,7 +15,7 @@ require "../../src/crysterm"
 include Crysterm
 include Crysterm::Widgets
 
-window = Window.new title: "multiplex.cr", dock_borders: true
+window = Window.new title: "multiplex.cr", border_junctions: true
 window.enable_mouse
 
 window.stylesheet = <<-CSS

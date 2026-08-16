@@ -137,11 +137,9 @@ module Crysterm
 
         # `value` is the one constructor spelling of the bar's state (domain
         # units, Qt's `QProgressBar#value`); default to the minimum (empty bar).
-        # `#percent` stays a full read/write property — it is the derived 0..100
-        # *view* of `#value`, not a second way to seed it — so a caller wanting
-        # to start at a percentage assigns `bar.percent = 50` after
-        # construction, and there is no silent precedence between two
-        # constructor arguments naming the same state.
+        # `#percent` is a full read/write property, but it is the derived 0..100
+        # *view* of `#value`, not a second way to seed it: to start at a
+        # percentage, assign `bar.percent = 50` after construction.
         if value
           self.value = value
         else

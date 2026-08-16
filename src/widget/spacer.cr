@@ -28,13 +28,17 @@ module Crysterm
     #   the size (Qt's `QSpacerItem(w, h)` shape), so whichever axis a box
     #   treats as main, the spacer holds exactly that many cells there. The
     #   cross-axis copy is inert — the spacer is invisible and untouchable.
+    #   Pin a single axis with the keywords: `Spacer.new(width: 5)` holds 5
+    #   columns and lets the cross axis stretch (what
+    #   `Layout::Box#add_spacing` builds).
     # * `Spacer.stretch(2)` — a growing spacer: no explicit size, plus a
     #   `Layout::Box::Hint` carrying the factor, so it takes its share of the
     #   leftover through the box's normal grow distribution (`Hint#stretch`),
     #   not a parallel mechanism.
     class Spacer < Widget
-      def initialize(size : Int32? = nil, style : Style? = nil, **widget)
-        super(**widget, width: size, height: size, style: style || Style.new(fill: false))
+      def initialize(size : Int32? = nil, style : Style? = nil, *,
+                     width : Int32? = size, height : Int32? = size, **widget)
+        super(**widget, width: width, height: height, style: style || Style.new(fill: false))
         # Through the setter, so the policy is *explicit* (`accepts_tab_focus?`
         # becomes a definitive `false`) rather than merely derived from the
         # legacy flags — and stays `None` even if a stylesheet or caller

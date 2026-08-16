@@ -8,12 +8,13 @@ module Crysterm
     # A titled container holding one `#content` widget. Its title bar shows the
     # `#title` plus (when enabled) a float toggle and a close button. A
     # `Widget::MainWindow` arranges docks by their `#area` (`Left`/`Right`/`Top`/
-    # `Bottom`); a `Floating` dock is positioned freely and can be dragged by its
-    # title bar. Emits `Event::Close` when closed and `Event::TopLevelChanged` (with the new
-    # floating state) when floated/re-docked.
+    # `Bottom`); a `#floating?` dock is positioned freely and can be dragged by
+    # its title bar. Emits `Event::Close` when closed and
+    # `Event::TopLevelChanged` (with the new floating state) when
+    # floated/re-docked.
     #
     # ```
-    # dock = Widget::DockWidget.new title: "Files", area: Widget::DockWidget::Area::Left, dock_size: 24
+    # dock = Widget::DockWidget.new title: "Files", area: :left, dock_size: 24
     # dock.widget = Widget::Tree.new
     # main_window.add_dock dock
     # ```
@@ -29,47 +30,39 @@ module Crysterm
       # `#floor_border_value` narrows which sides a docked pane draws.
       include ::Crysterm::Overlay::Floor
 
-      # Where the dock sits in a `MainWindow` (or `Floating`, positioned freely).
-      enum Area
-        Left
-        Right
-        Top
-        Bottom
-        Floating
-      end
+      # Where the dock sits in a `MainWindow` — `Layout::Dock`'s region
+      # vocabulary. Whether the dock is currently detached is the separate
+      # `#floating?` boolean (Qt's model: `Qt::DockWidgetArea` + `isFloating`),
+      # so a floating dock remembers its area and re-docks to it.
+      alias Area = Layout::Dock::Region
 
       getter title : String
 
-      # Where the dock sits in a `MainWindow`, which re-lays-out on the next frame.
+      # Where the dock sits in a `MainWindow`, which re-lays-out on the next
+      # frame. Retained while `#floating?` — it is where the dock returns.
       getter area : Area
 
       # :ditto:
       #
       # Not a bare `property`: `#floor_border_value` depends on the area (which
-      # side faces the content), so the frame style memoizing it must be dropped
-      # with it; the float button's glyph tracks `#floating?` too.
-      # Unlike `#toggle_floating` this is not gated on `floatable?` —
-      # `floatable` gates the button/gesture, not programmatic moves — but a
-      # float transition performs the same bookkeeping: geometry pinning (so
-      # leftover docked anchors don't fight the drag handler), `@prev_area`
-      # for the float button's re-dock, and `Event::TopLevelChanged`.
+      # side faces the content), so the frame style memoizing it must be
+      # dropped with it, and the dock's `layout_hint` (region + `dock_size`)
+      # must re-sync. Raises `ArgumentError` on `Center` — dock areas are the
+      # four edges; the center belongs to the main window's central widget.
       def area=(value : Area) : Area
+        raise ArgumentError.new "A DockWidget docks to an edge (Left/Right/Top/Bottom), not Center" if value.center?
         return value if @area == value
-        was_floating = @area.floating?
-        if value.floating? && !was_floating
-          @prev_area = @area
-          if g = @float_geom
-            apply_rect g
-          else
-            freeze_rect
-          end
-        elsif was_floating && !value.floating?
-          save_float_geom # remember where/what size we were, to restore later
-        end
         @area = value
+        if floating?
+          # Assigning an area to a floating dock re-docks it there (the
+          # `MainWindow#add_dock(area, dock)` contract), saving the float
+          # geometry for the next float.
+          apply_floating false, restore: true
+        else
+          sync_dock_hint
+        end
         refresh_buttons
         invalidate_frame_style
-        emit ::Crysterm::Event::TopLevelChanged, floating? if value.floating? != was_floating
         # `#update`, not `window?.try &.update`: a pure area move (e.g.
         # Left→Right) can leave the woken frame with nothing marked dirty
         # under `DamageTracking` — `#refresh_buttons`' writes may be no-ops
@@ -105,6 +98,7 @@ module Crysterm
       def dock_size=(value : Int32) : Int32
         return value if value == @dock_size
         @dock_size = value
+        sync_dock_hint
         update
         value
       end
@@ -190,14 +184,16 @@ module Crysterm
       @drag_dx = 0
       @drag_dy = 0
 
-      def initialize(title = "", area : Area = Area::Left, dock_size = 20, closable = true, floatable = true, **box)
+      def initialize(title = "", area : Area = Area::Left, dock_size = 20, closable = true, floatable = true, floating = false, **box)
         @title = title
         @area = area
         @dock_size = dock_size
         @closable = closable
         @floatable = floatable
+        @floating = floating
 
         super **box
+        sync_dock_hint
 
         tb = Box.new(
           parent: self, top: 0, left: 0, right: 0, height: 1,
@@ -227,15 +223,16 @@ module Crysterm
         end
       end
 
-      def floating? : Bool
-        @area.floating?
-      end
+      # Whether the dock is detached from its area, positioned freely and
+      # draggable by its title bar.
+      getter? floating : Bool = false
 
-      # Floats or re-docks the dock (Qt's `QDockWidget#setFloating`), delegating
-      # to `#toggle_floating`. A no-op when already in the requested state or
-      # when `#floatable?` is false.
+      # Floats or re-docks the dock (Qt's `QDockWidget#setFloating`). Not
+      # gated on `#floatable?` — that flag gates the button/gesture, not
+      # programmatic moves (Qt likewise). A no-op when already in the
+      # requested state.
       def floating=(value : Bool) : Bool
-        toggle_floating if value != floating?
+        apply_floating value, restore: true if value != floating?
         value
       end
 
@@ -245,11 +242,11 @@ module Crysterm
       def floor_border_value : Bool | Border
         return true if floating? # full frame for a detached pane
         case @area
-        in .left?     then Border.right  # content is to the right
-        in .right?    then Border.left   # content is to the left
-        in .top?      then Border.bottom # content is below
-        in .bottom?   then Border.top    # content is above
-        in .floating? then true          # handled above; keep exhaustive
+        in .left?   then Border.right  # content is to the right
+        in .right?  then Border.left   # content is to the left
+        in .top?    then Border.bottom # content is below
+        in .bottom? then Border.top    # content is above
+        in .center? then true          # unreachable (`#area=` rejects Center)
         end
       end
 
@@ -295,30 +292,49 @@ module Crysterm
       # handler's `left`/`top` writes.
       def toggle_floating(*, restore : Bool = true) : Nil
         return unless floatable?
-        if floating?
-          save_float_geom # remember where/what size we were, to restore later
-          @area = @prev_area || Area::Left
-        else
-          @prev_area = @area
+        apply_floating !floating?, restore: restore
+      end
+
+      # The float/re-dock transition both `#floating=` and `#toggle_floating`
+      # funnel through: geometry pinning/restore, the layout-hint re-sync
+      # (a floating dock is `layout_chrome` — rendered at its own coordinates,
+      # never arranged), chrome refresh and `Event::TopLevelChanged`. `#area`
+      # is untouched — it is where the dock returns.
+      private def apply_floating(value : Bool, *, restore : Bool) : Nil
+        if value
           if restore && (g = @float_geom)
             apply_rect g
           else
             freeze_rect
           end
-          @area = Area::Floating
+          # Stale layout-channel assignments from the docked frames would
+          # shadow the pinned specs.
+          clear_layout_geometry
+        else
+          save_float_geom # remember where/what size we were, to restore later
         end
+        @floating = value
+        sync_dock_hint
         refresh_buttons
-        # `floor_border_value` depends on `@area`, so drop the frame-memoized
-        # style and let it re-sync on the next `#style` read.
+        # `floor_border_value` depends on the floating state, so drop the
+        # frame-memoized style and let it re-sync on the next `#style` read.
         invalidate_frame_style
         emit ::Crysterm::Event::TopLevelChanged, floating?
         # `#update`: usually saved by `#apply_rect`/`#freeze_rect`'s
         # geometry writes marking dirty on their own, but not guaranteed for
-        # every path (see `#area=` above) — cheap and correct to mark here too.
+        # every path — cheap and correct to mark here too.
         update
       end
 
-      @prev_area : Area?
+      # Keeps the parent-facing layout state in sync with the dock's own:
+      # docked, the dock carries a `Layout::Dock::Hint` (its area region,
+      # consuming `#dock_size` cells) for the main window's carve; floating,
+      # it is `layout_chrome` — painted on top at its own pinned coordinates,
+      # never arranged.
+      private def sync_dock_hint : Nil
+        self.layout_chrome = floating?
+        self.layout_hint = ::Crysterm::Layout::Dock::Hint.new(@area, size: @dock_size)
+      end
 
       # The floating rectangle (`{left, top, width, height}`, parent-relative)
       # captured the last time the dock was floating, restored on the next float.

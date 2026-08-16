@@ -22,7 +22,7 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Window.new title: "Widgets 2/2"
-s.dock_borders = true
+s.border_junctions = true
 
 Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
   content: "{center}{bold}Qt-like widgets 2/2{/bold} — ComboBox · SpinBox · Dial · Table · Tree · Calendar{/center}"

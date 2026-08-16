@@ -6,7 +6,7 @@ include Crysterm
 # defines every chrome glyph per support tier (`Ascii < Unicode < Extended`),
 # `Screen#glyph_tier` picks the set (default `Unicode` — byte-identical with
 # the historically hardcoded literals), and widgets resolve through
-# `Widget#glyph`/`BorderType#line_glyphs(tier)`/`Docking.dock(..., ascii)`.
+# `Widget#glyph`/`BorderType#line_glyphs(tier)`/`Junctions.dock(..., ascii)`.
 private def rows(s)
   (0...s.cell_rows.size).map do |y|
     row = s.cell_rows[y]
@@ -189,7 +189,7 @@ describe "tier-aware rendering" do
   it "docks adjacent borders to ASCII junctions at tier Ascii" do
     s = Crysterm::Window.new(
       input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-      width: 7, height: 3, dock_borders: true)
+      width: 7, height: 3, border_junctions: true)
     s.glyph_tier = Glyphs::Tier::Ascii
     s.alloc
     b1 = Crysterm::Widget::Box.new(left: 0, top: 0, width: 4, height: 3, content: "")

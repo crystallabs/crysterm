@@ -192,15 +192,15 @@ module Crysterm
       # participate in docking. A *vertical* line emits only `│` down a single
       # column and needs no stop of its own — it's docked whenever a horizontal
       # line/border registers the crossing row.
-      def register_dock_stops(coords)
+      def register_junction_stops(coords)
         super
 
         if @orientation.horizontal?
           # A Line rendering into a compositing plane registers on the *plane*
           # stops, so overlay line art joins other overlay art but not the base
-          # content beneath it. Skip negative rows, matching `Docking.dock`.
+          # content beneath it. Skip negative rows, matching `Junctions.merge`.
           scr = window
-          stops = scr.compositing_layers? ? scr.plane_dock_stops : scr.dock_stops
+          stops = scr.compositing_layers? ? scr.plane_junction_stops : scr.junction_stops
           (coords.yi..coords.yl - 1).each do |y|
             stops[y] = true if y >= 0
           end

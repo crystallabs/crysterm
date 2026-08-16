@@ -444,12 +444,6 @@ module Crysterm
       Size.new awidth, aheight
     end
 
-    # `Size` overload of `#resize` — Qt's `QWidget::resize(QSize)`. Pure
-    # delegation to the `Int32` form.
-    def resize(size : Size) : Nil
-      resize size.width, size.height
-    end
-
     # `size WRITE resize` — Qt property-idiom setter delegating to `#resize`.
     def size=(size : Size) : Nil
       resize size.width, size.height

@@ -137,15 +137,15 @@ cell buffer instead.
 
 *Source: [tests/misc/cursors.cr](tests/misc/cursors.cr)*
 
-## Border docking with color blending
+## Border junctions with color blending
 
-Adjacent and overlapping borders can dock into shared junction glyphs/chars
+Adjacent and overlapping borders can merge into shared junction glyphs/chars
 (`├ ┬ ┼ …`). When the touching borders differ in color, the difference can
-be ignored or blended (for the smoothest seam), or the docking can be skipped.
+be ignored or blended (for the smoothest seam), or the merge can be skipped.
 
-![](tests/misc/docking.5s.apng)
+![](tests/misc/junctions.5s.apng)
 
-*Source: [tests/misc/docking.cr](tests/misc/docking.cr)*
+*Source: [tests/misc/junctions.cr](tests/misc/junctions.cr)*
 
 ## Parseable tags in strings
 
@@ -237,10 +237,14 @@ currently ~70 total low-level settings available in any Crysterm program
 out of the box.
 
 ```sh
-crystal run app.cr -- --dump-config=pretty   # list every option + provenance
-crystal run app.cr -- --media-backend=sixel  # force a graphics backend
+crystal run app.cr -- --crysterm-dump-config=pretty  # every option + provenance
+crystal run app.cr -- --media-backend=sixel          # force a graphics backend
 CRYSTERM_MEDIA_BACKEND=kitty crystal run app.cr
 ```
+
+Crysterm reads these from a copy of `ARGV` without consuming anything, and its
+two framework flags are namespaced `--crysterm-config` /
+`--crysterm-dump-config`, so an app's own `--config` stays its own.
 
 ## Multiple screens
 
@@ -278,11 +282,11 @@ OSC 52 — copy/paste that works through SSH and tmux.
 
 An **opt-in** app-state layer — the toolkit itself never requires it, and
 plain property assignment always works. When you want it: a fine-grained
-signals system (SolidJS-style): `Reactive::Signal`,
+reactive system (SolidJS-style): `Reactive::Property`,
 `Reactive.computed`, effects with automatic dependency tracking,
-widget-lifetime `Reactive.bind`, `ObservableList` for collection views,
-batching, and a `reactive_property` macro for widget classes. Assign
-`signal.value = x` — every bound widget repaints itself:
+`Reactive.bind` scoped to any event handler's lifetime, `ObservableList` for
+collection views, batching, and a `reactive_property` macro for widget classes.
+Assign `property.value = x` — every bound widget repaints itself:
 
 ![](tests/misc/reactive.5s.apng)
 
@@ -297,7 +301,7 @@ the workload.
 
 Output is a minimal cell-level diff against what the
 terminal already shows, with CSR/BCE scroll optimizations and optional DEC
-2026 synchronized output. The `Fps` widget reports render/draw/flush times
+2026 synchronized output. The `FPS` widget reports render/draw/flush times
 and terminal bandwidth live:
 
 ![](tests/misc/quicktro.5s.apng)

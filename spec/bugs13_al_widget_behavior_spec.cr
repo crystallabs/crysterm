@@ -18,7 +18,7 @@ describe "BUGS13 A11: DockWidget float geometry excludes the CSS margin" do
   it "does not drift by the margin across float toggles" do
     s = headless_screen(80, 24)
     dock = Widget::DockWidget.new parent: s, top: 2, left: 4, width: 20, height: 10,
-      area: Widget::DockWidget::Area::Floating,
+      floating: true,
       style: Style.new(margin: Margin.new(left: 2, top: 1, right: 0, bottom: 0))
     s.repaint
 

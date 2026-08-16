@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression locks for BUGS15 findings #2, #30 and #42, all in the docking path.
+# Regression locks for BUGS15 findings #2, #30 and #42, all in the junction-merge path.
 
 # Builds an `Array(Row)` grid from rows of text, one cell per character.
 private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::Window::Row)
@@ -13,17 +13,17 @@ private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::W
   end
 end
 
-# #2 — `Docking.dock` resolved each stop row with `lines[y]?`, whose negative
+# #2 — `Junctions.merge` resolved each stop row with `lines[y]?`, whose negative
 # index counts from the END of the array. A negative stop (an off-top widget's
 # unclamped `coords.yi`) therefore borrowed and corrupted a row near the bottom
 # of the screen. Negative stop rows are skipped when collecting them.
-describe "Docking.dock (negative stop rows, BUGS15 #2)" do
+describe "Junctions.merge (negative stop rows, BUGS15 #2)" do
   it "does not corrupt a bottom row when a negative stop wraps to it" do
     # Row 0 holds a `┴` (has an UP arm); the last row (index -1) holds a plain
     # `─`. Without the guard, stop -1 resolves to the last row and its down
     # neighbor wraps to row 0's `┴`, rewriting the `─` to `│`.
     g = grid ["┴", "─"]
-    Docking.dock(g, {-1 => true}, 1, DockContrast::Ignore)
+    Junctions.merge(g, {-1 => true}, 1, JunctionContrast::Ignore)
     g[1][0].char.should eq '─'
     g[0][0].char.should eq '┴'
   end
@@ -36,24 +36,24 @@ describe "Docking.dock (negative stop rows, BUGS15 #2)" do
     ]
     # Break the centre, then let a real stop repair it.
     g[1][1].char = '─'
-    Docking.dock(g, {1 => true}, 3, DockContrast::Ignore)
+    Junctions.merge(g, {1 => true}, 3, JunctionContrast::Ignore)
     g[1][1].char.should eq '┼'
   end
 end
 
-# #30 — In ASCII-tier docking (`ascii: true`) `+` is a full four-arm junction.
+# #30 — In ASCII-tier junction merging (`ascii: true`) `+` is a full four-arm junction.
 # A plain-text `+` next to another `+`/`-`/`|` on a stop row reciprocated a
 # single arm, so `ascii_angle` rewrote it to `-`/`|` (e.g. "C++" -> "C--"). A
 # four-arm `+` stays intact unless at least two neighbors reciprocate.
-describe "Docking ASCII mode (text '+', BUGS15 #30)" do
+describe "Junction ASCII mode (text '+', BUGS15 #30)" do
   it "keeps a text '+' adjacent to another '+' (single reciprocating arm)" do
-    Docking.angle_at(grid(["C++"]), 1, 0, DockContrast::Ignore, ascii: true).should eq '+'
-    Docking.angle_at(grid(["C++"]), 2, 0, DockContrast::Ignore, ascii: true).should eq '+'
+    Junctions.angle_at(grid(["C++"]), 1, 0, JunctionContrast::Ignore, ascii: true).should eq '+'
+    Junctions.angle_at(grid(["C++"]), 2, 0, JunctionContrast::Ignore, ascii: true).should eq '+'
   end
 
   it "does not mangle 'C++' during a full ascii dock pass" do
     g = grid ["C++"]
-    Docking.dock(g, {0 => true}, 3, DockContrast::Ignore, ascii: true)
+    Junctions.merge(g, {0 => true}, 3, JunctionContrast::Ignore, ascii: true)
     String.build { |io| g[0].chars.each { |c| io << c } }.should eq "C++"
   end
 
@@ -64,22 +64,22 @@ describe "Docking ASCII mode (text '+', BUGS15 #30)" do
       "-+-",
       " | ",
     ]
-    Docking.angle_at(cross, 1, 1, DockContrast::Ignore, ascii: true).should eq '+'
+    Junctions.angle_at(cross, 1, 1, JunctionContrast::Ignore, ascii: true).should eq '+'
     # A tee (left+right+down arms) also renders as '+'.
-    Docking.angle_at(grid(["-+-", " | "]), 1, 0, DockContrast::Ignore, ascii: true).should eq '+'
+    Junctions.angle_at(grid(["-+-", " | "]), 1, 0, JunctionContrast::Ignore, ascii: true).should eq '+'
   end
 
   it "leaves plain '-' and '|' text runs untouched" do
-    Docking.angle_at(grid(["a--b"]), 1, 0, DockContrast::Ignore, ascii: true).should eq '-'
-    Docking.angle_at(grid(["|", "|"]), 0, 0, DockContrast::Ignore, ascii: true).should eq '|'
+    Junctions.angle_at(grid(["a--b"]), 1, 0, JunctionContrast::Ignore, ascii: true).should eq '-'
+    Junctions.angle_at(grid(["|", "|"]), 0, 0, JunctionContrast::Ignore, ascii: true).should eq '|'
   end
 end
 
-# #42 — `Widget::Line#register_dock_stops` wrote its horizontal-line rows to the
-# base `dock_stops` unconditionally, ignoring the compositing-plane gate the
+# #42 — `Widget::Line#register_junction_stops` wrote its horizontal-line rows to the
+# base `junction_stops` unconditionally, ignoring the compositing-plane gate the
 # base implementation uses. A separator Line inside a z-indexed overlay then
 # docked against base content below it. The rows route through the same gate.
-describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
+describe "Widget::Line#register_junction_stops (compositing plane, BUGS15 #42)" do
   it "routes an overlay Line's rows to the plane stops, not the base" do
     s = headless_screen(40, 20)
     s.alloc
@@ -93,8 +93,8 @@ describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
 
     s.repaint
 
-    s.dock_stops.empty?.should be_true
-    s.plane_dock_stops.empty?.should be_false
+    s.junction_stops.empty?.should be_true
+    s.plane_junction_stops.empty?.should be_false
   end
 
   it "routes a base-layer Line's rows to the base stops" do
@@ -105,6 +105,6 @@ describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
 
     s.repaint
 
-    s.dock_stops.empty?.should be_false
+    s.junction_stops.empty?.should be_false
   end
 end

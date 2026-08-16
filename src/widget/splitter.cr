@@ -47,8 +47,6 @@ module Crysterm
       # splitter.dividers[0].position = 20
       # ```
       #
-      # Replaces the old `#divider_position(i)` / `#set_divider_position(i, pos)`
-      # getter/setter pair.
       # Excluded from the DOM-loader registry: a divider only exists as part of
       # its `Splitter` (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]

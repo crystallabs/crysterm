@@ -34,7 +34,7 @@ describe Crysterm::Widget::DockWidget do
   it "gives a floating dock a full frame and a docked one only its content-facing border" do
     s = headless_screen(80, 24)
     floating = Crysterm::Widget::DockWidget.new parent: s, title: "F",
-      area: Crysterm::Widget::DockWidget::Area::Floating
+      floating: true
     floating.floor_border_value.should be_true # full frame
 
     left = Crysterm::Widget::DockWidget.new parent: s, title: "L",

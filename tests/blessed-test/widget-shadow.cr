@@ -8,7 +8,7 @@ require "../../src/crysterm"
 include Crysterm
 
 s = Window.new optimization: OptimizationFlag::SmartCSR,
-  dock_borders: true,
+  border_junctions: true,
   always_propagated_keys: [::Tput::Key::CtrlQ]
 
 # Blessed uses a long Cicero passage; a short filler suffices here.

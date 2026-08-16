@@ -25,6 +25,8 @@ module Crysterm
     # ![Radial screenshot](../../tests/layout/radial/radial.5s.apng)
     # <!-- /widget-examples:capture -->
     class Radial < Layout
+      # The inherited `Layout#spacing` has no meaning on a ring and is ignored.
+
       # Angle of the first child, in degrees (0° = right, clockwise positive,
       # default -90° = top). Change-guarded so a real change repaints the
       # container — animate a spinning ring by just advancing this.

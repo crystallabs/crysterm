@@ -7,7 +7,7 @@ require "../../src/crysterm"
 include Crysterm
 include Crysterm::Widgets
 
-s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagated_keys: [::Tput::Key::CtrlQ]
+s = Window.new optimization: OptimizationFlag::SmartCSR, border_junctions: true, always_propagated_keys: [::Tput::Key::CtrlQ]
 
 Widget::Box.new(
   parent: s,

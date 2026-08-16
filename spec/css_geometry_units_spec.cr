@@ -134,8 +134,8 @@ describe "CSS geometry units" do
     a.css_id = "a"
     s.repaint
     a.width_spec.as(Crysterm::Dim).matches?("50VW").should be_true # kept as a (reactive) viewport string, not dropped
-    a.awidth.should eq 24         # 50% of 80, clamped to max-width (30% of 80 = 24)
-    a.aheight.should eq 24        # 100% of 24
+    a.awidth.should eq 24                                          # 50% of 80, clamped to max-width (30% of 80 = 24)
+    a.aheight.should eq 24                                         # 100% of 24
     # A viewport constraint is kept unresolved too, so — like a viewport size —
     # it re-resolves against the window on every frame instead of being baked to
     # cells once at cascade time.

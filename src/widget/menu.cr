@@ -12,7 +12,7 @@ module Crysterm
     # `vi_keys: true`, `j`/`k`) navigate, and Enter — or a click on the highlighted
     # row — activates the selected action. Activating emits the action's
     # `Event::Triggered`, received by any listener attached via
-    # `action.on(Crysterm::Event::Triggered) { ... }`. Disabled actions are
+    # `action.on_triggered { ... }`. Disabled actions are
     # listed but not activated.
     #
     # In Qt, `QMenu : public QWidget` — a menu is a plain widget, **not** a
@@ -25,7 +25,7 @@ module Crysterm
     # ```
     # menu = Widget::Menu.new parent: window
     # quit = Action.new "Quit"
-    # quit.on(Crysterm::Event::Triggered) { exit }
+    # quit.on_triggered { exit }
     # menu << quit
     # menu.focus
     # ```
@@ -182,7 +182,7 @@ module Crysterm
       # :ditto: — also connecting *block* to the action's `Event::Triggered`.
       def add_action(text : String, &block : ->) : Action
         action = add_action text
-        action.on(::Crysterm::Event::Triggered) { block.call }
+        action.on_triggered { block.call }
         action
       end
 
@@ -607,7 +607,7 @@ module Crysterm
         if act.menu?
           open_submenu_selected act
         elsif act.checkable?
-          act.activate
+          act.trigger
         else
           activate_index i
         end
@@ -635,7 +635,7 @@ module Crysterm
         if act && act.enabled? && act.menu?
           open_submenu_selected act
         elsif act && act.checkable? && act.enabled?
-          act.activate
+          act.trigger
         else
           activate_selected
         end

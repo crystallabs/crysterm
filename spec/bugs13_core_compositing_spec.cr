@@ -5,7 +5,7 @@ include Crysterm
 # Regression specs for BUGS13 core findings C13, C17, C22
 # (src/docking.cr, src/plane.cr, src/window_rendering.cr + src/window_damage.cr):
 #
-# C13 — `DockContrast::Blend` must blend only the COLORS of a contrasting
+# C13 — `JunctionContrast::Blend` must blend only the COLORS of a contrasting
 #       neighbor into the junction cell: `Colors.blend` returns the FIRST
 #       argument's flags, and the neighbor's reverse/bold/underline must not
 #       be transplanted onto the docked cell.
@@ -34,7 +34,7 @@ private def b13cp_grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Cryst
   end
 end
 
-describe "BUGS13 C13: DockContrast::Blend keeps the docked cell's own flags" do
+describe "BUGS13 C13: JunctionContrast::Blend keeps the docked cell's own flags" do
   it "blends colors but does not transplant the neighbor's REVERSE onto the junction" do
     center = Attr.pack(Attr::BOLD, Attr.pack_color(0xff0000), Attr.pack_color(0x000000))
     neighbor = Attr.pack(Attr::REVERSE, Attr.pack_color(0x00ff00), Attr.pack_color(0xffffff))
@@ -48,7 +48,7 @@ describe "BUGS13 C13: DockContrast::Blend keeps the docked cell's own flags" do
     ], center
     g[0][1].attr = neighbor
 
-    Docking.angle_at(g, 1, 1, DockContrast::Blend).should eq '┼'
+    Junctions.angle_at(g, 1, 1, JunctionContrast::Blend).should eq '┼'
 
     docked = g[1][1].attr
     # The junction keeps its OWN flags: BOLD stays, the neighbor's REVERSE is

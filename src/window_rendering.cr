@@ -387,17 +387,17 @@ module Crysterm
     # Rows where line-drawing characters were emitted this frame and need
     # re-evaluation by the docking pass.
     #
-    # :nodoc: per-frame render bookkeeping (ex-`_dock_stops`).
-    property dock_stops = {} of Int32 => Bool
+    # :nodoc: per-frame render bookkeeping.
+    property junction_stops = {} of Int32 => Bool
 
-    # Like `#dock_stops`, but for line-drawing rows emitted by widgets
+    # Like `#junction_stops`, but for line-drawing rows emitted by widgets
     # rendering into a *compositing plane* (an overlay, e.g. a `Menu` chain).
     # Docking on the plane's own buffer — not the composited base — joins
     # overlapping overlay borders to each other without joining them to the
     # content the overlay floats over.
     #
-    # :nodoc: per-frame render bookkeeping (ex-`_plane_dock_stops`).
-    property plane_dock_stops = {} of Int32 => Bool
+    # :nodoc: per-frame render bookkeeping.
+    property plane_junction_stops = {} of Int32 => Bool
 
     # Rendering optimizations.
     property optimization : OptimizationFlag = OptimizationFlag::None
@@ -421,11 +421,11 @@ module Crysterm
     #     ┌─────────┬─────────┐
     #     │ box1    │ box2    │
     #     └─────────┴─────────┘
-    property? dock_borders : Bool = Config.window_dock_borders
+    property? border_junctions : Bool = Config.window_border_junctions
 
     # The scene's light source — the default every widget's relief shading,
     # weight bevel and auto-placed shadow follow unless the widget overrides
-    # it (`Style#light`). A scene-coherence property like `dock_borders`:
+    # it (`Style#light`). A scene-coherence property like `border_junctions`:
     # mixed light directions on one screen read as broken, so the direction
     # lives here and widgets opt out individually. The default (NW
     # directional) reproduces the classic hardcoded top-left lighting
@@ -444,15 +444,15 @@ module Crysterm
     # Dockable borders won't dock if colors/attributes differ. This allows
     # docking regardless, which may produce odd multi-colored borders. Exposed
     # so a widget docking its own line art honors the same contrast policy.
-    getter dock_contrast : DockContrast = Config.render_dock_contrast
+    getter junction_contrast : JunctionContrast = Config.render_junction_contrast
 
     # Runtime-settable: the docking pass re-evaluates every stop row each
     # frame, so a mode change takes effect on the next render. The repaint is
     # requested here — junction cells whose mode-dependent char/blend changed
     # sit on rows no widget marked dirty this frame.
-    def dock_contrast=(value : DockContrast) : DockContrast
-      return value if @dock_contrast == value
-      @dock_contrast = value
+    def junction_contrast=(value : JunctionContrast) : JunctionContrast
+      return value if @junction_contrast == value
+      @junction_contrast = value
       update if @renders > 0
       value
     end
@@ -461,7 +461,7 @@ module Crysterm
     # per screen row. Written only through the ivar by the render/alloc path,
     # so the accessor is getter-only. Named for what it holds: `cell_rows` is
     # the window's *cell* grid, unrelated to the text-content `Widget#lines`
-    # (§1.3's name-collision fix; the ivar stays `@lines`).
+    # (the ivar stays `@lines`).
     @lines = Array(Row).new
 
     # :ditto:
@@ -600,15 +600,15 @@ module Crysterm
           # Same-z groups with different opacity reuse the same plane buffer
           # sequentially (cleared between folds), each with its own opacity.
           pl.opacity = opacity
-          @plane_dock_stops.clear
+          @plane_junction_stops.clear
           render_members_into_plane pl, members
           # Join overlapping overlay borders (e.g. a menu chain) on the plane's
           # own buffer before compositing down. The plane holds only the overlay
           # widgets' cells (everything else transparent), so docking here can't
           # reach into the base content the overlay floats over and produce
           # stray junctions where a popup overlaps a widget below it.
-          if @dock_borders && !@plane_dock_stops.empty?
-            Docking.dock pl.cells, @plane_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
+          if @border_junctions && !@plane_junction_stops.empty?
+            Junctions.merge pl.cells, @plane_junction_stops, awidth, @junction_contrast, ascii: glyph_tier.ascii?
           end
           pl.composite_onto @lines
         end
@@ -618,9 +618,9 @@ module Crysterm
     end
 
     # Docks (joins) all line-drawing characters that cross or meet on the rows
-    # collected in `@dock_stops` this frame.
-    protected def apply_docking
-      Docking.dock @lines, @dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
+    # collected in `@junction_stops` this frame.
+    protected def apply_junctions
+      Junctions.merge @lines, @junction_stops, awidth, @junction_contrast, ascii: glyph_tier.ascii?
     end
 
     # Drives an animation from its own fiber: repeatedly invoke *block*,
@@ -703,7 +703,7 @@ module Crysterm
 
       emit Crysterm::Event::PreRender
 
-      @dock_stops.clear
+      @junction_stops.clear
 
       # Reset the effect detector for this frame.
       @frame_used_effects = false

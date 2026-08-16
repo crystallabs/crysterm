@@ -6,14 +6,14 @@ include Crysterm
 # no example under `examples/widget/`; these are the only tests of its
 # activation/event behavior.
 describe Crysterm::Action do
-  describe "#activate" do
+  describe "#trigger/#hover" do
     it "emits Triggered by default" do
       a = Action.new
       fired = [] of String
       a.on(Event::Triggered) { fired << "triggered" }
       a.on(Event::Hovered) { fired << "hovered" }
 
-      a.activate
+      a.trigger
 
       fired.should eq ["triggered"]
     end
@@ -24,8 +24,8 @@ describe Crysterm::Action do
       a.on(Event::Triggered) { fired << "triggered" }
       a.on(Event::Hovered) { fired << "hovered" }
 
-      a.activate :trigger
-      a.activate :hover
+      a.trigger
+      a.hover
 
       fired.should eq ["triggered", "hovered"]
     end
@@ -36,7 +36,7 @@ describe Crysterm::Action do
       a.on(Event::Triggered) { order << 1 }
       a.on(Event::Triggered) { order << 2 }
 
-      a.activate :trigger
+      a.trigger
 
       order.should eq [1, 2]
     end
@@ -46,7 +46,7 @@ describe Crysterm::Action do
       triggered = 0
       a.on(Event::Triggered) { triggered += 1 }
 
-      a.activate :hover
+      a.hover
 
       triggered.should eq 0
     end
@@ -58,14 +58,14 @@ describe Crysterm::Action do
       a.on(Event::Triggered) { fired << "triggered" }
       a.on(Event::Hovered) { fired << "hovered" }
 
-      a.activate        # Triggered by default -> suppressed
-      a.activate :hover # hover still notifies
+      a.trigger # Triggered by default -> suppressed
+      a.hover   # hover still notifies
 
       fired.should eq ["hovered"]
 
       # Re-enabling lets it trigger again.
       a.enabled = true
-      a.activate
+      a.trigger
       fired.should eq ["hovered", "triggered"]
     end
   end
@@ -82,9 +82,9 @@ describe Crysterm::Action do
       states = [] of Bool
       a.on(Event::Triggered) { |e| states << e.checked }
 
-      a.activate
+      a.trigger
       a.checked?.should be_true
-      a.activate
+      a.trigger
       a.checked?.should be_false
 
       states.should eq [true, false] # the post-toggle state each time
@@ -94,7 +94,7 @@ describe Crysterm::Action do
       a = Action.new "Run"
       got = [] of Bool
       a.on(Event::Triggered) { |e| got << e.checked }
-      a.activate
+      a.trigger
       got.should eq [false]
       a.checked?.should be_false
     end

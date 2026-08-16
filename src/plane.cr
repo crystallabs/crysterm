@@ -97,7 +97,7 @@ module Crysterm
         # `@lines` while its layer renders) marks the column it wrote — either
         # narrowly via `Row#mark_dirty`/`Cell#set_if_changed`/`Cell#link=`, or
         # conservatively via `dirty = true` (which widens the range to the whole
-        # row, so it degrades to the previous full-width scan). `Docking.dock`,
+        # row, so it degrades to the previous full-width scan). `Junctions.merge`,
         # the only writer reaching into `pl.cells` directly, marks each column it
         # rewrites too. So every cell outside `[dirty_min, dirty_max]` is still
         # the sentinel and could only have been skipped anyway.

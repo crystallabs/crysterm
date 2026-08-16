@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Behavior lock for `Docking.angle_at`, the box-drawing junction resolver. Pins
+# Behavior lock for `Junctions.angle_at`, the box-drawing junction resolver. Pins
 # the resulting joining character (and contrast handling) so refactors of
 # `neighbor_angle` stay behavior-preserving.
 
@@ -16,23 +16,23 @@ private def grid(rows : Array(String), attr : Int64 = 0_i64) : Array(Crysterm::W
   end
 end
 
-describe "Docking.angle_at" do
+describe "Junctions.angle_at" do
   it "joins a four-way crossing into ┼" do
     g = grid [
       " │ ",
       "─┼─",
       " │ ",
     ]
-    Docking.angle_at(g, 1, 1, DockContrast::Ignore).should eq '┼'
+    Junctions.angle_at(g, 1, 1, JunctionContrast::Ignore).should eq '┼'
   end
 
   it "resolves corners and T-junctions from the present neighbors" do
     # Top-left corner: right + down neighbors only.
-    Docking.angle_at(grid(["┌─", "│ "]), 0, 0, DockContrast::Ignore).should eq '┌'
+    Junctions.angle_at(grid(["┌─", "│ "]), 0, 0, JunctionContrast::Ignore).should eq '┌'
     # T pointing down: left + right + down.
-    Docking.angle_at(grid(["─┬─", " │ "]), 1, 0, DockContrast::Ignore).should eq '┬'
+    Junctions.angle_at(grid(["─┬─", " │ "]), 1, 0, JunctionContrast::Ignore).should eq '┬'
     # Horizontal run: left + right.
-    Docking.angle_at(grid(["───"]), 1, 0, DockContrast::Ignore).should eq '─'
+    Junctions.angle_at(grid(["───"]), 1, 0, JunctionContrast::Ignore).should eq '─'
   end
 
   it "does not wrap to the far edge for an off-grid left/up neighbor" do
@@ -40,15 +40,15 @@ describe "Docking.angle_at" do
     # `Array#[]?` treats index -1 as "from the end", so without the explicit
     # `>= 0` guard the left lookup would wrap to that rule, turning down-only
     # `0001` (`│`) into `1001` (`┐`). With the guard it stays `│`.
-    Docking.angle_at(grid(["┐ ─", "│  "]), 0, 0, DockContrast::Ignore).should eq '│'
+    Junctions.angle_at(grid(["┐ ─", "│  "]), 0, 0, JunctionContrast::Ignore).should eq '│'
   end
 
   it "preserves an isolated line glyph (no line neighbors) instead of erasing it" do
     # All-blank neighbors yield angle `0000`, which has no `ANGLE_TABLE` entry, so
     # `angle_at` returns the cell's original character (matching blessed's
     # empty-string `'0000'` entry) instead of blanking it to a space.
-    Docking.angle_at(grid(["─"]), 0, 0, DockContrast::Ignore).should eq '─'
-    Docking.angle_at(grid([" │ "]), 1, 0, DockContrast::Ignore).should eq '│'
+    Junctions.angle_at(grid(["─"]), 0, 0, JunctionContrast::Ignore).should eq '─'
+    Junctions.angle_at(grid([" │ "]), 1, 0, JunctionContrast::Ignore).should eq '│'
   end
 
   describe "contrast handling" do
@@ -64,16 +64,16 @@ describe "Docking.angle_at" do
     end
 
     it "Ignore docks regardless of differing attributes" do
-      Docking.angle_at(contrasting.call, 1, 1, DockContrast::Ignore).should eq '┼'
+      Junctions.angle_at(contrasting.call, 1, 1, JunctionContrast::Ignore).should eq '┼'
     end
 
     it "Skip leaves the original character untouched" do
-      Docking.angle_at(contrasting.call, 1, 1, DockContrast::Skip).should eq '│'
+      Junctions.angle_at(contrasting.call, 1, 1, JunctionContrast::Skip).should eq '│'
     end
 
     it "Blend docks and blends the cell's attribute toward the neighbor's" do
       g = contrasting.call
-      Docking.angle_at(g, 1, 1, DockContrast::Blend).should eq '┼'
+      Junctions.angle_at(g, 1, 1, JunctionContrast::Blend).should eq '┼'
       # Only the up neighbor (attr 99) contrasts, so centre blends with it.
       g[1][1].attr.should eq Colors.blend(99_i64, 0_i64)
     end
@@ -91,7 +91,7 @@ describe "Docking.angle_at" do
       g[0][1].attr = 90_i64 # up neighbor
       g[2][1].attr = 40_i64 # down neighbor
 
-      Docking.angle_at(g, 1, 1, DockContrast::Blend).should eq '┼'
+      Junctions.angle_at(g, 1, 1, JunctionContrast::Blend).should eq '┼'
       result = g[1][1].attr
 
       # Not merely the last (down) neighbor's blend — up contributed too.
@@ -106,25 +106,25 @@ describe "Docking.angle_at" do
       # ╭'s right/down neighbors reciprocate, calling for exactly the arms the
       # arc already draws (R|D). The identity guard keeps ╭ rather than
       # resolving the pattern to the square ┌.
-      Docking.angle_at(grid(["╭─", "│ "]), 0, 0, DockContrast::Ignore).should eq '╭'
-      Docking.angle_at(grid(["─╮", " │"]), 1, 0, DockContrast::Ignore).should eq '╮'
-      Docking.angle_at(grid(["│ ", "╰─"]), 0, 1, DockContrast::Ignore).should eq '╰'
-      Docking.angle_at(grid([" │", "─╯"]), 1, 1, DockContrast::Ignore).should eq '╯'
+      Junctions.angle_at(grid(["╭─", "│ "]), 0, 0, JunctionContrast::Ignore).should eq '╭'
+      Junctions.angle_at(grid(["─╮", " │"]), 1, 0, JunctionContrast::Ignore).should eq '╮'
+      Junctions.angle_at(grid(["│ ", "╰─"]), 0, 1, JunctionContrast::Ignore).should eq '╰'
+      Junctions.angle_at(grid([" │", "─╯"]), 1, 1, JunctionContrast::Ignore).should eq '╯'
     end
 
     it "merges an arc corner gaining an arm into the square junction" do
       # A border line continuing up through ╭: U|R|D — Unicode has no rounded
       # tees, so the merge resolves to the square ├.
-      Docking.angle_at(grid(["│ ", "╭─", "│ "]), 0, 1, DockContrast::Ignore).should eq '├'
+      Junctions.angle_at(grid(["│ ", "╭─", "│ "]), 0, 1, JunctionContrast::Ignore).should eq '├'
       # Two rounded boxes side by side: the shared top corner cell (a ╮ with a
       # rule continuing right) becomes ┬.
-      Docking.angle_at(grid(["─╮─", " │ "]), 1, 0, DockContrast::Ignore).should eq '┬'
+      Junctions.angle_at(grid(["─╮─", " │ "]), 1, 0, JunctionContrast::Ignore).should eq '┬'
     end
 
     it "counts an arc as a reciprocating neighbor" do
       # ┬'s down arm is provided by ╰'s up arm. Before arcs had stroke
       # patterns, ╰ contributed nothing and the ┬ was reduced to ─.
-      Docking.angle_at(grid(["─┬─", " ╰─"]), 1, 0, DockContrast::Ignore).should eq '┬'
+      Junctions.angle_at(grid(["─┬─", " ╰─"]), 1, 0, JunctionContrast::Ignore).should eq '┬'
     end
 
     it "re-evaluates arc cells in a full dock pass" do
@@ -133,7 +133,7 @@ describe "Docking.angle_at" do
         "╭──",
         "│  ",
       ]
-      Docking.dock(g, {1 => true}, 3, DockContrast::Ignore)
+      Junctions.merge(g, {1 => true}, 3, JunctionContrast::Ignore)
       g[1][0].char.should eq '├'
       g[1][1].char.should eq '─' # the run is untouched
     end

@@ -49,8 +49,11 @@ module Crysterm
     # Unique suffix for rendezvous paths, collision-free within a process.
     @@counter = 0
 
-    # How long to wait for the spawned window's helper to phone home.
-    HANDSHAKE_TIMEOUT = 15.seconds
+    # How long to wait for the spawned window's helper to phone home. Tunable
+    # via `terminal.handshake_timeout` (`CRYSTERM_TERMINAL_HANDSHAKE_TIMEOUT`).
+    def self.handshake_timeout : Time::Span
+      Config.terminal_handshake_timeout
+    end
 
     # Best-effort terminate *process*, then reap it so it doesn't linger as a
     # zombie. Non-blocking: the wait happens on its own fiber.
@@ -104,7 +107,7 @@ module Crysterm
 
         # Bound the wait for the TTY report too, so a helper that connects but
         # never reports can't hang us forever. Cleared once the report arrives.
-        socket.read_timeout = HANDSHAKE_TIMEOUT
+        socket.read_timeout = handshake_timeout
         line = begin
           socket.gets
         rescue IO::TimeoutError
@@ -154,7 +157,7 @@ module Crysterm
     end
 
     # Accepts a single connection on *server*, returning `nil` if none arrives
-    # within `HANDSHAKE_TIMEOUT`. Runs the blocking `accept` on its own fiber so
+    # within `handshake_timeout`. Runs the blocking `accept` on its own fiber so
     # the wait can time out.
     private def self.accept_with_timeout(server : UNIXServer) : UNIXSocket?
       ch = Channel(UNIXSocket?).new(1)
@@ -167,7 +170,7 @@ module Crysterm
       select
       when sock = ch.receive
         sock
-      when timeout(HANDSHAKE_TIMEOUT)
+      when timeout(handshake_timeout)
         # The accept fiber may still be blocked in `accept?`; if it later
         # completes (or is unblocked by `spawn_window`'s `server.close`), drain
         # whatever it sends into this capacity-1 channel and close any late

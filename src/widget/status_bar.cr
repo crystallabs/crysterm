@@ -110,8 +110,7 @@ module Crysterm
       # pos.text = "Ln 4, Col 12"
       # ```
       #
-      # Replaces the old index-plus-`#set_permanent(index, text)` pair. A handle
-      # is a *view*: it holds a position, not a copy, so it goes stale if
+      # A handle is a *view*: it holds a position, not a copy, so it goes stale if
       # sections are removed around it — take a fresh one from
       # `#permanent_sections`.
       struct Section

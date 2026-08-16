@@ -5,7 +5,7 @@ require "../../src/crysterm"
 
 include Crysterm
 
-s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: false
+s = Window.new optimization: OptimizationFlag::SmartCSR, border_junctions: false
 
 l = layout = Widget::Box.new(
   top: "center",

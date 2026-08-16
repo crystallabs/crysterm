@@ -167,7 +167,7 @@ require "./spec_helper"
     it "frames a floating DockWidget and borders a docked one on the content-facing edge" do
       s = floor_screen
       floating = Crysterm::Widget::DockWidget.new parent: s, title: "F",
-        area: Crysterm::Widget::DockWidget::Area::Floating, top: 0, left: 0, width: 14, height: 5
+        floating: true, top: 0, left: 0, width: 14, height: 5
       left_docked = Crysterm::Widget::DockWidget.new parent: s, title: "D",
         area: Crysterm::Widget::DockWidget::Area::Left, top: 0, left: 0, width: 14, height: 5
       s.apply_stylesheet

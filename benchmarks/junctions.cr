@@ -1,8 +1,8 @@
 require "benchmark"
 require "../src/crysterm"
 
-# Per-frame cost of the border-docking pass (`Crysterm::Docking.dock`), invoked
-# every frame from `Window#apply_docking` when `dock_borders` is on. It scans the full
+# Per-frame cost of the border-docking pass (`Crysterm::Junctions.merge`), invoked
+# every frame from `Window#apply_junctions` when `border_junctions` is on. It scans the full
 # screen width of every "stop" row (rows that emitted a horizontal border
 # segment), testing each cell against the box-drawing `ANGLES` set and
 # rejoining junctions. On a wide screen most cells on a stop row are
@@ -10,7 +10,7 @@ require "../src/crysterm"
 #
 # Method: build a headless screen with several adjacent bordered boxes (real
 # border rows and crossing junctions), render once to populate `@lines` and
-# `@dock_stops`, then drive `Docking.dock` directly in a loop. Docking is
+# `@junction_stops`, then drive `Junctions.merge` directly in a loop. Docking is
 # idempotent on an already-docked grid, so repeated calls measure the scan
 # itself.
 #
@@ -24,7 +24,7 @@ HEIGHT =  50
 def build : {Crysterm::Window, Hash(Int32, Bool)}
   s = Window.new input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: WIDTH, height: HEIGHT
-  s.dock_borders = true
+  s.border_junctions = true
 
   # Adjacent bordered boxes whose borders overlap/touch, producing many
   # docking junctions and stop rows.
@@ -42,11 +42,11 @@ def build : {Crysterm::Window, Hash(Int32, Bool)}
   end
 
   s.repaint
-  {s, s.dock_stops.dup}
+  {s, s.junction_stops.dup}
 end
 
 s, stops = build
-contrast = s.dock_contrast
+contrast = s.junction_contrast
 lines = s.cell_rows
 width = s.awidth
 
@@ -55,9 +55,9 @@ puts "stop rows: #{stops.size}, width: #{width}"
 GC.collect
 before = GC.stats.total_bytes
 ROUNDS = 20_000
-ROUNDS.times { Docking.dock lines, stops, width, contrast }
+ROUNDS.times { Junctions.merge lines, stops, width, contrast }
 puts "B/frame: #{((GC.stats.total_bytes - before).to_f / ROUNDS).round(1)}"
 
 Benchmark.ips do |x|
-  x.report("dock") { Docking.dock lines, stops, width, contrast }
+  x.report("dock") { Junctions.merge lines, stops, width, contrast }
 end

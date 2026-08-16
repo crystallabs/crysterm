@@ -445,22 +445,31 @@ module Crysterm
     # Assigns `left`/`top` in one shot — the move-only counterpart to
     # `#set_geometry`: a single `#update` and only a `Move` emit, and a full
     # no-op when the position doesn't change ↔ Qt's `QWidget::move()`.
+    # Takes the full position-spec union, so `w.move(:center, 0)` and
+    # `w.move("50%", 2)` work like the property setters.
     #
     # Delegates to `#set_geometry` with the size pair unchanged: `Dim.from` is
     # the identity on an already-normalized ivar, so `resized` computes false
     # and no `Resize` is emitted.
-    def move(left : Int32, top : Int32) : Nil
+    def move(left : Dim | Int32 | String | Symbol, top : Dim | Int32 | String | Symbol) : Nil
       set_geometry left, top, @width, @height
     end
 
     # Assigns `width`/`height` in one shot — the resize-only counterpart to
     # `#set_geometry`: a single `#update` and only a `Resize` emit, and a full
-    # no-op when the size doesn't change ↔ Qt's `QWidget::resize()`.
+    # no-op when the size doesn't change ↔ Qt's `QWidget::resize()`. Takes
+    # the full size-spec union, so `w.resize("100%", 3)` works like the
+    # property setters.
     #
     # Delegates to `#set_geometry` with the position pair unchanged (see
     # `#move` for why that never emits a spurious `Move`).
-    def resize(width : Int32, height : Int32) : Nil
+    def resize(width : Dim | Int32 | String | Symbol, height : Dim | Int32 | String | Symbol) : Nil
       set_geometry @left, @top, width, height
+    end
+
+    # `Size` overload of `#resize` — Qt's `QWidget::resize(QSize)`.
+    def resize(size : Size) : Nil
+      resize size.width, size.height
     end
 
     # This widget's live rectangle in parent-relative *spec space* ↔ Qt's
@@ -655,7 +664,7 @@ module Crysterm
       @fixed = @fixed,
       align : Tput::AlignFlag | Shorthands = @align,
       overflow : Overflow | Shorthands? = @overflow,
-      @layout = @layout,
+      layout : Crysterm::Layout | Symbol? = @layout,
       layout_hint : Crysterm::Layout::Hint | Shorthands? = @layout_hint,
 
       scrollbar_policy : ScrollBarPolicy | Shorthands = @scrollbar_policy,
@@ -722,8 +731,11 @@ module Crysterm
       # Through the setter, so a bare `Border::Region` (`layout_hint: :top`) is
       # wrapped into a `Border::Hint`.
       self.layout_hint = layout_hint
-      # The `@layout = @layout` splat above bypasses `#layout=`, so wire the
-      # engine's back-pointer here (all other install paths go through the setter).
+      # Direct ivar write (the `#layout=` setter would schedule an update);
+      # the `Symbol` shorthand converts first, like the setter does.
+      @layout = layout.is_a?(Symbol) ? Crysterm::Layout.from(layout) : layout
+      # The direct write above bypasses `#layout=`, so wire the engine's
+      # back-pointer here (all other install paths go through the setter).
       @layout.try(&.container=(self))
       style.try { |v| @style = v }
       scrollable.try { |v| @scrollable = v }
@@ -786,6 +798,19 @@ module Crysterm
       focus if focused
     end
 
+    # Tears this widget down: stops its animations, destroys its children,
+    # unlinks it from the tree and emits `Event::Destroy`.
+    #
+    # **Handler ownership.** A destroyed widget drops every handler registered
+    # *on it* — `remove_all_handlers` runs after the final `Event::Destroy`, so
+    # `Destroy` listeners (auto-dispose hooks for bindings, effects and
+    # `Subscriptions` bags) still fire, and nothing subscribed to the widget
+    # keeps it, or what its handlers captured, alive afterwards.
+    #
+    # Handlers this widget registered on *other* emitters are **not** swept:
+    # nothing links them back here. Register those through a `Subscription` /
+    # `Subscriptions` bag and cancel it from an `Event::Destroy` handler — which
+    # is exactly what `Subscriptions#auto_dispose` does.
     def destroy
       # Stop any animation first: a `#pulse` (or infinite CSS `@keyframes`) never
       # ends on its own and would spin forever on the detached widget. Each
@@ -807,6 +832,9 @@ module Crysterm
       # possibly holding focus/hover/grab.
       detach_from_tree
       emit Crysterm::Event::Destroy
+      # After the last emit: `Destroy` listeners are the auto-dispose hooks, so
+      # they must run before their own subscriptions are dropped.
+      remove_all_handlers
     end
 
     # Returns the `Window` a stand-alone (parent-less) widget should attach to:

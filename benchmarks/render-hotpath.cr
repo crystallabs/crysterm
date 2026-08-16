@@ -213,8 +213,8 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { exprs.each { |e| p = e.split(/(?=\+|-)/)
      "  vs  NEW #{alloc_mb(ROUNDS) { exprs.each { |e| Dim.parse(e).resolve(80) } }.round(2)} MB  (#{ROUNDS} x #{exprs.size} exprs)"
 
 # ---------------------------------------------------------------------------
-# #docking  per-frame dock-stop iteration (only when dock_borders is on).
-section "#docking  stop-row iteration  (per frame with dock_borders)"
+# #docking  per-frame dock-stop iteration (only when border_junctions is on).
+section "#docking  stop-row iteration  (per frame with border_junctions)"
 stops = {} of Int32 => Bool
 (0...30).each { |i| stops[i * 2] = true }
 Benchmark.ips do |x|

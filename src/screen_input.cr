@@ -74,6 +74,13 @@ module Crysterm
       !@_keys_fiber.nil?
     end
 
+    # The device's input read fiber, or `nil` while not listening. Exposed so a
+    # fiber-blocking call can refuse to run on it — key delivery stops for as
+    # long as that fiber is parked.
+    def input_fiber? : Fiber?
+      @_keys_fiber
+    end
+
     # Drops the input-fiber handle so a later `#start_input` can start fresh,
     # and bumps the cancel generation so a loop not already ended by a closed fd
     # (i.e. on unowned STDIN) stops dispatching to this now-detached screen and

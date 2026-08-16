@@ -86,10 +86,10 @@ describe "Widget::LogFd :ansi mode" do
 
     r = fd.contents_rect.not_nil!
     cell_char(win, r.left - 1, r.top).should eq ' '
-    cell_char(win, r.right, r.top).should eq ' '
+    cell_char(win, r.x_end, r.top).should eq ' '
     cell_char(win, r.left, r.top - 1).should eq ' '
-    cell_char(win, r.left, r.bottom).should eq ' '
-    cell_char(win, r.right - 1, r.bottom - 1).should eq 'X'
+    cell_char(win, r.left, r.y_end).should eq ' '
+    cell_char(win, r.x_end - 1, r.y_end - 1).should eq 'X'
   ensure
     fd.try &.close
     win.try &.destroy

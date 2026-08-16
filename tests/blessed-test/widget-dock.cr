@@ -2,14 +2,14 @@ require "../../src/crysterm"
 
 # Port of Blessed's test/widget-dock.js
 #
-# Demonstrates `dock_borders`: four quadrant widgets whose adjacent borders
+# Demonstrates `border_junctions`: four quadrant widgets whose adjacent borders
 # dock together. Each quadrant uses per-side border widths (1 = draw, 0 =
 # hide) so only inner edges are drawn. Bottom-right is a `Widget::ListTable`;
 # a centered, draggable "Drag Me" box floats on top.
 include Crysterm
 include Crysterm::Widgets
 
-s = Window.new optimization: OptimizationFlag::SmartCSR, dock_borders: true, always_propagated_keys: [::Tput::Key::CtrlQ]
+s = Window.new optimization: OptimizationFlag::SmartCSR, border_junctions: true, always_propagated_keys: [::Tput::Key::CtrlQ]
 
 topleft = Widget::Box.new(
   parent: s,

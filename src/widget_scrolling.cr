@@ -82,8 +82,7 @@ module Crysterm
     # When this widget's scroll bar chrome is shown (vertical only for now). Base
     # widgets default to `AlwaysOff`; scrollable widgets override to `AsNeeded`.
     #
-    # This is the *only* knob for scroll-bar visibility: the legacy boolean
-    # `scrollbar:` constructor argument (and its `#scrollbar=` setter) are gone.
+    # The *only* knob for scroll-bar visibility.
     property scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
 
     # :ditto: — `Symbol` shorthand form (`w.scrollbar_policy = :always_off`),

@@ -101,6 +101,16 @@ module Crysterm
       # `"End"`, `"Del"`, `"F1"`…`"F12"`. Returns `nil` for anything it does
       # not recognize. Lets a clickable key hint (e.g. `Pine::KeyMenu`) replay
       # itself through the same handlers as the physical key.
+      #
+      # This is the **display-label** vocabulary — the terse spellings a
+      # terminal UI prints in a key bar (`"^X"`, `"PgDn"`, `"Spc"`) — and it is
+      # lenient: unrecognized input yields `nil`. The *shortcut* vocabulary is
+      # Qt's `QKeySequence` syntax (`"Ctrl+X"`, `"Ctrl+K, Ctrl+B"`), parsed by
+      # `Action.parse_key_sequence`, which raises on an unknown stroke. The two
+      # are deliberately separate: one describes what is printed on screen, the
+      # other declares what a command is bound to. The overlapping spellings —
+      # caret chords and the short key names (`"^X"`, `"PgDn"`, `"Dn"`,
+      # `"Ret"`) — parse the same in both.
       def self.parse(label : String) : self?
         case label
         when "Spc", "Space" then new ' ', nil

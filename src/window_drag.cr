@@ -344,7 +344,7 @@ module Crysterm
     #     **arrow keys** nudge a reposition, **Space/Enter** drop, **Escape**
     #     cancels.
     #
-    # :nodoc: the keyboard drag sensor (ex-`_drag_key_handled`), driven by
+    # :nodoc: the keyboard drag sensor, driven by
     # `#route_input`; public only because the drag specs feed it directly.
     def drag_key_handled?(e : ::Crysterm::Event::KeyPress) : Bool
       if sess = @_drag

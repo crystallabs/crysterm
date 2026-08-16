@@ -24,9 +24,9 @@ module Crysterm
       Point.new @x - other.x, @y - other.y
     end
 
-    # Both components scaled by *factor* — Qt's `QPoint::operator*`.
-    def *(factor : Int32) : Point
-      Point.new @x * factor, @y * factor
+    # Both components scaled by *other* — Qt's `QPoint::operator*`.
+    def *(other : Int32) : Point
+      Point.new @x * other, @y * other
     end
   end
 
@@ -64,9 +64,9 @@ module Crysterm
       Size.new @width - other.width, @height - other.height
     end
 
-    # Both dimensions scaled by *factor* — Qt's `QSize::operator*`.
-    def *(factor : Int32) : Size
-      Size.new @width * factor, @height * factor
+    # Both dimensions scaled by *other* — Qt's `QSize::operator*`.
+    def *(other : Int32) : Size
+      Size.new @width * other, @height * other
     end
 
     # Width and height swapped — Qt's `QSize::transposed`.
@@ -209,17 +209,17 @@ module Crysterm
       top_left
     end
 
-    # Top-right corner. Exclusive on the x axis, like `#right`.
+    # Top-right corner. Exclusive on the x axis, like `#x_end`.
     def top_right : Point
       Point.new @xl, @yi
     end
 
-    # Bottom-left corner. Exclusive on the y axis, like `#bottom`.
+    # Bottom-left corner. Exclusive on the y axis, like `#y_end`.
     def bottom_left : Point
       Point.new @xi, @yl
     end
 
-    # Bottom-right corner. Exclusive on both axes, like `#right`/`#bottom`.
+    # Bottom-right corner. Exclusive on both axes, like `#x_end`/`#y_end`.
     def bottom_right : Point
       Point.new @xl, @yl
     end
@@ -335,7 +335,7 @@ module Crysterm
   # never retain the object past the current frame.
   class RenderedGeometry
     # The half-open box's derived readers (`#width`/`#height`/`#x`/`#y`/`#left`/
-    # `#top`/`#right`/`#bottom`/`#empty?`/`#contains?`) come from the shared
+    # `#top`/`#x_end`/`#y_end`/`#empty?`/`#contains?`) come from the shared
     # module rather than being restated here — the edge semantics are `Rectangle`'s.
     include RectEdges
 
@@ -397,7 +397,7 @@ module Crysterm
     property ihorizontal : Int32 = 0
     property ivertical : Int32 = 0
 
-    # :nodoc: memoized scroll extent for the frame (ex-`_scroll_bottom`).
+    # :nodoc: memoized scroll extent for the frame.
     property scroll_bottom : Int32 = 0
     property _clean_sides : Bool? = nil
 

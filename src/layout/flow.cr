@@ -39,12 +39,19 @@ module Crysterm
       # rect instead of the row's left edge is exactly the bug this excludes.
       @last_rendered : Widget? = nil
 
+      # `#spacing`, clamped per arrange: the horizontal inter-child gap within
+      # a row and the vertical gap between rows.
+      @sp_h = 0
+      @sp_v = 0
+
       def arrange(container : Widget, interior : RenderedGeometry) : Nil
         @row_offset = 0
         @row_index = 0
         @last_row_index = 0
         @prev_el = nil
         @last_rendered = nil
+        @sp_h = clamped_spacing @spacing, interior.width
+        @sp_v = clamped_spacing @spacing, interior.height
         before_flow container
 
         children = container.children
@@ -201,7 +208,7 @@ module Crysterm
         # axes; sizes stay unmanaged/`nil`, flow children keep their own).
         if (last = @last_rendered) && !deferred_this_frame?(last) &&
            (llp = rendered_geometry(last))
-          left = (llp.xl + last.mright) - xi
+          left = (llp.xl + last.mright) - xi + @sp_h
           last_drawn = llp.width
         elsif (last = @prev_el)
           last_drawn = occupied_width last
@@ -211,7 +218,7 @@ module Crysterm
           # `eff_left`: the predecessor was layout-placed this frame, so its
           # effective left is the layout assignment (an `Int` by
           # construction), not its untouched spec.
-          left = (last.eff_left.as(Int).to_i64 + last.mleft + last_drawn + last.mright).clamp(0_i64, width.to_i64).to_i32
+          left = (last.eff_left.as(Int).to_i64 + last.mleft + last_drawn + last.mright + @sp_h).clamp(0_i64, width.to_i64).to_i32
         else
           # No predecessor at all: start the row at the origin. `top` is
           # `@row_offset` (the current row), not a hardcoded 0, so a mid-flow
@@ -249,7 +256,7 @@ module Crysterm
           # above can't feed back into the row height it measures.
           # Clamp the row height to the interior so a pathological child
           # can't overflow the checked Int32 `@row_offset` accumulation.
-          @row_offset += clamped_size(row_tallest(container, @row_index, i), interior.height)
+          @row_offset += clamped_size(row_tallest(container, @row_index, i) + @sp_v, interior.height)
           @last_row_index = @row_index
           @row_index = i
           place_child el, 0, @row_offset, nil, nil

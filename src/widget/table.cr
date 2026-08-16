@@ -140,7 +140,7 @@ module Crysterm
 
       # Replaces a single cell and repaints. Only the cell is written — the row
       # arrays are mutated in place and the content/column widths recomputed
-      # from them, so updating one cell no longer means copying the whole table
+      # from them, so one cell costs one cell rather than a whole-table copy
       # through `#rows=`. Out-of-range indices are a no-op, as is writing the
       # value already there.
       def []=(row : Int, col : Int, value : String) : String

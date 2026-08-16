@@ -59,7 +59,7 @@ describe "BUGS6 DockWidget drag/float coordinate frame (bug 1)" do
     s = headless_screen(80, 24)
     parent = bordered_parent s
     dock = Crysterm::Widget::DockWidget.new parent: parent, title: "D",
-      area: Crysterm::Widget::DockWidget::Area::Floating,
+      floating: true,
       left: 4, top: 3, width: 12, height: 6
     s.repaint
 
@@ -88,7 +88,7 @@ describe "BUGS6 DockWidget drag clamp bounds (bug 2)" do
     s = headless_screen(80, 24)
     parent = bordered_parent s
     dock = Crysterm::Widget::DockWidget.new parent: parent, title: "D",
-      area: Crysterm::Widget::DockWidget::Area::Floating,
+      floating: true,
       left: 4, top: 3, width: 12, height: 6
     s.repaint
 

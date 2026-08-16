@@ -97,7 +97,7 @@ module Crysterm
     end
 
     # Lexes tag markup into tokens — the ONE tokenizer both tag consumers
-    # ride (`TextTags::Parser` and `Widget#_parse_tags`), so the two grammars
+    # ride (`TextTags::Parser` and `Widget#expand_tags`), so the two grammars
     # cannot drift. Yields `{kind, value, closer?}` triples in input order;
     # see `TokenKind` for the vocabulary. A lone `{`/`}` that opens no
     # recognized token is dropped (the shared drop-malformed policy). Returns

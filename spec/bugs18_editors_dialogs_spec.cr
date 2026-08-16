@@ -15,7 +15,7 @@ include Crysterm
 # B18-43: ComboBox accepted Escape/Backspace/Enter/Up even when the key did
 #         nothing (popup closed, empty buffer/options), starving an enclosing
 #         Dialog's Enter/Escape accelerator.
-# B18-44: `ColorDialog#get_color` (and `MessageBox#open`'s question forms,
+# B18-44: `ColorDialog#open` (and `MessageBox#open`'s question forms,
 #         `InputDialog#open`) showed the "modal" dialog without taking the
 #         modal input grab `Dialog#open` takes — widgets beneath stayed
 #         clickable.

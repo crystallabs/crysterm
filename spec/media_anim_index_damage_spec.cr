@@ -18,7 +18,7 @@ include Crysterm
 private def headless_screen(width : Int32? = nil, height : Int32? = nil,
                             optimization : Crysterm::OptimizationFlag = Crysterm::OptimizationFlag::None)
   Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
-    width: width, height: height, optimization: optimization, dock_borders: false)
+    width: width, height: height, optimization: optimization, border_junctions: false)
 end
 
 # A cell-region signature (attr + char per cell) over a widget's painted

@@ -103,9 +103,11 @@ module Crysterm
     end
 
     # Spacing between adjacent children, in cells — Qt's layout `spacing` under
-    # its CSS name. Honored by the box/grid engines; the flow engines ignore it,
-    # and `Form` uses its own `#horizontal_spacing`/`#vertical_spacing` instead.
-    # Change-guarded; a real change repaints the container.
+    # its CSS name (`gap:`). Honored by the box, grid, dock and flow engines
+    # (`Box`/`HBox`/`VBox`, `Grid`, `Dock`, `Wrap`/`Masonry`/`UniformGrid`);
+    # `Form` fans it out to its `#horizontal_spacing`/`#vertical_spacing` pair.
+    # `Stack`, `Manual` and `Radial` have no adjacent-children bands, so they
+    # ignore it. Change-guarded; a real change repaints the container.
     layout_property spacing, Int32, 0
 
     # Override of the generated setter: `spacing` is CSS-addressable (`gap:`),
@@ -317,6 +319,89 @@ module Crysterm
     def self.fence(total : Int32, n : Int32, i : Int32) : Int32
       i = i.clamp(0, n)
       (i.to_i64 * total // n).to_i32
+    end
+
+    # Weighted counterpart of `.fence`: the cumulative offset once
+    # *cum_weight* of *weights_total* has been consumed —
+    # `floor(total * cum_weight / weights_total)`. Successive calls carve
+    # *total* into shares proportional to each step's weight, summing to
+    # exactly *total* (cumulative rounding strands no remainder). `Box` grows
+    # its flex children through it and `Grid` carves stretch-weighted tracks;
+    # the `Int64` weight accumulators keep many-children sums overflow-safe.
+    # Returns 0 when *weights_total* is 0.
+    def self.weighted_fence(total : Int32, weights_total : Int64, cum_weight : Int64) : Int32
+      return 0 if weights_total <= 0
+      (total.to_i64 * cum_weight // weights_total).to_i32
+    end
+
+    # Number of arrangeable children — the widgets this engine actually
+    # positions (chrome excluded) — Qt's `QLayout::count`. Zero when the
+    # layout isn't installed on a container.
+    def count : Int32
+      c = container
+      c ? arrangeable_count(c) : 0
+    end
+
+    # The arrangeable child at *index* (in child order), or nil when out of
+    # range / not installed — Qt's `QLayout::itemAt`.
+    def item_at(index : Int32) : Widget?
+      c = container
+      return if c.nil? || index < 0
+      i = 0
+      each_arrangeable(c) do |el|
+        return el if i == index
+        i += 1
+      end
+      nil
+    end
+
+    # The index of *w* among the arrangeable children, or -1 when *w* isn't
+    # one of them — Qt's `QLayout::indexOf`.
+    def index_of(w : Widget) : Int32
+      c = container
+      return -1 unless c
+      i = 0
+      each_arrangeable(c) do |el|
+        return i if el.same? w
+        i += 1
+      end
+      -1
+    end
+
+    # Detaches *w* from the container (not destroying it) — Qt's
+    # `QLayout::removeWidget`. Returns *w*, or nil when it isn't one of the
+    # container's children (or the layout isn't installed).
+    def remove_widget(w : Widget) : Widget?
+      c = container
+      return unless c
+      return unless c.children.includes? w
+      c.remove w
+      w
+    end
+
+    # Builds an engine from its symbol shorthand — the `layout: :vbox`
+    # spelling of `layout: Layout::VBox.new`. Accepted: `:manual`, `:box`,
+    # `:hbox`/`:vbox`, `:grid`, `:uniform_grid`, `:masonry`, `:wrap` (alias
+    # `:flow`), `:dock`, `:stack`, `:form`, `:radial`. Raises `ArgumentError`
+    # on anything else. Engine knobs (spacing, columns, ...) need the explicit
+    # constructor.
+    def self.from(name : Symbol) : Layout
+      case name
+      when :manual       then Manual.new
+      when :box          then Box.new
+      when :hbox         then HBox.new
+      when :vbox         then VBox.new
+      when :grid         then Grid.new
+      when :uniform_grid then UniformGrid.new
+      when :masonry      then Masonry.new
+      when :wrap, :flow  then Wrap.new
+      when :dock         then Dock.new
+      when :stack        then Stack.new
+      when :form         then Form.new
+      when :radial       then Radial.new
+      else
+        raise ArgumentError.new "Unknown layout symbol: #{name.inspect} (expected :manual, :box, :hbox, :vbox, :grid, :uniform_grid, :masonry, :wrap/:flow, :dock, :stack, :form or :radial)"
+      end
     end
 
     # Yields each of the container's *arrangeable* children — the ones an engine

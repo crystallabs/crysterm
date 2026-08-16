@@ -19,13 +19,23 @@ module Crysterm
       layout_property label_width, Int32?
 
       # Horizontal gap between a row's label and its field, in cells. Named for
-      # symmetry with `#vertical_spacing`; the inherited `Layout#spacing` is
-      # unused here. Change-guarded so a real change repaints.
+      # symmetry with `#vertical_spacing`; assigning the inherited
+      # `Layout#spacing` sets both. Change-guarded so a real change repaints.
       layout_property horizontal_spacing, Int32
 
       # Vertical gap between rows, in cells. Change-guarded so a real change
       # repaints.
       layout_property vertical_spacing, Int32
+
+      # The one-value `Layout#spacing` fans out to the form's pair: assigning
+      # it sets both `#horizontal_spacing` and `#vertical_spacing` (this is
+      # where CSS `gap:` lands). Reading `#spacing` still reports the last
+      # assigned one-value, not the pair.
+      def spacing=(value : Int32) : Int32
+        self.horizontal_spacing = value
+        self.vertical_spacing = value
+        super
+      end
 
       # Reused list of arranged children, refilled each frame instead of
       # allocating a `reject` array per render.
@@ -168,6 +178,59 @@ module Crysterm
           widgets.each { |w| c.insert_before w, t }
         else
           widgets.each { |w| c.append w }
+        end
+      end
+
+      # Number of form rows: the label/field pairs plus a trailing unpaired
+      # full-span row — Qt's `QFormLayout::rowCount`.
+      def row_count : Int32
+        (count + 1) // 2
+      end
+
+      # Inserts a labeled field row at row *index* (0-based; clamped to the
+      # end) — Qt's `QFormLayout::insertRow`. Takes the same label forms as
+      # `#add_row`; returns *field*.
+      def insert_row(index : Int32, label : String, field : Widget) : Widget
+        insert_row index, Widget::Box.new(height: 1, content: label), field
+      end
+
+      # :ditto:
+      def insert_row(index : Int32, label : Widget, field : Widget) : Widget
+        c = require_container "Layout::Form#insert_row"
+        insert_pair_at c, index, label, field
+        field
+      end
+
+      # Removes (detaches, not destroys) the row at *index* — the label/field
+      # pair, or the trailing full-span child — and returns the removed
+      # widgets; an empty array when *index* is out of range. Qt's
+      # `QFormLayout::removeRow` (which deletes; here the caller owns them).
+      def remove_row(index : Int32) : Array(Widget)
+        c = require_container "Layout::Form#remove_row"
+        removed = [] of Widget
+        return removed if index < 0
+        first = item_at index * 2
+        return removed unless first
+        second = item_at index * 2 + 1
+        c.remove first
+        removed << first
+        if second
+          c.remove second
+          removed << second
+        end
+        removed
+      end
+
+      # Inserts *label* and *field* as a pair before the arrangeable child at
+      # slot `index * 2` (appending when the index is at/past the end).
+      private def insert_pair_at(c : Widget, index : Int32, label : Widget, field : Widget) : Nil
+        anchor = index < 0 ? item_at(0) : item_at(index * 2)
+        if anchor
+          c.insert_before label, anchor
+          c.insert_before field, anchor
+        else
+          c.append label
+          c.append field
         end
       end
 

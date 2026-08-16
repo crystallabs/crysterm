@@ -237,13 +237,13 @@ describe "API4 value-type / layout additions" do
   end
 
   describe "RenderedGeometry accessor parity with Rectangle (A4-27)" do
-    it "right/bottom/size/top_left/center/contains? share Rectangle's exclusive-edge semantics" do
+    it "x_end/y_end/size/top_left/center/contains? share Rectangle's exclusive-edge semantics" do
       s = headless_screen(40, 20)
       w = Widget::Box.new parent: s, left: 2, top: 3, width: 5, height: 4
       s.repaint
       lp = w.lpos.not_nil!
-      lp.right.should eq lp.xl
-      lp.bottom.should eq lp.yl
+      lp.x_end.should eq lp.xl
+      lp.y_end.should eq lp.yl
       lp.size.should eq Size.new(lp.width, lp.height)
       lp.top_left.should eq Point.new(lp.xi, lp.yi)
       lp.center.should eq Point.new(lp.xi + lp.width // 2, lp.yi + lp.height // 2)

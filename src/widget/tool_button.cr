@@ -162,7 +162,7 @@ module Crysterm
 
         # Fire the bound action too (Qt's default-action behaviour).
         @default_action.try do |a|
-          a.activate if a.enabled?
+          a.trigger if a.enabled?
         end
       end
 
@@ -204,7 +204,7 @@ module Crysterm
         # Crystal's `%` with a positive divisor is always non-negative, so a
         # negative delta wraps correctly with no extra guard.
         @menu_index = (@menu_index + delta) % acts.size
-        acts[@menu_index].activate
+        acts[@menu_index].trigger
       end
 
       # Appends the popup indicator (` ▾`, the shared `#dropdown_indicator_suffix`)

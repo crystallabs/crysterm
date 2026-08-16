@@ -11,8 +11,11 @@ This is a more in-depth developer guide. It is organized as follows:
 7. [Text, attributes, and colors](#7-text-attributes-and-colors)
 8. [Rendering and drawing](#8-rendering-and-drawing)
 9. [The cursor](#9-the-cursor)
-10. [Performance and FPS](#10-performance-and-fps)
-11. [Differences from Blessed](#11-differences-from-blessed)
+10. [Widgets](#10-widgets)
+11. [Events, actions, and reactive state](#11-events-actions-and-reactive-state)
+12. [Performance and FPS](#12-performance-and-fps)
+13. [Configuration](#13-configuration)
+14. [Differences from Blessed](#14-differences-from-blessed)
 
 ---
 
@@ -151,15 +154,38 @@ You still call a render explicitly in two cases:
 This model is described in [§3.3](#33-the-single-threaded-render-model) and
 [§8](#8-rendering-and-drawing).
 
-To tear a window down, call `Window#destroy`.
+To tear a window down, call `Window#destroy`. It emits `Event::Destroy` and then
+drops every handler registered *on* the widget; handlers the widget registered
+on *other* objects stay yours to release, through the `Subscription` returned by
+`on` or a `Subscriptions#auto_dispose` bag ([§3.2](#32-the-event-model)).
 
-One process can also drive several windows: `Application.open` spawns a real
+One process can also drive several windows: `Window.open` spawns a real
 terminal-emulator window and returns a `Window` for it,
-`Application.run(window_count: N) { |wins| ... }` opens N of them, yields
+`Window.run(window_count: N) { |windows| ... }` opens N of them, yields
 them all to the block for building (so cross-window wiring needs no
 forward-declared locals), and blocks until the last one closes;
-`Application.exec_all(windows)` runs any set of windows under one shared
-event loop with graceful quit. See `examples/screen/multiple/`.
+`Application#exec` runs every window registered on an `Application` (and
+`Application.exec_all(windows)` any set of them) under one shared event loop
+with graceful quit. See `examples/screen/multiple/`.
+
+### 2.4 Putting text on screen
+
+Eight widgets display text; they differ by what the text *is* and what the user
+may do with it. Pick the first row that fits:
+
+| Widget | Pick it when … |
+|---|---|
+| `Widget::Label` (alias `Widget::Text`) | a short read-only caption, sized to what you give it |
+| `Widget::Box` | text plus a frame, children, or anything you also want to draw into |
+| `Widget::ScrollableBox` | the content can outgrow the box and the user scrolls it (keys and wheel) |
+| `Widget::ScrollableText` | the same, but always scrollable and addressed by top row — the base of `Log` and the mail pagers |
+| `Widget::TextEdit` | rich text: a `TextDocument` with markup, undo, links, and a caret ([§7.7](#77-rich-text-textedit-and-documents)) |
+| `Widget::TextBrowser` | the same document model, read-only, with link navigation |
+| `Widget::BigText` | a few characters drawn large, through a bitmap font |
+| `Widget::Marquee` | one line that scrolls itself horizontally |
+
+`Widget::PlainTextEdit` is the plain-text editor beside `TextEdit`, and
+`Widget::LineEdit` the single-line field ([§10.2](#102-editing-widgets)).
 
 ---
 
@@ -179,12 +205,14 @@ event loop with graceful quit. See `examples/screen/multiple/`.
   the split is what lets one application drive several ttys, and what lets a
   surface survive its device being rebuilt (detach/reattach).
 - **`Application`** is optional: it groups the `Window`s one app drives. A
-  single-window program can just call `Window#exec` (see [§2.3](#23-what-exec-does)).
+  single-window program can just call `Window#exec` (see [§2.3](#23-what-exec-does));
+  `Application#exec` with no argument runs every window registered on it.
 - **`Widget`** is the base class for everything placed on a window.
   `Widget::Box` is the generic rectangular widget; most other widgets
-  (`List`, `Table`, `Form`, `TextArea`, `Log`, `ProgressBar`, `Image`, …)
+  (`List`, `Table`, `TextEdit`, `Log`, `ProgressBar`, `Media`, …)
   derive from it. Widgets can contain child widgets, forming a tree rooted at
-  the window.
+  the window. Every widget prints itself usefully:
+  `Widget::Box.new(name: "sidebar").to_s` reads `Box#7 "sidebar" 20x5@(0,0)`.
 - **Layout engines** (`Crysterm::Layout`) automatically arrange a container's
   children once installed via `widget.layout = ...` (see [§4.11](#411-layouts)).
 
@@ -193,7 +221,9 @@ event loop with graceful quit. See `examples/screen/multiple/`.
 `Window` and `Widget` both `include EventHandler`, so they can emit events and
 register listeners. Events are typed classes under `Crysterm::Event`, for
 example `Event::KeyPress`, `Event::Mouse`, `Event::Resize`, `Event::FocusIn`,
-`Event::FocusOut`, `Event::PreRender`, and `Event::Rendered`.
+`Event::FocusOut`, `Event::PreRender`, and `Event::Rendered`. The catalog
+itself, its selection rules and the actions built on it are
+[§11](#11-events-actions-and-reactive-state).
 
 Subscribe with `on`:
 
@@ -381,6 +411,20 @@ On top of the scalar accessors sit the Qt-named value-object forms:
 - `absolute_geometry : Rectangle?` — the **last-rendered** box in absolute
   window coordinates (nil before the first render), after clipping/scroll;
   the value-type view of `rendered_geometry` ([§4.10](#410-last-rendered-position-and-the-rendered-flag)).
+- `painted_rect : Rectangle` — the content rectangle a `paint` override draws
+  into, inside the widget's own decorations.
+
+`move` and `resize` take the same spec union as the individual setters, so
+`w.move(:center, 0)` and `w.resize("50%", 3)` work; each also has a value-object
+form, `move(Point)` and `resize(Size)`. `Size` and `Point` do arithmetic
+(`size + size`, `size * 2`, `size.transposed`, `point * 2`), and `Rect` is an
+alias of `Rectangle`.
+
+A `Rectangle`'s far edges are **exclusive** and named `x_end`/`y_end` — one past
+the last covered column/row, matching the `xl`/`yl` they alias. The window's
+region APIs all take a `Rectangle` beside their scalar forms — `capture`, `dump`,
+`clear_region`, `fill_region`, `blend_region`, `tint_region` — and
+`window.widget_at(point)` hit-tests a `Point`.
 
 ### 4.3 Specifying position and size
 
@@ -411,10 +455,17 @@ A position or size value can be:
   per widget and stay with it.
 - **A `Dim`** — the value type every string/symbol form parses into:
   `Dim.cells(10)`, `Dim.percent(50)`, `Dim.percent(50, -2)` (percent plus
-  offset), `Dim.center(offset = 0)`, `Dim.vw(50)`/`.vh`/`.vmin`/`.vmax`.
+  offset), `Dim.center(offset = 0)`, `Dim.vw(50)`/`.vh`/`.vmin`/`.vmax`, and
+  `Dim.auto` for the auto size that a bare spec spells `nil` (`"auto"` parses
+  to it, and `Dim.from` normalizes it back to `nil`).
   Strings and symbols are parsed to a `Dim` **once, at assignment** (by
   `Dim.from`/`Dim.parse`), so a malformed expression raises `ArgumentError`
   right at the setter instead of silently resolving to 0 every frame.
+
+  A `Dim` takes integer arithmetic on its offset — `Dim.parse("50vw") + 2`
+  round-trips to `"50vw+2"` — and `dim.matches?("50%")` tests a `Dim` against a
+  spelling without making `==` asymmetric (structural `==` and `hash` agree, so
+  `Dim`s behave in `Set`/`Hash`).
 
 What a percentage is measured against differs by kind, matching CSS:
 
@@ -604,23 +655,30 @@ The engines that ship today:
 - `Layout::HBox` / `Layout::VBox` — Qt-style single-axis boxes; children with no
   explicit main-axis size share the leftover space equally, and are stretched to
   fill the cross axis.
-- `Layout::Border` — the five-region dock (header/footer/sidebars/center) most
+- `Layout::Dock` — the five-region dock (header/footer/sidebars/center) most
   application chrome wants. See the hint below.
 - `Layout::Stack` — Qt's `QStackedLayout`: every child fills the container, only
   `#current` renders.
 - `Layout::Grid` / `Layout::UniformGrid` — table-like rows and columns.
 - `Layout::Form` — label/field pairs.
 - `Layout::Masonry` / `Layout::Wrap` — inline flow of variably-sized children.
+- `Layout::Radial` — children placed around a circle.
 - `Layout::Manual` — the default when no engine is installed: children keep
   their own coordinates. What you want for free-floating overlays and for
   sprites whose position *is* application state.
 
+`layout:` also takes the engine's name as a symbol — `layout: :vbox` builds a
+`Layout::VBox` — through `Layout.from`. The accepted symbols are `:manual`,
+`:box`, `:hbox`, `:vbox`, `:grid`, `:uniform_grid`, `:masonry`, `:wrap`
+(alias `:flow`), `:dock`, `:stack`, `:form` and `:radial`; anything else raises
+`ArgumentError` naming the set.
+
 Some engines take a **per-child hint**, read off `Widget#layout_hint`. The
-common one is a `Border` region, which you give as a plain symbol:
+common one is a `Dock` region, which you give as a plain symbol:
 
 ```crystal
 frame = Widget::Box.new parent: window, width: "100%", height: "100%",
-  layout: Layout::Border.new
+  layout: :dock
 Widget::MenuBar.new parent: frame, height: 1, layout_hint: :top
 Widget::StatusBar.new parent: frame, height: 1, layout_hint: :bottom
 Widget::Box.new parent: frame, width: 20, layout_hint: :left
@@ -630,9 +688,30 @@ body = Widget::Box.new parent: frame, layout_hint: :center   # takes what's left
 An edge child declares only the size it consumes (a `:top` child its `height`, a
 `:left` child its `width`); the engine spans the other axis and hands the
 remainder to `:center`. Nothing needs a hand-computed `"100%-1"` or a `top:`
-counted off the bar above it.
+counted off the bar above it. (A `Layout::Dock::Hint` can also carry the extent
+directly, as `#size`.)
 
-**Hiding a child releases its slot.** A packing engine (`HBox`/`VBox`/`Border`)
+**Spacing between children.** `Layout#spacing` (CSS `gap:`) inserts that many
+cells between adjacent children. It is honored by `Layout::Box` and its
+`HBox`/`VBox` pair, `Layout::Grid`, the flow family (`Wrap`, `Masonry`,
+`UniformGrid`) and `Layout::Dock`; `Form#spacing=` fans out to its
+`horizontal_spacing`/`vertical_spacing` pair. `Stack`, `Manual` and `Radial`
+have no gap to insert and ignore it.
+
+**Grid stretch and minimums.** `Layout::Grid` carves its tracks the way
+`Layout::Box` carves its flex children: `set_column_stretch(column, weight)` and
+`set_row_stretch(row, weight)` weight the leftover space,
+`set_column_minimum_width(column, cells)` and
+`set_row_minimum_height(row, cells)` set a floor (each with a matching reader).
+A "sidebar of 20 cells, rest flexible" is `set_column_minimum_width 0, 20` plus
+`set_column_stretch 1, 1`. Grid hints are `Grid::Hint.at(row, column, row_span,
+column_span)`, or the `row:`/`column:`/`row_span:`/`column_span:` properties.
+
+**The layout as a container.** Every engine answers `#count`, `#item_at(index)`,
+`#index_of(widget)` and `#remove_widget(widget)`; `Layout::Form` adds
+`#row_count`, `#insert_row(index, label, field)` and `#remove_row(index)`.
+
+**Hiding a child releases its slot.** A packing engine (`HBox`/`VBox`/`Dock`)
 arranges as though a hidden child weren't there, so `#hide` alone collapses a bar
 and gives its space back — Qt's `QLayout` behavior:
 
@@ -649,7 +728,10 @@ identified by position.
 **Filling a box the Qt way.** `Layout::Box` (HBox/VBox) carries Qt's
 `QBoxLayout` surface: `add_widget w, stretch: 2, align: :end`,
 `insert_widget`, `add_spacing(5)` (a fixed inert gap), `add_stretch(2)` (a
-growing one), `set_stretch w, n` and `set_alignment w, :center`. Leftover
+growing one), `set_stretch w, n` and `set_alignment w, :center`. A spacer pins
+only the **main** axis, so it never stops the cross axis from stretching;
+`Widget::Spacer.new(width: 5)` / `.new(height: 2)` build one directly and
+`Widget::Spacer.stretch(2)` a growing one. Leftover
 main-axis space goes to the flexing children in proportion to their `stretch`
 factor (default 1); when nothing flexes, `justify` (`Start`/`Center`/`End`/
 `SpaceBetween`/`SpaceAround`) distributes it; `align` (`Stretch`/`Start`/
@@ -764,13 +846,15 @@ A few behaviors to keep in mind:
   the rightmost content column. With a border present it moves one column
   inward. If the scrollbar's style has `ignore_border?` set, it instead renders
   *in* the border column, reusing that column.
-- **Docking.** When the screen has `dock_borders` enabled, adjacent line borders
+- **Junctions.** With `window.border_junctions = true`, adjacent line borders
   are joined at the points where they meet — straight runs and the appropriate
   junction glyphs (`┬ ┴ ├ ┤ ┼`) are chosen automatically for a more elegant look.
-  The screen's
-  `dock_contrast` setting (`Skip` / `Blend` / `Ignore`) governs what happens
+  The window's `junction_contrast` setting (a `JunctionContrast`:
+  `Skip` / `Blend` / `Ignore`) governs what happens
   when the borders being joined have different colors or attributes. Option `blend`
-  is particularly interesting as it smoothens the color difference.
+  is particularly interesting as it smoothens the color difference. Both have
+  config keys — `window.border_junctions` and `render.junction_contrast`
+  ([§13](#13-configuration)).
 
 ### 5.2 Padding
 
@@ -780,6 +864,10 @@ Padding is empty space reserved on the inside of a widget, configured via
 content. Whether a widget has any padding at all is checked with
 `style.padding.any?`, which gates the padding-aware code paths during
 rendering.
+
+`Widget#contents_margins` / `#contents_margins=` are the Qt-named spelling of
+the same thing (`QWidget::setContentsMargins()`), delegating to `style.padding`,
+so "layout margins" need not be looked up as a style slot.
 
 ### 5.3 Shadow
 
@@ -818,8 +906,8 @@ goal is that an entire application's look could be described by a small set of
 Saving/loading and a formal theme format are not implemented yet, but the data
 model is already organized around that idea.
 
-Work in progress is to make the complete styling CSS-driven, but this is not
-yet in the repository.
+Styles can also be written as CSS (or Qt's QSS dialect) and cascaded onto the
+tree — see [§6.6](#66-stylesheets-and-css).
 
 ### 6.1 Style and the active style
 
@@ -848,6 +936,10 @@ or `inline_style=`:
 w.restyle &.bg = "red"   # mutate the persistent state style + repaint
 ```
 
+`fg` and `bg` also answer to their CSS names: `color`/`color=` and
+`background_color`/`background_color=` read and write the very same slots, so a
+stylesheet's vocabulary and the Crystal one agree.
+
 ### 6.2 Widget states and `Styles`
 
 A widget can be in different **states**, tracked by its `state`
@@ -857,8 +949,12 @@ A widget can be in different **states**, tracked by its `state`
 - `focused`
 - `selected`
 - `hovered`
-- `blurred`
 - `disabled`
+
+There is also a `checked` slot, which is not a `WidgetState` but a parallel condition:
+`Widget#style_checked?` decides whether it applies (on buttons, `checkable? &&
+checked?`). There is no `pressed` slot — a terminal has no held-down state, and
+`Event::Clicked` reports the full activation.
 
 The per-state styles are held in a `Styles` container on the widget
 (`styles : Styles`). The active `style` is chosen from this container based on
@@ -866,6 +962,18 @@ the current state. `normal` is always present (`normal = Style.new`); the other
 states default to `normal` when not explicitly defined, so you only set the
 states you care about. (For example, if a widget is `focused` but no focused
 style was defined, it renders with `normal`.)
+
+The per-state getters are **copy-on-write**: `styles.focused` materializes a
+`dup` of `normal` on first read, so `styles.focused.bg = "red"` styles the
+focused state and leaves `normal` alone. Two readers exist for when you do *not*
+want that:
+
+```crystal
+styles.focused.bg = "red" # materializes `focused` (a copy of `normal`), then writes
+styles[:focused]          # the style that would render — no materialization
+styles.own?(:focused)     # whether a distinct focused style was ever defined
+styles.own_checked?       # the same test for the checked slot
+```
 
 ### 6.3 Sub-element styles
 
@@ -889,6 +997,11 @@ structural properties from [§5.1](#51-borders) as well as styling). `label` is
 also special: it defaults to a *fresh, empty* `Style` rather than inheriting the
 parent style.
 
+Each falling-back slot has a `?` reader — `style.title?`, `style.label?`,
+`style.scrollbar?`, … — returning `Style?`: the slot itself, or `nil` when none
+was set. Use it to ask whether a sub-element was styled at all, where the plain
+reader would answer with the widget's own style.
+
 ### 6.4 Defaults
 
 There is a shared default at the `Styles` level: `Styles.default` produces the
@@ -896,6 +1009,75 @@ baseline `Styles` (derived from a single `Styles::DEFAULT` template) that a
 widget uses when you don't supply your own. This is the hook through which a
 global default appearance is provided. (Note the default lives on `Styles`, the
 per-state container — not on `Style`.)
+
+### 6.5 Sided values: border, padding, margin, shadow
+
+The four sided slots on a `Style` accept the same family of shorthands, so
+`Style.new(border: …, padding: …, margin: …, shadow: …)` reads uniformly:
+
+| Written as | Means |
+|---|---|
+| `1` (any `Int32`) | that thickness on all four sides |
+| `true` | one cell on all four sides (`false` / `nil` = none) |
+| `:top` (a `Side` or its symbol) | one cell on that side only; `:horizontal`, `:vertical` and `:all` name pairs |
+| `{v, h}` | vertical then horizontal, the CSS two-value order |
+| `{t, r, b, l}` | top, right, bottom, left — the CSS four-value order |
+| a `Border` / `Padding` / `Margin` / `Shadow` object | used as given |
+
+`Shadow` additionally takes a `Float64` for its depth ratio, and `border:` also
+takes a `BorderType` to choose the glyph family.
+
+For anything past "all sides the same", the named constructors are the
+unambiguous spellings. `Border`, `Padding` and `Margin` carry the whole set;
+`Shadow` carries `.ltrb`/`.trbl`/`.vh`:
+
+```crystal
+Margin.top 1              # one side
+Padding.horizontal 3      # a pair
+Border.all 1              # every side
+Padding.ltrb 1, 2, 1, 2   # explicit, left-first
+Padding.trbl 2, 1, 2, 1   # explicit, CSS order
+Shadow.vh 1, 2            # vertical, horizontal
+```
+
+`.ltrb` and `.trbl` are named because the two orders are genuinely different
+conventions; the plain positional four-argument constructor is not part of the
+public API, so a call always says which order it means.
+
+### 6.6 Stylesheets and CSS
+
+A stylesheet is CSS (Qt's QSS dialect is read as well) applied to the widget
+tree, matching on widget tag (`w-box`, `w-commandbar`, … — the class name,
+lowercased, with a `w-` prefix), `#name`, `.class`, and state selectors such as
+`:focus`. Sheets can be installed at two scopes:
+
+```crystal
+window.add_stylesheet "w-box { border: 1; color: #a0e0ff; }"
+sidebar.stylesheet = "w-box:focus { background-color: #203040; }"  # this subtree
+sidebar.add_stylesheet extra_rules                                 # composes
+```
+
+`Widget#stylesheet=` replaces a widget's own sheet and `#add_stylesheet`
+composes onto it; both scope to that widget and its descendants. The cascade
+resolves in tiers, low to high: **default < author < widget < inline <
+author-state < widget-state < `!important`** — so a window-level `:focus` rule
+still wins over a widget sheet's base rule, and an inline `Style` sits between
+the two base tiers and the state ones.
+
+One limitation to know: `--custom-property` declarations are resolved from the
+window/default sheet only. A `var()` reference in a per-widget sheet reads the
+window's value, so declare custom properties there.
+
+Beyond colors and decorations, CSS also selects the **layout engine**:
+`display: flex` installs a `Layout::Box` (with `flex-direction: row|column`
+choosing the axis), `display: grid` installs a `Layout::Grid` (with
+`grid-template-columns` giving the column count), and `gap:` sets the engine's
+`spacing` ([§4.11](#411-layouts)).
+
+Geometry written from CSS and geometry written from Crystal coexist without a
+protocol: the cascade snapshots the pre-CSS values, and a later programmatic
+write folds itself into that snapshot, so it survives the next cascade pass
+instead of being reverted to whatever CSS replaced.
 
 ---
 
@@ -910,9 +1092,14 @@ attributes, and alignment — written with curly braces, e.g.:
 {light-blue-fg}Text in light blue{/light-blue-fg}
 ```
 
-Tags are interpreted when the widget's `parse_tags` is enabled (the default).
-Internally, `_parse_tags` converts them into the corresponding terminal escape
-(SGR) sequences before the content is laid out.
+Tags are interpreted when the widget's `parse_tags` is enabled (`false` by
+default; pass `parse_tags: true`). Internally, `expand_tags` converts them into
+the corresponding terminal escape (SGR) sequences before the content is laid
+out. The same lexer backs the document tag grammar of
+[§7.7](#77-rich-text-textedit-and-documents), so the two agree by construction:
+a document exported with `to_tags` can be assigned straight to a plain widget's
+`content`, and the one construct plain content cannot render — `{link=…}…{/link}`
+— degrades to its label text instead of leaking tag syntax on screen.
 
 Three helpers in `Crysterm::Helpers` work with tags:
 
@@ -982,7 +1169,27 @@ attributes during rendering, you can freely mix tags, raw escapes, and
 `Colorize` output in the same content string; they all end up as the same packed
 cell attributes.
 
-### 7.6 Rich text: `TextEdit` and documents
+### 7.6 Content and text on a plain widget
+
+A plain widget's content has two spellings, and they differ in how they treat
+markup:
+
+- `content` / `content=` (and `set_content`) are the **raw** pair: what you
+  assign is what the widget stores, tags and escape sequences included, to be
+  expanded at paint time when `parse_tags` is on.
+- `text` / `text=` are the **plain-text** pair: `text` reads the same raw
+  string, while `text=` writes plain text — embedded SGR sequences are stripped
+  and braces stay literal, so user- or file-supplied text can never inject
+  markup. `Label` and the button family override it to write their markup line.
+
+```crystal
+box.content = "{bold}Ready{/bold}"  # markup, expanded when parse_tags is on
+box.text = user_supplied            # literal, whatever it contains
+```
+
+`set_content` takes its options as keywords (`set_content "x", no_tags: true`).
+
+### 7.7 Rich text: `TextEdit` and documents
 
 Tags are the content system of plain widgets. `TextEdit` (and `TextBrowser`)
 instead hold a `TextDocument`, which imports and exports rich text in three
@@ -990,7 +1197,85 @@ formats, both directions: `set_markdown`/`markdown=`, `set_html`/`html=`,
 and the tag grammar via `content=`/`content` (which delegate to the
 document). `edit.value = ...` sets plain text. So a Markdown viewer is just
 `Widget::TextEdit.new(parent: s).set_markdown(File.read("doc.md"))` — no
-manual tagging needed.
+manual tagging needed. Every interchange setter returns the value it assigned,
+and the bare `markdown`/`html`/`tags` readers export, on the document and on a
+single `TextFragment` alike.
+
+Which colors the conversions use comes from `TextDocument#theme`, a
+`TextTheme` the markdown, html and table-of-contents paths all default to; a
+`TextEdit` stamps its widget theme onto the document it owns, so
+`doc.markdown = x` and `edit.markdown = x` produce the same result.
+
+The document is a sequence of **blocks** (paragraphs), each a sequence of
+formatted fragments:
+
+```crystal
+doc.character_count      # Qt's characterCount — the same number as `#size`
+doc.empty?
+loc = doc.block_at(pos)  # a BlockLocation record: `loc.index`, `loc.offset`
+block = doc.find_block(pos)
+block.block_number       # its index; also `#position`, `#next`, `#previous`, `#document`
+```
+
+`TextBlock#size` excludes the block separator, so it is one less than Qt's
+`length()` for the same block.
+
+`doc.undo_redo_enabled = false` suspends recording (and clears the stack) —
+what a bulk importer wants — and `doc.edit { }` groups a run of changes into one
+undoable step.
+
+### 7.8 Editing through the cursor
+
+A `TextCursor` is the way documents are edited; the document's own
+`insert_text`/`remove`/`apply_*` primitives are internal. Get one from the
+document, over a position or a range:
+
+```crystal
+c = doc.cursor              # at position 0
+c = doc.cursor(10)          # at a position
+c = doc.cursor(10, 25)      # with a selection
+c = TextCursor.new(doc, 10, 25)
+```
+
+Movement takes a `MoveMode`: `MoveAnchor` (the default) drops the selection and
+carries the anchor along, `KeepAnchor` extends the selection from where the
+anchor sits. `c.select(:word_under_cursor)` selects a unit around the cursor
+(Qt's `QTextCursor::select`; the other `SelectionType`s are
+`:line_under_cursor`, `:block_under_cursor` and `:document`).
+
+Insertion covers all three formats — `insert_text`, `insert_markdown`,
+`insert_html` and `insert_tags` for the home grammar — plus the structural ones,
+`insert_list`, `insert_frame`, `insert_toc` and tables:
+
+```crystal
+table = c.insert_table 3, 4                              # rows, columns
+table = c.insert_table ["Name", "Size"], [["a.txt", "12"]]  # header + body
+c.current_table                                          # the table around the cursor, or nil
+```
+
+Two format readers answer different questions, and picking the wrong one is the
+classic off-by-one: `doc.typing_format_at(pos)` is the format text *typed at*
+`pos` would take (the format before the position — what a toolbar's bold button
+should reflect), while `doc.char_format_of(pos)` is the format of the character
+*at* `pos`, and is `nil` at the end of the document and on a block separator.
+
+### 7.9 Following the caret: text signals
+
+Four events report editing, and together they make a status line:
+
+- `Event::TextChanged, value` — the text changed, from any cause.
+- `Event::TextEdited, value` — the text changed *because the user typed*;
+  programmatic assignment does not emit it.
+- `Event::CursorPositionChanged, position` — the caret moved.
+- `Event::SelectionChanged` — the selection changed (no payload; read it off
+  the cursor).
+
+```crystal
+edit.on(Event::CursorPositionChanged) do |e|
+  block = edit.document.find_block(e.position)
+  status.content = "Ln #{block.block_number + 1}, Col #{e.position - block.position + 1}"
+end
+```
 
 ---
 
@@ -1012,10 +1297,10 @@ The repaint verbs mirror Qt's pair and are the same on `Window` and `Widget`:
 - **`Widget#paint`** — the overridable paint entry a subclass implements
   (Qt's `paintEvent()` analogue); called by the pipeline, not by users.
 
-The old spellings — `Window#render`, `Widget#render`, `Widget#mark_dirty`,
-`Widget#request_render` — have been removed. A subclass that overrode
-`render(with_children = true)` must rename the override to `paint` (the
-pipeline dispatches through `paint`).
+On a widget, `paint` and `repaint` take one keyword argument, `with_children:`
+(default `true`), so a subclass overrides them as
+`def paint(*, with_children = true)` and a caller writes
+`w.repaint(with_children: false)` to paint the widget alone.
 
 ### 8.1 The pipeline
 
@@ -1030,7 +1315,7 @@ runs (`Window#repaint` builds one synchronously, on the calling fiber):
    the need to manually clear spots a widget has vacated.
 3. Walks the window's direct children in order and calls `paint` on each, which
    recursively renders their children. Each widget paints itself into `@lines`.
-4. Optionally docks borders (when `dock_borders` is on).
+4. Optionally merges border junctions (when `border_junctions` is on).
 5. Calls **`draw`**, which compares the new buffer to what is on the terminal and
    emits only the differences.
 6. Emits `Event::Rendered`.
@@ -1062,6 +1347,12 @@ Two optional terminal-level optimizations are available via the screen's
 
 These default to **off** (`OptimizationFlag::None`): some terminal emulators
 (e.g. gnome-terminal) do not always render them correctly, so they are opt-in.
+
+A widget that paints itself from state the framework cannot observe — a
+custom `paint` override, an external buffer, a simulation step — sets
+`repaints_every_frame = true` (a property, and a constructor keyword). That one
+widget is then repainted on every frame while damage tracking keeps working for
+the rest of the window.
 
 ### 8.4 Frame coalescing and the interval
 
@@ -1133,7 +1424,7 @@ Terminal focus reporting (`window.send_focus`, DEC 1004) is on by default,
 and with `render.pause_when_unfocused` (default `true`) an unfocused terminal
 window stops producing frames entirely — timers and app logic keep running,
 and focus-in repaints whatever changed while the window was in the
-background. Spawned emulator windows (`Application.open`/`.run`) default to
+background. Spawned emulator windows (`Window.open`/`Window.run`) default to
 the launching terminal's own size instead of 80×24.
 
 ---
@@ -1181,7 +1472,7 @@ The main operations, all on `Window`:
   cursor to a steady, non-blinking block.
 
 When the artificial cursor is active, its appearance is computed in
-`_artificial_cursor_attr` and drawn during `Window#draw` at the terminal's
+`artificial_cursor_attr` and drawn during `Window#draw` at the terminal's
 current cursor position: a `Line` shape renders as a `│` glyph, `Underline` adds
 the underline attribute, `Block` inverts the cell, and `None` falls back to the
 cursor's own `style` (including a custom `char` and colors).
@@ -1192,7 +1483,262 @@ cursor's own `style` (including a custom `char` and colors).
 
 ---
 
-## 10. Performance and FPS
+## 10. Widgets
+
+Everything below lives under `Crysterm::Widget`, visible unqualified after
+`include Crysterm::Widgets`. This section covers the conventions that span the
+widget set; each class documents its own properties.
+
+### 10.1 Dialogs
+
+Every dialog is opened with the same verb, `#open`, overloaded per dialog for
+what that dialog needs, and each dialog also has a **one-call presenter** that
+builds it, opens it, and hands the answer to a block:
+
+```crystal
+MessageBox.information window, "Saved."                 # a timed notice
+MessageBox.ask(window, "Quit?") { |yes| window.quit if yes }
+InputDialog.read(window, "To:") { |addr| send_to addr if addr }
+ColorDialog.pick(window) { |hex| w.style.bg = hex if hex }
+```
+
+- `Widget::MessageBox` shows a message. `.information`, `.warning`, `.critical`
+  and `.question` are the severity presets (an icon plus, by default, a
+  self-dismissing timeout); `.ask` is the interactive yes/no form, yielding a
+  `Bool`. The instance verbs are `#open` and `#open_with(severity, text, time)`.
+- `Widget::InputDialog` reads a line, yielding `String?` — `nil` when the user
+  cancels. It delegates `placeholder_text` and `validator` to the field it wraps.
+- `Widget::ColorDialog` picks a color, yielding the hex string or `nil`.
+- `Widget::Wizard` is a multi-page dialog. It includes `Mixin::PagedContainer`,
+  so the mixin's page API works on it, alongside `#back` and `#advance`.
+
+**Asking from ordinary code.** `Window#prompt` and `Window#ask` wrap the two
+common dialogs in a *fiber-blocking* call: they park the calling fiber until the
+user answers, so two questions in a row read as two statements rather than
+nested callbacks.
+
+```crystal
+spawn do
+  to = window.prompt("To: ")            # String?, nil when cancelled
+  next unless to
+  subject = window.prompt("Subject: ")
+  next unless subject
+  send_mail to, subject if window.ask("Send now?")   # Bool
+end
+```
+
+The `spawn` is required, not decoration: parking the render fiber or the
+device-input fiber would deadlock the very loop that must deliver the answer, so
+both methods raise (naming `spawn`) when called from either. An event handler
+runs on the input fiber — so a key handler that wants to ask a question spawns.
+
+### 10.2 Editing widgets
+
+- `placeholder_text` is on every text-entry widget — `LineEdit`, `TextEdit`,
+  `PlainTextEdit` (it lives in `Mixin::TextEditing`) — with
+  `placeholder_visible?` reporting whether it is currently showing.
+- `LineEdit#validator` is a `Proc(String, Bool)` gating what the field accepts,
+  with `#acceptable_input?` testing the current value. `InputDialog` forwards
+  both to its field.
+- `DateTimeEdit` has the split accessors beside `#date_time`: `#date`/`#date=`
+  (a `Time`, keeping the time of day) and `#time`/`#time=` (a `Time::Span`
+  time-of-day, or a `Time` to take it from). Bounds are `#minimum_date_time`,
+  `#maximum_date_time` and `set_date_time_range(min, max)`, and values are
+  clamped into the range.
+- Ranged widgets (`ProgressBar`, `ScrollBar`, `Dial`, `Loading`, …) take
+  `single_step:` — the Qt-parity spelling, and the only one. `ProgressBar` also
+  takes `value:` (`#percent` stays as a view property over it).
+- `ProgressBar` is read-only and unfocusable by default, as in Qt. Pass
+  `keys: true` for the keyboard-editable variant.
+- Scroll-bar visibility is `scrollbar_policy` alone, which accepts symbols:
+  `w.scrollbar_policy = :as_needed`.
+
+### 10.3 Bars, tabs, and item handles
+
+Widgets that hold repeated sub-elements expose them as **objects**, so a change
+is an assignment on the element rather than a two-argument setter on the parent:
+
+```crystal
+notebook.tabs[1].text = "Draft"            # TabWidget::Tab
+splitter.dividers[0].position = 20         # Splitter::Divider
+section = status_bar.add_permanent "UTF-8" # StatusBar::Section
+section.text = "ASCII"
+node.expanded = true                       # or #expand / #collapse / #toggle
+```
+
+`Widget::Table` has the same shape for cells: `#row_count`, `#column_count`,
+`table[row, col]`, `table[row, col] = "x"`, and `#header_labels`/`#header_labels=`.
+Row 0 *is* the header row (as in the sibling `ListTable`), so `row_count`
+includes it.
+
+`Widget::CommandBar` is the command/tab strip built on `Mixin::ActionBar` — the
+bar of labelled commands along the bottom of a mail client or file manager. Its
+model is `#commands` (an `Array(ActionBar::Command)`) and `#items` the plain
+labels; a command's hotkeys are `shortcuts:`:
+
+```crystal
+bar.add_item("Reply", shortcuts: ["r"]) { reply }
+```
+
+`Widget::MenuBar` opens its menus with `#open_menu(i)` and `#toggle_menu(i)`.
+
+`Widget::AbstractInteractive` is the base class of the widgets that take direct
+user interaction (`ComboBox` and friends); it is a base to subclass, not a text
+field to construct — that is `Widget::LineEdit`.
+
+### 10.4 MainWindow and dock widgets
+
+`Widget::MainWindow` is the application frame: a menu bar and status bar across
+the top and bottom, tool bars under the menu, dock panels on the four edges, and
+the central widget in what is left. Both bars are created on first access, so
+there is nothing to construct:
+
+```crystal
+win = Widget::MainWindow.new parent: window
+win.menu_bar.add_menu "File"          # created here
+win.status_bar.message = "Ready"
+win.central_widget = Widget::TextEdit.new
+win.add_dock :left, Widget::DockWidget.new(title: "Files")
+```
+
+`#menu_bar?` and `#status_bar?` are the non-constructing questions. The rows each
+strip reserves are `menu_height`, `tool_height` and `status_height` — live
+setters, applied to the strips already placed.
+
+The carve is a real layout engine (`MainWindow::Carve`, a `Layout::Dock`), so
+the container's `spacing` and margins apply to it like any other layout.
+
+A `Widget::DockWidget` is docked to an `Area` — an alias of
+`Layout::Dock::Region`, so `:left`, `:right`, `:top`, `:bottom`, `:center`.
+Floating is a separate boolean, not a fifth area:
+
+```crystal
+dock = Widget::DockWidget.new title: "Files", area: :left, floating: true
+dock.floating?          # true
+dock.area               # :left — the home it returns to
+dock.floating = false   # re-docks there
+dock.area = :right      # re-docks, and becomes the new home
+dock.toggle_floating
+```
+
+---
+
+## 11. Events, actions, and reactive state
+
+[§3.2](#32-the-event-model) covers subscribing, disconnecting and overriding.
+This section is about the catalog itself.
+
+### 11.1 Choosing an activation event
+
+Four events report "something was activated"; they differ by emitter and by what
+counts as activation. The full rule lives on the `Crysterm::Event` module's
+documentation; in short:
+
+| Event | Emitted by | Means |
+|---|---|---|
+| `Click` | the window's mouse routing | a completed press+release on this widget — pointer only |
+| `Clicked` | `Widget::AbstractButton` | the button was activated, by mouse **or** keyboard |
+| `Triggered` | an `Action` | the action fired, through a menu, tool button or accelerator |
+| `Activated` | a value-choosing widget | a value was committed, carried as `value` |
+
+A push button's handler wants `Clicked`; a menu command's wants `Triggered` on
+the `Action`, not on each widget presenting it.
+
+### 11.2 Catalog notes
+
+- **Resize.** `Event::Resize` is parameterless — a widget or window changed
+  size, ask it how big it is now. `Event::DeviceResize, size : Size` is the
+  window-level event carrying the terminal's new size (non-nil). A SIGWINCH
+  emits the parameterless `Resize` on `GlobalEvents`.
+- **Content.** `Event::ContentSet` is the widget event (a widget's content was
+  assigned); `Event::ContentsChanged` is the *document* event, carrying
+  `position`, `chars_removed`, `chars_added` and `kind`. The names differ by one
+  letter because the two are genuinely different layers.
+- **Focus.** `Event::FocusIn#previous_focused` and
+  `Event::FocusOut#next_focused` name the other end of the transition.
+- **Floating.** `Event::TopLevelChanged, floating : Bool` reports a dock widget
+  undocking or docking.
+- **Pooled events.** Mouse and drag events are pooled: the same object is reused
+  for the next report, so a handler that keeps `e` around (to compare against the
+  next click, say) reads mutated fields later. Retain `e.snapshot` instead — it
+  is a detached copy of the same concrete class. `Event::DragEnd` additionally
+  answers `#dropped?`.
+
+### 11.3 Actions
+
+An `Action` is the command behind a menu entry, a tool button and a keyboard
+accelerator at once. Give it a parent and it is really owned by it — the parent
+gets `add_action`, and the accelerator follows that widget's window:
+
+```crystal
+save = Action.new "&Save", parent: win
+save.shortcut = "Ctrl+S"
+save.on_triggered { document.save }
+```
+
+`on_triggered` and `on_toggled` are the subscription sugar (`ToolBar#add_action`
+and `Menu#add_action` use them for their block forms). `#trigger` fires the
+action programmatically. `Event::Triggered` carries the `action` that fired and
+its post-activation `checked` state, so a handler shared by a group can tell the
+members apart. On a non-checkable action both `checked=` and `toggle` are
+no-ops.
+
+Two supporting names: `Action::ActionAccelerators` is the per-window accelerator
+dispatch, and `Mixin::KeyBindings` is the widget-level `on_key` binding helper.
+
+**Two key-string vocabularies**, deliberately separate:
+
+- *Shortcut* syntax is Qt's `QKeySequence` (`"Ctrl+X"`, `"Ctrl+K, Ctrl+B"`),
+  parsed by `Action.parse_key_sequence`. It understands `+`-chords,
+  `,`-sequences and Qt's long key names, and raises on an unknown stroke —
+  because a mis-typed binding should not silently fail to bind.
+- *Display labels* are the terse spellings a key bar prints (`"^X"`, `"PgDn"`,
+  `"Spc"`), parsed by `Event::KeyPress.parse`, which is lenient and returns
+  `nil` on anything it does not recognize.
+
+The overlapping spellings — caret chords, `Dn`, `Ret` — parse the same in both.
+
+### 11.4 Reactive state
+
+The reactive layer is an **opt-in app-state layer**. The toolkit never requires
+it, plain property assignment always works, and no built-in widget property is
+reactive. Reach for it when a value has several dependents and you would rather
+declare the relationship than fan out the updates.
+
+```crystal
+count = Reactive.property 0
+
+Reactive.bind(window, count) { label.content = "Count: #{count.value}" }
+count.value = 3     # the label repaints
+```
+
+`Reactive::Property(T)` holds the value; `Reactive.bind(owner, *properties, &)`
+re-runs the block whenever one of them changes, for as long as the owner lives;
+`Reactive.bind_items(view, observable_list, &render)` keeps an item view in step
+with a collection. Owners are any `EventHandler` — a `Window`, a `Widget`, an
+`Action`, a model object of your own. `PropertyBase#on_change` returns a
+`Subscription`, and the layer's change event is `Event::ReactiveChanged`.
+
+The mixing rule is asymmetric, by design:
+
+- **Reactive state → widgets is free.** Bindings call the ordinary setters, so
+  anything settable is bindable.
+- **Widget → reactive state takes an explicit bridge.** Widget properties are
+  observable through their *events*, so wire the event to the property:
+
+  ```crystal
+  edit.on(Event::TextChanged) { |e| query.value = e.value }
+  ```
+
+  That one line is the sanctioned seam (Qt 6 is the same: most widget properties
+  are observable via signals, not bindables).
+
+For a widget class of your own, the `reactive_property` macro declares a
+property with a `#<name>_property` handle that bindings can track.
+
+---
+
+## 12. Performance and FPS
 
 During development Crysterm displays a frames-per-second readout. This is
 controlled by `show_fps`, a `Tput::Point?` giving the screen position of the
@@ -1230,7 +1776,7 @@ jitter in a TUI. See `benchmarks/render-hotpath.cr`.
 
 ---
 
-## 11. Configuration
+## 13. Configuration
 
 Crysterm has a single, global configuration registry, `Crysterm::Config`, that
 holds every tunable the framework exposes — and any your app adds. Each option
@@ -1291,8 +1837,20 @@ Precedence, low to high: **default < config file < env var < command-line <
 runtime assignment**. A lower-precedence source never overrides a value already
 set by a higher one.
 
-`--config FILE` (load an extra file) and `--dump-config [FORMAT]` (dump and
-exit) are handled automatically once you call `configure!` / `Config.load_args`.
+`--crysterm-config FILE` (load an extra file) and `--crysterm-dump-config
+[FORMAT]` (dump and exit) are handled automatically once you call `configure!` /
+`Config.load_args`. They are namespaced so the plain `--config` and
+`--dump-config` names stay available to your own program.
+
+Crysterm reads command-line flags from a **copy** of `ARGV` and never removes
+anything from it, so an app's own option parser sees the arguments it was given,
+Crysterm's included.
+
+Two startup timeouts are worth knowing about, because a slow link is exactly
+where they need raising: `screen.cell_query_timeout` (default 150ms) bounds each
+terminal cell-size query, and `terminal.handshake_timeout` (default 15s) is how
+long `Window.open` waits for a spawned emulator window to phone home. In code
+they read as `Screen.cell_query_timeout` and `Terminal.handshake_timeout`.
 
 ### Adding your own options
 
@@ -1339,17 +1897,17 @@ unparseable value, or failed validation) in one place.
 
 ### Dumping
 
-`Crysterm::Config.dump(io, format)` (or `--dump-config [FORMAT]`) emits:
+`Crysterm::Config.dump(io, format)` (or `--crysterm-dump-config [FORMAT]`) emits:
 
 * `yaml` (default) and `json` — valid, **re-loadable** config files;
 * `env` — a sourceable shell script of `export CRYSTERM_…='value'` lines
-  (`eval "$(myapp --dump-config=env)"` re-applies them via `load_env`);
+  (`eval "$(myapp --crysterm-dump-config=env)"` re-applies them via `load_env`);
 * `pretty` — an aligned table that also shows each value's **source**;
 * `report` — rich JSON with full metadata (value, source, default, env, CLI,
   description) for every option, analogous to `tput`'s `--json` detections.
 
 ```
-$ CRYSTERM_WINDOW_RESIZE_INTERVAL=0.5 myapp --render-optimization=smart_csr,bce --dump-config=pretty
+$ CRYSTERM_WINDOW_RESIZE_INTERVAL=0.5 myapp --render-optimization=smart_csr,bce --crysterm-dump-config=pretty
 OPTION                  VALUE           SOURCE
 ----------------------  --------------  ------
 render.optimization     SmartCSR | BCE  command line (--render-optimization)
@@ -1357,9 +1915,9 @@ window.resize_interval  0.5             env CRYSTERM_WINDOW_RESIZE_INTERVAL="0.5
 ...
 ```
 
-Any Crysterm app accepts these out of the box: `crystal tests/hellos/hello.cr -- --dump-config=pretty`.
+Any Crysterm app accepts these out of the box: `crystal tests/hellos/hello.cr -- --crysterm-dump-config=pretty`.
 
-## 12. Differences from Blessed
+## 14. Differences from Blessed
 
 **Positioning and sizing**
 

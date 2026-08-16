@@ -186,33 +186,33 @@ end
 describe "BUGS18 B18-28: ASCII docking preserves text '-'/'|' beside a perpendicular single recip" do
   it "keeps a text '-' below a border corner '+' intact" do
     g = grid [" + ", "x-y"]
-    Docking.angle_at(g, 1, 1, DockContrast::Ignore, ascii: true).should eq '-'
+    Junctions.angle_at(g, 1, 1, JunctionContrast::Ignore, ascii: true).should eq '-'
   end
 
   it "does not mangle a hyphen during a full ascii dock pass" do
     g = grid [" + ", "x-y"]
-    Docking.dock(g, {1 => true}, 3, DockContrast::Ignore, ascii: true)
+    Junctions.merge(g, {1 => true}, 3, JunctionContrast::Ignore, ascii: true)
     String.build { |io| g[1].chars.each { |c| io << c } }.should eq "x-y"
   end
 
   it "keeps a text '|' beside a horizontal border end intact" do
     g = grid ["|--"]
-    Docking.angle_at(g, 0, 0, DockContrast::Ignore, ascii: true).should eq '|'
+    Junctions.angle_at(g, 0, 0, JunctionContrast::Ignore, ascii: true).should eq '|'
   end
 
   it "still merges a genuine border run-end junction ('-' below '+')" do
     g = grid ["+  ", "-- "]
-    Docking.angle_at(g, 0, 1, DockContrast::Ignore, ascii: true).should eq '+'
+    Junctions.angle_at(g, 0, 1, JunctionContrast::Ignore, ascii: true).should eq '+'
   end
 
   it "still merges a genuine mid-run junction ('-' with '|' below)" do
     g = grid ["-+-", " | "]
-    Docking.angle_at(g, 1, 0, DockContrast::Ignore, ascii: true).should eq '+'
+    Junctions.angle_at(g, 1, 0, JunctionContrast::Ignore, ascii: true).should eq '+'
   end
 
   it "keeps a text '+' adjacent to another '+' intact (no BUGS15 #30 regression)" do
     g = grid ["C++"]
-    Docking.dock(g, {0 => true}, 3, DockContrast::Ignore, ascii: true)
+    Junctions.merge(g, {0 => true}, 3, JunctionContrast::Ignore, ascii: true)
     String.build { |io| g[0].chars.each { |c| io << c } }.should eq "C++"
   end
 end

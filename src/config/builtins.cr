@@ -72,7 +72,7 @@ module Superconf
     description: "Report terminal focus in/out (DEC private mode 1004) while mouse reporting is enabled; reports surface as window-level Event::Mouse with #mouse.focus_event? and drive render.pause_when_unfocused. On by default: enabling 1004 rides the mouse-enable sequence at zero cost"
   option "window.grab_keys", false,
     description: "Route all keypresses to a single grabbing widget"
-  option "window.dock_borders", false,
+  option "window.border_junctions", false,
     description: "Join adjacent widget borders instead of overlapping them"
   option "screen.headless", Crysterm::Headless::Auto,
     description: "Default a Screen built without explicit IO to a headless (in-memory) connection instead of the real terminal (auto|always|never): 'auto' decides from whether the app runs interactively (output is a TTY), 'always' forces headless, 'never' forces a real terminal"
@@ -86,6 +86,12 @@ module Superconf
     description: "Use Unicode 16 octant glyphs (Symbols for Legacy Computing Supplement) for pixel-exact block-border and thin-shadow corners at the extended glyph tier. While left at the default (false), a Screen on a real tty auto-enables it when the terminal is identified as rendering the octant range (e.g. kitty >= 0.40); set explicitly to pin and disable that detection. Requires a font/terminal covering U+1CD00-U+1CDE5 — unsupported ones show tofu at ring corners"
   option "window.overflow", Crysterm::Overflow::Ignore,
     description: "Policy for widgets larger than their container (ignore|hidden|shrink_widget|skip_widget|stop_rendering|move_widget)"
+  option "screen.cell_query_timeout", 150.milliseconds,
+    description: "Budget for each terminal cell-size query (XTWINOPS round-trip used when the kernel reports no pixel size). Only bounds the wait when the terminal stays silent; raise it on a slow link where startup detection times out",
+    validate: ->(t : Time::Span) { t > Time::Span.zero }
+  option "terminal.handshake_timeout", 15.seconds,
+    description: "How long Window.open waits for a spawned terminal-emulator window's helper to phone home before giving up. Raise it when the emulator is slow to start (cold cache, remote X/Wayland)",
+    validate: ->(t : Time::Span) { t > Time::Span.zero }
 
   # -- Rendering -------------------------------------------------------------
   option "render.frame_interval", 1/60,
@@ -96,7 +102,7 @@ module Superconf
     validate: ->(n : Int32) { n > 0 }
   option "render.optimization", Crysterm::OptimizationFlag::DamageTracking,
     description: "Render/draw optimization flags (fast_csr|smart_csr|bce|damage_tracking, comma-separated)"
-  option "render.dock_contrast", Crysterm::DockContrast::Blend,
+  option "render.junction_contrast", Crysterm::JunctionContrast::Blend,
     description: "What to do when docked borders have differing colors (ignore|skip|blend)"
   option "render.csr_threshold", 40,
     description: "FastCSR optimization activates when a widget is within this many columns of a screen edge",

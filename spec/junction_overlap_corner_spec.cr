@@ -5,16 +5,16 @@ include Crysterm
 # Regression: opening a bordered overlay/popup that shares (overlaps) a parent
 # box's border one row below the parent's corner must not erase that corner cell.
 #
-# With `dock_borders`, the screen re-derives every line-drawing junction from its
+# With `border_junctions`, the screen re-derives every line-drawing junction from its
 # neighbors. Where a parent's right border continues past an overlapping child's
 # top-left `┌` (child opens one row lower, sharing the column), the parent's
-# top-right `┐` finds no down-neighbor "pointing back" — `Docking.angle_at`
+# top-right `┐` finds no down-neighbor "pointing back" — `Junctions.angle_at`
 # keeps a cell's own arm toward any present line neighbor, so the corner
 # survives instead of being reduced to `─` while the overlay is up.
 describe "border docking with an overlapping popup" do
   it "keeps the parent's top-right corner cell above the popup's shared edge" do
     s = headless_screen(40, 16, default_quit_keys: true)
-    s.dock_borders = true
+    s.border_junctions = true
 
     # Parent bordered box: a line border on all sides.
     parent = Widget::Box.new(

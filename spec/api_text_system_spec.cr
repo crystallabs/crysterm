@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# API.md §6.3/§6.4 text-system parity sweep: block handles and the
+# Text-system parity sweep: block handles and the
 # `BlockLocation` record, `TextDocument#cursor` construction, the
 # `typing_format_at`/`char_format_of` split, cursor-inserted tables and tags,
 # the undo-recording switch, the document theme, overlay writes bumping the

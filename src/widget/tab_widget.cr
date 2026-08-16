@@ -349,9 +349,8 @@ module Crysterm
       # tabs[1].text = "Bee"
       # ```
       #
-      # Replaces the old `#tab_text(i)` / `#set_tab_text(i, title)` getter/setter
-      # pair (Qt's `tabText`/`setTabText`, which exist there only because C++ has
-      # no such handle). A handle is a *view*: it holds an index, not a copy, so
+      # Qt spells this `tabText`/`setTabText`, which exist there only because C++
+      # has no such handle. A handle is a *view*: it holds an index, not a copy, so
       # it goes stale if tabs are added, removed or moved around it — take a
       # fresh one from `#tabs` after any such change.
       struct Tab

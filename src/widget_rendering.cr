@@ -7,9 +7,9 @@ module Crysterm
     # default. Read through `#overflow`.
     @overflow : Overflow? = nil
 
-    # Reused stops set for `#dock_rows`, cleared per call. Lazily allocated on
+    # Reused stops set for `#merge_junction_rows`, cleared per call. Lazily allocated on
     # first use (many widgets never dock rows).
-    @_dock_rows_stops : Hash(Int32, Bool)? = nil
+    @_merge_junction_rows_stops : Hash(Int32, Bool)? = nil
 
     # Single-slot custom-paint hook; see `#paint_handler`.
     @paint_handler : ((Int32, Int32, Int32, Int32) ->)? = nil
@@ -48,6 +48,11 @@ module Crysterm
     # :ditto:
     def layout : Crysterm::Layout?
       @layout
+    end
+
+    # Symbol shorthand of `#layout=`: `w.layout = :vbox` — see `Layout.from`.
+    def layout=(value : Symbol) : Crysterm::Layout?
+      self.layout = Crysterm::Layout.from value
     end
 
     # :ditto: — change-guarded. Installs the layout's `#container` back-pointer
@@ -324,7 +329,7 @@ module Crysterm
 
       @lpos = coords
 
-      register_dock_stops coords
+      register_junction_stops coords
 
       # `process_content` already cached `style_to_attr(self.style)` in `@_parse_attr_default`;
       # reuse it unless a parent substituted a style. `|| style_to_attr(style)` is a
@@ -1031,7 +1036,7 @@ module Crysterm
     # neighbors. Only rows with horizontal segments need registering (verticals
     # dock when a horizontal stop crosses them). Base registers top/bottom rows
     # of a line-type border; widgets drawing lines otherwise override this.
-    protected def register_dock_stops(coords : RenderedGeometry)
+    protected def register_junction_stops(coords : RenderedGeometry)
       style.border.try do |border|
         if border.any? && border.type.solid?
           # A widget rendering into a compositing plane registers on the *plane*
@@ -1042,7 +1047,7 @@ module Crysterm
           # on the BASE stops and docks to base content, producing stray
           # junctions.
           scr = window
-          stops = scr.compositing_layers? ? scr.plane_dock_stops : scr.dock_stops
+          stops = scr.compositing_layers? ? scr.plane_junction_stops : scr.junction_stops
           stops[coords.yi] = true
           stops[coords.yl - 1] = true
         end
@@ -1050,24 +1055,24 @@ module Crysterm
     end
 
     # Re-joins the line-drawing characters on the given window *rows* into
-    # seamless junctions (`├ ┤ ┬ ┼` …), reusing the window's `Docking` component
+    # seamless junctions (`├ ┤ ┬ ┼` …), reusing the window's `Junctions` component
     # on demand for one widget. Lets a widget connect interior line art (e.g. a
     # `Menu`'s separator rules) to its own border. No-op when detached or given
     # no rows.
     #
-    # *contrast* defaults to `DockContrast::Ignore` (only the glyph changes,
+    # *contrast* defaults to `JunctionContrast::Ignore` (only the glyph changes,
     # not cell colors) rather than the window's global setting — `Blend` would
     # diffuse the junction's color along the whole run, muddying e.g. a
     # separator's divider color.
-    protected def dock_rows(rows : Enumerable(Int32), contrast : DockContrast = DockContrast::Ignore) : Nil
+    protected def merge_junction_rows(rows : Enumerable(Int32), contrast : JunctionContrast = JunctionContrast::Ignore) : Nil
       scr = window? || return
       # Reuse a per-widget Hash instead of allocating one per frame. Single
       # fiber renders, so the scratch set is never live across calls.
-      stops = (@_dock_rows_stops ||= {} of Int32 => Bool)
+      stops = (@_merge_junction_rows_stops ||= {} of Int32 => Bool)
       stops.clear
       rows.each { |y| stops[y] = true }
       return if stops.empty?
-      Docking.dock scr.cell_rows, stops, scr.awidth, contrast, ascii: scr.glyph_tier.ascii?
+      Junctions.merge scr.cell_rows, stops, scr.awidth, contrast, ascii: scr.glyph_tier.ascii?
     end
 
     @[AlwaysInline]
