@@ -30,8 +30,8 @@ describe "Window#draw artificial cursor movement" do
 
     # Switch to a visible artificial block cursor and place it at (x1, y1).
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
 
     x1, y1 = 3, 1
@@ -65,8 +65,8 @@ describe "Window#draw artificial cursor movement" do
     s.draw
 
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
 
     x, y = 2, 2

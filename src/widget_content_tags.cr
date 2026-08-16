@@ -1,23 +1,24 @@
 module Crysterm
   class Widget
-    # Whether the last `_parse_tags` call ended with tag state still open (a
+    # Whether the last `expand_tags` call ended with tag state still open (a
     # non-empty fg/bg/flag stack, or an unterminated `{escape}`). Scratch output
     # slot, meaningful only immediately after a call.
-    @_parse_tags_left_open = false
-
-    # Whether `c` may appear in a tag name — the character class `[\w\-,;!#]`
-    # of `TAG_REGEX`, where `\w` (PCRE2 default, non-UCP) is ASCII
-    # `[A-Za-z0-9_]`. Lets `#_parse_tags` scan a `{tag}` by index instead of an
-    # allocating anchored regex match.
-    private def tag_name_char?(c : Char) : Bool
-      c.ascii_letter? || c.ascii_number? ||
-        c == '_' || c == '-' || c == ',' || c == ';' || c == '!' || c == '#'
-    end
+    @expand_tags_left_open = false
 
     # Convert `{red-fg}foo{/red-fg}` to `\e[31mfoo\e[39m`.
-    # ameba:disable Metrics/CyclomaticComplexity
-    def _parse_tags(text)
-      @_parse_tags_left_open = false
+    #
+    # The lexical layer is `TextTags.each_token` — the ONE tag tokenizer,
+    # shared with the document importer (`TextTags::Parser`) so the two
+    # grammars cannot drift; this method owns only the SGR emission state
+    # machine over its tokens. Tokens with no SGR rendering degrade cleanly:
+    # `{link=…}`/`{/link}` drop (keeping the link text), unknown names drop,
+    # `{|}` and the alignment tags pass through verbatim for the
+    # aligner/wrapper to consume afterwards.
+    #
+    # :nodoc: the tag->SGR expander (ex-`_parse_tags`); an internal stage of
+    # `#process_content`, public only because the tag specs drive it directly.
+    def expand_tags(text)
+      @expand_tags_left_open = false
       return text unless @parse_tags
       # Attribute tags resolve through `window.tput`, so a detached widget can't
       # parse — return the text literal, mirroring `process_content`'s guard.
@@ -28,109 +29,55 @@ module Crysterm
       return text unless text.includes?('{') || text.includes?('}')
 
       # Keep this O(n): `outbuf += ...` would rebuild the whole result per tag,
-      # and reslicing `text` each step would allocate a fresh tail `String` per
-      # tag — both O(n^2) on heavily-tagged content. Hence a `String::Builder`
-      # (seeded near the input size, since tags expand to SGR of comparable
-      # length) plus an integer cursor advanced via ANCHORED matches.
+      # so a `String::Builder` (seeded near the input size, since tags expand
+      # to SGR of comparable length) collects the output as the shared
+      # tokenizer walks the input.
       outbuf = String::Builder.new text.bytesize
       bg = [] of String
       fg = [] of String
       flag = [] of String
 
-      esc = false
-      pos = 0
-      size = text.size
-      anchored = Regex::MatchOptions::ANCHORED
-
-      # `{escape}` and `{|}` are rare; decide once up front whether either is
-      # present so the per-iteration path skips the `{escape}` regex match and
-      # the `text[pos, 3]` substring allocation otherwise paid per token.
-      has_escape = text.includes?("{escape}")
-      has_bar = text.includes?("{|}")
-
-      while pos < size
-        if has_escape
-          if !esc && (cap = /{escape}/.match(text, pos, options: anchored))
-            pos += cap[0].size
-            esc = true
-            next
-          end
-
-          # Body group is `*?`, not `+?`: an EMPTY `{escape}{/escape}` pair — the
-          # natural `"{escape}#{untrusted}{/escape}"` idiom with an empty string —
-          # must still match, else it takes the unterminated-escape bail below and
-          # dumps the remainder verbatim.
-          if esc && (cap = /([\s\S]*?){\/escape}/.match(text, pos, options: anchored))
-            pos += cap[0].size
-            outbuf << cap[1]
-            esc = false
-            next
-          end
-
-          if esc
-            # raise "Unterminated escape tag."
-            outbuf << text[pos..]
-            break
-          end
-        end
-
-        # `{|}` is Blessed's right-align separator, not an attribute tag: text
-        # after it is pushed to the line's right edge. Must survive parsing
-        # verbatim for the aligner to act on it; otherwise it falls through to the
-        # drop-malformed branch and renders as a bare `|`.
-        if has_bar && text[pos, 3]? == "{|}"
+      esc_open = TextTags.each_token(text) do |kind, value, slash|
+        case kind
+        in .text?
+          outbuf << value
+        in .bar?
+          # `{|}` is Blessed's right-align separator, not an attribute tag:
+          # text after it is pushed to the line's right edge. Must survive
+          # parsing verbatim for the aligner to act on it.
           outbuf << "{|}"
-          pos += 3
-          next
-        end
-
-        # A recognized `{tag}` / `{/tag}`. `{open}`/`{close}` emit literal
-        # braces; a known attribute name emits its SGR (tracking nesting so a
-        # close restores the previous state); an unrecognized tag is dropped
-        # (drop-malformed policy). `Tput#_attr` returns "" for an unknown name,
-        # non-empty for every known one, so `empty?` is the test.
-        #
-        # Scanned by index rather than with an anchored `TAG_REGEX` match, whose
-        # `MatchData` and captures allocated per tag — the dominant allocation of
-        # heavily-tagged content. Mirrors `/\{(\/?)([\w\-,;!#]*)\}/` exactly: a
-        # `{`, an optional leading `/`, a run of tag-name chars, then a closing
-        # `}`. Any deviation falls through to the plain-run / drop-malformed
-        # handling below, just as a failed regex match did.
-        if text[pos]? == '{'
-          slash = text[pos + 1]? == '/'
-          name_start = slash ? pos + 2 : pos + 1
-          k = name_start
-          while (nc = text[k]?) && tag_name_char?(nc)
-            k += 1
-          end
-          if text[k]? == '}'
-            tag_start = pos
-            pos = k + 1
+        in .link?
+          # `{link=…}` carries no SGR rendering; drop the tag so the link
+          # text degrades to plain content (the matching `{/link}` closer is
+          # an unrecognized attribute name and drops below).
+        in .tag?
+          if value == "left" || value == "center" || value == "right"
+            # `{left}`/`{center}`/`{right}` (and `{/...}` closers) are line-
+            # alignment tags, not attribute tags — no SGR, so the recognized-
+            # attribute path below would drop them as unknown, silently
+            # disabling `{center}…{/center}` alignment. They must survive
+            # parsing verbatim (like `{|}` above) for the wrapper to consume
+            # afterwards, opener and closer both.
+            outbuf << '{'
+            outbuf << '/' if slash
+            outbuf << value
+            outbuf << '}'
+          else
+            # A recognized `{tag}` / `{/tag}`: a known attribute name emits
+            # its SGR (tracking nesting so a close restores the previous
+            # state); an unrecognized tag is dropped (drop-malformed policy).
+            # `Tput#_attr` returns "" for an unknown name, non-empty for
+            # every known one, so `empty?` is the test.
+            #
             # Tags are written dash-delimited (`{light-blue-fg}`) but the
-            # downstream color/attribute name lookup keys on the space-delimited
-            # form (`light blue fg`), so a dash is normalized to a space here.
-            # Removable only if that resolver learned the dash forms directly.
-            # Only `gsub` when a dash is present — dash-free tags (`bold`, `red`)
-            # reuse the name slice with no scan or allocation.
-            param = text[name_start...k]
+            # downstream color/attribute name lookup keys on the
+            # space-delimited form (`light blue fg`), so a dash is normalized
+            # to a space here. Removable only if that resolver learned the
+            # dash forms directly. Only `gsub` when a dash is present —
+            # dash-free tags (`bold`, `red`) reuse the token's name with no
+            # scan or allocation.
+            param = value
             param = param.gsub('-', ' ') if param.includes?('-')
-
-            if param == "open"
-              outbuf << '{'
-              next
-            elsif param == "close"
-              outbuf << '}'
-              next
-            elsif param == "left" || param == "center" || param == "right"
-              # `{left}`/`{center}`/`{right}` (and `{/...}` closers) are line-
-              # alignment tags, not attribute tags — no SGR, so the recognized-
-              # attribute path below would drop them as unknown, silently
-              # disabling `{center}…{/center}` alignment. They must survive parsing
-              # verbatim (like `{|}` above) for the wrapper to consume afterwards.
-              # The slice includes the slash, so opener and closer both pass through.
-              outbuf << text[tag_start...pos]
-              next
-            end
 
             state = if param.ends_with?(" bg")
                       bg
@@ -180,32 +127,14 @@ module Crysterm
               end
               # else: unrecognized opening tag -> dropped
             end
-
-            next
           end
         end
-
-        # A run of plain (brace-free) text passes through verbatim. Find the next
-        # brace by index, not an anchored regex match, to avoid a per-run
-        # `MatchData`/capture allocation.
-        b1 = text.index('{', pos)
-        b2 = text.index('}', pos)
-        nb = b1 ? (b2 ? Math.min(b1, b2) : b1) : (b2 || size)
-        if nb > pos
-          outbuf << text[pos...nb]
-          pos = nb
-          next
-        end
-
-        # A lone `{`/`}` that did not begin a recognized tag is malformed and
-        # dropped (use `{open}`/`{close}`/`{escape}` to emit real braces).
-        pos += 1
       end
 
-      # Report whether the parse ended with tag state still open. `esc` stays true
-      # on the unterminated-`{escape}` bail above — parser state a continuation of
-      # this text would inherit, just like a non-empty stack.
-      @_parse_tags_left_open = esc || !(bg.empty? && fg.empty? && flag.empty?)
+      # Report whether the parse ended with tag state still open. `esc_open` is
+      # true on the tokenizer's unterminated-`{escape}` bail — parser state a
+      # continuation of this text would inherit, just like a non-empty stack.
+      @expand_tags_left_open = esc_open || !(bg.empty? && fg.empty? && flag.empty?)
 
       outbuf.to_s
     end

@@ -196,7 +196,7 @@ module Crysterm
       # `Item#row_cache` can be reused instead of rebuilt.
       @row_list_key : Tuple(Int32, Int32, Float64, Float64, Bool, {String?, Glyphs::Tier, UInt64})? = nil
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         key = {awidth, aheight, ihorizontal, ivertical, @label_width, @minimum, @maximum, @version,
                glyph_key(style)}
         if key != @content_key

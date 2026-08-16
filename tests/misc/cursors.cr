@@ -55,7 +55,7 @@ c.cursor_color = "#7dcfff"
 # terminal — so it also appears in this demo's captures.
 d = mk_field.call 17, " :none — custom artificial glyph ", "A custom-glyph artificial cursor"
 d.set_cursor :none
-d.cursor!.style = Style.new(fill_char: '▚', fg: "#e0af68", bg: "#414868")
+d.ensure_cursor.style = Style.new(fill_char: '▚', fg: "#e0af68", bg: "#414868")
 
 Widget::Box.new parent: s, top: 21, left: 0, width: "100%", height: 1,
   content: "{center}Focus (and with it the active cursor) moves to the next field every 1.2 s{/center}",

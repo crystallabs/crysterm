@@ -57,13 +57,13 @@ module Crysterm
         end
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # `(`/`)` and the state mark resolve CSS-first (`RadioButton::indicator`,
         # `:checked` addressing the checked mark), then the registry.
         set_content marker_line(Glyphs::Role::RadioOpen, Glyphs::Role::RadioClose,
           checked? ? Glyphs::Role::RadioChecked : Glyphs::Role::RadioUnchecked,
-          Glyphs::Role::RadioChecked, Glyphs::Role::RadioUnchecked), true
-        super false
+          Glyphs::Role::RadioChecked, Glyphs::Role::RadioUnchecked)
+        super(with_children: false)
       end
 
       def handle_state_changed(e)

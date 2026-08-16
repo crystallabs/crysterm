@@ -343,7 +343,10 @@ module Crysterm
     #   * Dragging: **Tab/Shift-Tab** move focus (retargeting the drop target),
     #     **arrow keys** nudge a reposition, **Space/Enter** drop, **Escape**
     #     cancels.
-    def _drag_key_handled(e : ::Crysterm::Event::KeyPress) : Bool
+    #
+    # :nodoc: the keyboard drag sensor (ex-`_drag_key_handled`), driven by
+    # `#route_input`; public only because the drag specs feed it directly.
+    def drag_key_handled?(e : ::Crysterm::Event::KeyPress) : Bool
       if sess = @_drag
         # Escape cancels a drag from EITHER sensor — checked before the
         # keyboard-only early-return below, which would leave a mouse drag with

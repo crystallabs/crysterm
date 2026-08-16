@@ -9,8 +9,8 @@ describe Crysterm::TextUndoStack do
   describe "basics" do
     it "round-trips insert and remove" do
       doc = TextDocument.new("hello")
-      doc.insert_text(5, " world")
-      doc.remove(0, 1)
+      doc.cursor(5).insert_text(" world")
+      doc.cursor(0, 1).remove_selected_text
       doc.undo.should be_true
       doc.to_plain_text.should eq "hello world"
       doc.undo.should be_true
@@ -23,10 +23,10 @@ describe Crysterm::TextUndoStack do
 
     it "drops redo entries when a new edit arrives" do
       doc = TextDocument.new
-      doc.insert_text(0, "a")
+      doc.cursor(0).insert_text("a")
       doc.undo
       doc.redo_available?.should be_true
-      doc.insert_text(0, "b")
+      doc.cursor(0).insert_text("b")
       doc.redo_available?.should be_false
     end
   end
@@ -98,15 +98,15 @@ describe Crysterm::TextUndoStack do
 
     it "restores formats when undoing a coalesced backspace run" do
       doc = TextDocument.new
-      doc.insert_text(0, "ab", TextCharFormat.new(bold: true))
-      doc.insert_text(2, "cd", TextCharFormat.new(italic: true))
+      doc.cursor(0).insert_text("ab", TextCharFormat.new(bold: true))
+      doc.cursor(2).insert_text("cd", TextCharFormat.new(italic: true))
       c = TextCursor.new(doc, 4)
       4.times { c.delete_previous_char }
       doc.to_plain_text.should eq ""
       doc.undo # single step past the deletions
       doc.to_plain_text.should eq "abcd"
-      doc.char_format_at(1).bold?.should be_true
-      doc.char_format_at(3).italic?.should be_true
+      doc.typing_format_at(1).bold?.should be_true
+      doc.typing_format_at(3).italic?.should be_true
     end
   end
 
@@ -204,9 +204,9 @@ describe Crysterm::TextUndoStack do
     it "groups arbitrary edits into one step" do
       doc = TextDocument.new("0123456789")
       doc.begin_edit_block
-      doc.insert_text(0, "A")
-      doc.remove(5, 2)
-      doc.insert_text(doc.size, "Z")
+      doc.cursor(0).insert_text("A")
+      doc.cursor(5, 7).remove_selected_text
+      doc.cursor(doc.size).insert_text("Z")
       doc.end_edit_block
       doc.undo
       doc.to_plain_text.should eq "0123456789"
@@ -218,11 +218,11 @@ describe Crysterm::TextUndoStack do
     it "nests" do
       doc = TextDocument.new
       doc.begin_edit_block
-      doc.insert_text(0, "a")
+      doc.cursor(0).insert_text("a")
       doc.begin_edit_block
-      doc.insert_text(1, "b")
+      doc.cursor(1).insert_text("b")
       doc.end_edit_block
-      doc.insert_text(2, "c")
+      doc.cursor(2).insert_text("c")
       doc.end_edit_block
       doc.undo
       doc.to_plain_text.should eq ""
@@ -232,42 +232,42 @@ describe Crysterm::TextUndoStack do
   describe "rich restore" do
     it "restores char formats, block formats and structure on undo" do
       doc = TextDocument.new("Hello\nWorld")
-      doc.apply_char_format(0, 5, TextCharFormat.new(bold: true))
-      doc.apply_block_format(6, 6, TextBlockFormat.new(heading_level: 2))
+      doc.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true))
+      doc.cursor(6, 6).set_block_format(TextBlockFormat.new(heading_level: 2))
       doc.begin_edit_block
-      doc.remove(0, doc.size)
+      doc.cursor(0, doc.size).remove_selected_text
       doc.end_edit_block
       doc.to_plain_text.should eq ""
       doc.undo
       doc.to_plain_text.should eq "Hello\nWorld"
       doc.block_count.should eq 2
-      doc.char_format_at(1).bold?.should be_true
-      doc.char_format_at(8).bold?.should be_false
+      doc.typing_format_at(1).bold?.should be_true
+      doc.typing_format_at(8).bold?.should be_false
       doc.blocks[1].block_format.heading_level.should eq 2
     end
 
     it "undoes format changes without disturbing text or cursors" do
       doc = TextDocument.new("abcdef")
       c = TextCursor.new(doc, 4)
-      doc.apply_char_format(1, 5, TextCharFormat.new(underline: true))
+      doc.cursor(1, 5).set_char_format(TextCharFormat.new(underline: true))
       c.position.should eq 4
       doc.undo
       doc.to_plain_text.should eq "abcdef"
-      doc.char_format_at(3).underline?.should be_false
+      doc.typing_format_at(3).underline?.should be_false
       c.position.should eq 4
       doc.redo
-      doc.char_format_at(3).underline?.should be_true
+      doc.typing_format_at(3).underline?.should be_true
     end
 
     it "restores pre-existing formats under an undone format change" do
       doc = TextDocument.new
-      doc.insert_text(0, "abc", TextCharFormat.new(fg: 0xff0000))
-      doc.insert_text(3, "def", TextCharFormat.new(fg: 0x0000ff))
-      doc.apply_char_format(0, 6, TextCharFormat.new(fg: 0x00ff00))
-      doc.char_format_at(1).fg.should eq 0x00ff00
+      doc.cursor(0).insert_text("abc", TextCharFormat.new(fg: 0xff0000))
+      doc.cursor(3).insert_text("def", TextCharFormat.new(fg: 0x0000ff))
+      doc.cursor(0, 6).set_char_format(TextCharFormat.new(fg: 0x00ff00))
+      doc.typing_format_at(1).fg.should eq 0x00ff00
       doc.undo
-      doc.char_format_at(1).fg.should eq 0xff0000
-      doc.char_format_at(5).fg.should eq 0x0000ff
+      doc.typing_format_at(1).fg.should eq 0xff0000
+      doc.typing_format_at(5).fg.should eq 0x0000ff
     end
   end
 
@@ -275,7 +275,7 @@ describe Crysterm::TextUndoStack do
     it "tracks the clean state through undo/redo" do
       doc = TextDocument.new("abc")
       doc.modified?.should be_false
-      doc.insert_text(0, "x")
+      doc.cursor(0).insert_text("x")
       doc.modified?.should be_true
       doc.undo
       doc.modified?.should be_false
@@ -285,10 +285,10 @@ describe Crysterm::TextUndoStack do
 
     it "honors an explicit clean point" do
       doc = TextDocument.new("abc")
-      doc.insert_text(0, "x")
+      doc.cursor(0).insert_text("x")
       doc.modified = false
       doc.modified?.should be_false
-      doc.insert_text(0, "y")
+      doc.cursor(0).insert_text("y")
       doc.modified?.should be_true
       doc.undo
       doc.modified?.should be_false # back at the explicit clean point
@@ -302,8 +302,8 @@ describe Crysterm::TextUndoStack do
       redo_events = [] of Bool
       doc.on(Event::UndoAvailable) { |e| undo_events << e.available }
       doc.on(Event::RedoAvailable) { |e| redo_events << e.available }
-      doc.insert_text(0, "a")
-      doc.insert_text(1, "b") # coalesces; no transition
+      doc.cursor(0).insert_text("a")
+      doc.cursor(1).insert_text("b") # coalesces; no transition
       doc.undo
       undo_events.should eq [true, false]
       redo_events.should eq [true]

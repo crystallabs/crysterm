@@ -34,7 +34,7 @@ module Crysterm
 
     # Whether this index was built from `s` (the same `String` object). The
     # render loop builds one `StringIndex` per widget per frame from
-    # `@_pcontent`; lets callers reuse a cached index across frames instead of
+    # `@printable_content`; lets callers reuse a cached index across frames instead of
     # rebuilding `chars` every frame.
     def built_from?(s : String) : Bool
       @object.same? s

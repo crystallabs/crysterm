@@ -301,7 +301,7 @@ describe Crysterm::Layout::Wrap do
     # instead of the row's left edge.
     bg = Widget::Box.new parent: wp, width: 10, height: 2
     bg.layout_excluded = true
-    bg.lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 10, yi: 0, yl: 2)
+    bg.spec_lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 10, yi: 0, yl: 2)
     item = Widget::Box.new parent: wp, width: 8, height: 2
 
     s.repaint
@@ -318,7 +318,7 @@ describe Crysterm::Layout::Wrap do
     # shoves the wrapped child to top=12 (off-screen) instead of top=3.
     bg = Widget::Box.new parent: wp, width: 20, height: 12
     bg.layout_excluded = true
-    bg.lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 20, yi: 0, yl: 12)
+    bg.spec_lpos = Crysterm::RenderedGeometry.new(xi: 0, xl: 20, yi: 0, yl: 12)
     Widget::Box.new parent: wp, width: 12, height: 3
     second = Widget::Box.new parent: wp, width: 12, height: 3 # wraps to row 2
 

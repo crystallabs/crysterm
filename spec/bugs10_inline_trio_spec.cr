@@ -61,8 +61,8 @@ describe "inline Window physical/surface coordination (BUGS10 #1-#3)" do
     s.draw
 
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
 
     # Caret at surface row 2 -> every positioning path tracks the PHYSICAL row

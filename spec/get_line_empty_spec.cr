@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget#line` / `#baseline` (Blessed `getLine` parity) must not raise
-# on empty content: empty content leaves `@_clines.fake` empty, and Crystal's
+# on empty content: empty content leaves `@wrapped_lines.fake` empty, and Crystal's
 # `clamp(0, -1)` returns -1, so an unguarded `fake[-1]` raises `IndexError`.
 describe "Widget#line on empty content" do
   it "returns a blank line instead of raising on a freshly built widget" do

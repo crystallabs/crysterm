@@ -39,7 +39,7 @@ describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     explicit = TextTheme.new(code_color: 0x654321)
     te.set_markdown "`c`", explicit
-    te.document.char_format_at(1).fg.should eq 0x654321
+    te.document.typing_format_at(1).fg.should eq 0x654321
   end
 
   it "1-arg set_markdown imports with the widget's #theme, not the default" do
@@ -47,7 +47,7 @@ describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     te.theme = TextTheme.new(code_color: 0x123456)
     te.set_markdown "`c`"
-    te.document.char_format_at(1).fg.should eq 0x123456
+    te.document.typing_format_at(1).fg.should eq 0x123456
   end
 
   it "set_html and the =-spellings use the widget's #theme too" do
@@ -55,15 +55,15 @@ describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
     te.theme = TextTheme.new(link_color: 0xABCDEF)
     te.set_html %(<a href="x">l</a>)
-    te.document.char_format_at(1).fg.should eq 0xABCDEF
+    te.document.typing_format_at(1).fg.should eq 0xABCDEF
 
     te.theme = TextTheme.new(code_color: 0x0F0F0F)
     te.markdown = "`c`"
-    te.document.char_format_at(1).fg.should eq 0x0F0F0F
+    te.document.typing_format_at(1).fg.should eq 0x0F0F0F
 
     te.theme = TextTheme.new(link_color: 0x00FF77)
     te.html = %(<a href="y">l</a>)
-    te.document.char_format_at(1).fg.should eq 0x00FF77
+    te.document.typing_format_at(1).fg.should eq 0x00FF77
   end
 
   it "a wholesale markdown/html replace rewinds the caret" do

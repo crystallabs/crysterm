@@ -16,7 +16,7 @@ include Crysterm
 #        keys) and `Mixin::TextEditing` (editing keys); both fire on the same
 #        key while reading unless `viewer_scroll_keys?` stands the Interactive
 #        handler down while `@_reading`.
-#  #27 — In non-wrap mode each `@_clines[rl]` is only the visible slice, but the
+#  #27 — In non-wrap mode each `@wrapped_lines[rl]` is only the visible slice, but the
 #        caret/selection math used its size as the full line width, so Up/Down
 #        snapped a caret past the viewport back to ~viewport width and a
 #        selection right of the viewport painted no highlight. Line extents

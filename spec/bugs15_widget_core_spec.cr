@@ -6,10 +6,10 @@ include Crysterm
 # mirrors spec/bugs15_scrolling_chrome_spec.cr / spec/bugs15_content_spec.cr.
 
 # BUGS15 #90 — `insert_line(line : String)`'s no-index append overload
-# resolved its insert point off `@_clines.ftor.size`, which stays 0 for
+# resolved its insert point off `@wrapped_lines.ftor.size`, which stays 0 for
 # content seeded while the widget is detached (`process_content` bails until
 # `window?`, so only `fake` fills up). The default insert point must key off
-# `@_clines.fake.size` instead, matching `append_line`/`remove_last_line`/
+# `@wrapped_lines.fake.size` instead, matching `append_line`/`remove_last_line`/
 # `delete_line`'s clamp — otherwise the "append" call computes index 0 and
 # splices the new line before all existing ones.
 describe "BUGS15 90: insert_line's no-index overload appends after the last logical line" do

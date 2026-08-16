@@ -276,15 +276,25 @@ module Crysterm
           # compare the full text (both endpoints already needed the serialize).
           if (after = buf_text) != before
             emit Crysterm::Event::TextChanged, after
+            emit Crysterm::Event::TextEdited, after
             update!
           end
         elsif buf_size != before_size
           # No starting selection: a size change is the only way the text changed,
           # so an unchanged size means unchanged text — no serialization at all.
           # Serializing for the payload is itself skipped when nobody listens.
-          emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
+          if text_change_observed?
+            after = buf_text
+            emit Crysterm::Event::TextChanged, after
+            emit Crysterm::Event::TextEdited, after
+          end
           update!
         end
+
+        # Caret/selection notifications for whatever this keystroke did —
+        # movement, selection extension/collapse, or an edit's reposition
+        # (self-guarded: quiet when neither changed).
+        emit_caret_events
 
         # Any keystroke that wasn't itself a kill ends the consecutive-kill run,
         # so the next kill starts a fresh ring entry (emacs semantics).
@@ -320,7 +330,7 @@ module Crysterm
         ensure_cursor_visible_x
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         refresh_value
         super
       end

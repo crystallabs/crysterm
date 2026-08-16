@@ -5,13 +5,13 @@ require "../src/crysterm"
 #
 # BEFORE this optimization, every appended line went:
 #   append_line -> insert_line -> rebuild_content_from_fake
-#             -> set_content(@_clines.fake.join("\n")) -> process_content
+#             -> set_content(@wrapped_lines.fake.join("\n")) -> process_content
 # i.e. a full re-join + full reparse of all content per line: O(total) per
 # append, O(n^2) total.
 #
 # AFTER, `append_line` first tries `append_content`, which cleans/tag-parses/
 # wraps/attr-scans only the new segment and splices it onto the tail of
-# `@_clines` — O(appended). Falls back to the old path when it can't guarantee
+# `@wrapped_lines` — O(appended). Falls back to the old path when it can't guarantee
 # an identical result (stale cache, width change, open tag at the boundary).
 #
 # Here "before" = calling `insert_line` at the end index directly (the old slow
@@ -46,8 +46,8 @@ end
 # line-scroll optimization (needs a real rendered screen, crashes headless, and
 # is render bookkeeping, not the parse cost being compared).
 def slow_push(box, line)
-  box._clines.fake << line
-  box.set_content(box._clines.fake.join("\n"), true)
+  box.wrapped_lines.fake << line
+  box.set_content(box.wrapped_lines.fake.join("\n"))
 end
 
 # --------------------------------------------------------------------------
@@ -61,11 +61,11 @@ def assert_equiv(name, tags, lines)
   one = make_box(tags)
   one.set_content lines.join("\n")
 
-  ic = inc._clines
-  oc = one._clines
+  ic = inc.wrapped_lines
+  oc = one.wrapped_lines
   checks = {
-    # `.pcontent` (not `._pcontent`) materializes the lazily-deferred string
-    # before comparison — `._pcontent` stays nil until something reads it.
+    # `.pcontent` (not `.printable_content`) materializes the lazily-deferred string
+    # before comparison — `.printable_content` stays nil until something reads it.
     "pcontent" => inc.pcontent == one.pcontent,
     "lines"    => ic.lines == oc.lines,
     "fake"     => ic.fake == oc.fake,
@@ -90,15 +90,15 @@ assert_equiv "unclosed colour carries across lines", true, ["{red-fg}opens red",
 assert_equiv "blank lines interspersed", false, ["a", "", "b", "", "", "c"]
 
 # Lazy `@content` fold must reproduce the eager concatenation of the same
-# appends (raw text, joined by "\n"), and `_pcontent` must stay deferred until read.
+# appends (raw text, joined by "\n"), and `printable_content` must stay deferred until read.
 begin
   box = make_box(false)
-  box.append_line "alpha"          # seeds line 0 (eager set_content; builds _pcontent)
-  box.append_line "beta"           # append path -> defers
-  box.append_line "gamma"          # append path -> defers
-  deferred_ok = box._pcontent.nil? # _pcontent stayed nil after the appends
+  box.append_line "alpha"                  # seeds line 0 (eager set_content; builds printable_content)
+  box.append_line "beta"                   # append path -> defers
+  box.append_line "gamma"                  # append path -> defers
+  deferred_ok = box.printable_content.nil? # printable_content stayed nil after the appends
   content_ok = box.content == "alpha\nbeta\ngamma"
-  printf "  %-46s => %s\n", "lazy @content fold + deferred _pcontent",
+  printf "  %-46s => %s\n", "lazy @content fold + deferred printable_content",
     (content_ok && deferred_ok) ? "OK" : "MISMATCH (content=#{box.content.inspect} deferred=#{deferred_ok})"
 end
 puts

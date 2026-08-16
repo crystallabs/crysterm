@@ -282,7 +282,7 @@ module Crysterm
       # currently occupies — its rendered coords inset by border/padding — or
       # `nil` when it has no rendered position or is zero-sized.
       private def content_rect : Tuple(Int32, Int32, Int32, Int32)?
-        pos = coords(true, into: @content_lpos) || return
+        pos = coords(rendered: true, into: @content_lpos) || return
         xi, yi, cols, rows = overlay_rect pos
         return if cols <= 0 || rows <= 0
         # A partially-offscreen widget (negative origin) is not drawable: the

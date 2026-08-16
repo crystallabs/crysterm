@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS15 #18 — `rebuild_content_from_fake` must not re-feed `@_clines.fake`
-# (POST-parse lines) through `set_content`, running `_parse_tags` a SECOND
+# BUGS15 #18 — `rebuild_content_from_fake` must not re-feed `@wrapped_lines.fake`
+# (POST-parse lines) through `set_content`, running `expand_tags` a SECOND
 # time: under the drop-malformed policy that silently destroys escaped literal
 # braces (`{open}`/`{close}`) and re-interprets literal tag-looking text as
 # live SGR, on ANY line edit (`insert_line`/`delete_line`/`replace_line`/…).

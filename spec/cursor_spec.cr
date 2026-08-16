@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# Artificial cursor rendering: `Window#_artificial_cursor_attr` is the Crysterm
+# Artificial cursor rendering: `Window#artificial_cursor_attr` is the Crysterm
 # equivalent of blessed's `Window.prototype._cursorAttr`
 # (blessed `lib/widgets/screen.js`). Computes the cell attribute (and optional
 # override glyph) used when `cursor.artificial?` is true and the cursor is
@@ -19,14 +19,14 @@ def cursor_attr(shape, &)
   cursor = screen.cursor
   cursor.shape = shape
   yield cursor
-  screen._artificial_cursor_attr cursor, 0_i64
+  screen.artificial_cursor_attr cursor, 0_i64
 end
 
 def cursor_attr(shape)
   cursor_attr(shape) { }
 end
 
-describe "Window#_artificial_cursor_attr" do
+describe "Window#artificial_cursor_attr" do
   describe "line shape" do
     it "overrides the glyph with a vertical bar and forces a white foreground" do
       attr, ch = cursor_attr Tput::Namespace::CursorShape::Line

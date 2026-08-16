@@ -250,7 +250,9 @@ module Crysterm
     # Order this widget was reached in during the current render walk. Transient
     # bookkeeping — NOT the widget's stacking position; for that see
     # `#stack_index=`, `#to_front` and `#to_back`.
-    property render_index = -1
+    #
+    # `protected`: pure render-walk bookkeeping, of no use outside the pipeline.
+    protected property render_index = -1
 
     # The topmost visible descendant whose last-laid-out rectangle contains the
     # absolute point (*x*, *y*) ↔ Qt's `QWidget::childAt`. Returns the deepest

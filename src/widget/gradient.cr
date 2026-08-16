@@ -215,7 +215,7 @@ module Crysterm
         end
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # Interior inset; border kept intact.
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           next if xl <= xi || yl <= yi

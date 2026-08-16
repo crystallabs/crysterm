@@ -36,7 +36,7 @@ describe Widget::TextEdit do
   it "renders a char format run with its packed attributes (bold + fg)" do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = new_te s, "hello world"
-    te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true, fg: 0xFF0000))
+    te.document.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true, fg: 0xFF0000))
     s.repaint
 
     a = s.cell_rows[0][0].attr
@@ -52,10 +52,10 @@ describe Widget::TextEdit do
   it "renders underline/italic/strike/inverse flags" do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = new_te s, "abcd"
-    te.document.apply_char_format(0, 1, TextCharFormat.new(underline: true))
-    te.document.apply_char_format(1, 2, TextCharFormat.new(italic: true))
-    te.document.apply_char_format(2, 3, TextCharFormat.new(strike: true))
-    te.document.apply_char_format(3, 4, TextCharFormat.new(inverse: true))
+    te.document.cursor(0, 1).set_char_format(TextCharFormat.new(underline: true))
+    te.document.cursor(1, 2).set_char_format(TextCharFormat.new(italic: true))
+    te.document.cursor(2, 3).set_char_format(TextCharFormat.new(strike: true))
+    te.document.cursor(3, 4).set_char_format(TextCharFormat.new(inverse: true))
     s.repaint
 
     (Attr.flags(s.cell_rows[0][0].attr) & Attr::UNDERLINE).should_not eq 0
@@ -67,7 +67,7 @@ describe Widget::TextEdit do
   it "renders an anchor underlined" do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = new_te s, "link here"
-    te.document.apply_char_format(0, 4, TextCharFormat.new(anchor_href: "https://example.org"))
+    te.document.cursor(0, 4).set_char_format(TextCharFormat.new(anchor_href: "https://example.org"))
     s.repaint
     (Attr.flags(s.cell_rows[0][0].attr) & Attr::UNDERLINE).should_not eq 0
     (Attr.flags(s.cell_rows[0][5].attr) & Attr::UNDERLINE).should eq 0
@@ -76,7 +76,7 @@ describe Widget::TextEdit do
   it "renders a heading block bold" do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = new_te s, "Title\nbody"
-    te.document.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 1))
+    te.document.cursor(0, 0).set_block_format(TextBlockFormat.new(heading_level: 1))
     s.repaint
     (Attr.flags(s.cell_rows[0][0].attr) & Attr::BOLD).should_not eq 0
     (Attr.flags(s.cell_rows[1][0].attr) & Attr::BOLD).should eq 0
@@ -85,7 +85,7 @@ describe Widget::TextEdit do
   it "extends a block background across the full row, past the text" do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = new_te s, "bg\nplain"
-    te.document.apply_block_format(0, 0, TextBlockFormat.new(bg: 0x0000FF))
+    te.document.cursor(0, 0).set_block_format(TextBlockFormat.new(bg: 0x0000FF))
     s.repaint
     Attr.bg(s.cell_rows[0][0].attr).should eq Attr.pack_color(0x0000FF)
     # Trailing cell far past the two chars of text:
@@ -97,7 +97,7 @@ describe Widget::TextEdit do
   it "keeps formats attached to their text across edits before them" do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = new_te s, "hello world"
-    te.document.apply_char_format(6, 11, TextCharFormat.new(bold: true))
+    te.document.cursor(6, 11).set_char_format(TextCharFormat.new(bold: true))
 
     # Insert at the start through the editing path (shared mixin op).
     te.cursor_pos = 0
@@ -122,7 +122,7 @@ describe Widget::TextEdit do
     (Attr.flags(s.cell_rows[0][0].attr) & Attr::BOLD).should_not eq 0
     (Attr.flags(s.cell_rows[0][1].attr) & Attr::BOLD).should_not eq 0
     # The document itself carries the format (not just the paint):
-    te.document.char_format_at(1).bold?.should be_true
+    te.document.typing_format_at(1).bold?.should be_true
   end
 
   it "renders TABs expanded to the style's tab width" do

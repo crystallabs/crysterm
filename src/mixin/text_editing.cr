@@ -10,7 +10,7 @@ module Crysterm
     # Qt's `QLineEdit` is a `QWidget`, *not* a `QAbstractScrollArea` (which is
     # `QPlainTextEdit`'s base). Crysterm mirrors that by sharing the editing
     # behavior as a module, so a widget can get it without becoming a scroll area.
-    # The viewport machinery this calls (`@child_base`, `_clines`,
+    # The viewport machinery this calls (`@child_base`, `wrapped_lines`,
     # `ensure_visible`, `scroll`, `process_content`, …) lives on the base
     # `Widget`, so a plain `Box`/`Input` includer has it available.
     #
@@ -50,8 +50,9 @@ module Crysterm
         self.value = text
       end
 
-      # Whether anyone is listening for `Event::TextChanged`, used to skip
-      # building the event's payload when nobody would read it.
+      # Whether anyone is listening for `Event::TextChanged` (or its
+      # user-edit sibling `Event::TextEdited`, emitted from the same sites),
+      # used to skip building the events' payload when nobody would read it.
       #
       # The payload is `#buf_text` — for a document-backed buffer that is a full
       # `String` rebuild of the document on every content-changing keystroke, so
@@ -59,13 +60,37 @@ module Crysterm
       # `_update_cursor` *outside* the guard: rendering does not depend on
       # anyone observing the event.
       #
-      # Caveat: `has_handlers?` inspects only the concrete `TextChanged` handler
-      # list, not the `AnyEvent` list that `emit` also consults, so a listener
-      # registered *purely* via `AnyEvent` stops seeing `TextChanged` at guarded
+      # Caveat: `has_handlers?` inspects only the concrete handler lists, not
+      # the `AnyEvent` list that `emit` also consults, so a listener
+      # registered *purely* via `AnyEvent` stops seeing these at guarded
       # sites. That is the same trade-off already accepted for `Event::Key` at
       # `Window#emit_key_transition` (src/window_interaction.cr).
       private def text_change_observed? : Bool
-        has_handlers?(Crysterm::Event::TextChanged)
+        has_handlers?(Crysterm::Event::TextChanged) ||
+          has_handlers?(Crysterm::Event::TextEdited)
+      end
+
+      # Last-notified caret/selection state, backing `#emit_caret_events`.
+      @_last_caret_pos = 0
+      @_last_selection : Range(Int32, Int32)? = nil
+
+      # Emits `Event::CursorPositionChanged`/`Event::SelectionChanged` when
+      # the caret or selection differs from the last check — the shared tail
+      # of every user-facing interaction (keystroke, mouse, paste,
+      # programmatic move), so call sites don't compare state themselves.
+      # Change-guarded here rather than at each write to `@cursor_pos`, whose
+      # transient intermediate values (e.g. a delete's collapse-then-insert)
+      # are not observable positions.
+      private def emit_caret_events : Nil
+        if @cursor_pos != @_last_caret_pos
+          @_last_caret_pos = @cursor_pos
+          emit Crysterm::Event::CursorPositionChanged, @cursor_pos
+        end
+        sel = selection_range
+        if sel != @_last_selection
+          @_last_selection = sel
+          emit Crysterm::Event::SelectionChanged
+        end
       end
 
       # Inserts *str* at the cursor, replacing the selection if there is one —
@@ -88,7 +113,14 @@ module Crysterm
         return if !had_selection && buf_size == before_size
         ensure_cursor_visible
         ensure_cursor_visible_x
-        emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
+        if text_change_observed?
+          after = buf_text
+          emit Crysterm::Event::TextChanged, after
+          # Paste and `#insert_text` count as user edits (Qt's `textEdited`
+          # scope), unlike `value=`.
+          emit Crysterm::Event::TextEdited, after
+        end
+        emit_caret_events
         update!
         _update_cursor
       end
@@ -104,9 +136,12 @@ module Crysterm
       end
 
       # Sets the cursor position, clamped to the valid buffer range
-      # (`0..buf_size`).
+      # (`0..buf_size`). Emits `Event::CursorPositionChanged` when it moved —
+      # programmatic moves notify like interactive ones (Qt semantics).
       def cursor_position=(value : Int32) : Int32
         @cursor_pos = value.clamp(0, buf_size)
+        emit_caret_events
+        @cursor_pos
       end
 
       # Alias for `#cursor_position`. 327 call sites across the codebase use
@@ -154,6 +189,7 @@ module Crysterm
         @selection_anchor = 0
         @cursor_pos = buf_size
         @goal_col = nil
+        emit_caret_events
         update!
       end
 
@@ -298,6 +334,7 @@ module Crysterm
             # `dispatch_mouse`'s click-to-focus render, which is skipped when
             # `focus_on_click?` is off. `paint` repositions the terminal caret via
             # `_update_cursor` too.
+            emit_caret_events
             update!
           elsif e.action.move? && !e.button.none? && focused?
             # Extend the selection to the pointer. If the pointer is past the
@@ -310,6 +347,7 @@ module Crysterm
             @goal_col = nil
             @selection_anchor ||= @cursor_pos
             @cursor_pos = pos
+            emit_caret_events
             update!
             e.accept
           end

@@ -142,7 +142,7 @@ module Crysterm
           # Restore before removing: `raw_remove`'s block merge keeps the
           # first block's format, so this is what the merged block ends
           # up with.
-          doc.blocks[doc.block_at(@pos)[0]].block_format = bf
+          doc.blocks[doc.block_at(@pos).index].block_format = bf
         end
         doc.raw_remove(@pos, @fragment.size)
       end
@@ -215,7 +215,16 @@ module Crysterm
     @macro : MacroCommand?
     @macro_depth = 0
 
-    def push(cmd : Command, doc : TextDocument) : Nil
+    # The owning document — the stack is `TextDocument`-internal (one stack
+    # per document, built by it), so commands always replay against their own
+    # document; a per-call document parameter allowed
+    # `docA.undo_stack.undo(docB)` to silently corrupt B.
+    private getter document : TextDocument
+
+    def initialize(@document : TextDocument)
+    end
+
+    def push(cmd : Command) : Nil
       if m = @macro
         unless (last = m.children.last?) && !last.sealed? && last.try_merge(cmd)
           m.children << cmd
@@ -230,7 +239,7 @@ module Crysterm
         @commands << cmd
         @index += 1
       end
-      doc.refresh_undo_state
+      document.refresh_undo_state
     end
 
     def begin_macro : Nil
@@ -241,7 +250,7 @@ module Crysterm
       @macro_depth += 1
     end
 
-    def end_macro(doc : TextDocument) : Nil
+    def end_macro : Nil
       return if @macro_depth == 0
       @macro_depth -= 1
       return unless @macro_depth == 0
@@ -249,7 +258,7 @@ module Crysterm
         @macro = nil
         unless m.children.empty?
           m.sealed = true
-          push(m, doc)
+          push(m)
         end
       end
     end
@@ -258,21 +267,21 @@ module Crysterm
       @macro_depth > 0
     end
 
-    def undo(doc : TextDocument) : Bool
+    def undo : Bool
       return false if in_macro? || @index == 0
       @index -= 1
-      @commands[@index].undo(doc)
+      @commands[@index].undo(document)
       seal_last
-      doc.refresh_undo_state
+      document.refresh_undo_state
       true
     end
 
-    def redo(doc : TextDocument) : Bool
+    def redo : Bool
       return false if in_macro? || @index == @commands.size
-      @commands[@index].redo(doc)
+      @commands[@index].redo(document)
       @index += 1
       seal_last
-      doc.refresh_undo_state
+      document.refresh_undo_state
       true
     end
 

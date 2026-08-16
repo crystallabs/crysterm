@@ -243,15 +243,15 @@ module Crysterm
       # Must run before the label child renders.
       sync_label_position
 
-      # `awidth(true)` is an O(1) read of the parent's already-rendered cached
+      # `awidth(rendered: true)` is an O(1) read of the parent's already-rendered cached
       # `lpos`. Resolve once and pass to both `process_content` and `coords`
       # instead of each walking the ancestor chain separately.
-      aw = awidth(true)
+      aw = awidth(rendered: true)
       process_content awidth_hint: aw
 
       # Pass `@lpos` so `coords` updates it in place rather than allocating a
       # fresh `RenderedGeometry` every frame.
-      coords = coords(true, into: @lpos, width_hint: aw)
+      coords = coords(rendered: true, into: @lpos, width_hint: aw)
       unless coords
         # No on-screen rect this frame (scrolled/clipped out of a scrollable
         # ancestor's viewport, or the ancestor has no `lpos`): this widget and
@@ -297,9 +297,9 @@ module Crysterm
       yi = coords.yi
       yl = coords.yl
       # `#pcontent` materializes the printable string if a deferred append left it
-      # stale, caching into `@_pcontent`. Once per frame, not per appended line.
+      # stale, caching into `@printable_content`. Once per frame, not per appended line.
       pcontent = self.pcontent
-      # Reuse the cached codepoint index unless `@_pcontent` was reparsed into a
+      # Reuse the cached codepoint index unless `@printable_content` was reparsed into a
       # fresh `String` (identity check).
       content = @_content_index
       unless content && content.built_from?(pcontent)
@@ -315,10 +315,10 @@ module Crysterm
       # `[]?` is nil only when out of range — handled above); the `|| 0` is a bare
       # guard for a non-sensical negative base and never fires in practice.
       ci =
-        if coords.base >= @_clines.ci.size
+        if coords.base >= @wrapped_lines.ci.size
           content.size
         else
-          @_clines.ci[coords.base]? || 0
+          @wrapped_lines.ci[coords.base]? || 0
         end
 
       @lpos = coords
@@ -334,7 +334,7 @@ module Crysterm
       # If we're in a scrollable text box, check to
       # see which attributes this line starts with.
       if ci > 0
-        attr = @_clines.attr.try(&.[Math.min(coords.base, @_clines.size - 1)]?) || default_attr
+        attr = @wrapped_lines.attr.try(&.[Math.min(coords.base, @wrapped_lines.size - 1)]?) || default_attr
       end
 
       # Effective per-edge insets: on a scroll-clipped edge part (or all) of the
@@ -450,12 +450,12 @@ module Crysterm
       # Determine where to place the text if it's vertically aligned.
       if @align.v_center? || @align.bottom?
         visible = yl - yi
-        if @_clines.size < visible
+        if @wrapped_lines.size < visible
           if @align.v_center?
             visible = visible // 2
-            visible -= @_clines.size // 2
+            visible -= @wrapped_lines.size // 2
           elsif @align.bottom?
-            visible -= @_clines.size
+            visible -= @wrapped_lines.size
           end
           ci -= visible * (xl - xi)
         end
@@ -1041,7 +1041,7 @@ module Crysterm
           # on the BASE stops and docks to base content, producing stray
           # junctions.
           scr = window
-          stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
+          stops = scr.compositing_layers? ? scr.plane_dock_stops : scr.dock_stops
           stops[coords.yi] = true
           stops[coords.yl - 1] = true
         end
@@ -1160,7 +1160,7 @@ module Crysterm
     # than an override) and invoke `#base_render` for the standard box/content
     # pass. Callers outside the render pipeline should prefer `#repaint` (the
     # Qt-named public spelling) or, for a coalesced scheduled frame, `#update`.
-    def paint(with_children = true)
+    def paint(*, with_children = true)
       if handler = @paint_handler
         with_content_coords(with_children) { |xi, xl, yi, yl| handler.call(xi, xl, yi, yl) }
       else
@@ -1171,8 +1171,8 @@ module Crysterm
     # Synchronously paints this widget ↔ `QWidget::repaint()` — dispatches to
     # the (possibly overridden) `#paint`. For a coalesced, scheduled frame of
     # the whole window use `#update`.
-    def repaint(with_children = true)
-      paint with_children
+    def repaint(*, with_children = true)
+      paint with_children: with_children
     end
 
     # Runs `base_render`, insets the resulting coordinates by this widget's
@@ -1340,7 +1340,7 @@ module Crysterm
       # caller moved the widget, since `@lpos` holds where it actually painted.
       # Falls back to `coords` only when never rendered. Same
       # `@lpos || coords` idiom as `widget_scrolling.cr`.
-      lpos = @lpos || coords(rendered)
+      lpos = @lpos || coords(rendered: rendered)
       return unless lpos
       window.clear_region(lpos.xi, lpos.xl, lpos.yi, lpos.yl, force: force)
     end

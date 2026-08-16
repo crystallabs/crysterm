@@ -18,9 +18,9 @@ describe Widget::TextEdit do
       content: "aaaa bbbb cccc"
     s.repaint
 
-    te._clines.size.should be > 1
+    te.wrapped_lines.size.should be > 1
     # The rows join back (modulo the wrap cuts) to the block's text.
-    te._clines.lines.join.gsub(/ +/, " ").strip.should eq "aaaa bbbb cccc"
+    te.wrapped_lines.lines.join.gsub(/ +/, " ").strip.should eq "aaaa bbbb cccc"
   end
 
   it "maps the caret through wrapped rows (Up/Down keep the column)" do
@@ -98,7 +98,7 @@ describe Widget::TextEdit do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "bold text"
-    te.document.apply_char_format(0, 4, TextCharFormat.new(bold: true))
+    te.document.cursor(0, 4).set_char_format(TextCharFormat.new(bold: true))
     s.repaint
 
     te.cursor_pos = 4
@@ -107,7 +107,7 @@ describe Widget::TextEdit do
 
     te._listener ctl(::Tput::Key::CtrlZ) # undo the backspace run (one step)
     te.value.should eq "bold text"
-    te.document.char_format_at(3).bold?.should be_true
+    te.document.typing_format_at(3).bold?.should be_true
   end
 
   it "emits TextChanged on edits and on undo" do
@@ -192,17 +192,17 @@ describe Widget::TextEdit do
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "a"
     s.repaint
-    te._clines.size.should eq 1
+    te.wrapped_lines.size.should eq 1
 
     te.cursor_pos = 1
     te._listener kp('\n', ::Tput::Key::Enter)
     te._listener kp('b')
     s.repaint
-    te._clines.size.should eq 2
+    te.wrapped_lines.size.should eq 2
 
     te._listener ctl(::Tput::Key::Backspace)
     te._listener ctl(::Tput::Key::Backspace)
     s.repaint
-    te._clines.size.should eq 1
+    te.wrapped_lines.size.should eq 1
   end
 end

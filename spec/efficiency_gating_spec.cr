@@ -23,7 +23,7 @@ end
 private def gating_anchor(s, url = "https://example.org")
   te = Crysterm::Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30,
     height: 4, content: "click here"
-  te.document.apply_char_format(0, 5, Crysterm::TextCharFormat.new(anchor_href: url))
+  te.document.cursor(0, 5).set_char_format(Crysterm::TextCharFormat.new(anchor_href: url))
   te
 end
 

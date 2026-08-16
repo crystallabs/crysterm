@@ -155,11 +155,11 @@ puts "  alloc: OLD #{alloc_mb(ROUNDS) { styled.each_char_with_index { |ch, i| st
      "  vs  NEW #{alloc_mb(ROUNDS) { styled.each_char_with_index { |ch, i| sgr.match(styled, i, options: Regex::MatchOptions::ANCHORED) if ch == '\e' } }.round(2)} MB  (#{ROUNDS} scans)"
 
 # ---------------------------------------------------------------------------
-# #10  StringIndex reuse — `repaint` builds a codepoint index over @_pcontent
+# #10  StringIndex reuse — `repaint` builds a codepoint index over @printable_content
 #      once per widget every frame. OLD rebuilt it each frame; for non-ASCII
 #      that re-materializes a `chars` array (per-frame garbage), and even ASCII
 #      re-runs the O(n) `ascii_only?` scan. NEW reuses a cached index while
-#      @_pcontent is unchanged (the common case: content changes on edit only).
+#      @printable_content is unchanged (the common case: content changes on edit only).
 section "#10  StringIndex reuse  (per widget, every frame)"
 ascii_line = (0...WIDTH).map { |i| ('a' + (i % 26)) }.join
 unicode_line = (0...WIDTH).map { |i| (i % 3 == 0) ? 'é' : ('a' + (i % 26)) }.join

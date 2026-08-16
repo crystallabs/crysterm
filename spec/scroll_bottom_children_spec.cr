@@ -2,14 +2,14 @@ require "./spec_helper"
 
 include Crysterm
 
-# Regression for `Widget#_scroll_bottom` (and thus `scroll_height`) after the
+# Regression for `Widget#scroll_bottom` (and thus `scroll_height`) after the
 # allocation fix that routes the per-child `coords` through a reused scratch
 # `RenderedGeometry` (`@_scrollb_lpos`) instead of allocating a fresh `RenderedGeometry` per non-fixed
 # child per frame. The scratch is consumed immediately within the reduce, so the
 # computed scroll height must be identical to the pre-fix behavior: it reflects
 # the bottom-most extent of the (non-fixed) children.
 
-describe "Widget#_scroll_bottom with children" do
+describe "Widget#scroll_bottom with children" do
   it "computes scroll height from the bottom-most child extent" do
     s = headless_screen(default_quit_keys: true)
     box = Widget.new parent: s, top: 0, left: 0, width: 20, height: 5,

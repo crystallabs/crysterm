@@ -15,11 +15,11 @@ module Crysterm
     # undo/redo work.
     #
     # Layout is a per-block wrap cache: each `TextBlock` wraps independently
-    # into display rows (reusing `Widget#_wrap_content`), invalidated by the
+    # into display rows (reusing `Widget#wrap_lines`), invalidated by the
     # document's `ContentsChanged` for only the touched blocks, so edits stay
-    # O(block), not O(document). The assembled rows fill `@_clines` — the same
+    # O(block), not O(document). The assembled rows fill `@wrapped_lines` — the same
     # structure the shared caret/selection geometry already reads — while
-    # `@_pcontent` stays empty: the base `base_render` pass paints only background/
+    # `@printable_content` stays empty: the base `base_render` pass paints only background/
     # borders/scroll bars, and `#paint_document` then writes the fragments
     # directly into the cell buffer with packed attributes. No tag or SGR
     # string is ever generated.
@@ -91,7 +91,7 @@ module Crysterm
       # typed marker text), a second removes the marker keystrokes.
       property auto_formatting : AutoFormatting = AutoFormatting::None
 
-      # Per-display-row decoration metadata, parallel to `@_clines`. `offset` is
+      # Per-display-row decoration metadata, parallel to `@wrapped_lines`. `offset` is
       # the column where the row's text starts (frame insets + quote bars +
       # indents + list marker + alignment shift), read by the shared geometry
       # through `#row_text_x_offset`; `marker` is the list marker painted at the
@@ -119,8 +119,16 @@ module Crysterm
       # Colors for the structural decorations this widget paints itself
       # (list markers, quote bars, horizontal rules) — the same palette the
       # interchange importers use for text-level coloring, so a structurally
-      # built document looks like an imported one.
-      property theme : TextTheme = TextTheme.default
+      # built document looks like an imported one. Stamped onto the document
+      # (`TextDocument#theme`) on assignment and adoption, so
+      # `doc.markdown = x` colors the same as this widget's `markdown=`.
+      getter theme : TextTheme = TextTheme.default
+
+      def theme=(value : TextTheme) : TextTheme
+        @theme = value
+        document.theme = value
+        value
+      end
 
       getter extra_selections = [] of ExtraSelection
 
@@ -149,7 +157,7 @@ module Crysterm
       @block_layouts_swap = {} of UInt64 => BlockLayout
 
       # Decoration metadata per assembled display row (see `RowMeta`),
-      # rebuilt alongside `@_clines` by `#rebuild_layout`.
+      # rebuilt alongside `@wrapped_lines` by `#rebuild_layout`.
       @row_meta = [] of RowMeta
 
       # The layout inputs `@block_layouts` entries are valid for:
@@ -158,7 +166,7 @@ module Crysterm
       @layout_key : Tuple(Int32, Int32, Bool, Int32)? = nil
 
       # Bumped on every document `ContentsChanged`; `@layout_revision` is the
-      # revision `@_clines` was assembled at, `@rendered_revision` the one the
+      # revision `@wrapped_lines` was assembled at, `@rendered_revision` the one the
       # caret-following scroll last ran for.
       @doc_revision = 0
       @layout_revision = -1
@@ -192,16 +200,16 @@ module Crysterm
       # (the same `{bold}…{/bold}` vocabulary plain widgets parse) — so all
       # of the widget's "set the text" entry points agree: `content=`/
       # `set_content`/`set_text` replace the document wholesale
-      # (`TextDocument#set_tags` reset semantics; `no_tags`/`no_clear` are
+      # (`TextDocument#set_tags` reset semantics; `no_tags` is
       # ignored) and `content` reads it back as tags. For an undoable partial
       # edit use the cursor API; for plain text use `value=`.
-      def set_content(content = "", no_clear = false, no_tags = false)
+      def set_content(content = "", *, no_tags = false)
         return super unless @buf_content_delegated
         document.set_tags content.to_s
       end
 
       # :ditto:
-      def set_text(content = "", no_clear = false)
+      def set_text(content = "")
         set_content content
       end
 
@@ -279,6 +287,8 @@ module Crysterm
         @block_layouts.clear
         @layout_key = nil
         @doc_revision += 1
+        # An adopted document inherits this widget's palette (see `#theme`).
+        document.theme = @theme
       end
 
       private def wire_document : Nil
@@ -303,8 +313,8 @@ module Crysterm
         follow_document_change(kind, pos, removed, added)
         @doc_revision += 1
         blocks = document.blocks
-        b1 = document.block_at(pos)[0]
-        b2 = document.block_at(pos + added)[0]
+        b1 = document.block_at(pos).index
+        b2 = document.block_at(pos + added).index
         (b1..b2).each do |i|
           blocks[i]?.try { |b| @block_layouts.delete(b.object_id) }
         end
@@ -315,13 +325,13 @@ module Crysterm
       # === Layout ===
 
       # Replaces the base content pipeline: instead of parsing `@content`,
-      # assemble `@_clines` from the per-block wrap cache. Returns whether a
+      # assemble `@wrapped_lines` from the per-block wrap cache. Returns whether a
       # relayout happened (base contract).
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         return false unless window?
         colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
-        if key == @layout_key && @layout_revision == @doc_revision && !@_clines.empty?
+        if key == @layout_key && @layout_revision == @doc_revision && !@wrapped_lines.empty?
           # Steady frame. Keep the cached base attr fresh (a style change
           # recolors the background) — mirrors the base `process_content`. The
           # derivation is memoized on {identity, attr_revision}; no stamped-
@@ -347,7 +357,7 @@ module Crysterm
         {colwidth, @child_base_x, wrap_content?, content_margin_x}
       end
 
-      # Assembles `@_clines` (rows + fake/real maps) and `@row_meta` from
+      # Assembles `@wrapped_lines` (rows + fake/real maps) and `@row_meta` from
       # per-block layouts, wrapping only blocks without a cache entry (or whose
       # decoration width changed). The swap hash keeps only blocks still in the
       # document, sweeping removed blocks' entries. Decorated blocks wrap at
@@ -359,7 +369,7 @@ module Crysterm
         @layout_key = key
         @layout_revision = @doc_revision
 
-        cl = @_clines
+        cl = @wrapped_lines
         cl.reset
         fake = cl.fake
         fake.clear
@@ -483,7 +493,7 @@ module Crysterm
         # Keep the printable content empty: the base `base_render` pass then paints
         # only the background fill (plus borders/bars/selection-on-fill), and
         # `#paint_document` draws the actual text over it.
-        @_pcontent = ""
+        @printable_content = ""
         # The base attr cache normally refreshes in base `process_content`.
         # Routed through the memo so the first steady frame after a rebuild
         # hits instead of recomputing once more.
@@ -491,7 +501,7 @@ module Crysterm
       end
 
       # One block's display rows under the current layout inputs, via the same
-      # wrap engine (`_wrap_content`) the base pipeline uses — identical cut
+      # wrap engine (`wrap_lines`) the base pipeline uses — identical cut
       # points, wide-char handling and `content_margin_x` reservation, and the
       # non-wrap `_hslice` viewport window. `wrap_width` is the column width left
       # after the block's decorations. TABs must be pre-expanded to match the
@@ -499,7 +509,7 @@ module Crysterm
       private def wrap_block(blk : TextBlock, wrap_width : Int32) : CLines
         text = blk.text
         text = text.gsub('\t', style.tab_char * style.tab_size) if text.includes?('\t')
-        _wrap_content(text, wrap_width)
+        wrap_lines(text, wrap_width)
       end
 
       # Decoration cells left of a block's text: frame insets (borders +
@@ -539,13 +549,13 @@ module Crysterm
         while (m = @row_meta[r]?) && m.margin
           r += dir
         end
-        if r < 0 || r >= @_clines.size
+        if r < 0 || r >= @wrapped_lines.size
           r = rl
           while (m = @row_meta[r]?) && m.margin
             r -= dir
           end
         end
-        r.clamp(0, Math.max(0, @_clines.size - 1))
+        r.clamp(0, Math.max(0, @wrapped_lines.size - 1))
       end
 
       # === Cursor / format API (Qt counterparts) ===
@@ -572,7 +582,7 @@ module Crysterm
       # Format typing at the caret would get: the pending typing format, else
       # the preceding character's (Qt `currentCharFormat`).
       def current_char_format : TextCharFormat
-        typing_format || document.char_format_at(@cursor_pos)
+        typing_format || document.typing_format_at(@cursor_pos)
       end
 
       # Merges *fmt* into the selection's char formats (undoable), or into

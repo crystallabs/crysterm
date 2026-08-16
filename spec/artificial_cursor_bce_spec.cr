@@ -40,8 +40,8 @@ describe "Window#draw artificial cursor + BCE" do
 
     # Paint a visible artificial block cursor at (cx, y).
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
     s.tput.cursor.x = cx
     s.tput.cursor.y = y

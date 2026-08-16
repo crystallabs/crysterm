@@ -41,7 +41,7 @@ describe "BUGS13 markdown inline round-trips" do
   describe "link destination encoding (T15)" do
     it "keeps a link whose URL has spaces and an unbalanced paren" do
       doc = TextDocument.new("docs")
-      doc.apply_char_format(0, 4, TextCharFormat.new(anchor_href: "http://x.com/a b(c"))
+      doc.cursor(0, 4).set_char_format(TextCharFormat.new(anchor_href: "http://x.com/a b(c"))
       md = doc.to_markdown
       md.should eq "[docs](http://x.com/a%20b%28c)"
       back = TextDocument.from_markdown(md)
@@ -71,7 +71,7 @@ describe "BUGS13 markdown inline round-trips" do
   describe "strike combined with other markup (T24)" do
     it "round-trips bold+strike" do
       doc = TextDocument.new("x")
-      doc.apply_char_format(0, 1, TextCharFormat.new(bold: true, strike: true))
+      doc.cursor(0, 1).set_char_format(TextCharFormat.new(bold: true, strike: true))
       md = doc.to_markdown
       md.should eq "~~**x**~~"
       f = TextDocument.from_markdown(md).blocks[0].fragments
@@ -107,7 +107,7 @@ describe "BUGS13 markdown inline round-trips" do
   describe "code span with backtick runs (T25)" do
     it "round-trips a code fragment containing a double-backtick run" do
       doc = TextDocument.new("a `` b")
-      doc.apply_char_format(0, 6, TextCharFormat.new(code: true))
+      doc.cursor(0, 6).set_char_format(TextCharFormat.new(code: true))
       md = doc.to_markdown
       md.should eq "``` a `` b ```"
       f = TextDocument.from_markdown(md).blocks[0].fragments[0]
@@ -131,7 +131,7 @@ describe "BUGS13 markdown inline round-trips" do
   describe "emphasis edge whitespace (T27)" do
     it "hoists a trailing space out of a bold span" do
       doc = TextDocument.new("bold plain")
-      doc.apply_char_format(0, 5, TextCharFormat.new(bold: true)) # "bold "
+      doc.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true)) # "bold "
       md = doc.to_markdown
       md.should eq "**bold** plain"
       f = TextDocument.from_markdown(md).blocks[0].fragments
@@ -142,7 +142,7 @@ describe "BUGS13 markdown inline round-trips" do
 
     it "hoists a leading space out of a strike span" do
       doc = TextDocument.new("plain gone")
-      doc.apply_char_format(5, 10, TextCharFormat.new(strike: true)) # " gone"
+      doc.cursor(5, 10).set_char_format(TextCharFormat.new(strike: true)) # " gone"
       md = doc.to_markdown
       md.should eq "plain ~~gone~~"
       f = TextDocument.from_markdown(md).blocks[0].fragments
@@ -152,7 +152,7 @@ describe "BUGS13 markdown inline round-trips" do
 
     it "emits no markers around a whitespace-only styled fragment" do
       doc = TextDocument.new("a b")
-      doc.apply_char_format(1, 2, TextCharFormat.new(bold: true)) # just the space
+      doc.cursor(1, 2).set_char_format(TextCharFormat.new(bold: true)) # just the space
       doc.to_markdown.should eq "a b"
     end
   end

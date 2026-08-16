@@ -205,7 +205,7 @@ module Crysterm
         end
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         coords = base_render with_children
         return unless coords
 

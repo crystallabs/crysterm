@@ -62,7 +62,7 @@ module Crysterm
 
         # Quietly drop last frame's assigned column widths before the label
         # scan: `measured_label_width` measures a label's *wrapped* content
-        # (`_clines`), which re-wraps at the effective width — a stale layout
+        # (`wrapped_lines`), which re-wraps at the effective width — a stale layout
         # width from the previous arrange would wrap the content to the old
         # column and freeze the auto column at it. The layout-channel analogue
         # of the old restore-before-the-loop.
@@ -204,14 +204,14 @@ module Crysterm
           return w
         end
         # Re-wrap the label's content at its current effective width before
-        # measuring: `_clines` is a render-time cache and may still hold lines
+        # measuring: `wrapped_lines` is a render-time cache and may still hold lines
         # wrapped at last frame's assigned column (or older content). The old
         # spec-restoring bookkeeping caused this re-wrap as a side effect of
         # its `width=` restore (Resize -> reprocess); the layout channel asks
         # for it explicitly. Cache-keyed, so a stable label costs one key
         # check.
         el.process_content
-        el._clines.max_width + el.ihorizontal
+        el.wrapped_lines.max_width + el.ihorizontal
       end
 
       # A child's row height: an explicit `Int32`, a resolved `Dim`/`String`

@@ -72,7 +72,9 @@ module Crysterm
     # Root-frame constructor: owns the document's block list.
     def initialize(document : TextDocument, @frame_format : TextFrameFormat = TextFrameFormat.default)
       super(document)
-      @storage = [TextBlock.new]
+      b = TextBlock.new
+      b.document = document
+      @storage = [b]
     end
 
     # A child-frame *view* over the blocks whose frame path contains

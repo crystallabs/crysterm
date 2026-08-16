@@ -59,7 +59,7 @@ module Crysterm
             return Math.max r, 1
           end
           process_content awidth_hint: outer_width
-          Math.max _clines.size + ivertical, 1
+          Math.max wrapped_lines.size + ivertical, 1
         end
       end
 
@@ -238,7 +238,7 @@ module Crysterm
       # Relayout on every paint: tablet heights and the visible window depend
       # on the widget's resolved size, only known once coordinates are
       # computed (the `ToolBox#paint` pattern).
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         relayout
         super
       end

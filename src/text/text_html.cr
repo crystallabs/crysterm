@@ -879,14 +879,17 @@ module Crysterm
     end
 
     # Replaces the whole content from HTML (Qt `setHtml`). Same reset
-    # semantics as `set_plain_text` (not undoable, cursors rewind).
-    def set_html(html : String, theme : TextTheme = TextTheme.default) : Nil
+    # semantics as `set_plain_text` (not undoable, cursors rewind). *theme*
+    # defaults to the document's own `#theme` (see `#set_markdown`). Returns
+    # the assigned text.
+    def set_html(html : String, theme : TextTheme = @theme) : String
       replace_content(TextHtml.parse(html, theme))
+      html
     end
 
-    # `=`-setter spelling of `#set_html` (default theme; use `#set_html` for an
-    # explicit one).
-    def html=(html : String) : Nil
+    # `=`-setter spelling of `#set_html` (document theme; use `#set_html` for
+    # an explicit one).
+    def html=(html : String) : String
       set_html(html)
     end
 
@@ -905,6 +908,11 @@ module Crysterm
     # The fragment as HTML (see `TextHtml`).
     def to_html : String
       TextHtml.generate(@blocks)
+    end
+
+    # Alias for `#to_html` — the bare-reader spelling the document also has.
+    def html : String
+      to_html
     end
   end
 end

@@ -426,7 +426,7 @@ module Crysterm
     # Whether the cell buffers already match the device's current size, i.e.
     # `alloc`/`realloc` would be a no-op. The `|| 0` keeps an unallocated
     # window (empty `@lines`) comparing as a mismatch so it still reallocs.
-    def buffers_match_device? : Bool
+    protected def buffers_match_device? : Bool
       @lines.size == aheight && (@lines[0]?.try(&.size) || 0) == awidth
     end
 
@@ -434,7 +434,9 @@ module Crysterm
     #
     # `dirty` means lines must be redrawn: re-creates the cell grid from
     # scratch rather than adjusting the size of the existing one.
-    def alloc(dirty = false)
+    #
+    # :nodoc: internal; kept public because the render/draw specs drive it.
+    def alloc(*, dirty = false)
       # NOTE dirty=true is mostly used during resize to empty all cells, because
       # `clear_last_rendered_pos` doesn't clear the correct area on resize (it
       # sees the resized values by the time it runs). This may mask an
@@ -543,6 +545,9 @@ module Crysterm
     end
 
     # Reallocates screen buffers and clear the screen.
+    #
+    # :nodoc: internal (like `#alloc`), but kept public: the in-tree benchmarks
+    # drive it directly to reset the frame model between measured runs.
     def realloc
       alloc dirty: true
       # Both cell buffers are now blank, so the in-memory frame model matches

@@ -177,7 +177,7 @@ module Crysterm
     # Only emits events; does not store the screen on any node — the caller
     # links the tree (`#parent`/`#screen=`) beforehand, after which the subtree
     # derives its screen via `Widget#window?`.
-    def attach(element, previous : ::Crysterm::Window? = nil)
+    protected def attach(element, previous : ::Crysterm::Window? = nil)
       return if previous == self
 
       # A subtree arriving pre-styled from another window must arm this
@@ -197,7 +197,7 @@ module Crysterm
     # (defaulting to this screen), emitting `Event::Detached` on every node.
     #
     # Like `#attach`, only emits events; the caller unlinks the tree beforehand.
-    def detach(element, previous : ::Crysterm::Window? = nil)
+    protected def detach(element, previous : ::Crysterm::Window? = nil)
       previous ||= self
 
       element.self_and_each_descendant do |el|

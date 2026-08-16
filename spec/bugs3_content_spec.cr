@@ -4,7 +4,7 @@ include Crysterm
 
 # Regression coverage for two word-wrap / SGR bugs in `src/widget_content.cr`:
 #
-#   1. The "only an escape got cut off" guard (`_wrap_content`, ~line 781) used
+#   1. The "only an escape got cut off" guard (`wrap_lines`, ~line 781) used
 #      the regex `/^(?:\e[\[\d;]*m)+$/`, whose `[\[\d;]*` is a character class
 #      matching `[`, digits and `;` in ANY order and with NO required `[` after
 #      the `\e`. That wrongly accepted junk like `"\e999m"` or `"\em"` as an SGR
@@ -18,10 +18,10 @@ include Crysterm
 #
 # Both are exercised through the public API: a `Widget::Box` with `wrap_content`
 # on, given content with inline SGR, wrapped to a narrow width by `repaint`, and
-# the resulting wrapped rows (`@_clines`) inspected. Headless harness: a `Window`
+# the resulting wrapped rows (`@wrapped_lines`) inspected. Headless harness: a `Window`
 # over in-memory IOs plus the synchronous `Window#repaint` (like the other specs).
 
-# A wrap box whose `_wrap_content` we call directly with an explicit column
+# A wrap box whose `wrap_lines` we call directly with an explicit column
 # width (border/margin math kept out of the assertion). Non-`full_unicode`.
 private def wc_box
   s = headless_screen(200, 50, default_quit_keys: true)
@@ -41,7 +41,7 @@ end
 
 # The wrapped ("real") rows produced for a box.
 private def wrapped_lines(b)
-  b._clines.lines
+  b.wrapped_lines.lines
 end
 
 # Does `line` contain a bare/truncated ESC — an `\e` that is NOT the start of a
@@ -105,33 +105,33 @@ describe "widget_content SGR word-wrap (bugs3)" do
     end
   end
 
-  # Locks in the OPT R1/R3 `_wrap_content` rewrite (bounded `wrap_cut_index`
+  # Locks in the OPT R1/R3 `wrap_lines` rewrite (bounded `wrap_cut_index`
   # scan, incremental `remaining_width` instead of per-iteration `str_width`,
   # and `max_width` accumulated at each `push_real_line` instead of a second
   # pass). Output must stay byte-identical; these assert exact wrapped rows +
-  # `max_width` for tricky inputs. `_wrap_content` is called directly with an
+  # `max_width` for tricky inputs. `wrap_lines` is called directly with an
   # explicit column width so border/margin math doesn't blur the assertion.
-  describe "_wrap_content R1/R3 optimization keeps exact output" do
+  describe "wrap_lines R1/R3 optimization keeps exact output" do
     it "character-wraps a long spaceless run" do
-      cl = wc_box._wrap_content("aaaaaaaaaa", 4)
+      cl = wc_box.wrap_lines("aaaaaaaaaa", 4)
       cl.lines.should eq ["aaaa", "aaaa", "aa"]
       cl.max_width.should eq 4
     end
 
     it "word-wraps on spaces via the backscan" do
-      cl = wc_box._wrap_content("lorem ipsum dolor sit amet", 10)
+      cl = wc_box.wrap_lines("lorem ipsum dolor sit amet", 10)
       cl.lines.should eq ["lorem ", "ipsum ", "dolor sit ", "amet"]
       cl.max_width.should eq 10
     end
 
     it "never splits an inline SGR run and carries color across the wrap" do
-      cl = wc_box._wrap_content("\e[31mword more text\e[0m", 6)
+      cl = wc_box.wrap_lines("\e[31mword more text\e[0m", 6)
       cl.lines.should eq ["\e[31mword ", "more ", "text\e[0m"]
       cl.max_width.should eq 5 # SGR stripped before measuring
     end
 
     it "folds a trailing SGR-only tail back onto the last row" do
-      cl = wc_box._wrap_content(("x" * 8) + "\e[31m", 5)
+      cl = wc_box.wrap_lines(("x" * 8) + "\e[31m", 5)
       cl.lines.should eq ["xxxxx", "xxx\e[31m"]
       cl.max_width.should eq 5
     end
@@ -140,7 +140,7 @@ describe "widget_content SGR word-wrap (bugs3)" do
       b = wc_box
       # The option defaults on; pin the legacy codepoint path under test.
       b.window.full_unicode = false
-      cl = b._wrap_content("你好世界你好", 5)
+      cl = b.wrap_lines("你好世界你好", 5)
       cl.lines.should eq ["你好世界你", "好"]
       cl.max_width.should eq 5
     end

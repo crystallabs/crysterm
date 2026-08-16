@@ -68,7 +68,7 @@ module Crysterm
       # Relayout on every paint: pane sizes depend on the splitter's resolved
       # span, only known once coordinates are computed. The `Resize`/`Attached`
       # hooks cover the headless/no-render paths.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         relayout
         refresh_divider_glyphs
         super

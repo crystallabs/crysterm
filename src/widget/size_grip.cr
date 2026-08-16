@@ -45,7 +45,7 @@ module Crysterm
       # after construction (a stylesheet's `glyph`, `Glyphs.set`, a tier switch),
       # and a wide upgrade must reserve its columns. `set_content`/`width=` both
       # no-op while unchanged, so an unstyled `◢` grip stays byte-identical.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         g = glyph
         # Reserve the glyph's measured width: grow (never shrink) so a 2-column
         # emoji isn't clipped by a `width: 1` grip. `◢` measures 1 → no change.

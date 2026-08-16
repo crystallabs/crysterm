@@ -234,7 +234,7 @@ module Crysterm
         end
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # Must paint into the *content* region (border AND padding inset), not the
         # border-only interior: `#pointer_offset` maps clicks through insets that
         # include padding, so anything else makes the drawn handle and the

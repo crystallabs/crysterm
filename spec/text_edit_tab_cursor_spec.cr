@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # A TAB is a single char in the editable buffer (`@value`) but renders as
-# `tab_char * tab_size` (default 4 spaces) in the wrapped lines (`@_clines`).
+# `tab_char * tab_size` (default 4 spaces) in the wrapped lines (`@wrapped_lines`).
 # The caret model maps between the two; treating rendered columns as raw
 # `@value` codepoints shifts the caret left by `tab_size - 1` per TAB, enough
 # to land Up/Down on the wrong character or logical line.

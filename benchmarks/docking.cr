@@ -2,7 +2,7 @@ require "benchmark"
 require "../src/crysterm"
 
 # Per-frame cost of the border-docking pass (`Crysterm::Docking.dock`), invoked
-# every frame from `Screen#_dock` when `dock_borders` is on. It scans the full
+# every frame from `Window#apply_docking` when `dock_borders` is on. It scans the full
 # screen width of every "stop" row (rows that emitted a horizontal border
 # segment), testing each cell against the box-drawing `ANGLES` set and
 # rejoining junctions. On a wide screen most cells on a stop row are
@@ -10,7 +10,7 @@ require "../src/crysterm"
 #
 # Method: build a headless screen with several adjacent bordered boxes (real
 # border rows and crossing junctions), render once to populate `@lines` and
-# `@_dock_stops`, then drive `Docking.dock` directly in a loop. Docking is
+# `@dock_stops`, then drive `Docking.dock` directly in a loop. Docking is
 # idempotent on an already-docked grid, so repeated calls measure the scan
 # itself.
 #
@@ -42,12 +42,12 @@ def build : {Crysterm::Window, Hash(Int32, Bool)}
   end
 
   s.repaint
-  {s, s._dock_stops.dup}
+  {s, s.dock_stops.dup}
 end
 
 s, stops = build
 contrast = s.dock_contrast
-lines = s.lines
+lines = s.cell_rows
 width = s.awidth
 
 puts "stop rows: #{stops.size}, width: #{width}"

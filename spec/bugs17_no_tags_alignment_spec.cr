@@ -2,7 +2,7 @@ require "./spec_helper"
 
 include Crysterm
 
-# BUGS17 B17-06 — `_wrap_content`'s alignment-tag consumption (`{center}`/
+# BUGS17 B17-06 — `wrap_lines`'s alignment-tag consumption (`{center}`/
 # `{left}`/`{right}`) and `aligned_with_width`'s `{|}` right-align separator
 # were gated only on `@parse_tags`, never on `@_content_no_tags`. So on a
 # parse_tags-enabled widget, literal text delivered via `set_text` that

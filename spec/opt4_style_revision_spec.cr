@@ -93,7 +93,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
       content: "Hi"
     s.repaint
 
-    before = box._clines.attr.not_nil![0]
+    before = box.wrapped_lines.attr.not_nil![0]
 
     # The CopperBar idiom: mutate the resolved style in place — no object swap.
     box.style.bg = 0x102030
@@ -101,11 +101,11 @@ describe "process_content cache-hit attr memo (O4-12)" do
     # defeat the memo and re-derive the base attr.
     box.process_content.should be_false
 
-    after = box._clines.attr.not_nil![0]
+    after = box.wrapped_lines.attr.not_nil![0]
     after.should_not eq before
     after.should eq Widget.style_to_attr(box.style)
     box.process_content.should be_false
-    box._clines.attr.not_nil![0].should eq after
+    box.wrapped_lines.attr.not_nil![0].should eq after
   end
 
   it "keeps the attr stable and current across unchanged repeat processing" do
@@ -117,7 +117,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
     expected = Widget.style_to_attr(box.style)
     3.times do
       box.process_content.should be_false
-      box._clines.attr.not_nil![0].should eq expected
+      box.wrapped_lines.attr.not_nil![0].should eq expected
     end
   end
 
@@ -139,7 +139,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
 
       box.style = b
       box.process_content.should be_false
-      box._clines.attr.not_nil![0].should eq Widget.style_to_attr(b)
+      box.wrapped_lines.attr.not_nil![0].should eq Widget.style_to_attr(b)
     end
   end
 
@@ -166,7 +166,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
       box.style = a
       a.attr_revision.should eq rev
       box.process_content.should be_false
-      box._clines.attr.not_nil![0].should eq Widget.style_to_attr(a)
+      box.wrapped_lines.attr.not_nil![0].should eq Widget.style_to_attr(a)
     end
   end
 end

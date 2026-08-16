@@ -145,7 +145,7 @@ module Crysterm
         set_content text
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # Re-pin the size now that the CSS cascade has run: `#rows=` pins width at
         # construction/Attach time, before a border arriving via CSS is folded into
         # `style`, so `ihorizontal` would omit the border columns and leave

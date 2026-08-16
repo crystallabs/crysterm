@@ -37,7 +37,16 @@ module Crysterm
 
     # Highlighter scratch state (Qt `userState`): e.g. "still inside a
     # multi-line comment". -1 = unset.
-    property user_state : Int32 = -1
+    getter user_state : Int32 = -1
+
+    # A change also bumps the owning document's revision (`note_overlay_change`)
+    # so revision-keyed caches can't serve results computed before it.
+    def user_state=(value : Int32) : Int32
+      return value if value == @user_state
+      @user_state = value
+      document.try(&.note_overlay_change)
+      value
+    end
 
     # Overlay format runs `{from, to, patch}` a `SyntaxHighlighter` laid over
     # this block (Qt's layout `additionalFormats`): purely presentational,
@@ -46,10 +55,28 @@ module Crysterm
     getter additional_formats : Array({Int32, Int32, TextCharFormat})?
 
     # Also invalidates the `render_runs` cache, whose output depends on this
-    # overlay.
+    # overlay, and bumps the owning document's revision (`note_overlay_change`)
+    # so revision-keyed caches observe the new overlay. Change-guarded: an
+    # equal overlay is a no-op (no bump, no repaint poke).
     def additional_formats=(value : Array({Int32, Int32, TextCharFormat})?) : Array({Int32, Int32, TextCharFormat})?
+      return @additional_formats if value == @additional_formats
       @render_runs_cache = nil
       @additional_formats = value
+      document.try(&.note_overlay_change)
+      @additional_formats
+    end
+
+    # The document this block belongs to, nil while detached (importers build
+    # blocks detached; the document stamps itself on adoption). Weak, like the
+    # cursor registry — a block must not keep its document alive.
+    @document : WeakRef(TextDocument)?
+
+    def document : TextDocument?
+      @document.try(&.value)
+    end
+
+    protected def document=(doc : TextDocument) : Nil
+      @document = WeakRef.new(doc)
     end
 
     @text_cache : String?
@@ -69,9 +96,47 @@ module Crysterm
       normalize!
     end
 
-    # Length in codepoints (without the trailing block separator).
+    # Length in codepoints — WITHOUT the trailing block separator, unlike
+    # Qt's `QTextBlock::length()`, which counts it. `size + 1` is the
+    # distance to the next block's start in document positions.
     def size : Int32
       @size_cache ||= @fragments.sum(0, &.size)
+    end
+
+    # === Handle surface (Qt `QTextBlock`'s navigational API). Meaningful
+    # only on a block adopted by a document; identity-based, so the answers
+    # track edits (indexes are recomputed per call). ===
+
+    # This block's index in its document (Qt `blockNumber`). Raises when the
+    # block is detached or no longer part of its document.
+    def block_number : Int32
+      doc = document || raise "TextBlock#block_number: block is not part of a document"
+      doc.blocks.index(&.same?(self)) ||
+        raise "TextBlock#block_number: block is no longer part of its document"
+    end
+
+    # Document position of this block's first character (Qt `position`).
+    # Raises like `#block_number` when the block is not in a document.
+    def position : Int32
+      doc = document || raise "TextBlock#position: block is not part of a document"
+      doc.block_position(block_number)
+    end
+
+    # The next block in the document, or nil for the last one (or a detached
+    # block) — Qt `next` (`Iterator#next` establishes the name's precedent
+    # for Crystal method definitions).
+    def next : TextBlock?
+      doc = document || return
+      i = doc.blocks.index(&.same?(self)) || return
+      doc.blocks[i + 1]?
+    end
+
+    # The previous block in the document, or nil for the first one (or a
+    # detached block) — Qt `previous`.
+    def previous : TextBlock?
+      doc = document || return
+      i = doc.blocks.index(&.same?(self)) || return
+      i > 0 ? doc.blocks[i - 1] : nil
     end
 
     def empty? : Bool
@@ -93,12 +158,21 @@ module Crysterm
 
     # Format of the character *preceding* `offset` (Qt `QTextCursor#charFormat`
     # semantics: what typing at this position would look like); the first
-    # character's format at offset 0, default for an empty block.
-    def char_format_at(offset : Int32) : TextCharFormat
+    # character's format at offset 0, default for an empty block. The
+    # at-position counterpart is `#char_format_of`.
+    def typing_format_at(offset : Int32) : TextCharFormat
       return TextCharFormat.default if @fragments.empty?
       return @fragments.first.format if offset <= 0
       fi, local = locate(offset)
       local == 0 ? @fragments[fi - 1].format : @fragments[fi].format
+    end
+
+    # Format of the character AT `offset` — aligned with `text[offset]`
+    # iteration, unlike `#typing_format_at`. Nil past the last character.
+    def char_format_of(offset : Int32) : TextCharFormat?
+      return if offset < 0 || offset >= size
+      fi, _local = locate(offset)
+      @fragments[fi].format
     end
 
     # Inserts `str` at `offset`. Without an explicit format, inherits the
@@ -106,7 +180,7 @@ module Crysterm
     def insert(offset : Int32, str : String, format : TextCharFormat? = nil) : Nil
       return if str.empty?
       offset = offset.clamp(0, size)
-      format ||= char_format_at(offset)
+      format ||= typing_format_at(offset)
       idx = split_fragment_at(offset)
       @fragments.insert(idx, TextFragment.new(str, format))
       normalize!

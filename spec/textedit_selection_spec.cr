@@ -114,7 +114,7 @@ describe Widget::TextEdit do
     Attr.bg(s.cell_rows[0][8].attr).should eq Attr.pack_color(-1)
 
     # The overlay is render-time only: the document text carries no bg.
-    te.document.char_format_at(1).bg.should be_nil
+    te.document.typing_format_at(1).bg.should be_nil
   end
 
   it "a full-width ExtraSelection highlights the caret's whole row (current line)" do
@@ -140,7 +140,7 @@ describe Widget::TextEdit do
     s = headless_screen(40, 8, default_quit_keys: true)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6,
       content: "bold"
-    te.document.apply_char_format(0, 4, TextCharFormat.new(bold: true))
+    te.document.cursor(0, 4).set_char_format(TextCharFormat.new(bold: true))
     s.repaint
 
     c = TextCursor.new(te.document)

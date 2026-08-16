@@ -38,7 +38,7 @@ describe Widget::TextEdit do
       new_te s, doc
       b = new_te s, doc, top: 4
       b.cursor_pos = 2
-      doc.insert_text(5, "!!")
+      doc.cursor(5).insert_text("!!")
       b.cursor_pos.should eq 2
     end
 
@@ -48,7 +48,7 @@ describe Widget::TextEdit do
       new_te s, doc
       b = new_te s, doc, top: 4
       b.cursor_pos = 8
-      doc.remove(4, 6) # "o worl" gone
+      doc.cursor(4, 10).remove_selected_text # "o worl" gone
       b.cursor_pos.should eq 4
     end
 
@@ -59,13 +59,13 @@ describe Widget::TextEdit do
       b = new_te s, doc, top: 4
       b.selection_anchor = 6
       b.cursor_pos = 11 # "world" selected
-      doc.insert_text(0, ">>")
+      doc.cursor(0).insert_text(">>")
       b.selection_anchor.should eq 8
       b.cursor_pos.should eq 13
       b.selected_text.should eq "world"
       # Removing the selected range collapses both ends onto the start —
       # the anchor is dropped rather than left dangling on the caret.
-      doc.remove(8, 5)
+      doc.cursor(8, 13).remove_selected_text
       b.cursor_pos.should eq 8
       b.selection_anchor.should be_nil
     end
@@ -76,7 +76,7 @@ describe Widget::TextEdit do
       new_te s, doc
       b = new_te s, doc, top: 4
       b.cursor_pos = 5
-      doc.apply_char_format(0, 11, TextCharFormat.new(bold: true))
+      doc.cursor(0, 11).set_char_format(TextCharFormat.new(bold: true))
       b.cursor_pos.should eq 5
     end
 

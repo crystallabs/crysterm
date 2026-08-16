@@ -19,7 +19,7 @@ include Crysterm
 #          (re)takes a terminal: `activate`, `connect`, and `screen=`.
 # B18-07 — `Window#close` must mirror `#on_window_closed` (disconnect, emit,
 #          and only then destroy — and NOT when the handler reattached), so
-#          the documented `Application.open(into: self)` reattach pattern
+#          the documented `Window.open(into: self)` reattach pattern
 #          survives the programmatic close path too.
 # B18-10 — `#switch_terminal` must carry runtime-settable options the
 #          constructor can't take (hyperlinks, synchronized_output,

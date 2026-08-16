@@ -238,7 +238,7 @@ module Crysterm
       # so each reads as `├────┤` rather than a detached dash. Reuses the
       # window's border-docking component (`#dock_rows`); runs after `super`
       # so it re-applies the junctions each frame the border is repainted.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         refresh_glyphs
         strip_item_box_model
         autosize

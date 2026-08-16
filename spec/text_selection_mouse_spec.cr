@@ -12,7 +12,7 @@ include Crysterm
 # followed by `Window#dispatch_mouse` with synthesized `::Tput::Mouse::Event`s.
 #
 # `#position_at` reads the widget's on-screen geometry/painted line cache
-# (`coords`/`@_clines`/`@_value`), so a widget must be rendered at least
+# (`coords`/`@wrapped_lines`/`@_value`), so a widget must be rendered at least
 # once before its coordinates mean anything; `#repaint` is called right after
 # construction (and after any `.value =` that changes wrapping) in every test
 # below.

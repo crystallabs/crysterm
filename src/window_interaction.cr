@@ -264,7 +264,7 @@ module Crysterm
         # Keyboard drag-and-drop sensor: Space lifts a focused draggable widget,
         # then Tab/arrows/Space/Escape drive the in-flight drag. Handled before
         # anything else so a drag fully owns the keyboard while it is in flight.
-        next if _drag_key_handled e
+        next if drag_key_handled? e
 
         # Whether this key is on either always-propagate list (special `#key` or
         # ordinary `#char`) — scanned once and reused across the three checks

@@ -42,7 +42,7 @@ module Crysterm
     getter screen : Screen
 
     # Device concerns delegated to the `Screen`.
-    delegate tput, output, colors, color_count, truecolor?, to: @screen
+    delegate tput, output, color_count, truecolor?, to: @screen
 
     # Scratch buffer reused for building each SGR sequence (`write_sgr` needs
     # a seekable `IO::Memory`), keeping per-`print` allocation down.

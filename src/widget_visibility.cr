@@ -96,7 +96,7 @@ module Crysterm
     # whole parent chain. Standalone `Rendered` listeners (the media overlays)
     # must use this before resolving rendered coordinates: hiding an ancestor
     # clears only that node's flag, leaving a descendant `visible?`, but the
-    # hidden ancestor has no rendered position and `coords(true)` would raise.
+    # hidden ancestor has no rendered position and `coords(rendered: true)` would raise.
     def visible_in_tree? : Bool
       anc = self
       while anc

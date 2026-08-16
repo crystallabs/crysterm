@@ -7,14 +7,15 @@ include Crysterm
 # `raw_insert_fragment` at a block start must carry the fragment head's
 # block format (list/table membership).
 
-describe "BUGS13 T9 forward-delete coalescing leaves the returned fragment alone" do
-  it "does not grow the fragment TextDocument#remove returned" do
+describe "BUGS13 T9 forward-delete coalescing leaves caller-held fragments alone" do
+  it "does not grow a fragment snapshotted before the coalescing run" do
     doc = Crysterm::TextDocument.new("abcdef")
-    first = doc.remove(1, 1) # "b"
+    first = doc.cursor(1, 2).selection # snapshot of "b"
     first.to_plain_text.should eq "b"
-    doc.remove(1, 1)                  # "c" — coalesces with the previous command at the same pos
-    doc.remove(1, 1)                  # "d"
-    first.to_plain_text.should eq "b" # must not grow to "bcd"
+    doc.cursor(1, 2).remove_selected_text # "b"
+    doc.cursor(1, 2).remove_selected_text # "c" — coalesces with the previous command at the same pos
+    doc.cursor(1, 2).remove_selected_text # "d"
+    first.to_plain_text.should eq "b"     # must not grow to "bcd"
 
     # The coalesced command still undoes the whole run.
     doc.undo.should be_true
@@ -28,7 +29,7 @@ describe "BUGS13 T10 insert_fragment at a block start keeps the head block's mem
     frag = Crysterm::TextDocumentFragment.from_tags("{!block;list-disc}a\n{!block;list-disc}b")
     frag.blocks[0].block_format.list_format.should_not be_nil
 
-    doc.insert_fragment(0, frag)
+    doc.cursor(0).insert_fragment(frag)
     doc.to_plain_text.should eq "a\nbx"
     lf0 = doc.blocks[0].block_format.list_format
     lf1 = doc.blocks[1].block_format.list_format
@@ -39,10 +40,10 @@ describe "BUGS13 T10 insert_fragment at a block start keeps the head block's mem
 
   it "restores the insertion-point block's format on undo" do
     doc = Crysterm::TextDocument.new("x")
-    doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 2))
+    doc.cursor(0, 0).set_block_format(TextBlockFormat.new(heading_level: 2))
     frag = Crysterm::TextDocumentFragment.from_tags("{!block;list-disc}a\n{!block;list-disc}b")
 
-    doc.insert_fragment(0, frag)
+    doc.cursor(0).insert_fragment(frag)
     doc.blocks[0].block_format.list_format.should_not be_nil
 
     doc.undo.should be_true
@@ -57,10 +58,10 @@ describe "BUGS13 T10 insert_fragment at a block start keeps the head block's mem
 
   it "keeps the surrounding block's format for a mid-block insertion" do
     doc = Crysterm::TextDocument.new("xy")
-    doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 2))
+    doc.cursor(0, 0).set_block_format(TextBlockFormat.new(heading_level: 2))
     frag = Crysterm::TextDocumentFragment.from_tags("{!block;list-disc}a\n{!block;list-disc}b")
 
-    doc.insert_fragment(1, frag)
+    doc.cursor(1).insert_fragment(frag)
     doc.to_plain_text.should eq "xa\nby"
     doc.blocks[0].block_format.heading_level.should eq 2
     doc.blocks[0].block_format.list_format.should be_nil

@@ -173,6 +173,34 @@ module Crysterm
       @height = value
     end
 
+    # The device's size in cells ↔ `QScreen::size`. The `Size` value-object
+    # view of `#width`/`#height`.
+    def size : Size
+      Size.new width, height
+    end
+
+    # The device's rectangle in cells, origin `(0, 0)` ↔ `QScreen::geometry`.
+    # A physical terminal has no position within a larger desktop, so the
+    # origin is always the top-left cell.
+    def geometry : Rectangle
+      Rectangle.of_edges 0, 0, width, height
+    end
+
+    # A short, human-readable identification: class, `#name` when set, and the
+    # device size — e.g. `Screen "tty1" 80x24`.
+    def to_s(io : IO) : Nil
+      io << "Screen"
+      (n = name) && !n.empty? && (io << ' ' << n.inspect)
+      io << ' ' << width << 'x' << height
+    end
+
+    # :ditto:
+    def inspect(io : IO) : Nil
+      io << "#<"
+      to_s io
+      io << '>'
+    end
+
     # Whether `width` / `height` were each given explicitly to the constructor.
     # A pinned axis must not be overwritten by the size probed from the terminal.
     # Kept per-axis so an **inline** window can pin its `height` (its reserved
@@ -249,7 +277,11 @@ module Crysterm
     # The `Application` this device is registered with — the dispatcher the
     # input read fiber routes parsed events to. The fiber falls back to
     # `Application.global` while nil.
-    property application : Application? = nil
+    #
+    # The setter is `protected`: the back-link must stay in step with
+    # `Application#windows`, so it is written only by `Application#add`.
+    getter application : Application? = nil
+    protected setter application
 
     def initialize(
       @input = @input,
@@ -471,7 +503,7 @@ module Crysterm
     # The constructor deliberately does NOT use this helper — it
     # splits the same two calls around theme/stylesheet setup (unit'd styles
     # derive from probe results), so they can't run adjacently.
-    def reprobe_and_detect_geometry : Nil
+    protected def reprobe_and_detect_geometry : Nil
       was_listening = listening?
       stop_input if was_listening
       probe
@@ -499,11 +531,11 @@ module Crysterm
     # claims them (`CSS::Length.measured_source`) and keeps refreshing them on
     # its own font/zoom changes, while a *different* device's report updates
     # only this screen's own state — otherwise on a multi-device app (e.g.
-    # `Application.open`) whichever terminal reported last would silently
+    # `Window.open`) whichever terminal reported last would silently
     # re-anchor every other window's `px` lengths and aspect ratio. The claim
     # is released on the anchoring device's teardown
     # (`#release_cell_geometry_anchor`) so a surviving device can take over.
-    def apply_cell_pixels(width : Int32, height : Int32) : Nil
+    protected def apply_cell_pixels(width : Int32, height : Int32) : Nil
       return unless width > 0 && height > 0
       @cell_pixel_width = width
       @cell_pixel_height = height

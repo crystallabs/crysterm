@@ -167,7 +167,7 @@ describe "BUGS18 B18-16: partial-top clip never drives base negative (thick bord
 
     cl = child.lpos.not_nil!
     cl.yi.should eq 0
-    # Guards against base == -1, which would wrap `@_clines.ci[-1]?` to the
+    # Guards against base == -1, which would wrap `@wrapped_lines.ci[-1]?` to the
     # LAST line's offset and paint "line3" at the top of the viewport.
     cl.base.should eq 0
     cl.hidden_top.should eq 1

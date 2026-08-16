@@ -198,7 +198,7 @@ module Crysterm
           invalidate_canvas
         end
 
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           super
           draw_markers
         end

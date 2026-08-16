@@ -32,14 +32,14 @@ describe "BUGS5 keyboard-drag anchor does not drift past an edge (fix #1)" do
     box.focus
 
     # Lift it (Space) and push Left several times; the widget is already pinned.
-    s._drag_key_handled(keypress(' ')).should be_true
-    3.times { s._drag_key_handled(keypress('\0', ::Tput::Key::Left)).should be_true }
+    s.drag_key_handled?(keypress(' ')).should be_true
+    3.times { s.drag_key_handled?(keypress('\0', ::Tput::Key::Left)).should be_true }
     box.left.should eq 0
 
     # A single Right must move it right away. With the unbounded-anchor bug, the
     # anchor had drifted to -3, so this Right only unwinds the overshoot and the
     # widget stays pinned at 0.
-    s._drag_key_handled(keypress('\0', ::Tput::Key::Right)).should be_true
+    s.drag_key_handled?(keypress('\0', ::Tput::Key::Right)).should be_true
     box.left.should eq 1
   end
 
@@ -49,11 +49,11 @@ describe "BUGS5 keyboard-drag anchor does not drift past an edge (fix #1)" do
       width: 8, height: 4, draggable: true, keys: true
     box.focus
 
-    s._drag_key_handled(keypress(' ')).should be_true
-    3.times { s._drag_key_handled(keypress('\0', ::Tput::Key::Up)).should be_true }
+    s.drag_key_handled?(keypress(' ')).should be_true
+    3.times { s.drag_key_handled?(keypress('\0', ::Tput::Key::Up)).should be_true }
     box.top.should eq 0
 
-    s._drag_key_handled(keypress('\0', ::Tput::Key::Down)).should be_true
+    s.drag_key_handled?(keypress('\0', ::Tput::Key::Down)).should be_true
     box.top.should eq 1
   end
 
@@ -63,12 +63,12 @@ describe "BUGS5 keyboard-drag anchor does not drift past an edge (fix #1)" do
       width: 8, height: 4, draggable: true, keys: true
     box.focus
 
-    s._drag_key_handled(keypress(' ')).should be_true
+    s.drag_key_handled?(keypress(' ')).should be_true
     sess = s.drag_session.not_nil!
 
     # offset_x is 0 for a keyboard pickup (anchor == source top-left), so the
     # re-synced anchor equals the source's clamped aleft.
-    5.times { s._drag_key_handled(keypress('\0', ::Tput::Key::Left)) }
+    5.times { s.drag_key_handled?(keypress('\0', ::Tput::Key::Left)) }
     box.left.should eq 0
     sess.x.should eq(box.aleft + sess.offset_x)
   end

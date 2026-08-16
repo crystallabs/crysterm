@@ -86,7 +86,7 @@ describe "BUGS17 B17-01: shared-device probe race" do
         w2.awidth.should eq 40
         w2.aheight.should eq 10
         w2.draw_caps.should eq dev.draw_caps
-        w2.colors.should eq dev.colors
+        w2.color_count.should eq dev.color_count
       ensure
         w2.destroy
       end
@@ -171,7 +171,7 @@ describe "BUGS17 B17-01: shared-device probe race" do
 
     # The explicit-reprobe path must keep the documented ordering
     # "stop old input → probe → detect_cell_geometry → start_input"...
-    dev.reprobe_and_detect_geometry
+    dev.spec_reprobe_and_detect_geometry
     dev.ops.should eq ["start_input", "stop_input", "probe", "start_input"]
     dev.probed?.should be_true
     # ...and leave the device listening, as it was before.

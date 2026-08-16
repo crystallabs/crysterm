@@ -257,16 +257,16 @@ module Crysterm
         return false if row < 0 || row > max_line
 
         rl = row + @child_base
-        return false if rl < 0 || rl >= @_clines.size
+        return false if rl < 0 || rl >= @wrapped_lines.size
         return false if @row_meta[rl]?.try(&.margin)
 
         col = x - lpos.xi - ileft - row_text_x_offset(rl)
         return false if col < 0
 
-        # `@_clines[rl]` is the painted row text (already tab-expanded, and in
+        # `@wrapped_lines[rl]` is the painted row text (already tab-expanded, and in
         # non-wrap mode already horizontally sliced to the viewport), so its
         # display width is exactly the painted run the click must fall inside.
-        text = @_clines[rl]? || ""
+        text = @wrapped_lines[rl]? || ""
         col < str_width(text)
       end
 
@@ -275,12 +275,14 @@ module Crysterm
       # leading anchor.
       private def anchor_at(pos : Int32) : String?
         doc = document
-        bi, off = doc.block_at(pos)
+        loc = doc.block_at(pos)
+        bi = loc.index
+        off = loc.offset
         b = doc.blocks[bi]
         if off < b.size
-          b.char_format_at(off + 1).anchor_href
+          b.typing_format_at(off + 1).anchor_href
         elsif off > 0
-          b.char_format_at(off).anchor_href
+          b.typing_format_at(off).anchor_href
         end
       end
 

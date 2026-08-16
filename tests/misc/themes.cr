@@ -86,7 +86,7 @@ class ThemeGrid < Widget::Box
     super **kwargs
   end
 
-  def paint(with_children = true)
+  def paint(*, with_children = true)
     # Establish `@lpos` via the normal box path, then overpaint with the blit.
     super
 

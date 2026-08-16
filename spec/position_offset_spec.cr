@@ -22,8 +22,8 @@ describe "center±N / half±N position & size offsets" do
     plus = Widget::Box.new parent: s, top: "center", left: "center+4", content: "hi", shrink_to_fit: true
     s.update
 
-    bp = base.coords(true).not_nil!
-    pp = plus.coords(true).not_nil!
+    bp = base.coords(rendered: true).not_nil!
+    pp = plus.coords(rendered: true).not_nil!
     # Same shrunk size; offset shifts the box right by exactly 4 cells (it used
     # to land far off because recenter only matched bare "center").
     (pp.xl - pp.xi).should eq(bp.xl - bp.xi)

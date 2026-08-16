@@ -5,7 +5,7 @@ require "./window"
 
 module Crysterm
   # The application — the `QGuiApplication` analogue. Owns the event loop
-  # (`#exec` / `.exec_all` / `.run`), the registry of devices (`#screens`) and
+  # (`#exec` / `.exec_all`), the registry of devices (`#screens`) and
   # surfaces (`#windows`), whole-app shutdown, the app-wide "active window", and
   # the clipboard facade.
   #
@@ -293,6 +293,26 @@ module Crysterm
       status
     end
 
+    # No-arg form: runs the windows already registered with this application
+    # (`#add`, or a previous `#exec`). With exactly one registered window this
+    # is the single-window `#exec(window)` — same blocking semantics, same
+    # `#quit` status; with several it is `#exec(windows)`.
+    #
+    # ```
+    # app = Application.new
+    # app.add w1
+    # app.add w2
+    # app.exec
+    # ```
+    #
+    # Raises `ArgumentError` when nothing is registered — an `exec` with no
+    # surface would block forever with nothing on screen.
+    def exec : Int32
+      wins = @windows.dup
+      raise ArgumentError.new "Application#exec: no windows registered; #add one first, or pass it to #exec(window)" if wins.empty?
+      wins.size == 1 ? exec(wins.first) : exec(wins)
+    end
+
     # Array counterpart of `#exec`: renders and runs every window in *windows*
     # under one shared quit, blocking until the last is gone. So callers reach
     # for the same verb whether driving one surface or several. Each window is
@@ -305,70 +325,6 @@ module Crysterm
       windows.each { |w| add w }
       self.class.exec_all windows
       0
-    end
-
-    # Opens a real terminal emulator window and returns a `Window` driving it.
-    #
-    # With `into:` nil, a brand-new `Window` is created. Pass an existing
-    # (typically disconnected) `Window` as `into:` to re-display it in a fresh
-    # window — its widget tree and content are preserved and repainted at the
-    # new window's size.
-    #
-    # `launcher` may be a `Terminal::Launcher`, a backend name (e.g. "kitty",
-    # "tmux"), or nil to auto-detect (honoring `$TERMINAL`).
-    #
-    # `cols`/`rows` default to the launching process's own terminal size (the
-    # window opens as big as the one it was launched from), or 80×24 when the
-    # launcher has no tty; pass explicit values to pin either axis.
-    #
-    # Pass `start_input: true` to start reading input immediately, so a single
-    # spawned window is interactive without a separate `#start_input`/`#exec`
-    # call (the caller still has to keep the process alive, e.g. with `sleep`).
-    # A reattached screen restores whatever listening state it had before
-    # disconnecting.
-    def self.open(*, launcher : Terminal::Launcher | String? = nil,
-                  cols : Int32? = nil, rows : Int32? = nil,
-                  title : String? = nil, env : Process::Env = nil,
-                  start_input : Bool = false, into : Window? = nil) : Window
-      win = Terminal.spawn_window(launcher: launcher, cols: cols, rows: rows,
-        title: title, env: env)
-
-      if window = into
-        window.connect win.input, win.output, win
-      else
-        window = Window.new(input: win.input, output: win.output, title: title)
-        window.adopt_window win
-      end
-
-      window.start_input if start_input
-      window.emit Crysterm::Event::WindowOpened, window
-      window
-    end
-
-    # Convenience: open *window_count* emulator windows, yield them all to the
-    # block to build (cross-window wiring needs no forward-declared locals —
-    # every window exists when the block runs), then render and start input on
-    # them all, then block. A `q` / `Ctrl-Q` in any window — or closing any
-    # window — tears that one down; the call returns (and the process exits)
-    # once the last window is gone.
-    #
-    # ```
-    # Application.run(window_count: 2) do |wins|
-    #   sender, receiver = wins[0], wins[1]
-    #   # ... build both; they can reference each other freely ...
-    # end
-    # ```
-    #
-    # For a single in-process window, see the simpler `Crysterm.run`.
-    def self.run(*, window_count : Int32, launcher : Terminal::Launcher | String? = nil,
-                 cols : Int32? = nil, rows : Int32? = nil, env : Process::Env = nil,
-                 & : Array(Window) -> _) : Nil
-      wins = (0...window_count).map do |i|
-        open(launcher: launcher, cols: cols, rows: rows,
-          title: "Window #{i + 1}", env: env)
-      end
-      yield wins
-      exec_all wins
     end
 
     # Renders and starts listening on every window in *windows*, wires a shared

@@ -97,7 +97,7 @@ describe "SGR-Pixels mouse coordinates (DEC 1016)" do
     s.tput.mouse_cell_pixels.should eq({8, 16})
 
     # A font/zoom change arrives as a new cell size.
-    s.screen.apply_cell_pixels(10, 20)
+    s.screen.spec_apply_cell_pixels(10, 20)
     s.tput.mouse_cell_pixels.should eq({10, 20})
   end
 
@@ -105,7 +105,7 @@ describe "SGR-Pixels mouse coordinates (DEC 1016)" do
     buf = IO::Memory.new
     s = pixel_screen buf
     s.tput.mouse_cell_pixels.should be_nil
-    s.screen.apply_cell_pixels(10, 20)
+    s.screen.spec_apply_cell_pixels(10, 20)
     s.tput.mouse_cell_pixels.should be_nil
   end
 

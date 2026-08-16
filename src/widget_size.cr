@@ -364,7 +364,7 @@ module Crysterm
                      {dim: "height", near: "top", far: "bottom"},
                    ] %}
       # Returns computed {{ axis[:dim].id }}, in cells. See *rendered* above.
-      def a{{ axis[:dim].id }}(rendered = false) : Int32
+      def a{{ axis[:dim].id }}(*, rendered = false) : Int32
         # Layout-assigned values when managed, else the user's specs (see
         # `eff_*`); the far edge is never layout-managed.
         o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
@@ -464,8 +464,8 @@ module Crysterm
     # `SizePolicy::Policy::Preferred` axis; unlike Qt it plays no other role
     # in sizing — the size *specs* do that.
     def size_hint : Size
-      Size.new @_clines.max_width + ihorizontal,
-        (item_view? ? item_box_count : @_clines.size) + ivertical
+      Size.new @wrapped_lines.max_width + ihorizontal,
+        (item_view? ? item_box_count : @wrapped_lines.size) + ivertical
     end
 
     # The smallest size this widget can sensibly paint at — Qt's
@@ -549,7 +549,7 @@ module Crysterm
         # whatever size the previous frame stretched the layer to — the widget
         # balloons to its parent's full size and never shrinks again.
         next if el.layout_excluded?
-        ret = el.coords(rendered, into: scratch)
+        ret = el.coords(rendered: rendered, into: scratch)
 
         if !ret
           next
@@ -635,9 +635,9 @@ module Crysterm
     # NOTE: the widget must not have `#align=` set, or the alignment padding
     # will make the "minimal" size come out as the surrounding box's full size.
     private def minimal_content_rectangle(xi, xl, yi, yl)
-      h = @_clines.size
+      h = @wrapped_lines.size
       # `max_width` is `property max_width = 0` (Int32, never nil), so no `|| 0`.
-      w = @_clines.max_width
+      w = @wrapped_lines.max_width
 
       # The border box is sized to exactly the content (`w`/`h` + inner insets);
       # an outward margin shifts this box rather than shrinking it (see

@@ -36,7 +36,7 @@ end
 s = mkscreen
 puts "=" * 60
 puts "Draw/render allocation probe (artifact-free)  bytes/op"
-puts "colors=#{s.colors}  ansi_cursor=#{s.draw_caps.ansi_cursor}"
+puts "colors=#{s.color_count}  ansi_cursor=#{s.draw_caps.ansi_cursor}"
 puts "=" * 60
 
 # 1. draw(flush:false) 1-cell color toggle — pure diff/encode, reused buffers.

@@ -284,7 +284,7 @@ module Crysterm
       end
 
       # The single visible line (`@_value`) is a re-sliced tail of `@value`, not
-      # the `@_clines`/`@child_base_x` viewport slice the generic mixin version
+      # the `@wrapped_lines`/`@child_base_x` viewport slice the generic mixin version
       # assumes — which would map a click to the wrong `@value` index whenever
       # the field is scrolled.
       def position_at(x : Int32, y : Int32) : Int32
@@ -358,7 +358,7 @@ module Crysterm
       # Places the caret at its column within the `#compute_display` window,
       # clamped into the viewport (the trailing `content_width` column is
       # reserved for an end-of-line caret). The inherited version maps
-      # `@cursor_pos` onto `@_clines` — here only the re-sliced window — so it
+      # `@cursor_pos` onto `@wrapped_lines` — here only the re-sliced window — so it
       # would clamp the caret to the window's end instead of the real edit point.
       def _update_cursor(rendered = false)
         return unless focused?

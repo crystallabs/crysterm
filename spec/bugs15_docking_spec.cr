@@ -76,7 +76,7 @@ describe "Docking ASCII mode (text '+', BUGS15 #30)" do
 end
 
 # #42 — `Widget::Line#register_dock_stops` wrote its horizontal-line rows to the
-# base `_dock_stops` unconditionally, ignoring the compositing-plane gate the
+# base `dock_stops` unconditionally, ignoring the compositing-plane gate the
 # base implementation uses. A separator Line inside a z-indexed overlay then
 # docked against base content below it. The rows route through the same gate.
 describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
@@ -93,8 +93,8 @@ describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
 
     s.repaint
 
-    s._dock_stops.empty?.should be_true
-    s._plane_dock_stops.empty?.should be_false
+    s.dock_stops.empty?.should be_true
+    s.plane_dock_stops.empty?.should be_false
   end
 
   it "routes a base-layer Line's rows to the base stops" do
@@ -105,6 +105,6 @@ describe "Widget::Line#register_dock_stops (compositing plane, BUGS15 #42)" do
 
     s.repaint
 
-    s._dock_stops.empty?.should be_false
+    s.dock_stops.empty?.should be_false
   end
 end

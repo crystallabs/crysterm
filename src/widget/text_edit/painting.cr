@@ -3,9 +3,9 @@ module Crysterm
     class TextEdit
       # === Render ===
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # Relayout before following the caret: `ensure_cursor_visible` maps
-        # the caret through `@_clines`, which a document edit just staled.
+        # the caret through `@wrapped_lines`, which a document edit just staled.
         process_content
         if @rendered_revision != @doc_revision
           @rendered_revision = @doc_revision
@@ -104,9 +104,9 @@ module Crysterm
           line = lines_buf[y]? || next
 
           rl = coords.base + (y - yi)
-          next if rl < 0 || rl >= @_clines.size
+          next if rl < 0 || rl >= @wrapped_lines.size
           meta = @row_meta[rl]?
-          bi = @_clines.rtof[rl]? || next
+          bi = @wrapped_lines.rtof[rl]? || next
           blk = document.blocks[bi]? || next
 
           # A margin row is pure spacing (the base fill painted it), but
@@ -139,10 +139,10 @@ module Crysterm
             # Re-seed: one walk over the block's pieces preceding `rl` (what
             # `pos_from_rowcol` did per bound, per row).
             exp_prefix = 0
-            if reals = @_clines.ftor[bi]?
+            if reals = @wrapped_lines.ftor[bi]?
               reals.each do |r|
                 break if r >= rl
-                exp_prefix += (@_clines[r]? || "").size
+                exp_prefix += (@wrapped_lines[r]? || "").size
               end
             end
             row_start = bp + unexpand_col_in(bp, blk_end, exp_prefix)

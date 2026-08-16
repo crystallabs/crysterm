@@ -71,7 +71,9 @@ module Crysterm
     # table's data rows (border rows have no cells). A position on a border
     # glyph snaps to the cell left of it.
     def cell_at(pos : Int32) : {Int32, Int32}?
-      bi, off = document.block_at(pos)
+      loc = document.block_at(pos)
+      bi = loc.index
+      off = loc.offset
       b = document.blocks[bi]? || return
       return unless member?(b) && TextTable.data_row?(b.text)
       row = nil
@@ -489,6 +491,63 @@ module Crysterm
         frags << TextFragment.new(v, border_fmt)
       end
       TextBlock.new(frags, bf)
+    end
+  end
+
+  class TextCursor
+    # Inserts an empty table of *rows* data rows (the first is the bold
+    # header row — the terminal rendering has no headerless grid) by
+    # *columns* at the cursor, returning its `TextTable` view (Qt
+    # `insertTable`; here the grid is pre-rendered box drawing — see
+    # `TextTable`). One undo step; mirrors `#insert_list`/`#insert_toc`.
+    # Fill cells afterwards through the view (`TextTable#set_cell_text`), or
+    # use the content overload below.
+    def insert_table(rows : Int32, columns : Int32, theme : TextTheme = @document.theme) : TextTable
+      rows = Math.max(rows, 1)
+      columns = Math.max(columns, 1)
+      empty_row = Array.new(columns, "")
+      insert_table(empty_row.dup, Array.new(rows - 1) { empty_row.dup }, theme: theme)
+    end
+
+    # :ditto: — with content: *header* cells (their count fixes the column
+    # count) and *body* rows.
+    def insert_table(header : Array(String), body : Array(Array(String)) = [] of Array(String), theme : TextTheme = @document.theme) : TextTable
+      built = TextTable.build(header, body, theme: theme)
+      tf = built.first.block_format.table_format ||
+           raise "TextTable.build produced blocks without a table format"
+
+      @document.edit do
+        # Mid-block, break first so the table starts on a row of its own (the
+        # `#insert_toc` convention); an empty block at its start is free real
+        # estate — the table's last block becomes it — otherwise the run
+        # needs its own trailing separator.
+        insert_block unless at_block_start?
+        text = built.join('\n', &.text)
+        text += '\n' unless block.empty?
+        start = @position
+        # Insert the text first and stamp formats after: `insert_text` splits
+        # on `'\n'` into blocks the same way typing would, which sidesteps
+        # the block-format adoption rules a multi-block fragment insertion
+        # carries (again the `#insert_toc` recipe).
+        @document.insert_text(start, text)
+        pos = start
+        built.each do |b|
+          @document.apply_block_format(pos, pos, b.block_format)
+          off = 0
+          b.fragments.each do |f|
+            @document.apply_char_format(pos + off, pos + off + f.size, f.format)
+            off += f.size
+          end
+          pos += b.size + 1
+        end
+      end
+      TextTable.new(@document, tf)
+    end
+
+    # The table the cursor's block belongs to, as a fresh view — or nil (Qt
+    # `currentTable`).
+    def current_table : TextTable?
+      block.block_format.table_format.try { |tf| TextTable.new(@document, tf) }
     end
   end
 end

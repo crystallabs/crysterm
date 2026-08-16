@@ -25,11 +25,11 @@ describe "BUGS16 B16-09: widget cursor hide/show on an unfocused widget" do
 
     b.hide_cursor
     s.tput.cursor_hidden?.should be_false # widget A's cursor stays visible
-    b.cursor.not_nil!._hidden.should be_true
+    b.cursor.not_nil!.hidden?.should be_true
 
     b.show_cursor
     s.tput.cursor_hidden?.should be_false
-    b.cursor.not_nil!._hidden.should be_false
+    b.cursor.not_nil!.hidden?.should be_false
   ensure
     s.try &.destroy
   end
@@ -41,11 +41,11 @@ describe "BUGS16 B16-09: widget cursor hide/show on an unfocused widget" do
 
     a.hide_cursor
     s.tput.cursor_hidden?.should be_true
-    a.cursor.not_nil!._hidden.should be_true
+    a.cursor.not_nil!.hidden?.should be_true
 
     a.show_cursor
     s.tput.cursor_hidden?.should be_false
-    a.cursor.not_nil!._hidden.should be_false
+    a.cursor.not_nil!.hidden?.should be_false
   ensure
     s.try &.destroy
   end

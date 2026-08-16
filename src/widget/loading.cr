@@ -179,10 +179,10 @@ module Crysterm
         update!
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         if compact?
-          set_content @compact_content, true
-          super false
+          set_content @compact_content
+          super(with_children: false)
         else
           set_content @text || @orig_text
           super

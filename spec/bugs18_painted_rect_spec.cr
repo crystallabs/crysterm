@@ -36,7 +36,7 @@ describe "BUGS18 B18-02: WidgetCursorAnchor in a scrolled container" do
     s.repaint
 
     k = 3
-    outer.scroll_to k, true
+    outer.scroll_to k, always: true
     s.repaint
 
     lp = term.lpos.not_nil!
@@ -69,7 +69,7 @@ describe "BUGS18 B18-02: WidgetCursorAnchor in a scrolled container" do
     Widget::Box.new parent: outer, top: 6, left: 0, width: 1, height: 30
     s.repaint
 
-    outer.scroll_to 3, true
+    outer.scroll_to 3, always: true
     s.repaint
 
     lp = term.lpos.not_nil!
@@ -101,7 +101,7 @@ describe "BUGS18 B18-40: MenuBar#open in a scrolled container" do
     s.repaint
 
     k = 3
-    outer.scroll_to k, true
+    outer.scroll_to k, always: true
     s.repaint
 
     lp = bar.lpos.not_nil!
@@ -133,7 +133,7 @@ describe "BUGS18 B18-40: ToolButton#show_menu in a scrolled container" do
     s.repaint
 
     k = 4
-    outer.scroll_to k, true
+    outer.scroll_to k, always: true
     s.repaint
 
     lp = tb.lpos.not_nil!
@@ -161,7 +161,7 @@ describe "BUGS18 B18-101: Completer drop-down in a scrolled container" do
     s.repaint
 
     k = 5
-    outer.scroll_to k, true
+    outer.scroll_to k, always: true
     s.repaint
 
     lp = box.lpos.not_nil!

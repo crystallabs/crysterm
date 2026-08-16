@@ -67,7 +67,7 @@ module Crysterm
 
       # Relayout on every paint: section heights depend on the widget's resolved
       # inner size, only known once coordinates are computed.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         refresh_glyphs
         relayout
         super

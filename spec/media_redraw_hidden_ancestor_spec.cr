@@ -7,7 +7,7 @@ include Crysterm
 # ancestor is hidden, mirroring `Capture`'s tree-aware visibility check. A bare
 # `return unless visible?` only checks the widget's own visibility: with an
 # ancestor hidden the widget stays own-visible but has no rendered position, so
-# `coords(true) -> last_rendered_position` raised "Shouldn't happen" instead of
+# `coords(rendered: true) -> last_rendered_position` raised "Shouldn't happen" instead of
 # returning nil, crashing the render-loop fiber.
 describe "Media::Graphics overlay redraw with a hidden ancestor" do
   it "does not raise when a render happens after an ancestor is hidden" do

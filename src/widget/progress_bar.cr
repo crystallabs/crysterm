@@ -223,7 +223,7 @@ module Crysterm
         cached
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           pct = percent
           # Filled sub-region (rest of interior stays unfilled). Kept separate so

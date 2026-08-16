@@ -78,7 +78,8 @@ module Crysterm
           return if from >= size
           from = Math.max(from, 0)
           if ch == '\n'
-            bi, _ = document.block_at(from)
+            loc = document.block_at(from)
+            bi = loc.index
             return if bi >= document.block_count - 1
             document.block_position(bi) + document.blocks[bi].size
           else
@@ -104,7 +105,9 @@ module Crysterm
           from = Math.min(from, buf_size - 1)
           return if from < 0
           if ch == '\n'
-            bi, off = document.block_at(from)
+            loc = document.block_at(from)
+            bi = loc.index
+            off = loc.offset
             # `from` sitting exactly on a separator matches it (inclusive
             # semantics, like `String#rindex`).
             return from if off == document.blocks[bi].size && bi < document.block_count - 1
@@ -172,7 +175,9 @@ module Crysterm
         # offset `block_at` already returned (true regardless of `full_unicode?`,
         # which this column space deliberately does not consult).
         private def cursor_line_col(c : Int32) : Tuple(Int32, Int32)
-          bi, off = document.block_at(c)
+          loc = document.block_at(c)
+          bi = loc.index
+          off = loc.offset
           t = document.blocks[bi].text
           {bi, t.includes?('\t') ? expanded_width(t[0, off]) : off}
         end
@@ -237,7 +242,8 @@ module Crysterm
         # path).
         private def buf_range_includes_tab?(from : Int32, to : Int32) : Bool
           return false if to <= from
-          bi, _ = document.block_at(from)
+          loc = document.block_at(from)
+          bi = loc.index
           document.blocks[bi].text.includes?('\t')
         end
 
@@ -260,7 +266,7 @@ module Crysterm
         # the block it falls in is that whole line (see the protocol's contract
         # on this overload).
         def buf_line_text_at(from : Int32, to : Int32) : String
-          document.blocks[document.block_at(from)[0]].text
+          document.blocks[document.block_at(from).index].text
         end
 
         def value : String
@@ -276,6 +282,7 @@ module Crysterm
           @cursor_pos = buf_size
           clear_selection
           @goal_col = nil
+          emit_caret_events
         end
 
         # Once-per-frame redisplay (from `#paint`): just clamps the caret,
@@ -328,8 +335,11 @@ module Crysterm
                 ensure_cursor_visible
                 ensure_cursor_visible_x
                 if want && (after = buf_text) != before
+                  # `TextChanged` only: undo/redo replay is not a user *edit*
+                  # in Qt's `textEdited` sense.
                   emit Crysterm::Event::TextChanged, after
                 end
+                emit_caret_events
                 update!
                 _update_cursor
               end

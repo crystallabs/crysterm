@@ -69,7 +69,7 @@ describe Crysterm::Widget::TocView do
       tv = toc_view "# One\n\nbody"
       root = tv.roots.first
       doc = tv.document.not_nil!
-      doc.insert_text(doc.size, "!")
+      doc.cursor(doc.size).insert_text("!")
       tv.roots.first.should be root
     end
 
@@ -104,7 +104,7 @@ describe Crysterm::Widget::TocView do
       old = tv.document.not_nil!
       tv.document = TextDocument.from_markdown "# Other"
       labels(tv).should eq ["Other"]
-      old.insert_text(old.size, " more")
+      old.cursor(old.size).insert_text(" more")
       labels(tv).should eq ["Other"]
     end
 
@@ -134,7 +134,7 @@ describe Crysterm::Widget::TocView do
       tv.on(Crysterm::Event::AnchorClick) { |e| tb.activate_link e.url }
       tv.current_index = 1
       tv.activate_current
-      doc.blocks[doc.block_at(tb.cursor_pos)[0]].text.should eq "Usage"
+      doc.blocks[doc.block_at(tb.cursor_pos).index].text.should eq "Usage"
     end
   end
 

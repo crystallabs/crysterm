@@ -101,7 +101,7 @@ module Crysterm
         focused? ? @value_bracketed : @value_plain
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           window.fill_region @attr_memo.fetch(style), style.fill_char, xi, xl, yi, yl
 

@@ -94,11 +94,11 @@ describe "BUGS9 drag_release balances DragEnter on a non-accepting target" do
     target.on(Crysterm::Event::Drop) { dropped += 1 }
 
     source.focus
-    s._drag_key_handled b9_keypress(' ') # pick up (keyboard drag)
+    s.drag_key_handled? b9_keypress(' ') # pick up (keyboard drag)
     s.drag_session.should_not be_nil
-    s._drag_key_handled b9_keypress('\0', ::Tput::Key::Tab) # focus -> target, DragEnter
+    s.drag_key_handled? b9_keypress('\0', ::Tput::Key::Tab) # focus -> target, DragEnter
     entered.should eq 1
-    s._drag_key_handled b9_keypress(' ') # drop; target refuses
+    s.drag_key_handled? b9_keypress(' ') # drop; target refuses
     s.drag_session.should be_nil
 
     dropped.should eq 0

@@ -64,24 +64,24 @@ describe "TextCursor#insert_html/#insert_markdown" do
     doc, c = doc_and_cursor("")
     c.insert_html "<b>bold</b>"
     doc.to_plain_text.should eq "bold"
-    doc.char_format_at(1).bold?.should be_true
+    doc.typing_format_at(1).bold?.should be_true
   end
 
   it "inserts a Markdown fragment with real char formatting at the cursor" do
     doc, c = doc_and_cursor("")
     c.insert_markdown "**bold**"
     doc.to_plain_text.should eq "bold"
-    doc.char_format_at(1).bold?.should be_true
+    doc.typing_format_at(1).bold?.should be_true
   end
 
   it "inserts html/markdown mid-document, at the cursor position" do
     doc, c = doc_and_cursor("[]", 1)
     c.insert_markdown "**x**"
     doc.to_plain_text.should eq "[x]"
-    # char_format_at(offset) is the format of the character *preceding*
+    # typing_format_at(offset) is the format of the character *preceding*
     # offset (Qt cursor semantics) — 'x' is at index 1, so query offset 2.
-    doc.char_format_at(2).bold?.should be_true
-    doc.char_format_at(1).bold?.should be_false # '[' stays unformatted
+    doc.typing_format_at(2).bold?.should be_true
+    doc.typing_format_at(1).bold?.should be_false # '[' stays unformatted
   end
 end
 

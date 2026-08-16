@@ -65,7 +65,7 @@ describe Crysterm::SyntaxHighlighter do
   it "re-highlights edited blocks" do
     doc, _hl = digit_doc("abc")
     doc.blocks[0].render_runs.size.should eq 1
-    doc.insert_text(1, "77")
+    doc.cursor(1).insert_text("77")
     runs = doc.blocks[0].render_runs
     runs[1][2].fg.should eq 0xFF0000
     runs[1][0].should eq 1
@@ -74,7 +74,7 @@ describe Crysterm::SyntaxHighlighter do
 
   it "merges overlay patches over fragment formats" do
     doc = Crysterm::TextDocument.new("no 42")
-    doc.apply_char_format(0, 5, TextCharFormat.new(bold: true))
+    doc.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true))
     DigitHighlighter.new(doc)
     runs = doc.blocks[0].render_runs
     runs[1][2].bold?.should be_true
@@ -93,7 +93,7 @@ describe Crysterm::SyntaxHighlighter do
 
     # Closing the comment early re-highlights the following blocks even
     # though the edit touched only block 0.
-    doc.insert_text(8, " */")
+    doc.cursor(8).insert_text(" */")
     doc.blocks[0].user_state.should eq 0
     doc.blocks[1].user_state.should eq 0
     doc.blocks[1].render_runs[0][2].fg.should be_nil
@@ -106,7 +106,7 @@ describe Crysterm::SyntaxHighlighter do
     # BUGS13 T7: detach removes the highlighter's overlays and user states,
     # so the old document renders plain again.
     doc.blocks[0].additional_formats.should be_nil
-    doc.insert_text(1, "2")
+    doc.cursor(1).insert_text("2")
     # And no re-highlight happens after detach.
     doc.blocks[0].additional_formats.should be_nil
     doc.blocks[0].render_runs.size.should eq 1

@@ -138,12 +138,12 @@ describe Crysterm::TextHtml do
   describe ".generate" do
     it "round-trips text, formats and block properties" do
       doc = TextDocument.new("hello world\nsecond")
-      doc.apply_char_format(0, 5, TextCharFormat.new(bold: true, fg: 0xFF0000))
-      doc.apply_char_format(6, 11, TextCharFormat.new(italic: true, underline: true))
+      doc.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true, fg: 0xFF0000))
+      doc.cursor(6, 11).set_char_format(TextCharFormat.new(italic: true, underline: true))
       # Explicit color: an *unstyled* anchor adopts the theme link color on
       # import (deliberate theming, same as markdown import).
-      doc.apply_char_format(12, 18, TextCharFormat.new(anchor_href: "https://x.io", fg: 0x123456))
-      doc.apply_block_format(0, 0, TextBlockFormat.new(alignment: Tput::AlignFlag::HCenter, bg: 0x334455))
+      doc.cursor(12, 18).set_char_format(TextCharFormat.new(anchor_href: "https://x.io", fg: 0x123456))
+      doc.cursor(0, 0).set_block_format(TextBlockFormat.new(alignment: Tput::AlignFlag::HCenter, bg: 0x334455))
 
       doc2 = TextDocument.from_html(doc.to_html)
       doc2.to_plain_text.should eq doc.to_plain_text
@@ -222,8 +222,8 @@ describe Crysterm::TextHtml do
     it "numbers a reopened ordered-list group with a start attribute" do
       doc = TextDocument.new("a\nplain\nb")
       lf = TextListFormat.new(style: :decimal)
-      doc.apply_block_format(0, 0, TextBlockFormat.new(list_format: lf))
-      doc.apply_block_format(8, 8, TextBlockFormat.new(list_format: lf))
+      doc.cursor(0, 0).set_block_format(TextBlockFormat.new(list_format: lf))
+      doc.cursor(8, 8).set_block_format(TextBlockFormat.new(list_format: lf))
       html = doc.to_html
       html.should contain %(<ol start="2">)
       doc2 = TextDocument.from_html(html)

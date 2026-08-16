@@ -215,10 +215,10 @@ module Crysterm
       # Returns computed absolute {{ axis[:near].id }} position.
       #
       # `{{ axis[:dim].id }}`, when given, is this widget's already-resolved
-      # `a{{ axis[:dim].id }}(rendered)`, needed by the far-anchored and `"center"`
+      # `a{{ axis[:dim].id }}(rendered: rendered)`, needed by the far-anchored and `"center"`
       # branches; passing it in avoids a second `a{{ axis[:dim].id }}` walk per
       # frame. When nil it is resolved on demand.
-      def a{{ axis[:near].id }}(rendered = false, {{ axis[:dim].id }} = nil, parent_pos = nil, with_margin = true) : Int32
+      def a{{ axis[:near].id }}(*, rendered = false, {{ axis[:dim].id }} = nil, parent_pos = nil, with_margin = true) : Int32
         # Layout-assigned {{ axis[:near].id }} when managed, else the user's
         # spec (see `eff_*` above); the far edge is never layout-managed.
         o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
@@ -232,7 +232,7 @@ module Crysterm
         # `with_margin: false` so the shift is applied exactly once.
         if far_anchored?(o{{ axis[:near].id }}, o{{ axis[:far].id }})
           m_far = (with_margin && mg.any?) ? mg.{{ axis[:far].id }} : 0
-          return window.a{{ axis[:dim].id }} - ({{ axis[:dim].id }} || a{{ axis[:dim].id }}(rendered)) - a{{ axis[:far].id }}(rendered) - m_far
+          return window.a{{ axis[:dim].id }} - ({{ axis[:dim].id }} || a{{ axis[:dim].id }}(rendered: rendered)) - a{{ axis[:far].id }}(rendered: rendered) - m_far
         end
 
         # Near-anchored: the outward margin pushes the box toward its FAR edge by
@@ -247,7 +247,7 @@ module Crysterm
         unless {{ axis[:near].id }}.is_a? Int32
           {{ axis[:near].id }} = resolve_dim({{ axis[:near].id }}, parent.a{{ axis[:dim].id }} || 0)
           if center_expr?(o{{ axis[:near].id }})
-            {{ axis[:near].id }} -= ({{ axis[:dim].id }} || a{{ axis[:dim].id }}(rendered)) // 2
+            {{ axis[:near].id }} -= ({{ axis[:dim].id }} || a{{ axis[:dim].id }}(rendered: rendered)) // 2
           end
         end
 
@@ -270,7 +270,7 @@ module Crysterm
                      {near: "top", far: "bottom", dim: "height"},
                    ] %}
       # Returns computed absolute {{ axis[:far].id }} position
-      def a{{ axis[:far].id }}(rendered = false) : Int32
+      def a{{ axis[:far].id }}(*, rendered = false) : Int32
         o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
         o{{ axis[:far].id }} = @{{ axis[:far].id }}
 
@@ -281,7 +281,7 @@ module Crysterm
         if far_anchored?(o{{ axis[:far].id }}, o{{ axis[:near].id }})
           # Base geometry: `coords` composes in the margin, so this far-edge
           # offset must not double-count it.
-          {{ axis[:far].id }} = window.a{{ axis[:dim].id }} - (a{{ axis[:near].id }}(rendered, with_margin: false) + a{{ axis[:dim].id }}(rendered))
+          {{ axis[:far].id }} = window.a{{ axis[:dim].id }} - (a{{ axis[:near].id }}(rendered: rendered, with_margin: false) + a{{ axis[:dim].id }}(rendered: rendered))
           {{ axis[:far].id }} += parent.i{{ axis[:far].id }}
           return {{ axis[:far].id }}
         end
@@ -371,11 +371,11 @@ module Crysterm
       @clip_ancestor_cache = el
     end
 
-    # `width_hint`, when given, is this widget's already-resolved `awidth(rendered)`,
+    # `width_hint`, when given, is this widget's already-resolved `awidth(rendered: rendered)`,
     # computed by `#base_render` just before calling here, to skip re-resolving the
     # identical `awidth`. Only the render path passes it.
     # ameba:disable Metrics/CyclomaticComplexity
-    def coords(rendered = false, noscroll = false, into : RenderedGeometry? = nil, width_hint : Int32? = nil) : RenderedGeometry?
+    def coords(*, rendered = false, noscroll = false, into : RenderedGeometry? = nil, width_hint : Int32? = nil) : RenderedGeometry?
       unless style.visible?
         return
       end
@@ -393,16 +393,16 @@ module Crysterm
       # the margin; a fixed one does not); the margin block below only *shifts*
       # this box, and the origin getters take `with_margin: false` so the shift is
       # applied here exactly once.
-      w = width_hint || awidth(rendered)
-      h = aheight(rendered)
-      xi = aleft(rendered, w, ppos, with_margin: false)
+      w = width_hint || awidth(rendered: rendered)
+      h = aheight(rendered: rendered)
+      xi = aleft(rendered: rendered, width: w, parent_pos: ppos, with_margin: false)
       # Saturating, not checked: a pathological (e.g. `Int32::MAX`) fixed
       # width/height combined with a nonzero absolute origin overflows plain
       # `Int32 + Int32` here and raises `OverflowError` in the render fiber.
       # Clamp the far edge instead; downstream clipping tolerates
       # `xl == Int32::MAX`.
       xl = (xi.to_i64 + w).clamp(Int32::MIN.to_i64, Int32::MAX.to_i64).to_i32
-      yi = atop(rendered, h, ppos, with_margin: false)
+      yi = atop(rendered: rendered, height: h, parent_pos: ppos, with_margin: false)
       yl = (yi.to_i64 + h).clamp(Int32::MIN.to_i64, Int32::MAX.to_i64).to_i32
 
       # Which side is partly hidden due to being enclosed in a parent

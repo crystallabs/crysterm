@@ -92,3 +92,33 @@ def headless_screen(
     height: height,
     default_quit_keys: default_quit_keys)
 end
+
+# Test-only reachers for members whose real setters/methods are `protected` on
+# purpose (API.md §1.7). Reopening the classes puts these in the same namespace,
+# which is what `protected` requires; the specs call the `spec_` spelling so the
+# production surface stays closed.
+class Crysterm::Widget
+  # :nodoc:
+  def spec_lpos=(value : Crysterm::RenderedGeometry?)
+    self.lpos = value
+  end
+end
+
+class Crysterm::Window
+  # :nodoc:
+  def spec_realloc : Nil
+    realloc
+  end
+end
+
+class Crysterm::Screen
+  # :nodoc:
+  def spec_apply_cell_pixels(width : Int32, height : Int32) : Nil
+    apply_cell_pixels width, height
+  end
+
+  # :nodoc:
+  def spec_reprobe_and_detect_geometry : Nil
+    reprobe_and_detect_geometry
+  end
+end

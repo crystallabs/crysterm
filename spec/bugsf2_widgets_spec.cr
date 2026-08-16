@@ -152,7 +152,7 @@ describe "BUGS-F2 21: per-line attr cache refreshes on a single-line base-style 
     box = Widget::Box.new parent: s, scrollable: true, scrollbar: false,
       width: 10, height: 3, content: "hi"
     s.update
-    before = box._clines.attr.not_nil![0]
+    before = box.wrapped_lines.attr.not_nil![0]
 
     box.style.fg = "#ff0000"
     # Reparse directly (a full `s.update` would re-run the CSS cascade and replace
@@ -162,7 +162,7 @@ describe "BUGS-F2 21: per-line attr cache refreshes on a single-line base-style 
     # lines forever.
     box.process_content
 
-    box._clines.attr.not_nil![0].should_not eq before
+    box.wrapped_lines.attr.not_nil![0].should_not eq before
   end
 end
 

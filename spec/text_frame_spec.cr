@@ -77,7 +77,7 @@ describe Crysterm::TextFrame do
 
   it "keeps membership across a block split (Enter inside the frame)" do
     doc, frame = framed_doc
-    doc.insert_text(10, "\n") # split "inside"
+    doc.cursor(10).insert_text("\n") # split "inside"
     frame.blocks.size.should eq 2
   end
 

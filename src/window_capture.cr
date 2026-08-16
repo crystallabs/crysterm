@@ -220,10 +220,10 @@ module Crysterm
     def capture_cursor_overlay(x : Int32, y : Int32) : {Int64, Char?}?
       return unless @_acur_y >= 0 && x == @_acur_x && y == @_acur_y
       c = active_cursor
-      return unless c.artificial? && !c._hidden && c._state != 0
+      return unless c.artificial? && !c.hidden? && c.state != 0
       attr = @lines[y]?.try &.[x]?.try &.attr
       return unless attr
-      _artificial_cursor_attr c, attr
+      artificial_cursor_attr c, attr
     end
 
     # Walks the composited buffer over region `[xi,xl) x [yi,yl)`, yielding each

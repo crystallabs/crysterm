@@ -11,7 +11,7 @@ include Crysterm
 describe "BUGS17 B17-30 code fragment color survives HTML round-trip" do
   it "keeps a recolored code fragment's fg after from_html(to_html)" do
     doc = Crysterm::TextDocument.from_markdown("`x`")
-    doc.apply_char_format(0, 1, Crysterm::TextCharFormat.new(fg: 0xFF0000), merge: true)
+    doc.cursor(0, 1).merge_char_format(Crysterm::TextCharFormat.new(fg: 0xFF0000))
 
     frag = doc.blocks[0].fragments[0]
     frag.format.code?.should be_true

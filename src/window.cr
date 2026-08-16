@@ -125,7 +125,7 @@ module Crysterm
     # the device size — a `Window` is full-screen, so its surface size *is*
     # its screen's size.
     delegate input, output, error,
-      tput, draw_caps, colors, color_count, truecolor?,
+      tput, draw_caps, color_count, truecolor?,
       force_unicode?, full_unicode?, full_unicode_effective?,
       glyph_tier, glyph_octants?,
       width, height,
@@ -495,21 +495,77 @@ module Crysterm
 
     # The `Application` this window is being driven by, if any. Set when the
     # window is run via `Application#exec` (or added to an app).
-    property application : Application? = nil
+    #
+    # The setter is `protected`: the back-link must stay in step with
+    # `Application#windows`, so it is written only by `Application#add`.
+    getter application : Application? = nil
+    protected setter application
 
-    # Opens a real terminal-emulator window and returns the `Window` driving it —
-    # a discoverable alias for `Application.open` (the factory's result type is a
-    # `Window`, so it reads naturally here too). See `Application.open` for the
-    # arguments.
-    def self.open(**kwargs) : Window
-      Application.open(**kwargs)
+    # Opens a real terminal emulator window and returns a `Window` driving it.
+    #
+    # With `into:` nil, a brand-new `Window` is created. Pass an existing
+    # (typically disconnected) `Window` as `into:` to re-display it in a fresh
+    # window — its widget tree and content are preserved and repainted at the
+    # new window's size.
+    #
+    # `launcher` may be a `Terminal::Launcher`, a backend name (e.g. "kitty",
+    # "tmux"), or nil to auto-detect (honoring `$TERMINAL`).
+    #
+    # `cols`/`rows` default to the launching process's own terminal size (the
+    # window opens as big as the one it was launched from), or 80×24 when the
+    # launcher has no tty; pass explicit values to pin either axis.
+    #
+    # Pass `start_input: true` to start reading input immediately, so a single
+    # spawned window is interactive without a separate `#start_input`/`#exec`
+    # call (the caller still has to keep the process alive, e.g. with `sleep`).
+    # A reattached screen restores whatever listening state it had before
+    # disconnecting.
+    def self.open(*, launcher : Terminal::Launcher | String? = nil,
+                  cols : Int32? = nil, rows : Int32? = nil,
+                  title : String? = nil, env : Process::Env = nil,
+                  start_input : Bool = false, into : Window? = nil) : Window
+      win = Terminal.spawn_window(launcher: launcher, cols: cols, rows: rows,
+        title: title, env: env)
+
+      if window = into
+        window.connect win.input, win.output, win
+      else
+        window = new(input: win.input, output: win.output, title: title)
+        window.adopt_window win
+      end
+
+      window.start_input if start_input
+      window.emit Crysterm::Event::WindowOpened, window
+      window
     end
 
-    # Opens *window_count* emulator windows, builds each via the block, then
-    # renders and runs them all under a shared quit — an alias for
-    # `Application.run`. See it for the arguments.
-    def self.run(**kwargs, &block : Window, Int32 -> _) : Nil
-      Application.run(**kwargs) { |w, i| block.call w, i }
+    # Convenience: open *window_count* emulator windows, yield them all to the
+    # block to build (cross-window wiring needs no forward-declared locals —
+    # every window exists when the block runs), then render and start input on
+    # them all, then block. A `q` / `Ctrl-Q` in any window — or closing any
+    # window — tears that one down; the call returns (and the process exits)
+    # once the last window is gone.
+    #
+    # ```
+    # Window.run(window_count: 2) do |wins|
+    #   sender, receiver = wins[0], wins[1]
+    #   # ... build both; they can reference each other freely ...
+    # end
+    # ```
+    #
+    # For a single in-process window, see the simpler `Crysterm.run`.
+    #
+    # The windows are run through `Application.exec_all`, which owns quit for
+    # them.
+    def self.run(*, window_count : Int32, launcher : Terminal::Launcher | String? = nil,
+                 cols : Int32? = nil, rows : Int32? = nil, env : Process::Env = nil,
+                 & : Array(Window) -> _) : Nil
+      wins = (0...window_count).map do |i|
+        open(launcher: launcher, cols: cols, rows: rows,
+          title: "Window #{i + 1}", env: env)
+      end
+      yield wins
+      Application.exec_all wins
     end
 
     # Renders this window and runs the main loop (the `QApplication::exec()`
@@ -553,7 +609,7 @@ module Crysterm
     # loop; returns `false` when no capture var is set.
     #
     # :nodoc:
-    def run_env_capture : Bool
+    protected def run_env_capture : Bool
       shot = Config.window_shot.presence
       dump_dest = Config.window_dump.presence
       anim = Config.window_anim.presence
@@ -617,6 +673,24 @@ module Crysterm
       Rectangle.of_edges 0, 0, awidth, aheight
     end
 
+    # A short, human-readable identification for logs and debugging: class,
+    # `#name` (falling back to the window `#title`) and the surface size —
+    # e.g. `Window "main" 80x24`. A `Window` has no `uid`; its identity in a
+    # multi-window app is its name/title.
+    def to_s(io : IO) : Nil
+      io << "Window"
+      label = @name.presence || @title.presence
+      label && (io << ' ' << label.inspect)
+      io << ' ' << awidth << 'x' << aheight
+    end
+
+    # :ditto:
+    def inspect(io : IO) : Nil
+      io << "#<"
+      to_s io
+      io << '>'
+    end
+
     def enter
       if !@cursor._set
         apply_cursor
@@ -635,7 +709,7 @@ module Crysterm
       # Hide the terminal's own cursor for the setup/first paint (the per-frame
       # cursor bracket in `#draw` re-shows it when appropriate). This must be
       # the HARDWARE hide, not `hide_cursor`: the latter dispatches on the
-      # active cursor and, on the artificial branch, records `_hidden = true` —
+      # active cursor and, on the artificial branch, records `hidden = true` —
       # clobbering a visibility the app (or a focused input's `_read_input`)
       # already established before `exec`, so an artificial cursor would enter
       # the first frame invisible. Mirrors `#leave`, which pairs `show_cursor`
@@ -673,7 +747,7 @@ module Crysterm
       # either). Do not reorder these two lines.
       show_cursor
       # `show_cursor` dispatches on the active cursor and its artificial branch
-      # never reaches the terminal (it only records `_hidden`), while
+      # never reaches the terminal (it only records `hidden?`), while
       # `apply_cursor`'s artificial branch emits civis — and `tput.reset_cursor`
       # below resets only shape/color, not DECTCEM. Re-show the hardware cursor
       # directly so the tty isn't left cursorless after exit.
@@ -702,7 +776,7 @@ module Crysterm
     # whether the window was open (`false` if already destroyed).
     #
     # The counterpart to a hard `#destroy`: handlers get the signal *first*, so
-    # they can save state, reattach the surface elsewhere (`Application.open
+    # they can save state, reattach the surface elsewhere (`Window.open
     # into: self`), or count it out of a multi-window run. Disconnecting before
     # emitting is exactly what the terminal-emulator-close watcher does
     # (`#on_window_closed`), so both close paths look identical to a handler —

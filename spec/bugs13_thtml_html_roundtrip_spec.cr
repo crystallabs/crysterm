@@ -67,7 +67,7 @@ describe "BUGS13 T11 empty default blocks export as <br>, not <p></p>" do
 
   it "keeps a styled empty block a real <p> block" do
     doc = Crysterm::TextDocument.new("a\n\nb")
-    doc.apply_block_format(doc.block_position(1), doc.block_position(1), TextBlockFormat.new(bg: 0x333333))
+    doc.cursor(doc.block_position(1), doc.block_position(1)).set_block_format(TextBlockFormat.new(bg: 0x333333))
     back = html_doc(doc.to_html)
     back.blocks.size.should eq 3
     back.blocks[1].block_format.bg.should eq 0x333333
@@ -139,7 +139,7 @@ end
 describe "BUGS13 T22 block indent survives the HTML round-trip" do
   it "exports indent as margin-left:Nch and parses it back" do
     doc = Crysterm::TextDocument.new("cont")
-    doc.apply_block_format(0, 0, TextBlockFormat.new(indent: 3))
+    doc.cursor(0, 0).set_block_format(TextBlockFormat.new(indent: 3))
     exported = doc.to_html
     exported.should contain "margin-left:3ch"
     html_doc(exported).blocks[0].block_format.indent.should eq 3

@@ -193,7 +193,7 @@ describe "Widget::TextEdit#append_markdown" do
     te.to_markdown.should eq "# Hi\n\nbody text"
     te.cursor_pos.should eq 0
     s.repaint
-    te._clines.lines.join(' ').should contain "body text"
+    te.wrapped_lines.lines.join(' ').should contain "body text"
   end
 
   it "is inherited by TextBrowser (the CHATBOX streaming consumer)" do

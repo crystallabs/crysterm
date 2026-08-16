@@ -14,7 +14,7 @@ include Crysterm
 #   * BUG 3 — `Mixin::ItemView` scroll/selection math used the bare item index as
 #     a content row, ignoring `item_spacing`, so selecting an item in a spaced,
 #     overflowing list left it off-screen. (`src/mixin/item_view.cr` +
-#     `_scroll_bottom` spaced extent)
+#     `scroll_bottom` spaced extent)
 
 describe "BUGS5 scrolling & item-view fixes" do
   # BUG 1: percentage round-trip must be idempotent for an @always_scroll widget.
@@ -82,7 +82,7 @@ describe "BUGS5 scrolling & item-view fixes" do
       row = list.current_index * (1 + list.item_spacing) # item_row(selected) == 38
       # The item's spaced row must fall inside [child_base, child_base + visible).
       # A `scroll_to @selected` that ignores spacing (item_row not applied and
-      # _scroll_bottom == items.size) leaves child_base ~15, row 38 far off-screen.
+      # scroll_bottom == items.size) leaves child_base ~15, row 38 far off-screen.
       list.child_base.should be <= row
       (list.child_base + visible).should be > row
     end

@@ -147,7 +147,7 @@ module Crysterm
           v
         end
 
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           super
           draw_legend
         end

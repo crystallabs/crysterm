@@ -46,7 +46,9 @@ module Crysterm
     # locates the sequence's bounds while scanning codepoint-by-codepoint, so
     # feeding them here avoids a regex match + substring per color change. SGR is
     # pure ASCII, so codepoints and bytes coincide within the sequence.
-    def self.to_attr(content : StringIndex, esc : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
+    # Protected: `StringIndex` + bounds is the renderer's private calling
+    # convention — the public entry point is the `String` overload above.
+    protected def self.to_attr(content : StringIndex, esc : Int32, finish : Int32, cur : Int64, dfl : Int64) : Int64
       to_attr_impl content, esc + 2, finish, cur, dfl
     end
 

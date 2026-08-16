@@ -83,7 +83,7 @@ if json
       rows:          screen.height,
       cell_px_w:     screen.cell_pixel_width,
       cell_px_h:     screen.cell_pixel_height,
-      colors:        screen.colors,
+      colors:        screen.color_count,
       truecolor:     screen.truecolor?,
       unicode:       f.unicode?,
       graphics:      emu.best_graphics.to_s,
@@ -113,7 +113,7 @@ if screen.cell_pixel_width > 0
   size += ", window #{screen.width * screen.cell_pixel_width} x #{screen.height * screen.cell_pixel_height} px)"
 end
 
-color = screen.truecolor? ? "16M (truecolor)" : "#{screen.colors}"
+color = screen.truecolor? ? "16M (truecolor)" : "#{screen.color_count}"
 
 kbd = [] of String
 kbd << "kitty keyboard protocol" if f.kitty_keyboard?
@@ -158,7 +158,7 @@ if verbose
   section.call "CRYSTERM (rendering — derived on top of Tput)", [
     {"size", "#{screen.width} x #{screen.height}",
      screen.explicit_size? ? "explicit (constructor)" : "probed from terminal"},
-    {"colors", screen.colors.to_s,
+    {"colors", screen.color_count.to_s,
      "effective depth; policy #{Config.screen_color_force} / #{Config.colors_depth}, tput detected #{f.number_of_colors}"},
     {"truecolor", screen.truecolor?.to_s, "effective (colors >= 16M)"},
     {"force_unicode", screen.force_unicode?.to_s, "Crysterm option (screen.force_unicode)"},

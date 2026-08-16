@@ -12,7 +12,7 @@ end
 # Forces the full reparse a resize would run: invalidates the wrap cache's
 # content version so `process_content` re-parses raw `@content` from scratch.
 private def force_full_reparse(box)
-  box._clines.content_version = -1_i64
+  box.wrapped_lines.content_version = -1_i64
   box.process_content
 end
 
@@ -28,10 +28,10 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
     box.process_content
 
     box.append_line "{/blue-fg}b"
-    lines_after_push = box._clines.lines.map(&.to_s)
+    lines_after_push = box.wrapped_lines.lines.map(&.to_s)
 
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq lines_after_push
+    box.wrapped_lines.lines.map(&.to_s).should eq lines_after_push
   end
 
   it "renders identically across a reparse when a balanced closer pops to a carried same-category tag" do
@@ -44,10 +44,10 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
     box.process_content
 
     box.append_line "{bold}x{/bold}"
-    lines_after_push = box._clines.lines.map(&.to_s)
+    lines_after_push = box.wrapped_lines.lines.map(&.to_s)
 
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq lines_after_push
+    box.wrapped_lines.lines.map(&.to_s).should eq lines_after_push
   end
 
   it "keeps a stray brace in an appended segment consistent with a full reparse" do
@@ -60,11 +60,11 @@ describe "Widget#append_content nested closing tags (BUGS12 finding 21)" do
     box.process_content
 
     box.append_line "x { y"
-    lines_after_push = box._clines.lines.map(&.to_s)
+    lines_after_push = box.wrapped_lines.lines.map(&.to_s)
     lines_after_push[1].should eq "x  y"
 
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq lines_after_push
+    box.wrapped_lines.lines.map(&.to_s).should eq lines_after_push
   end
 end
 
@@ -79,11 +79,11 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
 
     # Literal while parsing is off, like a set_content of the same string.
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq ["hello", "{bold}world"]
+    box.wrapped_lines.lines.map(&.to_s).should eq ["hello", "{bold}world"]
 
     # The supported runtime flip must reparse the appended tag too. If the
     # append gated `@_content_has_tags` on `@parse_tags`, the flag would stay
-    # false, the reparse would skip `_parse_tags`, and the tag would stay
+    # false, the reparse would skip `expand_tags`, and the tag would stay
     # literal permanently.
     box.parse_tags = true
     box.process_content
@@ -92,7 +92,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     ref.set_content "hello\n{bold}world"
     ref.process_content
 
-    box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.map(&.to_s).should eq ref.wrapped_lines.lines.map(&.to_s)
   end
 
   it "honors an align tag appended while parse_tags was off after a flip, like set_content" do
@@ -109,7 +109,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     ref.set_content "hello\n{center}mid{/center}"
     ref.process_content
 
-    box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.map(&.to_s).should eq ref.wrapped_lines.lines.map(&.to_s)
 
     # And the align flag must now be live for the *next* append's bail decision:
     # an unclosed-alignment carry across a later push must match set_content.
@@ -117,7 +117,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     ref2 = make_box(s, parse_tags: true, top: 16)
     ref2.set_content "hello\n{center}mid{/center}\ntail"
     ref2.process_content
-    box._clines.lines.map(&.to_s).should eq ref2._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.map(&.to_s).should eq ref2.wrapped_lines.lines.map(&.to_s)
   end
 
   it "appends an align-tagged line like set_content when parse_tags is on" do
@@ -132,7 +132,7 @@ describe "Widget#append_content content-shape flags (BUGS12 finding 22)" do
     ref.set_content "hello\n{center}mid\nstill centered"
     ref.process_content
 
-    box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.map(&.to_s).should eq ref.wrapped_lines.lines.map(&.to_s)
   end
 end
 
@@ -145,7 +145,7 @@ describe "Widget#append_content fast path retention" do
 
     box.append_content("world").should be_true
     # Fast-path signature: the joined pcontent is deferred (nil), not rebuilt.
-    box._pcontent.should be_nil
+    box.printable_content.should be_nil
     box.content.should eq "hello\nworld"
   end
 
@@ -159,9 +159,9 @@ describe "Widget#append_content fast path retention" do
     # stays byte-identical to a full reparse — no bail.
     box.append_content("{green-fg}[INFO]{/green-fg} more {bold}stuff{/bold}").should be_true
 
-    lines_after_push = box._clines.lines.map(&.to_s)
+    lines_after_push = box.wrapped_lines.lines.map(&.to_s)
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq lines_after_push
+    box.wrapped_lines.lines.map(&.to_s).should eq lines_after_push
   end
 
   it "stays fast for plain appends after an unclosed opener (attr carry, no tag parse)" do
@@ -172,11 +172,11 @@ describe "Widget#append_content fast path retention" do
 
     box.append_content("still red").should be_true
 
-    lines_after_push = box._clines.lines.map(&.to_s)
-    attrs_after_push = box._clines.attr.not_nil!.dup
+    lines_after_push = box.wrapped_lines.lines.map(&.to_s)
+    attrs_after_push = box.wrapped_lines.attr.not_nil!.dup
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq lines_after_push
-    box._clines.attr.should eq attrs_after_push
+    box.wrapped_lines.lines.map(&.to_s).should eq lines_after_push
+    box.wrapped_lines.attr.should eq attrs_after_push
   end
 
   it "stays fast when tags first arrive over brace-free content" do
@@ -191,9 +191,9 @@ describe "Widget#append_content fast path retention" do
     box.append_content("{bold}first{/bold}").should be_true
     box.append_content("{bold}second{/bold}").should be_true
 
-    lines_after_push = box._clines.lines.map(&.to_s)
+    lines_after_push = box.wrapped_lines.lines.map(&.to_s)
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq lines_after_push
+    box.wrapped_lines.lines.map(&.to_s).should eq lines_after_push
   end
 
   it "bails while a never-parsed stray brace sits in existing content" do
@@ -202,7 +202,7 @@ describe "Widget#append_content fast path retention" do
     # Matches no tag, so the gate stayed off and the brace rendered literally.
     box.set_content "a { b"
     box.process_content
-    box._clines.lines.map(&.to_s).should eq ["a { b"]
+    box.wrapped_lines.lines.map(&.to_s).should eq ["a { b"]
 
     # Tag-parsing this segment on the fast path would leave the gate on for the
     # next full reparse, which would then drop the literal `{` above and silently
@@ -211,9 +211,9 @@ describe "Widget#append_content fast path retention" do
     box.append_content("{bold}first{/bold}").should be_false
     box.append_line "{bold}first{/bold}"
 
-    lines_after_push = box._clines.lines.map(&.to_s)
+    lines_after_push = box.wrapped_lines.lines.map(&.to_s)
     lines_after_push[0].should eq "a { b" # the stray brace survived
     force_full_reparse(box)
-    box._clines.lines.map(&.to_s).should eq lines_after_push
+    box.wrapped_lines.lines.map(&.to_s).should eq lines_after_push
   end
 end

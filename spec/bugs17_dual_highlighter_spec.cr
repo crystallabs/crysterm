@@ -39,7 +39,7 @@ describe Crysterm::SyntaxHighlighter do
 
     # A subsequent real edit still triggers rehighlighting (the last-attached
     # highlighter re-runs and re-establishes its overlay).
-    doc.insert_text(3, " yy")
+    doc.cursor(3).insert_text(" yy")
     doc.to_plain_text.should eq "x 1 yy"
     runs = doc.blocks[0].render_runs
     runs.any? { |r| r[2].fg == 0x00FF00 }.should be_true

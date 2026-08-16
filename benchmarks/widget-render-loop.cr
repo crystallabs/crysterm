@@ -2,7 +2,7 @@ require "benchmark"
 require "../src/crysterm"
 
 # Per-frame cost of the `Widget#base_render` content loop (`widget_rendering.cr`):
-# the per-cell walk that lays `@_pcontent` into the screen's `@lines` buffer.
+# the per-cell walk that lays `@printable_content` into the screen's `@lines` buffer.
 # `widget-content.cr` covers `process_content`/wrapping/tag parsing; this one
 # targets the cell-painting loop itself.
 #

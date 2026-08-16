@@ -464,7 +464,7 @@ module Crysterm
         {open: "{#{hex}-fg}", close: "{/#{hex}-fg}"}
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # Item boxes use a *content-relative* `left` (0 == the bar's content
         # origin): `Widget#aleft` already adds the parent's `ileft`, so starting
         # the cursor at `ileft` here would double-count the inset and shove items

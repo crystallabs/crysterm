@@ -137,7 +137,7 @@ module Crysterm
           emit Crysterm::Event::Submitted, text
         end
 
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           sync_height if auto_grow?
           ret = super
           paint_prompt if ret

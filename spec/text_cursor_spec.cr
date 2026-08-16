@@ -74,19 +74,19 @@ describe Crysterm::TextCursor do
 
     it "selects across blocks with newline separators" do
       _, c = doc_and_cursor("ab\ncd")
-      c.select_span :document
+      c.select :document
       c.selected_text.should eq "ab\ncd"
     end
 
     it "selects the word under the cursor" do
       _, c = doc_and_cursor("foo bar baz", 5) # inside "bar"
-      c.select_span :word_under_cursor
+      c.select :word_under_cursor
       c.selected_text.should eq "bar"
     end
 
     it "selects the block under the cursor" do
       _, c = doc_and_cursor("one\ntwo\nthree", 5)
-      c.select_span :block_under_cursor
+      c.select :block_under_cursor
       c.selected_text.should eq "two"
     end
   end
@@ -140,7 +140,7 @@ describe Crysterm::TextCursor do
       c2 = TextCursor.new(doc, 11)
       c1.insert_text("!!")
       c2.position.should eq 13
-      doc.remove(0, 2)
+      doc.cursor(0, 2).remove_selected_text
       c1.position.should eq 5
       c2.position.should eq 11
     end
@@ -148,7 +148,7 @@ describe Crysterm::TextCursor do
     it "does not move cursors before an insertion" do
       doc = TextDocument.new("hello")
       c = TextCursor.new(doc, 2)
-      doc.insert_text(4, "x")
+      doc.cursor(4).insert_text("x")
       c.position.should eq 2
     end
 
@@ -157,7 +157,7 @@ describe Crysterm::TextCursor do
       c = TextCursor.new(doc, 8)
       sel = TextCursor.new(doc, 4)
       sel.set_position(10, :keep_anchor)
-      doc.remove(6, 5)
+      doc.cursor(6, 11).remove_selected_text
       c.position.should eq 6
       sel.anchor.should eq 4
       sel.position.should eq 6
@@ -166,7 +166,7 @@ describe Crysterm::TextCursor do
     it "survives undo/redo cycles" do
       doc = TextDocument.new("abc")
       c = TextCursor.new(doc, 3)
-      doc.insert_text(0, "xy")
+      doc.cursor(0).insert_text("xy")
       c.position.should eq 5
       doc.undo
       c.position.should eq 3
@@ -181,8 +181,8 @@ describe Crysterm::TextCursor do
       c.set_position(0)
       c.set_position(5, :keep_anchor)
       c.merge_char_format(TextCharFormat.new(bold: true))
-      doc.char_format_at(3).bold?.should be_true
-      doc.char_format_at(7).bold?.should be_false
+      doc.typing_format_at(3).bold?.should be_true
+      doc.typing_format_at(7).bold?.should be_false
     end
 
     it "without a selection sets the typing format for the next insert" do
@@ -190,8 +190,8 @@ describe Crysterm::TextCursor do
       c.set_char_format(TextCharFormat.new(italic: true))
       c.char_format.italic?.should be_true
       c.insert_text("X")
-      doc.char_format_at(2).italic?.should be_true
-      doc.char_format_at(1).italic?.should be_false
+      doc.typing_format_at(2).italic?.should be_true
+      doc.typing_format_at(1).italic?.should be_false
     end
 
     it "clears the pending typing format on movement" do
@@ -204,9 +204,9 @@ describe Crysterm::TextCursor do
     it "merge preserves existing properties on the selection" do
       doc, c = doc_and_cursor
       c.insert_text("abc", TextCharFormat.new(fg: 0x00aaff))
-      c.select_span :document
+      c.select :document
       c.merge_char_format(TextCharFormat.new(bold: true))
-      f = doc.char_format_at(2)
+      f = doc.typing_format_at(2)
       f.bold?.should be_true
       f.fg.should eq 0x00aaff
     end

@@ -112,7 +112,7 @@ describe "Widget::Terminal#handle_mouse row mapping in a scrolled container (B17
     Widget::Box.new parent: outer, top: 6, left: 0, width: 1, height: 30
 
     s.repaint
-    outer.scroll_to 3, true
+    outer.scroll_to 3, always: true
     s.repaint
 
     lp = term.lpos.not_nil!

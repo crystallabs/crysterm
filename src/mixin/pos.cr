@@ -25,8 +25,15 @@ module Crysterm
       # :ditto:
       getter abottom : Int32 = 0
 
-      # Last rendered position
-      property lpos : RenderedGeometry? = nil
+      # Last rendered position. Never retain it past the current frame — the
+      # render path reuses the instance in place.
+      #
+      # The setter is `protected`: only the render/layout pipeline may assign a
+      # rendered rectangle.
+      getter lpos : RenderedGeometry? = nil
+
+      # :nodoc:
+      protected setter lpos
     end
   end
 end

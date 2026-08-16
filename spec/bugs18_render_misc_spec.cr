@@ -101,12 +101,12 @@ describe "B18-06: first-device-anchors for the global CSS cell geometry" do
     b = headless_screen(20, 10, default_quit_keys: true)
     begin
       # First device to report claims the anchor.
-      a.screen.apply_cell_pixels 12, 24
+      a.screen.spec_apply_cell_pixels 12, 24
       Crysterm::CSS::Length.divisors["px"].should eq 12.0
       Crysterm::CSS::Length.cell_aspect_ratio.should eq 2.0
 
       # A second, different device must not re-anchor the globals ...
-      b.screen.apply_cell_pixels 8, 32
+      b.screen.spec_apply_cell_pixels 8, 32
       Crysterm::CSS::Length.divisors["px"].should eq 12.0
       Crysterm::CSS::Length.cell_aspect_ratio.should eq 2.0
       # ... but its own per-device state is still recorded (pixel mouse, media).
@@ -114,7 +114,7 @@ describe "B18-06: first-device-anchors for the global CSS cell geometry" do
       b.screen.cell_pixel_height.should eq 32
 
       # The claiming device keeps tracking its own font/zoom changes.
-      a.screen.apply_cell_pixels 10, 25
+      a.screen.spec_apply_cell_pixels 10, 25
       Crysterm::CSS::Length.divisors["px"].should eq 10.0
       Crysterm::CSS::Length.cell_aspect_ratio.should eq 2.5
     ensure
@@ -133,14 +133,14 @@ describe "B18-06: first-device-anchors for the global CSS cell geometry" do
     a = headless_screen(20, 10, default_quit_keys: true)
     b = headless_screen(20, 10, default_quit_keys: true)
     begin
-      a.screen.apply_cell_pixels 12, 24
-      b.screen.apply_cell_pixels 8, 16
+      a.screen.spec_apply_cell_pixels 12, 24
+      b.screen.spec_apply_cell_pixels 8, 16
       Crysterm::CSS::Length.divisors["px"].should eq 12.0
 
       # Destroying the claiming device's last window releases the claim ...
       a.destroy
       # ... so the surviving device's next report anchors the globals.
-      b.screen.apply_cell_pixels 8, 16
+      b.screen.spec_apply_cell_pixels 8, 16
       Crysterm::CSS::Length.divisors["px"].should eq 8.0
     ensure
       b.destroy

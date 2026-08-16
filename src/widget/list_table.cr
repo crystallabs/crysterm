@@ -565,7 +565,7 @@ module Crysterm
         end
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # Re-pin the width now that the CSS cascade has run (runs at the top of
         # the window's `repaint`, before any widget renders). `#rows=` pins
         # the width at construction/Attach time, but a border arriving via CSS

@@ -19,7 +19,7 @@ end
 
 private def select_all_list(te, style : TextListFormat::Style)
   c = te.text_cursor
-  c.select_span :document
+  c.select :document
   c.create_list(style)
 end
 
@@ -57,7 +57,7 @@ describe Widget::TextEdit do
       te = new_te s, "a\nb\nc"
       select_all_list(te, :decimal)
       s.repaint
-      te.document.remove(0, 2) # "a\n" gone
+      te.document.cursor(0, 2).remove_selected_text # "a\n" gone
       s.repaint
       row_text(s, 0, 0...4).should eq "1. b"
       row_text(s, 1, 0...4).should eq "2. c"
@@ -83,7 +83,7 @@ describe Widget::TextEdit do
       s.repaint
       row_text(s, 0, 0...6).should eq "• aaaa"
       # Continuation row: no marker, text starts at the same column.
-      te._clines.size.should be > 1
+      te.wrapped_lines.size.should be > 1
       row_text(s, 1, 0...6).should eq "  bbbb"
     end
 
@@ -116,8 +116,8 @@ describe Widget::TextEdit do
     it "renders quote bars per level" do
       s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "quoted\ndeep"
-      te.document.apply_block_format(0, 0, TextBlockFormat.new(quote_level: 1))
-      te.document.apply_block_format(7, 7, TextBlockFormat.new(quote_level: 2))
+      te.document.cursor(0, 0).set_block_format(TextBlockFormat.new(quote_level: 1))
+      te.document.cursor(7, 7).set_block_format(TextBlockFormat.new(quote_level: 2))
       s.repaint
       row_text(s, 0, 0...8).should eq "│ quoted"
       row_text(s, 1, 0...8).should eq "│ │ deep"
@@ -126,7 +126,7 @@ describe Widget::TextEdit do
     it "renders a horizontal-rule block as a full-width glyph fill" do
       s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "above\n\nbelow"
-      te.document.apply_block_format(6, 6, TextBlockFormat.new(horizontal_rule: true))
+      te.document.cursor(6, 6).set_block_format(TextBlockFormat.new(horizontal_rule: true))
       s.repaint
       row_text(s, 1, 0...40).should eq "─" * 40
       row_text(s, 2, 0...5).should eq "below"
@@ -137,7 +137,7 @@ describe Widget::TextEdit do
     it "indents a block by its indent cells" do
       s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "moved"
-      te.document.apply_block_format(0, 0, TextBlockFormat.new(indent: 3))
+      te.document.cursor(0, 0).set_block_format(TextBlockFormat.new(indent: 3))
       s.repaint
       row_text(s, 0, 0...8).should eq "   moved"
     end
@@ -145,8 +145,8 @@ describe Widget::TextEdit do
     it "centers and right-aligns block rows" do
       s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "mid\nend", 10, 4
-      te.document.apply_block_format(0, 0, TextBlockFormat.new(alignment: Tput::AlignFlag::HCenter))
-      te.document.apply_block_format(4, 4, TextBlockFormat.new(alignment: Tput::AlignFlag::Right))
+      te.document.cursor(0, 0).set_block_format(TextBlockFormat.new(alignment: Tput::AlignFlag::HCenter))
+      te.document.cursor(4, 4).set_block_format(TextBlockFormat.new(alignment: Tput::AlignFlag::Right))
       s.repaint
       # Content width is 10 minus the scrollbar/caret margin; the exact
       # column comes from the same math the layout used.
@@ -161,18 +161,18 @@ describe Widget::TextEdit do
     it "renders top/bottom margins as blank rows and maps them to the block" do
       s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "aaa\nbbb"
-      te.document.apply_block_format(4, 4, TextBlockFormat.new(top_margin: 1))
+      te.document.cursor(4, 4).set_block_format(TextBlockFormat.new(top_margin: 1))
       s.repaint
       row_text(s, 0, 0...3).should eq "aaa"
       row_text(s, 1, 0...3).should eq "   "
       row_text(s, 2, 0...3).should eq "bbb"
-      te._clines.size.should eq 3
+      te.wrapped_lines.size.should eq 3
     end
 
     it "steps the caret over margin rows on Down/Up" do
       s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "aaa\nbbb"
-      te.document.apply_block_format(4, 4, TextBlockFormat.new(top_margin: 1))
+      te.document.cursor(4, 4).set_block_format(TextBlockFormat.new(top_margin: 1))
       s.repaint
       te.cursor_pos = 1
       te._listener ctl(::Tput::Key::Down)
@@ -184,7 +184,7 @@ describe Widget::TextEdit do
     it "selection highlight lands on the shifted columns" do
       s = headless_screen(40, 8, default_quit_keys: true)
       te = new_te s, "sel"
-      te.document.apply_block_format(0, 0, TextBlockFormat.new(indent: 2))
+      te.document.cursor(0, 0).set_block_format(TextBlockFormat.new(indent: 2))
       s.repaint
       te.selection_anchor = 0
       te.cursor_pos = 3

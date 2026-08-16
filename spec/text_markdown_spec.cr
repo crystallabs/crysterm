@@ -163,7 +163,7 @@ describe Crysterm::TextMarkdown do
 
     it "exports combined bold italic" do
       doc = TextDocument.new("x")
-      doc.apply_char_format(0, 1, TextCharFormat.new(bold: true, italic: true))
+      doc.cursor(0, 1).set_char_format(TextCharFormat.new(bold: true, italic: true))
       doc.to_markdown.should eq "***x***"
     end
   end

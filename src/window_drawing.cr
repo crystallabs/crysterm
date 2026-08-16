@@ -323,7 +323,7 @@ module Crysterm
       # Repair the cell a previously-painted artificial cursor left behind: `draw`
       # only scans dirty rows or the cursor's row, so a cursor moving to another
       # row (or stopping) would leave its glyph in `@flushed_lines` never diffed away.
-      draw_acur = c_artificial && !c._hidden && (c._state != 0) && cursor_y >= start && cursor_y <= stop
+      draw_acur = c_artificial && !c.hidden? && (c.state != 0) && cursor_y >= start && cursor_y <= stop
       new_acur_x = draw_acur ? cursor_x : -1
       new_acur_y = draw_acur ? cursor_y : -1
       if @_acur_y >= 0 && (@_acur_x != new_acur_x || @_acur_y != new_acur_y)
@@ -458,7 +458,7 @@ module Crysterm
           # never shown.
           acur_glyph = false
           if x == acur_col
-            desired_attr, tmpch = _artificial_cursor_attr(c, desired_attr)
+            desired_attr, tmpch = artificial_cursor_attr(c, desired_attr)
             if tmpch
               desired_char = tmpch
               acur_glyph = true

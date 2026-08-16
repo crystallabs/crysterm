@@ -141,7 +141,7 @@ module Crysterm
         update!
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         set_content @message
         super
         draw_permanent

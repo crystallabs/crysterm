@@ -148,9 +148,9 @@ describe "BUGS13 C18: drag ends only on the arming button; Escape cancels a mous
       b13m_move s, 32, 1
       s.drag_session.should_not be_nil
 
-      # `_drag_key_handled` must not early-return for non-keyboard sensors —
+      # `drag_key_handled?` must not early-return for non-keyboard sensors —
       # a mouse drag needs a cancel path too.
-      s._drag_key_handled(b13m_key('\0', ::Tput::Key::Escape)).should be_true
+      s.drag_key_handled?(b13m_key('\0', ::Tput::Key::Escape)).should be_true
       s.drag_session.should be_nil
       drops.should eq 0
       ends.should eq [false]
@@ -213,7 +213,7 @@ describe "BUGS13 C21: drag ghost sized by terminal columns, not codepoints" do
       ::Crysterm::Unicode.display_width(label).should eq 10
       ghost.not_nil!.awidth.should eq 12
 
-      s._drag_key_handled(b13m_key('\0', ::Tput::Key::Escape)) # clean up the gesture
+      s.drag_key_handled?(b13m_key('\0', ::Tput::Key::Escape)) # clean up the gesture
     ensure
       s.destroy
     end

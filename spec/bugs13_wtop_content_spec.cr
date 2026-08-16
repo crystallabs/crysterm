@@ -13,13 +13,13 @@ include Crysterm
 # * W16 — `@_content_version` / `CLines#content_version` widened to `Int64`
 #   in lockstep, so a long-lived appending widget can't hit `Int32::MAX`'s
 #   checked-add OverflowError.
-# * W17 — `_parse_tags`' `{/escape}` closer regex body group is optional
+# * W17 — `expand_tags`' `{/escape}` closer regex body group is optional
 #   (`[\s\S]*?`), so an EMPTY `{escape}{/escape}` pair parses instead of
 #   falling into the unterminated-escape bail that dumped the remainder
 #   verbatim (literal `{/escape}` on screen, later tags unparsed).
 
 private def wrapped_lines(widget)
-  widget._clines.lines.map(&.to_s)
+  widget.wrapped_lines.lines.map(&.to_s)
 end
 
 # `@_content_version` has no public accessor; expose it for W16.
@@ -98,13 +98,13 @@ describe "BUGS13 W16: content version is Int64 (no Int32::MAX overflow)" do
     # Keep the wrap cache keyed as current for the poked version (integer
     # autocast doesn't survive CLines' forward_missing_to, hence no bare
     # literal here).
-    w._clines.content_version = big
+    w.wrapped_lines.content_version = big
 
     # The version bump in set_content must not raise (a checked Int32 `+= 1`
     # overflows past MAX), and the mismatch must reparse.
     w.content = "two"
     w.version_peek.should eq big + 1
-    w._clines.content_version.should eq big + 1
+    w.wrapped_lines.content_version.should eq big + 1
     wrapped_lines(w).should eq ["two"]
   end
 
@@ -115,7 +115,7 @@ describe "BUGS13 W16: content version is Int64 (no Int32::MAX overflow)" do
     w.process_content
     big = Int32::MAX.to_i64 + 7
     w.version_poke big
-    w._clines.content_version = big
+    w.wrapped_lines.content_version = big
 
     w.append_line "two"
     w.version_peek.should be > big

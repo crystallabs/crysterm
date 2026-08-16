@@ -195,7 +195,7 @@ module Crysterm
   # `exit Crysterm.run { |w| ... }` when the status matters. Keyword arguments
   # are forwarded to `Window.new`.
   #
-  # For N emulator windows instead of one in-process window, see `Application.run`.
+  # For N emulator windows instead of one in-process window, see `Window.run`.
   def self.run(**window_options, & : Window ->) : Int32
     window = Window.new(**window_options)
     yield window

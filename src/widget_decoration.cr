@@ -89,6 +89,19 @@ module Crysterm
       Padding.new fi[0], fi[1], fi[2], fi[3]
     end
 
+    # The writable counterpart of `#contents_margins` ↔ Qt's
+    # `QWidget::setContentsMargins()`, so users need not know that "layout
+    # margins" are spelled `style.padding` here.
+    #
+    # Note the asymmetry the two Qt names inherit: the *getter* reports
+    # border + padding (what a `QWidget` calls its contents margins), while this
+    # setter writes the **padding** only — the border band is a `Style#border`
+    # concern and is not resized by assigning margins. Accepts everything
+    # `Style#padding=` does (`Padding`, `Int32`, a 2- or 4-tuple, a `Side`, ...).
+    def contents_margins=(value : Bool | Padding | Side | Symbol | Int32 | Tuple(Int32, Int32) | Tuple(Int32, Int32, Int32, Int32)?)
+      style.padding = value
+    end
+
     # This widget's **content rectangle** in absolute window coordinates: where
     # it last painted, inset by its border and padding (Qt's
     # `QWidget::contentsRect`). `nil` before the widget has a rendered position,
@@ -111,8 +124,8 @@ module Crysterm
     # end
     # ```
     #
-    # Prefer this over hand-rolling `aleft(true) + ileft` / `awidth - ihorizontal`:
-    # those mix the *rendered* and *live* geometry bases (`aleft(true)` reads the
+    # Prefer this over hand-rolling `aleft(rendered: true) + ileft` / `awidth - ihorizontal`:
+    # those mix the *rendered* and *live* geometry bases (`aleft(rendered: true)` reads the
     # last frame, bare `awidth` recomputes now), which disagree mid-resize.
     def contents_rect : Rectangle?
       lp = @lpos || return

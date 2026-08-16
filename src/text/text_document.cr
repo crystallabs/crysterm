@@ -7,9 +7,11 @@ module Crysterm
   # Content is the root `TextFrame`'s block list; positions are codepoint
   # indexes into the blocks joined by an implicit `'\n'` separator (one
   # position each), giving `0..size` valid cursor positions. All mutation
-  # goes through `TextCursor` or this class's public editing methods, which
-  # record undo commands; the `raw_*`/`protected` primitives below them are
-  # the command replay surface and do no undo bookkeeping.
+  # goes through `TextCursor` (obtain one with `#cursor`), which records undo
+  # commands; the document-level editing methods it delegates to are
+  # protected (Qt parity — `QTextDocument` exposes no positional editing
+  # either), and the `raw_*` primitives below them are the command replay
+  # surface and do no undo bookkeeping.
   #
   # Live `TextCursor`s register here (weakly) and are position-adjusted on
   # every edit, Qt's guarantee that makes multiple cursors and views safe.
@@ -43,12 +45,17 @@ module Crysterm
       Replace
     end
 
+    # `{block index, block-local offset}` — what `#block_at` locates a
+    # document position as. Valid until the next edit (block indexes shift).
+    record BlockLocation, index : Int32, offset : Int32
+
     # Protected: reaching into the stack from outside could `clear` it
     # mid-macro or push a hand-built command whose replay doesn't match the
     # content. The public undo surface is re-exported here — `#undo`, `#redo`,
     # `#undo_available?`, `#redo_available?`, `#modified?`,
-    # `#begin_edit_block`/`#end_edit_block`/`#edit`.
-    protected getter undo_stack : TextUndoStack
+    # `#begin_edit_block`/`#end_edit_block`/`#edit`. Lazy so it can hand the
+    # stack its owning document.
+    protected getter undo_stack : TextUndoStack { TextUndoStack.new(self) }
 
     # Monotonic content revision (Qt `QTextDocument::revision`): increases on
     # every mutation — content edits, format-only changes, undo/redo replay
@@ -74,8 +81,29 @@ module Crysterm
     @undo_available = false
     @redo_available = false
 
+    # Theme the interchange *importers* on this document color semantic
+    # elements with (`#set_markdown`/`#markdown=`, `#set_html`/`#html=` and
+    # the cursor's insert forms default to it), so `doc.markdown = x` and a
+    # themed widget's `markdown=` agree once the widget stamps its theme here
+    # (`Widget::TextEdit#document=` does). Exporters never read it — see
+    # `TextTheme`.
+    property theme : TextTheme = TextTheme.default
+
+    # Whether edits are recorded for undo (Qt `setUndoRedoEnabled`). Setting
+    # it false clears the existing undo stack — commands recorded against a
+    # content that later unrecorded edits rewrote could not replay safely —
+    # and subsequent edits record nothing; importers use it to suppress
+    # recording wholesale.
+    getter? undo_redo_enabled : Bool = true
+
+    def undo_redo_enabled=(value : Bool) : Bool
+      undo_stack.clear unless value == @undo_redo_enabled
+      @undo_redo_enabled = value
+      refresh_undo_state
+      value
+    end
+
     def initialize(text : String = "")
-      @undo_stack = TextUndoStack.new
       set_plain_text(text) unless text.empty?
     end
 
@@ -145,10 +173,10 @@ module Crysterm
     end
 
     # The document's blocks in order, as a read-only live view (see
-    # `TextBlockView`). Mutation goes through the editing API
-    # (`TextCursor`, `#insert_text`/`#remove`/`#apply_*`), never the block
-    # list directly — a direct push/clear would desynchronize the memoized
-    # block offsets and could break the at-least-one-block invariant.
+    # `TextBlockView`). Mutation goes through `TextCursor` (see `#cursor`),
+    # never the block list directly — a direct push/clear would desynchronize
+    # the memoized block offsets and could break the at-least-one-block
+    # invariant.
     def blocks : TextBlockView
       TextBlockView.new(blocks_mut)
     end
@@ -161,7 +189,7 @@ module Crysterm
     # The innermost frame containing *pos* (Qt `frameAt`): a child-frame view
     # from the block's frame path, or the root frame.
     def frame_at(pos : Int32) : TextFrame
-      path = blocks[block_at(pos)[0]].block_format.frame_formats
+      path = find_block(pos).block_format.frame_formats
       if path && (inner = path.last?)
         TextFrame.new(self, inner, child: true)
       else
@@ -173,16 +201,31 @@ module Crysterm
       blocks.size
     end
 
-    # Length in positions: block sizes plus one per separator.
+    # Length in positions: block sizes plus one per separator. NOTE: this is
+    # Qt's `characterCount` (also exposed as `#character_count`), NOT
+    # `QTextDocument::size()` — the latter is a layout (pixel) size, which a
+    # cell-grid document has no analogue of.
     def size : Int32
       block_offsets.last + blocks.last.size
     end
 
-    # {block index, block-local offset} for a document position (clamped).
-    # A position equal to a block's size is that block's end; the next block
-    # starts one position later (past the separator), so the mapping is
-    # unambiguous.
-    def block_at(pos : Int32) : {Int32, Int32}
+    # Alias of `#size`, under Qt's name for the same quantity
+    # (`QTextDocument::characterCount`).
+    def character_count : Int32
+      size
+    end
+
+    # Whether the document holds no text at all (a single empty block —
+    # `size == 0`; Qt `isEmpty`).
+    def empty? : Bool
+      size == 0
+    end
+
+    # The `BlockLocation` — `{block index, block-local offset}` — of a
+    # document position (clamped). A position equal to a block's size is that
+    # block's end; the next block starts one position later (past the
+    # separator), so the mapping is unambiguous.
+    def block_at(pos : Int32) : BlockLocation
       offs = block_offsets
       lo = 0
       hi = offs.size - 1
@@ -195,7 +238,15 @@ module Crysterm
         end
       end
       off = (pos - offs[lo]).clamp(0, blocks[lo].size)
-      {lo, off}
+      BlockLocation.new(lo, off)
+    end
+
+    # The block containing document position *pos* (Qt `findBlock`) — the
+    # handle form of `#block_at` for callers that don't need the block-local
+    # offset. The returned block answers `#position`/`#block_number`/
+    # `#next`/`#previous` against this document.
+    def find_block(pos : Int32) : TextBlock
+      blocks[block_at(pos).index]
     end
 
     # Document position of block `index`'s first character.
@@ -206,7 +257,9 @@ module Crysterm
     # Character at `pos`; the separator reads as `'\n'`, end-of-document as nil.
     def char_at(pos : Int32) : Char?
       return if pos < 0 || pos >= size
-      bi, off = block_at(pos)
+      loc = block_at(pos)
+      bi = loc.index
+      off = loc.offset
       b = blocks[bi]
       off == b.size ? '\n' : b.text[off]
     end
@@ -231,7 +284,9 @@ module Crysterm
       from = from.clamp(0, sz)
       return if from >= sz
       bs = blocks
-      bi, off = block_at(from)
+      loc = block_at(from)
+      bi = loc.index
+      off = loc.offset
       loop do
         b = bs[bi]
         if off < b.size
@@ -265,7 +320,9 @@ module Crysterm
       from = from.clamp(0, size)
       return if from <= 0
       bs = blocks
-      bi, off = block_at(from)
+      loc = block_at(from)
+      bi = loc.index
+      off = loc.offset
       loop do
         b = bs[bi]
         if off > 0
@@ -284,14 +341,28 @@ module Crysterm
       end
     end
 
-    # Format of the character preceding `pos`.
-    def char_format_at(pos : Int32) : TextCharFormat
-      bi, off = block_at(pos)
-      blocks[bi].char_format_at(off)
+    # Format of the character *preceding* `pos` — what typing at `pos` would
+    # look like (Qt `QTextCursor#charFormat` semantics). For the format of the
+    # character AT `pos` (aligned with `#char_at` iteration) use
+    # `#char_format_of`.
+    def typing_format_at(pos : Int32) : TextCharFormat
+      loc = block_at(pos)
+      blocks[loc.index].typing_format_at(loc.offset)
+    end
+
+    # Format of the character AT `pos` — the `#char_at`-aligned reader. Nil at
+    # the document end and on a block separator (which, like Qt's paragraph
+    # separator, carries no character format of its own).
+    def char_format_of(pos : Int32) : TextCharFormat?
+      return if pos < 0 || pos >= size
+      loc = block_at(pos)
+      b = blocks[loc.index]
+      return if loc.offset == b.size # the separator
+      b.char_format_of(loc.offset)
     end
 
     def block_format_at(pos : Int32) : TextBlockFormat
-      blocks[block_at(pos)[0]].block_format
+      blocks[block_at(pos).index].block_format
     end
 
     def to_plain_text : String
@@ -367,13 +438,15 @@ module Crysterm
 
     # Replaces the whole content. Not undoable: the undo stack is cleared and
     # the document becomes unmodified, matching Qt's `setPlainText`; live
-    # cursors rewind to the start.
-    def set_plain_text(text : String) : Nil
+    # cursors rewind to the start. Returns the assigned text (the interchange
+    # setters' shared convention).
+    def set_plain_text(text : String) : String
       replace_content(text.split('\n').map { |l| TextBlock.new(l) })
+      text
     end
 
     # `=`-setter spelling of `#set_plain_text`.
-    def plain_text=(text : String) : Nil
+    def plain_text=(text : String) : String
       set_plain_text(text)
     end
 
@@ -385,8 +458,9 @@ module Crysterm
       bs = blocks_mut
       bs.clear
       new_blocks.empty? ? (bs << TextBlock.new) : bs.concat(new_blocks)
+      adopt(bs)
       each_cursor &.rewind_to_start
-      @undo_stack.clear
+      undo_stack.clear
       @block_offsets = nil
       finish_edit(0, old_size, size, kind: :replace)
       refresh_undo_state
@@ -396,29 +470,46 @@ module Crysterm
       set_plain_text("")
     end
 
-    # === Public editing API (undoable) ===
+    # === Cursor construction — the public editing route ===
+
+    # A cursor at *pos* (clamped) — `TextCursor.new(self, pos)` with the
+    # receiver reading naturally: `doc.cursor(3).insert_text("x")`.
+    def cursor(pos : Int32 = 0) : TextCursor
+      TextCursor.new(self, pos)
+    end
+
+    # A cursor selecting `[from, to)`: anchor at *from*, position at *to* —
+    # e.g. `doc.cursor(0, 5).set_char_format(bold)`.
+    def cursor(from : Int32, to : Int32) : TextCursor
+      TextCursor.new(self, from, to)
+    end
+
+    # === Document-level editing (undoable). Protected: the public editing
+    # route is `TextCursor` (Qt parity — `QTextDocument` exposes no positional
+    # editing either); these are its delegates, shared by the in-tree
+    # structure views (`TextTable`, `TextToc`, …). ===
 
     # Inserts `text` at `pos`; `'\n'`s split blocks. Without an explicit
     # format, inherits the format at the insertion point. Returns the number
     # of positions inserted.
-    def insert_text(pos : Int32, text : String, format : TextCharFormat? = nil) : Int32
+    protected def insert_text(pos : Int32, text : String, format : TextCharFormat? = nil) : Int32
       return 0 if text.empty?
       pos = pos.clamp(0, size)
-      format ||= char_format_at(pos)
+      format ||= typing_format_at(pos)
       raw_insert(pos, text, format)
-      @undo_stack.push(TextUndoStack::InsertCommand.new(pos, text, format), self)
+      record_undo TextUndoStack::InsertCommand.new(pos, text, format)
       text.size
     end
 
     # Removes `count` positions starting at `pos`; removals spanning a
     # separator merge the surrounding blocks (the first block's format
     # survives). Returns the removed content.
-    def remove(pos : Int32, count : Int32) : TextDocumentFragment
+    protected def remove(pos : Int32, count : Int32) : TextDocumentFragment
       pos = pos.clamp(0, size)
       count = Math.min(count, size - pos)
       return TextDocumentFragment.new([TextBlock.new]) if count <= 0
       frag = raw_remove(pos, count)
-      @undo_stack.push(TextUndoStack::RemoveCommand.new(pos, frag), self)
+      record_undo TextUndoStack::RemoveCommand.new(pos, frag)
       # A copy, never the instance the undo record holds: mutating the returned
       # fragment must not rewrite what undo will restore.
       TextDocumentFragment.new(frag.blocks.map(&.clone))
@@ -428,61 +519,66 @@ module Crysterm
     # undoably, returning the number of positions inserted. The fragment is
     # only read and inserted blocks are copies, so a caller-held fragment —
     # e.g. the clipboard's — stays valid.
-    def insert_fragment(pos : Int32, frag : TextDocumentFragment) : Int32
+    protected def insert_fragment(pos : Int32, frag : TextDocumentFragment) : Int32
       return 0 if frag.size == 0
       pos = pos.clamp(0, size)
       # A multi-block insertion at a block start replaces the head block's
       # format with the fragment's; record the original so undo restores it.
-      bi, off = block_at(pos)
-      old_bf = off == 0 && frag.blocks.size > 1 ? blocks[bi].block_format : nil
+      loc = block_at(pos)
+      old_bf = loc.offset == 0 && frag.blocks.size > 1 ? blocks[loc.index].block_format : nil
       raw_insert_fragment(pos, frag)
-      @undo_stack.push(TextUndoStack::InsertFragmentCommand.new(pos, frag, old_bf), self)
+      record_undo TextUndoStack::InsertFragmentCommand.new(pos, frag, old_bf)
       frag.size
     end
 
     # Applies (`merge: false`) or merges (`merge: true`, see
     # `TextCharFormat#merge`) a character format over `[from, to)`.
-    def apply_char_format(from : Int32, to : Int32, format : TextCharFormat, merge : Bool = false) : Nil
+    protected def apply_char_format(from : Int32, to : Int32, format : TextCharFormat, merge : Bool = false) : Nil
       from, to = clamp_range(from, to)
       return if to <= from
       old_runs = char_format_runs(from, to)
       raw_apply_char_format(from, to, format, merge)
-      @undo_stack.push(TextUndoStack::CharFormatCommand.new(from, to, format, merge, old_runs), self)
+      record_undo TextUndoStack::CharFormatCommand.new(from, to, format, merge, old_runs)
     end
 
     # Applies or merges a block format to every block touched by `[from, to]`.
-    def apply_block_format(from : Int32, to : Int32, format : TextBlockFormat, merge : Bool = false) : Nil
+    protected def apply_block_format(from : Int32, to : Int32, format : TextBlockFormat, merge : Bool = false) : Nil
       from, to = clamp_range(from, to)
-      b1 = block_at(from)[0]
-      b2 = block_at(to)[0]
+      b1 = block_at(from).index
+      b2 = block_at(to).index
       old_formats = (b1..b2).map { |i| {block_position(i), blocks[i].block_format} }
       raw_apply_block_format(from, to, format, merge)
-      @undo_stack.push(TextUndoStack::BlockFormatCommand.new(from, to, format, merge, old_formats), self)
+      record_undo TextUndoStack::BlockFormatCommand.new(from, to, format, merge, old_formats)
+    end
+
+    # Pushes an undo command, unless recording is off (`#undo_redo_enabled=`).
+    private def record_undo(cmd : TextUndoStack::Command) : Nil
+      undo_stack.push(cmd) if @undo_redo_enabled
     end
 
     def undo : Bool
-      @undo_stack.undo(self)
+      undo_stack.undo
     end
 
     def redo : Bool
-      @undo_stack.redo(self)
+      undo_stack.redo
     end
 
     def undo_available? : Bool
-      @undo_stack.undo_available?
+      undo_stack.undo_available?
     end
 
     def redo_available? : Bool
-      @undo_stack.redo_available?
+      undo_stack.redo_available?
     end
 
     # Groups subsequent edits into one undo step (Qt `beginEditBlock`); nests.
     def begin_edit_block : Nil
-      @undo_stack.begin_macro
+      undo_stack.begin_macro
     end
 
     def end_edit_block : Nil
-      @undo_stack.end_macro(self)
+      undo_stack.end_macro
     end
 
     # Block form of `#begin_edit_block`/`#end_edit_block`: yields the document
@@ -506,7 +602,7 @@ module Crysterm
     # `modified = false` marks the current state clean (Qt `setModified`);
     # `true` makes every state dirty until the next explicit clean.
     def modified=(value : Bool)
-      value ? @undo_stack.mark_dirty : @undo_stack.mark_clean
+      value ? undo_stack.mark_dirty : undo_stack.mark_clean
       refresh_undo_state
     end
 
@@ -586,7 +682,9 @@ module Crysterm
     # command replay may call these — never widgets. ===
 
     protected def raw_insert(pos : Int32, text : String, format : TextCharFormat) : Nil
-      bi, off = block_at(pos)
+      loc = block_at(pos)
+      bi = loc.index
+      off = loc.offset
       block = blocks[bi]
       if text.includes?('\n')
         lines = text.split('\n')
@@ -598,6 +696,7 @@ module Crysterm
         end
         tail.insert(0, lines.last, format)
         new_blocks << tail
+        adopt(new_blocks)
         blocks_mut[bi + 1, 0] = new_blocks
       else
         block.insert(off, text, format)
@@ -607,8 +706,12 @@ module Crysterm
 
     protected def raw_remove(pos : Int32, count : Int32) : TextDocumentFragment
       frag = copy_fragment(pos, pos + count)
-      b1, o1 = block_at(pos)
-      b2, o2 = block_at(pos + count)
+      loc = block_at(pos)
+      b1 = loc.index
+      o1 = loc.offset
+      loc = block_at(pos + count)
+      b2 = loc.index
+      o2 = loc.offset
       if b1 == b2
         blocks[b1].remove(o1, count)
       else
@@ -628,7 +731,9 @@ module Crysterm
     # for future replays.
     protected def raw_insert_fragment(pos : Int32, frag : TextDocumentFragment) : Nil
       return if frag.size == 0
-      bi, off = block_at(pos)
+      loc = block_at(pos)
+      bi = loc.index
+      off = loc.offset
       block = blocks[bi]
       fblocks = frag.blocks
       if fblocks.size == 1
@@ -654,6 +759,7 @@ module Crysterm
         end
         tail.block_format = fblocks.last.block_format
         new_blocks << tail
+        adopt(new_blocks)
         blocks_mut[bi + 1, 0] = new_blocks
       end
       finish_edit(pos, 0, frag.size)
@@ -669,8 +775,8 @@ module Crysterm
     end
 
     protected def raw_apply_block_format(from : Int32, to : Int32, format : TextBlockFormat, merge : Bool) : Nil
-      b1 = block_at(from)[0]
-      b2 = block_at(to)[0]
+      b1 = block_at(from).index
+      b2 = block_at(to).index
       (b1..b2).each do |i|
         b = blocks[i]
         b.block_format = merge ? b.block_format.merge(format) : format
@@ -679,7 +785,7 @@ module Crysterm
     end
 
     protected def raw_set_block_format_at(pos : Int32, format : TextBlockFormat) : Nil
-      blocks[block_at(pos)[0]].block_format = format
+      blocks[block_at(pos).index].block_format = format
       finish_edit(pos, 0, 0, kind: :format)
     end
 
@@ -689,12 +795,27 @@ module Crysterm
       @cursors << WeakRef.new(cursor)
     end
 
+    # Stamps this document as *blocks*' owner (see `TextBlock#document`) —
+    # run at every point blocks enter the storage.
+    protected def adopt(blocks : Enumerable(TextBlock)) : Nil
+      blocks.each(&.document=(self))
+    end
+
+    # Revision bump for block-overlay writes (`TextBlock#user_state=`/
+    # `#additional_formats=`): caches keyed on `#revision` must observe them
+    # and views repaint off the zero-length poke, but positions don't move
+    # and no undo is recorded — overlays are presentation, not content.
+    protected def note_overlay_change : Nil
+      @revision += 1
+      emit Crysterm::Event::ContentsChanged, 0, 0, 0, ChangeKind::Format
+    end
+
     # Re-evaluates undo/redo availability and modified state, emitting the
     # transition events. Must run after every push/undo/redo.
     protected def refresh_undo_state : Nil
-      ua = @undo_stack.undo_available?
-      ra = @undo_stack.redo_available?
-      mod = !@undo_stack.clean?
+      ua = undo_stack.undo_available?
+      ra = undo_stack.redo_available?
+      mod = !undo_stack.clean?
       if ua != @undo_available
         @undo_available = ua
         emit Crysterm::Event::UndoAvailable, ua
@@ -725,8 +846,12 @@ module Crysterm
     # Yields {block index, local from, local to} for each block overlapping
     # `[from, to)`.
     private def each_block_in(from : Int32, to : Int32, & : Int32, Int32, Int32 ->) : Nil
-      b1, o1 = block_at(from)
-      b2, o2 = block_at(to)
+      loc = block_at(from)
+      b1 = loc.index
+      o1 = loc.offset
+      loc = block_at(to)
+      b2 = loc.index
+      o2 = loc.offset
       if b1 == b2
         yield b1, o1, o2
       else
@@ -771,10 +896,7 @@ module Crysterm
     end
 
     private def selection_cursor(from : Int32, to : Int32) : TextCursor
-      c = TextCursor.new(self)
-      c.set_position(from)
-      c.set_position(to, TextCursor::MoveMode::KeepAnchor)
-      c
+      TextCursor.new(self, from, to)
     end
   end
 end

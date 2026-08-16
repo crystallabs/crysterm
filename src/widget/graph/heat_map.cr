@@ -223,7 +223,7 @@ module Crysterm
           @colormap
         end
 
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           super
           draw_labels
           draw_legend

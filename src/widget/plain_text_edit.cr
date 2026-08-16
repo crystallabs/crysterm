@@ -16,7 +16,7 @@ module Crysterm
     # Qt (`QPlainTextEdit` drives a `QTextDocument` with a plain layout), which is
     # what gives editing undo/redo (`C-z` / `M-z`). The document is plain (no rich
     # formats are entered), so rendering goes through the base content pipeline
-    # (`@_pcontent`), not `TextEdit`'s document paint path; `#value=` bridges the
+    # (`@printable_content`), not `TextEdit`'s document paint path; `#value=` bridges the
     # document text back into `set_content`. The document is settable/shareable
     # between views, exactly like `TextEdit`.
     #
@@ -103,7 +103,7 @@ module Crysterm
 
       # External set: delegates to `DocumentBuffer#value=`, then pushes the
       # document's plain text into `set_content` (this widget renders through the
-      # base `@_pcontent` pipeline rather than the `ContentsChanged` paint).
+      # base `@printable_content` pipeline rather than the `ContentsChanged` paint).
       def value=(value : String)
         super
         sync_display

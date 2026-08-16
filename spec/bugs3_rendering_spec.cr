@@ -5,7 +5,7 @@ include Crysterm
 # BUGS3: per-line starting-attribute fallback in a scrollable/wrapped text box.
 #
 # `src/widget_rendering.cr:194` resolves the attribute a scrolled/wrapped line
-# *starts* with from the cached `@_clines.attr` array. When that cache entry is
+# *starts* with from the cached `@wrapped_lines.attr` array. When that cache entry is
 # missing, the fallback must be the terminal DEFAULT_ATTR (default fg on default
 # bg), NOT a packed `0_i64` — which decodes to fg=0x000000 on bg=0x000000, i.e.
 # black-on-black (invisible text).
@@ -47,7 +47,7 @@ describe "BUGS3: scrollable text box per-line attr fallback" do
 
     # Drop the cached per-line attr array to force the fallback branch, then
     # re-render. This must yield DEFAULT_ATTR, not `0_i64`.
-    b._clines.attr = nil
+    b.wrapped_lines.attr = nil
     s.repaint
 
     pos = b.last_rendered_position

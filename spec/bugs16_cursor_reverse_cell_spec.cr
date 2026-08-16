@@ -16,7 +16,7 @@ private def cursor_screen(output = IO::Memory.new, width = 10, height = 4)
     width: width, height: height)
 end
 
-describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
+describe "Window#artificial_cursor_attr on already-reversed cells (#B16-05)" do
   it "flips REVERSE off (not a no-op) for a Block cursor over a reversed cell" do
     s = cursor_screen
     s.alloc
@@ -27,11 +27,11 @@ describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
     base_attr = s.cell_rows[y][x].attr
 
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
 
-    attr, _ = s._artificial_cursor_attr(s.cursor, base_attr)
+    attr, _ = s.artificial_cursor_attr(s.cursor, base_attr)
 
     # Must differ from the cell's own (already-reversed) attribute, otherwise
     # `draw` treats the cursor cell as unchanged and paints nothing.
@@ -49,11 +49,11 @@ describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
     (Attr.flags(base_attr) & Attr::REVERSE).should eq 0
 
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
 
-    attr, _ = s._artificial_cursor_attr(s.cursor, base_attr)
+    attr, _ = s.artificial_cursor_attr(s.cursor, base_attr)
 
     attr.should_not eq base_attr
     (Attr.flags(attr) & Attr::REVERSE).should_not eq 0
@@ -74,8 +74,8 @@ describe "Window#_artificial_cursor_attr on already-reversed cells (#B16-05)" do
     s.draw
 
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
 
     s.tput.cursor.x = x

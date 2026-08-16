@@ -84,7 +84,7 @@ module Crysterm
           offsets
         end
 
-        # `@_clines.fake` is TAB-expanded, so its codepoint sizes can't index raw
+        # `@wrapped_lines.fake` is TAB-expanded, so its codepoint sizes can't index raw
         # `@value`; this reads the cached newline offsets instead. `base` is the
         # line's start, `line_end` the following `\n` (or `@value.size` for the
         # last line).
@@ -126,6 +126,10 @@ module Crysterm
           # path. Emitted last, so handlers observe the settled caret and
           # selection.
           emit ::Crysterm::Event::TextChanged, @value if external && @value != before
+          # No `TextEdited` here — a programmatic set is exactly what Qt's
+          # `textEdited` excludes. The caret DID move (to the end), so the
+          # caret events still fire.
+          emit_caret_events if external
 
           external
         end

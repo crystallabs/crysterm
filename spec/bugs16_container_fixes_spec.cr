@@ -23,7 +23,7 @@ describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" d
     Widget::Box.new parent: box, top: 30, left: 0, width: 4, height: 1
     s.repaint
 
-    box.scroll_to 4, true
+    box.scroll_to 4, always: true
     s.repaint
 
     lp = gb.lpos.not_nil!
@@ -62,7 +62,7 @@ describe "BUGS16 B16-42: GroupBox checkable toggle hit-tests the painted rect" d
 
     # Scroll far enough that the group's title row (top of the group) is
     # above the viewport; only body rows remain visible.
-    box.scroll_to 4, true
+    box.scroll_to 4, always: true
     s.repaint
 
     lp = gb.lpos.not_nil!

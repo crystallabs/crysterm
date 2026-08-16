@@ -40,12 +40,12 @@ describe "Widget#append_content across an AsNeeded scrollbar flip" do
     ref.process_content
 
     ref.content_margin_x.should eq 1
-    ref._clines.lines.size.should eq 7
+    ref.wrapped_lines.lines.size.should eq 7
 
     # After the flipping append, the widget's wrapped lines must agree with the
     # ground truth (same count and same wrapping), not the stale pre-bar layout.
-    box._clines.lines.size.should eq ref._clines.lines.size
-    box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.size.should eq ref.wrapped_lines.lines.size
+    box.wrapped_lines.lines.map(&.to_s).should eq ref.wrapped_lines.lines.map(&.to_s)
   end
 
   it "leaves the fast path untouched when the append does not flip the bar" do
@@ -71,7 +71,7 @@ describe "Widget#append_content across an AsNeeded scrollbar flip" do
     ref.content = "a\nb\ncccccccccccc"
     ref.process_content
 
-    box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.map(&.to_s).should eq ref.wrapped_lines.lines.map(&.to_s)
   end
 
   it "stays consistent across a run of appends that crosses the threshold" do
@@ -99,6 +99,6 @@ describe "Widget#append_content across an AsNeeded scrollbar flip" do
     ref.process_content
 
     box.content_margin_x.should eq ref.content_margin_x
-    box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.map(&.to_s).should eq ref.wrapped_lines.lines.map(&.to_s)
   end
 end

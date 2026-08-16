@@ -3,7 +3,7 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget#delete_line` (and `delete_top`/`delete_bottom`/`remove_first_line`/`remove_last_line`)
-# must not raise on an empty widget: empty content leaves `@_clines.fake` empty,
+# must not raise on an empty widget: empty content leaves `@wrapped_lines.fake` empty,
 # and reaching `ftor[-1]` / `fake.delete_at` on empty arrays raises
 # `IndexError`. Mirrors the guard already proven for `#insert_line`/`#line`.
 describe "Widget#delete_line on empty content" do

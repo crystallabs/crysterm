@@ -4,9 +4,9 @@ include Crysterm
 
 # BUGS17 B17-04 — the fake-line editors (`insert_line`/`delete_line`/
 # `replace_line`/...) stored POST-parse text back into raw `@content`
-# (`rebuild_content_from_fake` joined `@_clines.fake`), so any LATER cache-miss
+# (`rebuild_content_from_fake` joined `@wrapped_lines.fake`), so any LATER cache-miss
 # reparse (width change, resize, scroll, re-attach, style change) re-ran
-# `_parse_tags` over already-parsed text: `{open}`/`{close}` output and
+# `expand_tags` over already-parsed text: `{open}`/`{close}` output and
 # `{escape}` bodies were re-interpreted, dropping escaped braces or turning
 # literal tag text into live SGR. The BUGS15 #18 transient-flag fix covered
 # only the reparse inside the rebuild itself.
@@ -19,7 +19,7 @@ include Crysterm
 # Forces the full reparse a resize/attach would run: invalidates the wrap
 # cache's content version so `process_content` re-parses raw `@content`.
 private def force_full_reparse(box)
-  box._clines.content_version = -1_i64
+  box.wrapped_lines.content_version = -1_i64
   box.process_content
 end
 
@@ -105,7 +105,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
 
   it "keeps never-parsed stray braces literal when an edit introduces the first tag" do
     w = Widget::Box.new parent: headless_screen(40, 10), width: 30, height: 5, parse_tags: true
-    # No recognized tag -> `_parse_tags` never ran; the brace renders literally.
+    # No recognized tag -> `expand_tags` never ran; the brace renders literally.
     w.set_content "a { b"
     w.rendered_content.should eq "a { b"
 
@@ -148,7 +148,7 @@ describe "BUGS17 04: line edits keep raw content authoritative" do
     # Re-attach renders the detached-set content, not the resurrected old one.
     s.append w
     s.repaint
-    w._clines.fake.should eq ["X", "Y", "Z"]
+    w.wrapped_lines.fake.should eq ["X", "Y", "Z"]
   end
 
   it "escaped braces set while detached survive a detached edit and the attach reparse" do

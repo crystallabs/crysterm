@@ -8,7 +8,7 @@ module Crysterm
       # a direct `0xRRGGBB` value), bypassing the `content` -> tag-parse -> SGR
       # -> re-parse pipeline entirely.
       #
-      # That pipeline is a content-change path: `_parse_tags` reslices the
+      # That pipeline is a content-change path: `expand_tags` reslices the
       # remaining string on every tag (O(n²)), so driving it every frame for a
       # fully-tagged full-window field is catastrophic — one 80x24 plasma frame
       # copies ~100 MB and parses for ~800 ms, freezing the render fiber (and the
@@ -54,7 +54,7 @@ module Crysterm
 
         # Position via the normal `Box` render (borders, background, docking and
         # `@lpos`), then overwrite the interior cells directly from `#cell`.
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           with_content_coords(with_children) do |xi, xl, yi, yl|
             paint xi, xl, yi, yl
           end

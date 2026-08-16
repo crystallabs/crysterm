@@ -3,8 +3,8 @@ require "./spec_helper"
 include Crysterm
 
 # `Widget#insert_line` (and its `prepend_line`/`insert_top` callers) must not
-# raise on a freshly built widget. Empty content leaves `@_clines.ftor` empty,
-# where an unguarded `ftor[@_clines.ftor.size - 1]` is `ftor[-1]` — `IndexError`.
+# raise on a freshly built widget. Empty content leaves `@wrapped_lines.ftor` empty,
+# where an unguarded `ftor[@wrapped_lines.ftor.size - 1]` is `ftor[-1]` — `IndexError`.
 # Mirrors the empty-content guard already proven for `#line`.
 describe "Widget#insert_line on empty content" do
   it "prepend_line into a freshly built widget does not raise" do

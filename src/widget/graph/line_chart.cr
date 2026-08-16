@@ -231,7 +231,7 @@ module Crysterm
           invalidate_data
         end
 
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           compute_ranges
           # Tick positions + label strings are stable for the whole frame and only
           # change when the resolved range / tick params / series set change;

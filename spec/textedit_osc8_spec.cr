@@ -20,7 +20,7 @@ end
 
 private def anchor_te(s, url = "https://x.io")
   te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30, height: 4, content: "click here"
-  te.document.apply_char_format(0, 5, TextCharFormat.new(anchor_href: url))
+  te.document.cursor(0, 5).set_char_format(TextCharFormat.new(anchor_href: url))
   te
 end
 
@@ -65,7 +65,7 @@ describe "OSC 8 hyperlinks" do
     te = anchor_te(s)
     s.repaint
     outp.clear
-    te.document.apply_char_format(0, 5, TextCharFormat.new(anchor_href: "https://y.io"))
+    te.document.cursor(0, 5).set_char_format(TextCharFormat.new(anchor_href: "https://y.io"))
     s.repaint
     outp.to_s.should contain "\e]8;;https://y.io\e\\"
   end
@@ -74,7 +74,7 @@ describe "OSC 8 hyperlinks" do
     s = osc8_screen
     te = anchor_te(s)
     s.repaint
-    te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true))
+    te.document.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true))
     s.repaint
     s.cell_rows[0][0].link.should eq 0
   end

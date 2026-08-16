@@ -282,6 +282,27 @@ module Crysterm
     # `QLineEdit#textChanged(QString)`.
     event TextChanged, value : String
 
+    # Emitted alongside `TextChanged` when the change came from the *user*
+    # (typing, paste, kill/yank, table-cell editing) rather than a
+    # programmatic `value=`/`set_*` — Qt's `QLineEdit#textEdited(QString)`
+    # distinction. `value` is the new text, as in `TextChanged`.
+    event TextEdited, value : String
+
+    # Emitted by an editable text widget when its insertion point moved —
+    # Qt's `cursorPositionChanged()`, with the new position attached:
+    # `position` is the caret's codepoint index into the buffer
+    # (`Mixin::TextEditing#cursor_position`). The "Ln 4, Col 12" status-bar
+    # hook; map the flat position to line/column via the widget's own
+    # geometry, or a document cursor for the document-backed editors.
+    event CursorPositionChanged, position : Int32
+
+    # Emitted by an editable text widget when its selection changed —
+    # extended, moved, or dropped (Qt's `selectionChanged()`). Parameterless,
+    # as in Qt: read `#selected_text`/`#selection_range` off the sender (the
+    # payload is not precomputed — building the selected string per mouse-drag
+    # step would be wasted work with no listener).
+    event SelectionChanged
+
     # Emitted by a `TextDocument` after every edit: `chars_removed` then
     # `chars_added` characters at `position`. Format-only changes report
     # `chars_removed == chars_added` over the affected range. Mirrors Qt's

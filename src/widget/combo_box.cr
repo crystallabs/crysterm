@@ -75,7 +75,7 @@ module Crysterm
         # `#ivertical` and re-decides below-vs-above. Runs every render (not
         # only at open) to catch a themed border or relayout that moved the
         # combo. Falls back to a height-only refit if no owning combo.
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           if c = combo
             c.place_popup self
           else
@@ -237,7 +237,7 @@ module Crysterm
 
       # Refreshes the content when the resolved arrow changed out from under it;
       # a no-op on the steady-state frame.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         update_content if @_arrow != dropdown_arrow
         super
       end

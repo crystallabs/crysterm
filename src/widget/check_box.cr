@@ -48,7 +48,7 @@ module Crysterm
         initialize(**{content: text}.merge(opts))
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # `[`/`]` and the state mark resolve CSS-first (`CheckBox::indicator`,
         # with `:checked`/`:indeterminate` addressing the per-state mark), then
         # the registry; the width is stabilized over every reachable state.
@@ -60,8 +60,8 @@ module Crysterm
             marker_line(Glyphs::Role::CheckboxOpen, Glyphs::Role::CheckboxClose, mark_role,
               Glyphs::Role::CheckboxChecked, Glyphs::Role::CheckboxUnchecked)
           end
-        set_content content, true
-        super false
+        set_content content
+        super(with_children: false)
       end
 
       # Registry role of the mark between the brackets for the current state:

@@ -13,7 +13,7 @@ private def box_with_empty_ftor
   box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 5
   box.set_content "one\ntwo\nthree"
   box.lines.should eq ["one", "two", "three"] # precondition
-  box.@_clines.ftor.clear
+  box.@wrapped_lines.ftor.clear
   box
 end
 

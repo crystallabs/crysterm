@@ -137,7 +137,7 @@ module Crysterm
         end
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         if s = window?
           @render_avg_val = @render_avg.avg s.render_rate
           @draw_avg_val = @draw_avg.avg s.draw_rate

@@ -5,7 +5,7 @@ include Crysterm
 # Drag-and-drop engine (`src/drag.cr`, `src/window_drag.cr`, and the mouse/
 # keyboard sensors). Driven headlessly over in-memory IOs. The mouse sensor is
 # exercised through the public `#dispatch_mouse` entry point (the same one the
-# terminal/gpm inputs feed); the keyboard sensor through `#_drag_key_handled`.
+# terminal/gpm inputs feed); the keyboard sensor through `#drag_key_handled?`.
 
 # `mouse`/`press`/`move`/`release`/`keypress` are the shared `mouse_ev`/
 # `mouse_down`/`mouse_move`/`mouse_up`/`kp` from spec/support/input_helpers.cr.
@@ -255,16 +255,16 @@ describe "drag-and-drop" do
 
       # A real Space press is printable: char == ' ', key == nil (the input
       # layer only sets `key` for control sequences); must still lift.
-      s._drag_key_handled(kp(' ')).should be_true
+      s.drag_key_handled?(kp(' ')).should be_true
       s.drag_session.should_not be_nil
 
-      s._drag_key_handled(kp('\0', ::Tput::Key::Right)).should be_true
-      s._drag_key_handled(kp('\0', ::Tput::Key::Down)).should be_true
+      s.drag_key_handled?(kp('\0', ::Tput::Key::Right)).should be_true
+      s.drag_key_handled?(kp('\0', ::Tput::Key::Down)).should be_true
       box.left.should eq(11)
       box.top.should eq(6)
 
       # Drop with Space (char-only, as it really arrives).
-      s._drag_key_handled(kp(' ')).should be_true
+      s.drag_key_handled?(kp(' ')).should be_true
       s.drag_session.should be_nil
     end
 
@@ -272,8 +272,8 @@ describe "drag-and-drop" do
       s = headless_screen(default_quit_keys: true)
       box = Widget::Box.new parent: s, left: 10, top: 5, width: 8, height: 4, draggable: true, keys: true
       box.focus
-      s._drag_key_handled(kp(' ')).should be_true
-      s._drag_key_handled(kp('\r', ::Tput::Key::Enter)).should be_true
+      s.drag_key_handled?(kp(' ')).should be_true
+      s.drag_key_handled?(kp('\r', ::Tput::Key::Enter)).should be_true
       s.drag_session.should be_nil
     end
 
@@ -286,8 +286,8 @@ describe "drag-and-drop" do
       dropped = true
       box.on(Event::DragEnd) { |e| ended = true; dropped = e.dropped? }
 
-      s._drag_key_handled(kp(' '))
-      s._drag_key_handled(kp('\0', ::Tput::Key::Escape)).should be_true
+      s.drag_key_handled?(kp(' '))
+      s.drag_key_handled?(kp('\0', ::Tput::Key::Escape)).should be_true
 
       s.drag_session.should be_nil
       ended.should be_true
@@ -298,7 +298,7 @@ describe "drag-and-drop" do
       s = headless_screen(default_quit_keys: true)
       box = Widget::Box.new parent: s, left: 0, top: 0, width: 4, height: 2, keys: true
       box.focus
-      s._drag_key_handled(kp(' ')).should be_false
+      s.drag_key_handled?(kp(' ')).should be_false
       s.drag_session.should be_nil
     end
   end

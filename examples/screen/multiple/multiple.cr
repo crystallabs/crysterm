@@ -1,8 +1,8 @@
 # FEATURE: multiple screens/windows from one app.
 #
-# One Crysterm process can drive several surfaces at once: `Application.open`
+# One Crysterm process can drive several surfaces at once: `Window.open`
 # spawns a real terminal-emulator window and returns a `Window` for it,
-# `Application.run(window_count: N)` opens N of them, and
+# `Window.run(window_count: N)` opens N of them, and
 # `Application.exec_all(windows)` runs any set of windows under one shared
 # event loop and graceful quit. Windows can also share one `Screen` (device),
 # or migrate between devices with `Window#connect` / `#disconnect`.
@@ -14,7 +14,7 @@
 #   crystal multiple.cr              one terminal, both screens depicted side
 #                                    by side (also what the capture shows)
 #   crystal multiple.cr -- --spawn   two REAL terminal windows via
-#                                    Application.run(window_count: 2)
+#                                    Window.run(window_count: 2)
 #
 # In both modes the code below builds the same two panels wired to the same
 # signal — only where they render differs.
@@ -76,7 +76,7 @@ end
 # --- Mode 1: two real terminal windows ---------------------------------------
 
 if ARGV.includes? "--spawn"
-  Application.run(window_count: 2, cols: 44, rows: 16) do |wins|
+  Window.run(window_count: 2, cols: 44, rows: 16) do |wins|
     # All windows exist when the block runs, so cross-window wiring needs no
     # forward-declared locals.
     frames = wins.map do |w|

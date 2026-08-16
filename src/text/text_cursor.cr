@@ -14,7 +14,9 @@ module Crysterm
   # viewing widget.
   class TextCursor
     enum MoveMode
-      Move
+      # Move the anchor along with the position (no selection) — Qt
+      # `MoveAnchor`, the default.
+      MoveAnchor
       KeepAnchor
     end
 
@@ -65,10 +67,19 @@ module Crysterm
       @document.register_cursor(self)
     end
 
-    def set_position(pos : Int32, mode : MoveMode = :move) : Nil
+    # A cursor selecting `[from, to)`: anchor at *from*, position at *to* —
+    # the short spelling of construct + `set_position` × 2 (see also
+    # `TextDocument#cursor`).
+    def initialize(@document : TextDocument, from : Int32, to : Int32)
+      @anchor = from.clamp(0, @document.size)
+      @position = to.clamp(0, @document.size)
+      @document.register_cursor(self)
+    end
+
+    def set_position(pos : Int32, mode : MoveMode = :move_anchor) : Nil
       @pending_format = nil
       @position = pos.clamp(0, @document.size)
-      @anchor = @position if mode.move?
+      @anchor = @position if mode.move_anchor?
     end
 
     # `=`-setter spelling of the plain (non-anchored) `#set_position`; use
@@ -79,7 +90,7 @@ module Crysterm
 
     # Performs `op` `n` times (Qt `movePosition`). Returns true when all `n`
     # movements were possible; the cursor still moves as far as it can.
-    def move_position(op : MoveOperation, mode : MoveMode = :move, n : Int32 = 1) : Bool
+    def move_position(op : MoveOperation, mode : MoveMode = :move_anchor, n : Int32 = 1) : Bool
       target = @position
       moved_all = true
       n.times do
@@ -112,9 +123,10 @@ module Crysterm
       @anchor = @position
     end
 
-    # Named `select_span`, not `select`: that's a Crystal keyword (channel
-    # `select`), which would force `self.select` at every call site.
-    def select_span(type : SelectionType) : Nil
+    # Selects a unit around the cursor (Qt `QTextCursor::select`). `select` is
+    # not reserved for method definitions (`Enumerable#select` exists); only
+    # unqualified in-class calls need the `self.` prefix.
+    def select(type : SelectionType) : Nil
       case type
       when .document?
         set_position(0)
@@ -132,7 +144,7 @@ module Crysterm
     end
 
     def select_all : Nil
-      select_span :document
+      self.select :document
     end
 
     # Selected plain text, block separators as `'\n'` (Qt uses U+2029 and
@@ -149,11 +161,11 @@ module Crysterm
     # === Position queries ===
 
     def block_number : Int32
-      @document.block_at(@position)[0]
+      @document.block_at(@position).index
     end
 
     def position_in_block : Int32
-      @document.block_at(@position)[1]
+      @document.block_at(@position).offset
     end
 
     # Alias of `#position_in_block` (Qt exposes both `positionInBlock` and
@@ -222,19 +234,27 @@ module Crysterm
 
     # Inserts *html* at the cursor as a formatted fragment, replacing any
     # selection — one undo step (Qt `insertHtml`). Wraps `#insert_fragment`
-    # over `TextDocumentFragment.from_html`; *theme* defaults the same way
-    # `TextDocumentFragment.from_html`/`TextDocument#set_html` do.
-    def insert_html(html : String, theme : TextTheme = TextTheme.default) : Nil
+    # over `TextDocumentFragment.from_html`; *theme* defaults to the
+    # document's own `TextDocument#theme`, like `#set_html`.
+    def insert_html(html : String, theme : TextTheme = @document.theme) : Nil
       insert_fragment(TextDocumentFragment.from_html(html, theme))
     end
 
     # Inserts *markdown* at the cursor as a formatted fragment, replacing any
     # selection — one undo step (Qt has no direct analogue; mirrors
     # `#insert_html`). Wraps `#insert_fragment` over
-    # `TextDocumentFragment.from_markdown`; *theme* defaults the same way
-    # `TextDocumentFragment.from_markdown`/`TextDocument#set_markdown` do.
-    def insert_markdown(markdown : String, theme : TextTheme = TextTheme.default) : Nil
+    # `TextDocumentFragment.from_markdown`; *theme* defaults to the
+    # document's own `TextDocument#theme`, like `#set_markdown`.
+    def insert_markdown(markdown : String, theme : TextTheme = @document.theme) : Nil
       insert_fragment(TextDocumentFragment.from_markdown(markdown, theme))
+    end
+
+    # Inserts *tags* markup (the toolkit's home interchange format — see
+    # `TextTags`) at the cursor as a formatted fragment, replacing any
+    # selection — one undo step. Completes the `insert_html`/`insert_markdown`
+    # trio. Wraps `#insert_fragment` over `TextDocumentFragment.from_tags`.
+    def insert_tags(tags : String) : Nil
+      insert_fragment(TextDocumentFragment.from_tags(tags))
     end
 
     # Ends the current block and starts a new one (Qt `insertBlock`),
@@ -285,7 +305,7 @@ module Crysterm
     # Format typing at this position would get: the pending format if set,
     # else the preceding character's.
     def char_format : TextCharFormat
-      @pending_format || @document.char_format_at(@position)
+      @pending_format || @document.typing_format_at(@position)
     end
 
     def block_format : TextBlockFormat
@@ -371,7 +391,7 @@ module Crysterm
     # `insertFrame` (which splits at the cursor): whole blocks join the frame
     # — a frame boundary is a row boundary on a cell grid.
     def insert_frame(format : TextFrameFormat = TextFrameFormat.new) : TextFrame
-      base_block = @document.blocks[@document.block_at(selection_start)[0]]
+      base_block = @document.blocks[@document.block_at(selection_start).index]
       path = (base_block.block_format.frame_formats || [] of TextFrameFormat) + [format]
       merge_block_format(TextBlockFormat.new(frame_formats: path))
       TextFrame.new(@document, format, child: true)
@@ -457,25 +477,29 @@ module Crysterm
         t = word_bounds_at(from)[1]
         t == from ? nil : t
       when .start_of_line?, .start_of_block?
-        bp = doc.block_position(doc.block_at(from)[0])
+        bp = doc.block_position(doc.block_at(from).index)
         from == bp ? nil : bp
       when .end_of_line?, .end_of_block?
-        bi = doc.block_at(from)[0]
+        bi = doc.block_at(from).index
         be = doc.block_position(bi) + doc.blocks[bi].size
         from == be ? nil : be
       when .previous_block?
-        bi = doc.block_at(from)[0]
+        bi = doc.block_at(from).index
         bi > 0 ? doc.block_position(bi - 1) : nil
       when .next_block?
-        bi = doc.block_at(from)[0]
+        bi = doc.block_at(from).index
         bi < doc.block_count - 1 ? doc.block_position(bi + 1) : nil
       when .up?
-        bi, col = doc.block_at(from)
+        loc = doc.block_at(from)
+        bi = loc.index
+        col = loc.offset
         return if bi == 0
         target = bi - 1
         doc.block_position(target) + Math.min(col, doc.blocks[target].size)
       when .down?
-        bi, col = doc.block_at(from)
+        loc = doc.block_at(from)
+        bi = loc.index
+        col = loc.offset
         return if bi == doc.block_count - 1
         target = bi + 1
         doc.block_position(target) + Math.min(col, doc.blocks[target].size)

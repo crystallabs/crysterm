@@ -255,7 +255,7 @@ module Crysterm
     # This is the explicit refresh the whole design turns on: call it after a
     # load, after `#set_markdown`, and from whatever action the application
     # gives the reader. Nothing calls it on its own.
-    def refresh_tocs(theme : TextTheme = TextTheme.default) : Bool
+    def refresh_tocs(theme : TextTheme = @theme) : Bool
       changed = false
       tocs.each { |toc| changed = true if toc.refresh(theme) }
       changed
@@ -277,6 +277,7 @@ module Crysterm
       pos = block_position(first)
       removed = block_position(last) + bs[last].size - pos
       added = new_blocks.sum(0, &.size) + new_blocks.size - 1
+      adopt(new_blocks)
       bs[first..last] = new_blocks
       finish_edit(pos, removed, added)
     end
@@ -289,7 +290,7 @@ module Crysterm
     # One undo step — unlike later `TextToc#refresh` calls, which are derived
     # data and record nothing. The TOC takes the current block when it is empty,
     # otherwise it starts a new one.
-    def insert_toc(options : TocOptions = TocOptions.new, theme : TextTheme = TextTheme.default) : TextToc
+    def insert_toc(options : TocOptions = TocOptions.new, theme : TextTheme = @document.theme) : TextToc
       fmt = TextTocFormat.new(options)
       base = block.block_format
       path = (base.frame_formats || [] of TextFrameFormat) + [fmt]

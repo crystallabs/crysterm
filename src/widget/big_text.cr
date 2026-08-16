@@ -88,14 +88,14 @@ module Crysterm
 
         @active_font = style.bold? ? @bold : @normal
 
-        # No trailing `set_content "", true` here: `super` routes its own
-        # `set_content(content, true)` call through the override below, which
+        # No trailing `set_content ""` here: `super` routes its own
+        # `set_content(content)` call through the override below, which
         # already stores `@text` and keeps the plain `content` empty (so the
         # base renderer can't draw normal-size text through the glyph gaps).
         # A trailing call would wipe the `@text` that `super` just set.
       end
 
-      def set_content(content = "", no_clear = false, no_tags = false)
+      def set_content(content = "", *, no_tags = false)
         @content = ""
         @_content_version += 1
         @text = content || ""
@@ -123,7 +123,7 @@ module Crysterm
         @_shrink_width_value = nil
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         ensure_graphemes
         # Re-derive the active font every frame: `style.bold?` may only settle
         # after the CSS cascade (which runs before repaint, after construction),

@@ -101,14 +101,14 @@ describe "BUGS-F2 finding 34: TrackGeometry vertical offset uses painted coords"
   it "seeks a vertical slider correctly inside a scrolled container" do
     s = headless_screen(30, 24)
     # Text content gives a reliable vertical scroll extent (`scroll_height`
-    # uses `@_clines.size`); the slider is a child that moves with the scroll.
+    # uses `@wrapped_lines.size`); the slider is a child that moves with the scroll.
     content = (0...30).map { |i| "line#{i}" }.join("\n")
     box = Widget::ScrollableBox.new parent: s, top: 0, left: 0, width: 20,
       height: 12, scrollbar: false, content: content
     sl = Widget::Slider.new parent: box, top: 15, left: 0, width: 3, height: 8,
       orientation: Tput::Orientation::Vertical, minimum: 0, maximum: 100, value: 0
     s.repaint
-    box.scroll_to 14, true
+    box.scroll_to 14, always: true
     s.repaint
 
     # The slider's layout top (15) differs from its painted top (15 - 14 == 1);

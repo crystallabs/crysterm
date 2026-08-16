@@ -337,7 +337,7 @@ module Crysterm
 
       composite_planes
 
-      _dock if @dock_borders
+      apply_docking if @dock_borders
 
       if @optimization.damage_tracking? && need_bounds
         # Refresh per-subtree bounds and the cost-model caches, and decide whether

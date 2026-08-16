@@ -27,8 +27,8 @@ private def place_cursor(s, y, x, shape)
   c = s.cursor
   c.artificial = true
   c.shape = shape
-  c._hidden = false
-  c._state = 1
+  c.hidden = false
+  c.state = 1
 end
 
 describe "Window#draw artificial cursor over a grapheme cluster (full_unicode)" do

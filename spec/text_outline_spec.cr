@@ -83,7 +83,7 @@ describe "TextDocument#outline" do
     doc = TextDocument.from_markdown "# One"
     first = doc.outline
     doc.outline.should be first
-    doc.insert_text(doc.size, " and a half")
+    doc.cursor(doc.size).insert_text(" and a half")
     doc.outline.should_not be first
     doc.outline.map(&.text).should eq ["One and a half"]
     doc.outline.map(&.anchor).should eq ["one-and-a-half"]
@@ -92,16 +92,16 @@ describe "TextDocument#outline" do
   it "keeps the memoized outline across edits that touch no heading" do
     doc = TextDocument.from_markdown "# One\n\nbody"
     first = doc.outline
-    doc.insert_text(doc.size, " grows")
+    doc.cursor(doc.size).insert_text(" grows")
     doc.outline.should be first
-    doc.remove(doc.size - 1, 1)
+    doc.cursor(doc.size - 1, doc.size).remove_selected_text
     doc.outline.should be first
   end
 
   it "recomputes when a heading's level changes" do
     doc = TextDocument.from_markdown "# One\n\nbody"
     first = doc.outline
-    doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 2), merge: true)
+    doc.cursor(0, 0).merge_block_format(TextBlockFormat.new(heading_level: 2))
     doc.outline.should_not be first
     doc.outline.map(&.level).should eq [2]
   end
@@ -110,7 +110,7 @@ describe "TextDocument#outline" do
     doc = TextDocument.from_markdown "para\n\n# One"
     first = doc.outline
     first[0].block.should eq 1
-    doc.insert_text(0, "zero\n")
+    doc.cursor(0).insert_text("zero\n")
     doc.outline.should_not be first
     doc.outline[0].block.should eq 2
   end

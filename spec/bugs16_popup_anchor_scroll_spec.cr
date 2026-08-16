@@ -23,7 +23,7 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
     Widget::Box.new parent: box, top: 20, left: 0, width: 4, height: 1
     s.repaint
 
-    box.scroll_to 4, true
+    box.scroll_to 4, always: true
     s.repaint
 
     lp = cb.lpos.not_nil!
@@ -63,7 +63,7 @@ describe "BUGS16 B16-31: pop-up anchoring inside a scrolled container" do
     Widget::Box.new parent: box, top: 20, left: 0, width: 4, height: 1
     s.repaint
 
-    box.scroll_to 4, true
+    box.scroll_to 4, always: true
     s.repaint
 
     lp = de.lpos.not_nil!

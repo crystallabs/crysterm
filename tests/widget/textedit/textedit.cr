@@ -35,10 +35,10 @@ Crysterm::WidgetExample.run("TextEdit",
   text = doc.to_plain_text
 
   # First block is a heading; decorate a few runs by word.
-  doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 1, bg: "#292e42"))
+  doc.cursor(0, 0).set_block_format(TextBlockFormat.new(heading_level: 1, bg: "#292e42"))
   fmt = ->(word : String, f : TextCharFormat) do
     if i = text.index(word)
-      doc.apply_char_format(i, i + word.size, f)
+      doc.cursor(i, i + word.size).set_char_format(f)
     end
   end
   fmt.call "Bold", TextCharFormat.new(bold: true)

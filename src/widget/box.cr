@@ -1,3 +1,5 @@
+require "../mixin/line_content"
+
 module Crysterm
   class Widget
     # Box element
@@ -6,6 +8,12 @@ module Crysterm
     # ![Box screenshot](../../tests/widget/box/box.5s.apng)
     # <!-- /widget-examples:capture -->
     class Box < Widget
+      # The logical-line editing surface (`insert_line`/`delete_line`/
+      # `replace_line`/`append_line`/`line`/`lines`/…). Lives here rather than on
+      # `Widget`: it only makes sense for a widget that displays text content,
+      # which every `Box` descendant does.
+      include Mixin::LineContent
+
       # Required despite reading identically to `Widget`'s own `false` default —
       # `#shrink_to_fit?` is `false` here with or without this line, yet removing
       # it misrenders the box (verified: the golden changes, while the value does

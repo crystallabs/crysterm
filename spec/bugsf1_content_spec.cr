@@ -6,7 +6,7 @@ include Crysterm
 
 describe "Widget#delete_line on content seeded before attach (finding 32)" do
   it "does not raise IndexError when `ftor` is still empty" do
-    # Detached widget (no window): `append_line` fills `@_clines.fake` directly, but
+    # Detached widget (no window): `append_line` fills `@wrapped_lines.fake` directly, but
     # `process_content` bails (`return false unless window?`), so `ftor` stays
     # empty even though `fake` is not.
     w = Widget::Box.new
@@ -14,10 +14,10 @@ describe "Widget#delete_line on content seeded before attach (finding 32)" do
     w.window?.should be_nil
 
     w.append_line "x"
-    w._clines.fake.should eq ["x"]
-    w._clines.ftor.empty?.should be_true
+    w.wrapped_lines.fake.should eq ["x"]
+    w.wrapped_lines.ftor.empty?.should be_true
 
-    # Must not raise `IndexError` reading `@_clines.ftor[i][0]`.
+    # Must not raise `IndexError` reading `@wrapped_lines.ftor[i][0]`.
     w.delete_line
 
     w.rendered_content.should eq ""
@@ -42,11 +42,11 @@ describe "Widget#append_content alignment-tag carry (finding 33)" do
     ref.set_content "{center}Title\nsubtitle"
     s.repaint
 
-    box._clines.lines.map(&.to_s).should eq ref._clines.lines.map(&.to_s)
+    box.wrapped_lines.lines.map(&.to_s).should eq ref.wrapped_lines.lines.map(&.to_s)
 
     # And concretely: the appended "subtitle" row is centered (leading pad),
     # not left-aligned by the fast path.
-    sub = box._clines.lines.map(&.to_s).find!(&.includes?("subtitle"))
+    sub = box.wrapped_lines.lines.map(&.to_s).find!(&.includes?("subtitle"))
     sub.should start_with(" ")
     sub.strip.should eq "subtitle"
   end
@@ -99,12 +99,12 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
     box = Widget::Box.new(
       parent: s, top: 0, left: 0, width: 20, height: 3, content: "Hi")
     s.repaint
-    box._clines.lines[0].should eq "Hi"
+    box.wrapped_lines.lines[0].should eq "Hi"
 
     box.align = Tput::AlignFlag::Center
     box.process_content
 
-    line = box._clines.lines[0]
+    line = box.wrapped_lines.lines[0]
     line.strip.should eq "Hi"
     line.should start_with(" ")
     line.size.should eq 20
@@ -117,12 +117,12 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
       parent: s, top: 0, left: 0, width: 20, height: 3,
       content: "{bold}Hi{/bold}", parse_tags: false)
     s.repaint
-    box._clines.lines[0].should eq "{bold}Hi{/bold}"
+    box.wrapped_lines.lines[0].should eq "{bold}Hi{/bold}"
 
     box.parse_tags = true
     box.process_content
 
-    box._clines.lines[0].includes?("{bold}").should be_false
+    box.wrapped_lines.lines[0].includes?("{bold}").should be_false
   end
 
   it "reparses when `wrap_content` is toggled off" do
@@ -132,11 +132,11 @@ describe "Runtime align/wrap_content/parse_tags invalidate the wrap cache (findi
       parent: s, top: 0, left: 0, width: 6, height: 5,
       content: "aaaa bbbb cccc", wrap_content: true)
     s.repaint
-    (box._clines.lines.size > 1).should be_true
+    (box.wrapped_lines.lines.size > 1).should be_true
 
     box.wrap_content = false
     box.process_content
 
-    box._clines.lines.size.should eq 1
+    box.wrapped_lines.lines.size.should eq 1
   end
 end

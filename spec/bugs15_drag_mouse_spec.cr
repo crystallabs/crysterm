@@ -108,7 +108,7 @@ describe "BUGS15 #61/#64: start_drag cancels an in-flight session cleanly" do
     a_left = 0
     a.on(Event::DragLeave) { a_left += 1 }
 
-    s._drag_key_handled(bm_key(' ')).should be_true
+    s.drag_key_handled?(bm_key(' ')).should be_true
     s.drag_session.not_nil!.source.should eq a
 
     # Mouse-drag `b`: arm on press, promote on motion -> start_drag cancels a.
@@ -131,7 +131,7 @@ describe "BUGS15 #61/#64: start_drag cancels an in-flight session cleanly" do
     b = Widget::Box.new parent: s, left: 20, top: 0, width: 6, height: 3, draggable: true
     a.focus
 
-    s._drag_key_handled(bm_key(' ')).should be_true # keyboard drag on a
+    s.drag_key_handled?(bm_key(' ')).should be_true # keyboard drag on a
     bm_press s, 21, 1                               # arm mouse (Left) on b
     bm_move s, 23, 2                                # promote -> b drag (armed Left)
     s.drag_session.not_nil!.source.should eq b
@@ -153,7 +153,7 @@ describe "BUGS15 #62: keyboard drag sensor refuses a disabled widget" do
     box.focus
     box.state = Crysterm::WidgetState::Disabled # disabled while focused (stays focused)
 
-    s._drag_key_handled(bm_key(' ')).should be_false
+    s.drag_key_handled?(bm_key(' ')).should be_false
     s.drag_session.should be_nil
   end
 end

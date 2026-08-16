@@ -52,7 +52,7 @@ module Crysterm
       #
       # * `#append` pushes the new entry's lines through `Widget#append_line`,
       #   whose `append_content` fast path tag-parses/wraps **only the
-      #   appended segment** and splices it onto the cached `_clines` tail —
+      #   appended segment** and splices it onto the cached `wrapped_lines` tail —
       #   O(appended), never re-rendering prior entries' cached content.
       #   Appending a later sibling re-splices just the previous sibling's
       #   subtree (its `└` becomes `├` and its spine gains a column).
@@ -455,7 +455,7 @@ module Crysterm
         def handle_chat_mouse(e : ::Crysterm::Event::Mouse)
           return unless e.action.down? && e.button.left?
           row = @child_base + e.local_y
-          rtof = @_clines.rtof
+          rtof = @wrapped_lines.rtof
           return if row < 0 || row >= rtof.size
           fake = rtof[row]
           index = entry_index_at fake

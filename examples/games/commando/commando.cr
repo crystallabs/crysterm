@@ -40,7 +40,7 @@ require "../../../src/crysterm"
 class Field < Crysterm::Widget::Box
   property painter : (Field ->)? = nil
 
-  def paint(with_children = true)
+  def paint(*, with_children = true)
     super
     painter.try &.call(self)
   end
@@ -854,7 +854,7 @@ class Commando
   private def draw_scene(f : Field)
     win = f.window
     # The field's rectangle as painted, already inset past its border. (The old
-    # `aleft(true) + ileft` / `awidth - ihorizontal` pair mixed the rendered and live
+    # `aleft(rendered: true) + ileft` / `awidth - ihorizontal` pair mixed the rendered and live
     # geometry bases, which disagree mid-resize.)
     r = f.contents_rect || return
     ox, oy = r.xi, r.yi

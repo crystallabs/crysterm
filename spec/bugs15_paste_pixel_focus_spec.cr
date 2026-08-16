@@ -30,7 +30,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   it "keeps the cached cell size across a bare re-assert (sticky request)" do
     s = headless_screen(60, 24)
     scr = s.screen
-    scr.apply_cell_pixels 8, 16
+    scr.spec_apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
     scr.tput.mouse_cell_pixels.should eq({8, 16})
 
@@ -44,7 +44,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   it "does not emit DECRST 1016 on a bare re-assert of an active pixel session" do
     s = headless_screen(60, 24)
     scr = s.screen
-    scr.apply_cell_pixels 8, 16
+    scr.spec_apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
     seq = scr.tput.capture { scr.enable_mouse }
     seq.should_not contain "\e[?1016l"
@@ -55,7 +55,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   it "an explicit :off downgrades in sync: DECRST 1016 and cache cleared" do
     s = headless_screen(60, 24)
     scr = s.screen
-    scr.apply_cell_pixels 8, 16
+    scr.spec_apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
     seq = scr.tput.capture { scr.enable_mouse(pixels: :off) }
     seq.should contain "\e[?1016l"
@@ -67,7 +67,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
   it "disable_mouse after a pixel session resets 1016 at the terminal" do
     s = headless_screen(60, 24)
     scr = s.screen
-    scr.apply_cell_pixels 8, 16
+    scr.spec_apply_cell_pixels 8, 16
     scr.enable_mouse(pixels: :on)
     # A bare re-assert must not wipe the cache here — if it did, teardown
     # would skip the DECRST and leave the terminal in pixel-reporting mode.

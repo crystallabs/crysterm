@@ -386,14 +386,18 @@ module Crysterm
 
     # Rows where line-drawing characters were emitted this frame and need
     # re-evaluation by the docking pass.
-    property _dock_stops = {} of Int32 => Bool
+    #
+    # :nodoc: per-frame render bookkeeping (ex-`_dock_stops`).
+    property dock_stops = {} of Int32 => Bool
 
-    # Like `#_dock_stops`, but for line-drawing rows emitted by widgets
+    # Like `#dock_stops`, but for line-drawing rows emitted by widgets
     # rendering into a *compositing plane* (an overlay, e.g. a `Menu` chain).
     # Docking on the plane's own buffer — not the composited base — joins
     # overlapping overlay borders to each other without joining them to the
     # content the overlay floats over.
-    property _plane_dock_stops = {} of Int32 => Bool
+    #
+    # :nodoc: per-frame render bookkeeping (ex-`_plane_dock_stops`).
+    property plane_dock_stops = {} of Int32 => Bool
 
     # Rendering optimizations.
     property optimization : OptimizationFlag = OptimizationFlag::None
@@ -596,15 +600,15 @@ module Crysterm
           # Same-z groups with different opacity reuse the same plane buffer
           # sequentially (cleared between folds), each with its own opacity.
           pl.opacity = opacity
-          @_plane_dock_stops.clear
+          @plane_dock_stops.clear
           render_members_into_plane pl, members
           # Join overlapping overlay borders (e.g. a menu chain) on the plane's
           # own buffer before compositing down. The plane holds only the overlay
           # widgets' cells (everything else transparent), so docking here can't
           # reach into the base content the overlay floats over and produce
           # stray junctions where a popup overlaps a widget below it.
-          if @dock_borders && !@_plane_dock_stops.empty?
-            Docking.dock pl.cells, @_plane_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
+          if @dock_borders && !@plane_dock_stops.empty?
+            Docking.dock pl.cells, @plane_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
           end
           pl.composite_onto @lines
         end
@@ -614,9 +618,9 @@ module Crysterm
     end
 
     # Docks (joins) all line-drawing characters that cross or meet on the rows
-    # collected in `@_dock_stops` this frame.
-    def _dock
-      Docking.dock @lines, @_dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
+    # collected in `@dock_stops` this frame.
+    protected def apply_docking
+      Docking.dock @lines, @dock_stops, awidth, @dock_contrast, ascii: glyph_tier.ascii?
     end
 
     # Drives an animation from its own fiber: repeatedly invoke *block*,
@@ -699,7 +703,7 @@ module Crysterm
 
       emit Crysterm::Event::PreRender
 
-      @_dock_stops.clear
+      @dock_stops.clear
 
       # Reset the effect detector for this frame.
       @frame_used_effects = false

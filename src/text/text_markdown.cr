@@ -1446,19 +1446,23 @@ module Crysterm
     end
 
     # Replaces the whole content from markdown (Qt `setMarkdown`). Same reset
-    # semantics as `set_plain_text` (not undoable, cursors rewind).
+    # semantics as `set_plain_text` (not undoable, cursors rewind). *theme*
+    # defaults to the document's own `#theme`, so `doc.markdown = x` and a
+    # themed widget's `markdown=` agree (the widget stamps its theme on the
+    # document). Returns the assigned text.
     #
     # Any `<!-- toc -->` region the source carried is regenerated from the
     # freshly imported outline — a load is the one moment there is no reader
     # position to disturb, so it is safe to refresh without being asked.
-    def set_markdown(text : String, theme : TextTheme = TextTheme.default) : Nil
+    def set_markdown(text : String, theme : TextTheme = @theme) : String
       replace_content(TextMarkdown.parse(text, theme))
       refresh_tocs(theme)
+      text
     end
 
-    # `=`-setter spelling of `#set_markdown` (default theme; use `#set_markdown`
-    # for an explicit one).
-    def markdown=(text : String) : Nil
+    # `=`-setter spelling of `#set_markdown` (document theme; use
+    # `#set_markdown` for an explicit one).
+    def markdown=(text : String) : String
       set_markdown(text)
     end
 
@@ -1496,7 +1500,7 @@ module Crysterm
     # The first piece released into an empty document adopts `#set_markdown`'s
     # reset semantics; every later piece is an ordinary undoable insertion
     # (one undo step per released piece).
-    def append_markdown(chunk : String, theme : TextTheme = TextTheme.default) : Nil
+    def append_markdown(chunk : String, theme : TextTheme = @theme) : Nil
       stream = (@markdown_stream ||= TextMarkdown::Stream.new)
       stream.append(chunk).try { |piece| append_markdown_piece(piece, theme) }
     end
@@ -1504,7 +1508,7 @@ module Crysterm
     # Parses and appends whatever `#append_markdown` still holds pending — the
     # end-of-stream signal. A pure-whitespace tail parses to nothing and is
     # dropped. No-op when nothing is pending.
-    def flush_markdown(theme : TextTheme = TextTheme.default) : Nil
+    def flush_markdown(theme : TextTheme = @theme) : Nil
       @markdown_stream.try(&.flush).try { |piece| append_markdown_piece(piece, theme) }
     end
 
@@ -1545,6 +1549,12 @@ module Crysterm
     # The fragment as markdown.
     def to_markdown : String
       TextMarkdown.generate(@blocks)
+    end
+
+    # Alias for `#to_markdown` — the bare-reader spelling the document also
+    # has.
+    def markdown : String
+      to_markdown
     end
   end
 end

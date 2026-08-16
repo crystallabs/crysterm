@@ -54,17 +54,17 @@ describe Crysterm::TextDocument do
     it "bumps on a block format change" do
       doc = TextDocument.new("hello")
       r0 = doc.revision
-      doc.apply_block_format(0, 0, TextBlockFormat.new(heading_level: 2), merge: true)
+      doc.cursor(0, 0).merge_block_format(TextBlockFormat.new(heading_level: 2))
       doc.revision.should be > r0
     end
 
     it "bumps on fragment insertion, removal and undo/redo replay" do
       doc = TextDocument.new("hello")
       r0 = doc.revision
-      doc.insert_fragment(5, TextDocumentFragment.from_markdown("**b**"))
+      doc.cursor(5).insert_fragment(TextDocumentFragment.from_markdown("**b**"))
       r1 = doc.revision
       r1.should be > r0
-      doc.remove(0, 2)
+      doc.cursor(0, 2).remove_selected_text
       r2 = doc.revision
       r2.should be > r1
       doc.undo.should be_true
@@ -77,7 +77,7 @@ describe Crysterm::TextDocument do
     it "bumps on a char format change" do
       doc = TextDocument.new("hello")
       r0 = doc.revision
-      doc.apply_char_format(0, 5, TextCharFormat.new(bold: true), merge: true)
+      doc.cursor(0, 5).merge_char_format(TextCharFormat.new(bold: true))
       doc.revision.should be > r0
     end
 
@@ -88,7 +88,7 @@ describe Crysterm::TextDocument do
       doc.to_markdown
       doc.to_html
       doc.to_tags
-      doc.char_format_at(3)
+      doc.typing_format_at(3)
       doc.find("Name")
       range = tbl.cell_text_range(0, 0).not_nil!
       tbl.cell_at(range.begin)
@@ -165,7 +165,7 @@ describe Crysterm::TextTable do
       memo = tbl.probe_data_rows
       # Prepend a paragraph before the table: block indexes and positions of
       # every data row shift.
-      doc.insert_text(0, "intro\n")
+      doc.cursor(0).insert_text("intro\n")
       tbl.probe_data_rows.should_not be memo
       range = tbl.cell_text_range(0, 0).not_nil!
       range.should_not eq before

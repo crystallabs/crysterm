@@ -4,14 +4,14 @@ module Crysterm
     #
     # `nil` (the default) means this widget inherits the window's default cursor
     # (`Window#cursor`). Changing any cursor setting (via the methods below or
-    # `#cursor!`) creates an override `Cursor` here, which takes precedence over
+    # `#ensure_cursor`) creates an override `Cursor` here, which takes precedence over
     # the window default while focused.
     property cursor : Cursor? = nil
 
     # Returns this widget's own cursor, creating (and enabling) an override on
-    # first use, e.g. `widget.cursor!.shape = :line`. Changes take visible effect
+    # first use, e.g. `widget.ensure_cursor.shape = :line`. Changes take visible effect
     # only while focused; otherwise recorded and applied on focus.
-    def cursor! : Cursor
+    def ensure_cursor : Cursor
       @cursor ||= Cursor.new
     end
 
@@ -39,9 +39,9 @@ module Crysterm
     # the color/show/hide methods below.
     def set_cursor(shape : Tput::CursorShape, *, blink : Bool = false) : Nil
       if s = window?
-        s.set_cursor_shape shape, blink: blink, cursor: cursor!
+        s.set_cursor_shape shape, blink: blink, cursor: ensure_cursor
       else
-        c = cursor!
+        c = ensure_cursor
         c.shape = shape
         c.blink = blink
         c._set = false
@@ -59,9 +59,9 @@ module Crysterm
     # widget is focused. Recorded even while detached (see `#set_cursor`).
     def cursor_color=(color : String?) : String?
       if s = window?
-        s.set_cursor_color color, cursor: cursor!
+        s.set_cursor_color color, cursor: ensure_cursor
       else
-        c = cursor!
+        c = ensure_cursor
         c.style.fg = color
         c._set = true
       end
@@ -73,8 +73,8 @@ module Crysterm
     # cursor is a single global resource, so an unfocused widget's setting
     # must not fire it out from under the focused widget.
     def show_cursor
-      c = cursor!
-      c._hidden = false
+      c = ensure_cursor
+      c.hidden = false
       if (s = window?) && s.focused == self
         s.show_cursor c
       end
@@ -83,8 +83,8 @@ module Crysterm
     # Hides this widget's cursor. Recorded even while unfocused or detached
     # (see `#show_cursor`).
     def hide_cursor
-      c = cursor!
-      c._hidden = true
+      c = ensure_cursor
+      c.hidden = true
       if (s = window?) && s.focused == self
         s.hide_cursor c
       end

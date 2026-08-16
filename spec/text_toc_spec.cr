@@ -148,7 +148,7 @@ describe Crysterm::TextToc do
     it "tracks a heading whose text changed" do
       doc = toc_doc "# One"
       hb = doc.outline.first.block
-      doc.insert_text(doc.block_position(hb) + 3, " Point Five")
+      doc.cursor(doc.block_position(hb) + 3).insert_text(" Point Five")
       doc.refresh_tocs.should be_true
       toc_lines(doc).should eq ["One Point Five"]
       doc.tocs.first.blocks.first.fragments.first.format.anchor_href.should eq "#one-point-five"
@@ -159,7 +159,7 @@ describe Crysterm::TextToc do
       toc_lines(doc).size.should eq 2
       hb = doc.outline.last.block
       from = doc.block_position(hb)
-      doc.remove(from - 1, doc.blocks[hb].size + 1)
+      doc.cursor(from - 1, from + doc.blocks[hb].size).remove_selected_text
       doc.refresh_tocs.should be_true
       toc_lines(doc).should eq ["One"]
     end
@@ -198,7 +198,7 @@ describe Crysterm::TextToc do
       to = doc.block_position(last) + doc.blocks[last].size
       frag = doc.copy_fragment(from, to)
       target = TextDocument.new
-      target.insert_fragment(0, frag)
+      target.cursor(0).insert_fragment(frag)
       target.tocs.size.should eq 1
     end
   end

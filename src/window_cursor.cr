@@ -11,8 +11,13 @@ module Crysterm
     # cell buffer by `#draw`), so the fields live here rather than on
     # `Tput::Namespace::Cursor`.
     property? artificial : Bool = false
-    property _state = 1
-    property _hidden = true
+    # :nodoc: Artificial-cursor on/off state (Blessed's `cursor._state`); `0`
+    # suppresses the software-drawn cursor entirely.
+    property state = 1
+
+    # Whether the cursor is currently hidden. Recorded on both the artificial
+    # and hardware paths (see `Window#show_cursor`/`#hide_cursor`).
+    property? hidden = true
     property char = '▮'
 
     @attr_memo = Style::AttrMemo.new
@@ -97,7 +102,7 @@ module Crysterm
         # moves to a widget with its own fresh hardware cursor). `@_acur_y >= 0`
         # is exactly "a glyph is currently painted" and self-limits: the next
         # draw resets it. Hardware visibility is deliberately NOT touched here:
-        # `_hidden` defaults to true on every fresh `Cursor`, so pushing it
+        # `hidden?` defaults to true on every fresh `Cursor`, so pushing it
         # would civis the terminal whenever focus lands on a widget whose
         # cursor never had show/hide called.
         render_if_active if @_acur_y >= 0
@@ -167,7 +172,7 @@ module Crysterm
     end
 
     # :nodoc:
-    def _artificial_cursor_attr(cursor, attr : Int64 = @default_attr)
+    def artificial_cursor_attr(cursor, attr : Int64 = @default_attr)
       ch = nil
 
       if cursor.shape.line?
@@ -217,12 +222,12 @@ module Crysterm
     # flips its hidden flag and repaints; hardware: emits the matching tput escape.
     private def set_cursor_hidden(c : Cursor, hidden : Bool) : Nil
       if c.artificial?
-        c._hidden = hidden
+        c.hidden = hidden
         render_if_active
       else
         # Record on the hardware path too, so the state survives a later
         # hardware-to-artificial switch instead of resetting to hidden.
-        c._hidden = hidden
+        c.hidden = hidden
         hidden ? hide_hardware_cursor : show_hardware_cursor
       end
     end

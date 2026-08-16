@@ -33,7 +33,7 @@ describe "rich clipboard" do
   it "rich-copies a TextEdit selection: fragment + plain text" do
     s = headless_screen(80, 24, default_quit_keys: true)
     te = new_te s, "hello world"
-    te.document.apply_char_format(0, 5, TextCharFormat.new(bold: true, fg: 0xFF0000))
+    te.document.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true, fg: 0xFF0000))
     select_range te, 0, 7
     te._listener ctl(::Tput::Key::CtrlC)
 
@@ -47,7 +47,7 @@ describe "rich clipboard" do
   it "pastes the fragment into another TextEdit with formats intact, as one undo step" do
     s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "styled"
-    src.document.apply_char_format(0, 6, TextCharFormat.new(italic: true, fg: 0x00FF00))
+    src.document.cursor(0, 6).set_char_format(TextCharFormat.new(italic: true, fg: 0x00FF00))
     select_range src, 0, 6
     src._listener ctl(::Tput::Key::CtrlC)
 
@@ -57,8 +57,8 @@ describe "rich clipboard" do
 
     dst.value.should eq "astyledb"
     dst.cursor_pos.should eq 7
-    dst.document.char_format_at(2).italic?.should be_true
-    dst.document.char_format_at(2).fg.should eq 0x00FF00
+    dst.document.typing_format_at(2).italic?.should be_true
+    dst.document.typing_format_at(2).fg.should eq 0x00FF00
 
     dst.undo.should be_true
     dst.value.should eq "ab"
@@ -82,7 +82,7 @@ describe "rich clipboard" do
   it "degrades to plain text when pasting into a flat buffer" do
     s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "styled"
-    src.document.apply_char_format(0, 6, TextCharFormat.new(bold: true))
+    src.document.cursor(0, 6).set_char_format(TextCharFormat.new(bold: true))
     select_range src, 0, 6
     src._listener ctl(::Tput::Key::CtrlC)
 
@@ -95,7 +95,7 @@ describe "rich clipboard" do
   it "a fresher plain copy invalidates the fragment" do
     s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "rich"
-    src.document.apply_char_format(0, 4, TextCharFormat.new(bold: true))
+    src.document.cursor(0, 4).set_char_format(TextCharFormat.new(bold: true))
     select_range src, 0, 4
     src._listener ctl(::Tput::Key::CtrlC)
     app_clipboard(s).fragment.should_not be_nil
@@ -111,7 +111,7 @@ describe "rich clipboard" do
     dst = new_te s, ""
     dst._listener ctl(::Tput::Key::CtrlV)
     dst.value.should eq "plain"
-    dst.document.char_format_at(3).bold?.should be_false
+    dst.document.typing_format_at(3).bold?.should be_false
   end
 
   it "an external OSC-52 reply invalidates the fragment; our own echo does not" do
@@ -132,7 +132,7 @@ describe "rich clipboard" do
   it "pastes multi-block fragments across blocks" do
     s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "one\ntwo"
-    src.document.apply_char_format(0, 3, TextCharFormat.new(underline: true))
+    src.document.cursor(0, 3).set_char_format(TextCharFormat.new(underline: true))
     select_range src, 0, 7
     src._listener ctl(::Tput::Key::CtrlC)
 
@@ -140,13 +140,13 @@ describe "rich clipboard" do
     dst.cursor_pos = 1
     dst._listener ctl(::Tput::Key::CtrlV)
     dst.value.should eq "Xone\ntwoY"
-    dst.document.char_format_at(2).underline?.should be_true
+    dst.document.typing_format_at(2).underline?.should be_true
   end
 
   it "falls back to the truncating plain path when max_length is exceeded" do
     s = headless_screen(80, 24, default_quit_keys: true)
     src = new_te s, "abcdefgh"
-    src.document.apply_char_format(0, 8, TextCharFormat.new(bold: true))
+    src.document.cursor(0, 8).set_char_format(TextCharFormat.new(bold: true))
     select_range src, 0, 8
     src._listener ctl(::Tput::Key::CtrlC)
 
@@ -158,13 +158,13 @@ describe "rich clipboard" do
 
     # Plain path: truncated to the remaining room, unformatted.
     dst.value.should eq "12abcd"
-    dst.document.char_format_at(3).bold?.should be_false
+    dst.document.typing_format_at(3).bold?.should be_false
   end
 
   it "rich copy round-trips through the tags serialization of the fragment" do
     s = headless_screen(80, 24, default_quit_keys: true)
     te = new_te s, "tagged text"
-    te.document.apply_char_format(0, 6, TextCharFormat.new(bold: true))
+    te.document.cursor(0, 6).set_char_format(TextCharFormat.new(bold: true))
     select_range te, 0, 11
     te._listener ctl(::Tput::Key::CtrlC)
 

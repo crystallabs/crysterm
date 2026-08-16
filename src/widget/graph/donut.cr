@@ -156,7 +156,7 @@ module Crysterm
           percent_of @value
         end
 
-        def paint(with_children = true)
+        def paint(*, with_children = true)
           super
           draw_center_label
         end

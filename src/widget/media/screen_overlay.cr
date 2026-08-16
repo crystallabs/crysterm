@@ -159,12 +159,12 @@ module Crysterm
       # `style.visible` without ever emitting `Event::Hide`), scrolled/clipped
       # out of a viewport (unresolvable coords), or a degenerate rect.
       # `visible_in_tree?` is checked BEFORE `coords`: resolving against a
-      # hidden never-rendered ancestor would raise (`coords(false)` itself also
+      # hidden never-rendered ancestor would raise (`coords(rendered: false)` itself also
       # returns nil for a self-hidden widget, and uses the nilable `.lpos`
       # accessor, so it cannot raise here).
       private def overlay_drawable_rect : Tuple(Int32, Int32, Int32, Int32)?
         return unless visible_in_tree?
-        pos = coords(false, into: @overlay_lpos) || return
+        pos = coords(into: @overlay_lpos) || return
         rect = overlay_rect(pos)
         return if rect[2] <= 0 || rect[3] <= 0
         rect

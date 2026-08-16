@@ -5,15 +5,15 @@ include Crysterm
 # Regression specs.
 # Headless harness mirrors spec/bugs15_scrolling_chrome_spec.cr.
 
-# B18-11 — `_parse_tags` resolved attribute tags via the raising `#window`
+# B18-11 — `expand_tags` resolved attribute tags via the raising `#window`
 # accessor, so every fake-splicing line editor (through `parse_fake_line`)
 # crashed with NilAssertionError on a detached widget whenever the new line
 # contained a recognized tag — while `process_content`/`append_content`/
-# `delete_line` degrade to guarded no-ops in the same state. `_parse_tags`
+# `delete_line` degrade to guarded no-ops in the same state. `expand_tags`
 # guards on attachment; the raw line is stored literally and the
 # `Event::Attached` reparse expands it.
 describe "BUGS18 11: tagged line edits on a detached widget do not raise" do
-  it "no-ops through _parse_tags when detached, and converges on re-attach" do
+  it "no-ops through expand_tags when detached, and converges on re-attach" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, width: 20, height: 5, parse_tags: true
     ref = Widget::Box.new parent: s, width: 20, height: 5, parse_tags: true
@@ -36,7 +36,7 @@ describe "BUGS18 11: tagged line edits on a detached widget do not raise" do
     # converging to the state the attached edits produced.
     s.append box
     s.repaint
-    box._clines.fake.should eq ref._clines.fake
+    box.wrapped_lines.fake.should eq ref.wrapped_lines.fake
   end
 end
 
@@ -73,7 +73,7 @@ describe "BUGS18 13: border label does not inflate scroll_extent_bottom" do
 end
 
 # B18-14 — `set_content` on a detached widget updated `@content` but left
-# `@_clines.fake` holding the previous content's lines; the fake-splicing
+# `@wrapped_lines.fake` holding the previous content's lines; the fake-splicing
 # editors then wrote that stale fake back via `rebuild_content_from_fake`,
 # silently destroying the content set while detached. `set_content` resyncs
 # `fake`/`ftor`/`rtof` whenever the widget is detached.
@@ -92,7 +92,7 @@ describe "BUGS18 14: detached line edits do not resurrect pre-detach content" do
     # Re-attach renders the detached-set content, not the resurrected old one.
     s.append w
     s.repaint
-    w._clines.fake.should eq ["X", "Y", "Z"]
+    w.wrapped_lines.fake.should eq ["X", "Y", "Z"]
   end
 
   it "delete_line and replace_line operate on the detached-set content" do
@@ -145,12 +145,12 @@ describe "BUGS18 17: wrap cache invalidates on tab/fill style changes" do
     s = headless_screen(80, 24)
     w = Widget::Box.new parent: s, width: 30, height: 3, content: "a\tb"
     s.repaint
-    w._clines.lines[0].should eq "a    b" # default tab_size 4
+    w.wrapped_lines.lines[0].should eq "a    b" # default tab_size 4
 
     w.style.tab_size = 8
     w.update
     s.repaint
-    w._clines.lines[0].should eq "a        b"
+    w.wrapped_lines.lines[0].should eq "a        b"
   end
 
   it "re-pads aligned lines after style.fill_char changes" do
@@ -158,13 +158,13 @@ describe "BUGS18 17: wrap cache invalidates on tab/fill style changes" do
     w = Widget::Box.new parent: s, width: 10, height: 3, content: "ab"
     w.align = Tput::AlignFlag::HCenter
     s.repaint
-    w._clines.lines[0].should contain "ab"
-    w._clines.lines[0].should_not contain "."
+    w.wrapped_lines.lines[0].should contain "ab"
+    w.wrapped_lines.lines[0].should_not contain "."
 
     w.style.fill_char = '.'
     w.update
     s.repaint
-    w._clines.lines[0].should contain "."
+    w.wrapped_lines.lines[0].should contain "."
   end
 end
 
@@ -186,7 +186,7 @@ describe "BUGS18 18: horizontal base reclamps when content narrows" do
     w.scroll_by_x 40
     w.child_base_x.should eq 40
     s.repaint
-    w._clines.lines[0].should_not eq ""
+    w.wrapped_lines.lines[0].should_not eq ""
 
     # Content narrows below the old base: the ContentParsed reclamp must pull
     # child_base_x back (otherwise it stays at 40 and every row slices to "").
@@ -194,6 +194,6 @@ describe "BUGS18 18: horizontal base reclamps when content narrows" do
     w.child_base_x.should eq 0
     s.repaint
     s.repaint # healing frame scheduled by the clamp's update
-    w._clines.lines[0].should eq "short1"
+    w.wrapped_lines.lines[0].should eq "short1"
   end
 end

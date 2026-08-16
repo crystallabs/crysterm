@@ -1,16 +1,16 @@
 require "../src/crysterm"
 
-# Deterministic allocation check for the C1 fix in `Widget#_scroll_bottom`
+# Deterministic allocation check for the C1 fix in `Widget#scroll_bottom`
 # (src/widget_scrolling.cr).
 #
-# `_scroll_bottom` reduces over the scrollable widget's non-fixed children and,
+# `scroll_bottom` reduces over the scrollable widget's non-fixed children and,
 # for each `window?` child, calls `coords false, true` to get the child's
 # unscrolled extent. Without an `into:` argument that call hits the `RenderedGeometry.new`
 # fallback (src/widget_position.cr:637) and allocates one `RenderedGeometry` per non-fixed
-# child. The `@lpos._scroll_bottom` memo is reset every frame by `RenderedGeometry#reset`
+# child. The `@lpos.scroll_bottom` memo is reset every frame by `RenderedGeometry#reset`
 # (the render path reuses `@lpos`), so this reduce — and its per-child garbage —
 # re-runs every frame via update_scrollbar_widget -> scroll_height ->
-# _scroll_bottom (called twice per frame, incl. sync_from_target).
+# scroll_bottom (called twice per frame, incl. sync_from_target).
 #
 # FIX: route the per-child `coords` through a reused scratch ivar
 # (`@_scrollb_lpos ||= RenderedGeometry.new`), mirroring `@_shrink_child_lpos` in
@@ -41,7 +41,7 @@ ROUNDS   = 20_000
 CHILDREN =     12
 
 puts "=" * 64
-puts "_scroll_bottom allocations: OLD vs NEW  (#{ROUNDS} rounds, #{CHILDREN} children)"
+puts "scroll_bottom allocations: OLD vs NEW  (#{ROUNDS} rounds, #{CHILDREN} children)"
 puts "=" * 64
 
 s = Crysterm::Window.new(input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new)
@@ -87,13 +87,13 @@ saved = old_scratch_free - new_scratch
 puts "   saved #{saved} bytes  (#{(saved / ROUNDS.to_f).round(1)} B/op, ~#{(old_scratch_free / (CHILDREN * ROUNDS).to_f).round(0).to_i} B/child)"
 
 # End-to-end: the real method across re-renders. Re-rendering resets the @lpos
-# memo, so _scroll_bottom's reduce genuinely re-runs each frame — this is what
+# memo, so scroll_bottom's reduce genuinely re-runs each frame — this is what
 # the per-frame render path pays.
 E2E = 2_000
 e2e = alloc_bytes(E2E) do
-  s.render          # resets @lpos memo (RenderedGeometry#reset zeroes _scroll_bottom)
-  box.scroll_height # -> _scroll_bottom reduce over children
+  s.render          # resets @lpos memo (RenderedGeometry#reset zeroes scroll_bottom)
+  box.scroll_height # -> scroll_bottom reduce over children
 end
 puts "\n#2 end-to-end scroll_height across re-renders (#{E2E} frames)"
 puts "   #{e2e} bytes total incl. full render (#{(e2e / E2E.to_f).round(1)} B/frame)"
-puts "   (with the fix, _scroll_bottom contributes 0 B; remainder is render itself)"
+puts "   (with the fix, scroll_bottom contributes 0 B; remainder is render itself)"

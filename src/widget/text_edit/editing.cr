@@ -39,21 +39,25 @@ module Crysterm
 
       # Whether the caret's block is an empty list item.
       private def caret_block_empty_list_item? : Bool
-        bi, _ = document.block_at(@cursor_pos)
+        loc = document.block_at(@cursor_pos)
+        bi = loc.index
         blk = document.blocks[bi]
         blk.size == 0 && !blk.block_format.list_format.nil?
       end
 
       # Whether the caret sits at the very start of a list item's text.
       private def caret_at_list_item_start? : Bool
-        bi, off = document.block_at(@cursor_pos)
+        loc = document.block_at(@cursor_pos)
+        bi = loc.index
+        off = loc.offset
         off == 0 && !document.blocks[bi].block_format.list_format.nil?
       end
 
       # Takes the caret's block out of its list (undoable); other block
       # formatting stays. The document change drives relayout/repaint.
       private def clear_caret_list_membership : Nil
-        bi, _ = document.block_at(@cursor_pos)
+        loc = document.block_at(@cursor_pos)
+        bi = loc.index
         blk = document.blocks[bi]
         pos = document.block_position(bi)
         document.apply_block_format(pos, pos, blk.block_format.with_list_format(nil))
@@ -66,7 +70,9 @@ module Crysterm
       # so a single undo restores the typed marker text.
       private def auto_format_list(e) : Nil
         return unless e.char == ' ' && e.key.nil?
-        bi, off = document.block_at(@cursor_pos)
+        loc = document.block_at(@cursor_pos)
+        bi = loc.index
+        off = loc.offset
         return if off < 2
         blk = document.blocks[bi]
         bf = blk.block_format
@@ -87,7 +93,12 @@ module Crysterm
           document.remove(bp, off)
           document.apply_block_format(bp, bp, TextBlockFormat.new(list_format: lf), merge: true)
         end
-        emit Crysterm::Event::TextChanged, buf_text if text_change_observed?
+        if text_change_observed?
+          after = buf_text
+          emit Crysterm::Event::TextChanged, after
+          emit Crysterm::Event::TextEdited, after
+        end
+        emit_caret_events
         update!
         _update_cursor
       end
@@ -137,7 +148,9 @@ module Crysterm
             return true
           end
           # Boundary: joining a neighbor block into a border row is blocked.
-          bi, off = document.block_at(@cursor_pos)
+          loc = document.block_at(@cursor_pos)
+          bi = loc.index
+          off = loc.offset
           if (k == Tput::Key::Backspace || k == Tput::Key::CtrlH) && off == 0 && bi > 0 &&
              document.blocks[bi - 1].block_format.table_format
             e.accept
@@ -179,7 +192,9 @@ module Crysterm
         end
         if want && (after = buf_text) != before
           emit Crysterm::Event::TextChanged, after
+          emit Crysterm::Event::TextEdited, after
         end
+        emit_caret_events
         update!
         _update_cursor
         true
@@ -187,7 +202,8 @@ module Crysterm
 
       # The table the caret's block belongs to, or nil.
       private def caret_table : TextTable?
-        bi, _ = document.block_at(@cursor_pos)
+        loc = document.block_at(@cursor_pos)
+        bi = loc.index
         tf = document.blocks[bi].block_format.table_format || return
         TextTable.new(document, tf)
       end
@@ -195,8 +211,8 @@ module Crysterm
       # Whether the live selection overlaps any table block.
       private def selection_touches_table? : Bool
         r = selection_range || return false
-        b1 = document.block_at(r.begin)[0]
-        b2 = document.block_at(r.end)[0]
+        b1 = document.block_at(r.begin).index
+        b2 = document.block_at(r.end).index
         (b1..b2).any? { |i| !document.blocks[i].block_format.table_format.nil? }
       end
 

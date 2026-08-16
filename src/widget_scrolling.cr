@@ -414,13 +414,13 @@ module Crysterm
       @child_base + @child_offset
     end
 
-    def scroll_to(offset, always = false)
+    def scroll_to(offset, *, always = false)
       scroll 0
       scroll offset - (@child_base + @child_offset), always
     end
 
     def scroll_height : Int32
-      Math.max @_clines.size, scroll_extent_bottom
+      Math.max @wrapped_lines.size, scroll_extent_bottom
     end
 
     # --- horizontal axis ----------------------------------------------------
@@ -431,14 +431,14 @@ module Crysterm
     end
 
     # Widest content row, in display columns — horizontal analogue of
-    # `#scroll_height`. Computed by `_wrap_content`; `0` for wrapped content.
+    # `#scroll_height`. Computed by `wrap_lines`; `0` for wrapped content.
     def scroll_width : Int32
-      @_clines.full_width
+      @wrapped_lines.full_width
     end
 
     # Columns reserved at the right of the content area beyond border/padding —
     # the vertical scroll bar's columns when shown (the bar's real
-    # `#scrollbar_width`, never a hardcoded `1`). `_wrap_content` and
+    # `#scrollbar_width`, never a hardcoded `1`). `wrap_lines` and
     # `#content_width` both subtract this, keeping them in agreement. Subclasses
     # add their own reservations (`PlainTextEdit`'s end-of-line caret column).
     def content_margin_x : Int32
@@ -449,7 +449,7 @@ module Crysterm
     # `AlwaysOn` still reserves the bar column, `AsNeeded` reserves nothing (no
     # content ⇒ no overflow). Seeds `process_content`'s wrap-convergence pass,
     # so the first wrap of new content isn't skewed by the previous wrap's
-    # line count (see `#_wrap_content`).
+    # line count (see `#wrap_lines`).
     def content_margin_x_empty : Int32
       policy_shows?(scrollbar_policy) { false } ? scrollbar_width : 0
     end
@@ -556,8 +556,8 @@ module Crysterm
       end
 
       @lpos.try do |lpos|
-        if lpos._scroll_bottom != 0
-          return lpos._scroll_bottom
+        if lpos.scroll_bottom != 0
+          return lpos.scroll_bottom
         end
       end
 
@@ -582,7 +582,7 @@ module Crysterm
         # inset-included offset, kept bit-identical. Whether the extent
         # *should* exclude the inset is an open question for the size-policy
         # pass (see plans/SIZE-POLICY-PLAN.md §2.1).
-        el_bottom = if el.window? && (lpos = el.coords(false, true, into: scrollb_lpos))
+        el_bottom = if el.window? && (lpos = el.coords(noscroll: true, into: scrollb_lpos))
                       (el.atop - atop) + (lpos.yl - lpos.yi)
                     else
                       (el.atop - atop) + el.aheight
@@ -590,13 +590,13 @@ module Crysterm
         Math.max current, el_bottom
       end
 
-      # Deliberately NOT clamped up to `@_clines.size`: that would fold a text
+      # Deliberately NOT clamped up to `@wrapped_lines.size`: that would fold a text
       # view's wrapped-line count into the child-based scroll extent — conflating
       # two different measures and making `#scroll_height` redundant. The
       # child-based `bottom` above is the intended one.
 
       @lpos.try do |lpos|
-        lpos._scroll_bottom = bottom
+        lpos.scroll_bottom = bottom
       end
 
       bottom
@@ -704,7 +704,7 @@ module Crysterm
     end
 
     # Pulls `@child_base` down to the largest valid scroll offset for the current
-    # content — the greater of the wrapped-content height (`@_clines.size`) and
+    # content — the greater of the wrapped-content height (`@wrapped_lines.size`) and
     # the descendant extent (`scroll_extent_bottom`), each measured against the visible
     # inner height — then re-clamps into `[0, @base_limit]`. Shared by `#scroll`
     # and `#reclamp_scroll_index`.
@@ -718,7 +718,7 @@ module Crysterm
       if visible <= 0
         content_max = 0
       else
-        max = @_clines.size - visible
+        max = @wrapped_lines.size - visible
         max = 0 if max < 0
         emax = scroll_extent_bottom - visible
         emax = 0 if emax < 0
@@ -741,8 +741,8 @@ module Crysterm
 
       # Horizontal counterpart (only meaningful without wrapping): pull the column
       # base back into range after content narrows. Unlike `@child_base` (applied
-      # at paint time), `@child_base_x` is baked into `@_clines` by `_hslice`
-      # during the wrap, and `process_content` records `@_clines.base_x` BEFORE
+      # at paint time), `@child_base_x` is baked into `@wrapped_lines` by `_hslice`
+      # during the wrap, and `process_content` records `@wrapped_lines.base_x` BEFORE
       # emitting `ContentParsed` — so a changed base needs `update` to
       # schedule the frame whose cache-key mismatch (`base_x`) re-wraps at the
       # clamped offset. The change guard makes that converge in one extra frame

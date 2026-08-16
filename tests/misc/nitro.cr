@@ -218,7 +218,7 @@ if shot || dump_dest || anim
     fr = start_frame
     # `capture(duration:)` snapshots the buffer on every `Event::Rendered`; nitro
     # has no `repaint`, so it emits the event itself after painting each frame.
-    clock = FrameClock.new(0.07.seconds) do
+    clock = FrameClock.ticker(0.07.seconds) do
       fr += 1
       # Keep the overlay alive in the recording: time the paint as `update` and
       # the frame cadence as `fps` (there is no terminal draw/flush to time here).
@@ -241,7 +241,7 @@ end
 frame = 0_i64
 last_start : Time::Instant? = nil
 
-FrameClock.new(0.07.seconds) do
+FrameClock.ticker(0.07.seconds) do
   t0 = Time.instant
   if prev = last_start
     stat_fps = rate.call(t0 - prev)

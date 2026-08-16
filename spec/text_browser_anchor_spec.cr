@@ -50,13 +50,13 @@ describe Crysterm::Widget::TextBrowser do
     it "moves the caret to the matching heading" do
       tb = browser LONG_DOC
       tb.goto_anchor("install").should be_true
-      tb.document.block_at(tb.cursor_pos)[0].should eq tb.document.outline[1].block
+      tb.document.block_at(tb.cursor_pos).index.should eq tb.document.outline[1].block
     end
 
     it "accepts a leading hash" do
       tb = browser LONG_DOC
       tb.goto_anchor("#usage").should be_true
-      tb.document.blocks[tb.document.block_at(tb.cursor_pos)[0]].text.should eq "Usage"
+      tb.document.blocks[tb.document.block_at(tb.cursor_pos).index].text.should eq "Usage"
     end
 
     it "returns false for an unknown anchor" do
@@ -81,7 +81,7 @@ describe Crysterm::Widget::TextBrowser do
       tb.loader = ->(_u : String) { calls += 1; nil.as(TextDocument?) }
       tb.source = "#usage"
       calls.should eq 0
-      tb.document.blocks[tb.document.block_at(tb.cursor_pos)[0]].text.should eq "Usage"
+      tb.document.blocks[tb.document.block_at(tb.cursor_pos).index].text.should eq "Usage"
     end
 
     it "loads a path and then resolves the fragment" do
@@ -91,7 +91,7 @@ describe Crysterm::Widget::TextBrowser do
         TextDocument.from_markdown(LONG_DOC).as(TextDocument?)
       end
       tb.source = "guide.md#usage"
-      tb.document.blocks[tb.document.block_at(tb.cursor_pos)[0]].text.should eq "Usage"
+      tb.document.blocks[tb.document.block_at(tb.cursor_pos).index].text.should eq "Usage"
     end
 
     it "does not reload when only the fragment changes" do
@@ -114,7 +114,7 @@ describe Crysterm::Widget::TextBrowser do
       url = doc.tocs.first.blocks.last.fragments.first.format.anchor_href
       url.should eq "#usage"
       tb.activate_link url.not_nil!
-      tb.document.blocks[tb.document.block_at(tb.cursor_pos)[0]].text.should eq "Usage"
+      tb.document.blocks[tb.document.block_at(tb.cursor_pos).index].text.should eq "Usage"
     end
   end
 

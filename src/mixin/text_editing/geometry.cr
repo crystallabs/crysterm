@@ -43,15 +43,15 @@ module Crysterm
         cy = lpos.yi + itop + line
 
         if wrap_content?
-          rline = @_clines[rl]? || ""
+          rline = @wrapped_lines[rl]? || ""
           c = col.clamp(0, rline.size)
-          # `@_clines[rl]` is the already-tab-expanded display piece, so in the
+          # `@wrapped_lines[rl]` is the already-tab-expanded display piece, so in the
           # legacy (non-full-unicode) width path its `[0, c)` width IS `c` — no
           # substring needs to be built to measure a length already in hand.
           w = full_unicode? ? str_width(rline[0...c]) : c
           cx = lpos.xi + ileft + row_text_x_offset(rl) + w
         else
-          # `@_clines[rl]` is horizontally *sliced* when scrolled (see `_hslice`),
+          # `@wrapped_lines[rl]` is horizontally *sliced* when scrolled (see `_hslice`),
           # so derive the caret's display column from the full value line and
           # offset it by the horizontal scroll, clamped into the viewport (the
           # caret may sit at an edge when scrolled off, as in Qt's text edit).
@@ -380,7 +380,7 @@ module Crysterm
       end
 
       # Maps `@cursor_pos` (a buffer position) to `{real_line, column}` in
-      # the wrapped/displayed content (`@_clines`), using the fake->real line map
+      # the wrapped/displayed content (`@wrapped_lines`), using the fake->real line map
       # (`ftor`). Exact for the default (unaligned) text area; best-effort with
       # center/right alignment (real lines carry padding). Column is a codepoint
       # offset within the real line.
@@ -388,14 +388,14 @@ module Crysterm
         c = @cursor_pos.clamp(0, buf_size)
         # `fake_line` is the logical (`\n`-delimited) line index; `col` is the
         # tab-expanded column within it — the SAME units `process_content` lays
-        # `@_clines` out with. A TAB expands to `tab_char * tab_size`, so counting
+        # `@wrapped_lines` out with. A TAB expands to `tab_char * tab_size`, so counting
         # raw codepoints would desync the caret by `tab_size - 1` per preceding
         # TAB.
         fake_line, col = cursor_line_col c
 
-        reals = @_clines.ftor[fake_line]?
+        reals = @wrapped_lines.ftor[fake_line]?
         if reals.nil? || reals.empty?
-          rl = Math.max(0, @_clines.size - 1)
+          rl = Math.max(0, @wrapped_lines.size - 1)
           return {rl, line_display_width(rl)}
         end
 
@@ -430,16 +430,16 @@ module Crysterm
       # the cursor on the visual row above/below at the desired column, and by
       # `#position_at` to map a mouse click to a buffer index.
       private def pos_from_rowcol(rl : Int32, col : Int32) : Int32
-        rl = rl.clamp(0, Math.max(0, @_clines.size - 1))
-        fake_line = @_clines.rtof[rl]? || 0
+        rl = rl.clamp(0, Math.max(0, @wrapped_lines.size - 1))
+        fake_line = @wrapped_lines.rtof[rl]? || 0
 
         # Expanded column within the fake (logical) line: the total expanded
         # width of preceding wrapped pieces of the same fake line, plus `col`
         # (itself expanded — see `cursor_rowcol`).
         exp_col = col
-        (@_clines.ftor[fake_line]? || [rl]).each do |r|
+        (@wrapped_lines.ftor[fake_line]? || [rl]).each do |r|
           break if r >= rl
-          exp_col += (@_clines[r]? || "").size
+          exp_col += (@wrapped_lines[r]? || "").size
         end
 
         base, line_end = buf_line_bounds(fake_line)
@@ -487,19 +487,19 @@ module Crysterm
       end
 
       # The full display width (in the same tab-expanded codepoint units the caret
-      # math and `@_clines` use) of the real (post-wrap) line *rl*.
+      # math and `@wrapped_lines` use) of the real (post-wrap) line *rl*.
       #
-      # In wrap mode `@_clines[rl]` is the whole wrapped piece, so its size IS the
-      # width. In non-wrap mode `@_clines[rl]` is only the horizontally *sliced*
+      # In wrap mode `@wrapped_lines[rl]` is the whole wrapped piece, so its size IS the
+      # width. In non-wrap mode `@wrapped_lines[rl]` is only the horizontally *sliced*
       # viewport window (`_hslice`), so its size undercounts a line wider than the
       # viewport — reconstruct the real line from the buffer instead. Otherwise
       # Up/Down snaps a caret past the viewport back to ~viewport width, and a
       # selection entirely right of `content_width` paints no highlight.
       private def line_display_width(rl : Int32) : Int32
         if wrap_content?
-          (@_clines[rl]? || "").size
+          (@wrapped_lines[rl]? || "").size
         else
-          expanded_width(buf_line_text(@_clines.rtof[rl]? || 0))
+          expanded_width(buf_line_text(@wrapped_lines.rtof[rl]? || 0))
         end
       end
 
@@ -507,7 +507,7 @@ module Crysterm
       # nearest buffer position — the mouse-click counterpart of
       # `#cursor_rowcol`/`#pos_from_rowcol`, kept consistent with how
       # `#_update_cursor` actually places the caret, so clicking exactly where the
-      # caret is drawn is a no-op. Assumes the `@_clines`/`@child_base_x` model; a
+      # caret is drawn is a no-op. Assumes the `@wrapped_lines`/`@child_base_x` model; a
       # widget rendering a separately re-sliced line must override it. Returns the
       # current `#cursor_pos` unchanged when the widget has no on-window geometry
       # yet.
@@ -523,20 +523,20 @@ module Crysterm
         # not `@child_base`: an ancestor clip folds the clipped-top count into
         # `coords.base`, so mapping a click through `@child_base` alone lands
         # `clipped` lines above the clicked text.
-        rl = (line + lpos.base).clamp(0, Math.max(0, @_clines.size - 1))
+        rl = (line + lpos.base).clamp(0, Math.max(0, @wrapped_lines.size - 1))
 
         if wrap_content?
-          # `@_clines[rl]` is the actual painted (already tab-expanded) text for
+          # `@wrapped_lines[rl]` is the actual painted (already tab-expanded) text for
           # this row — `#column_index` walks it directly by display width.
-          rline = @_clines[rl]? || ""
+          rline = @wrapped_lines[rl]? || ""
           col = column_index(rline, x - lpos.xi - ileft - row_text_x_offset(rl))
           pos_from_rowcol(rl, col)
         else
-          # Non-wrap: `@_clines[rl]` is horizontally *sliced* to the viewport (see
+          # Non-wrap: `@wrapped_lines[rl]` is horizontally *sliced* to the viewport (see
           # `_hslice`), so it can't be walked directly — reconstruct the real
           # line's own (tab-expanded) text from the buffer instead, and undo the
           # `@child_base_x` scroll to land back in that line's own column space.
-          fake_line = @_clines.rtof[rl]? || 0
+          fake_line = @wrapped_lines.rtof[rl]? || 0
           base = buf_line_bounds(fake_line)[0]
           raw_line = buf_line_text(fake_line)
           expanded = expand_tabs(raw_line)
@@ -571,14 +571,14 @@ module Crysterm
       end
 
       # Codepoint count of *s* after TAB expansion (`tab_char * tab_size`, exactly
-      # as `process_content` expands it) — i.e. its width in the `@_clines` column
+      # as `process_content` expands it) — i.e. its width in the `@wrapped_lines` column
       # units the caret math runs in. Equal to `s.size` when *s* has no TAB.
       private def expanded_width(s : String) : Int32
         expand_tabs(s).size
       end
 
       # Expands TABs in *s* to `tab_char * tab_size`, exactly as `process_content`
-      # lays out `@_clines`. Guards on `includes?('\t')` so a tab-free string is
+      # lays out `@wrapped_lines`. Guards on `includes?('\t')` so a tab-free string is
       # returned untouched (the common fast path).
       private def expand_tabs(s : String) : String
         s.includes?('\t') ? s.gsub('\t', style.tab_char * style.tab_size) : s
@@ -611,7 +611,7 @@ module Crysterm
         rl, col = cursor_rowcol
         goal = (@goal_col ||= col)
 
-        target = (rl + rows).clamp(0, Math.max(0, @_clines.size - 1))
+        target = (rl + rows).clamp(0, Math.max(0, @wrapped_lines.size - 1))
         # Landing on a positionless row (a block margin) would bounce the caret
         # back to its source row — step over it in the direction of travel.
         target = nearest_text_row(target, rows < 0 ? -1 : 1)
@@ -643,7 +643,7 @@ module Crysterm
 
       # Display column of the caret within its (non-wrapped) logical line — the
       # width of the line prefix up to `@cursor_pos`. Derived from the buffer, not
-      # the horizontally-sliced `@_clines`, so it stays correct while scrolled.
+      # the horizontally-sliced `@wrapped_lines`, so it stays correct while scrolled.
       #
       # TABs are expanded to `tab_char * tab_size` as `process_content` does, so
       # the caret is measured against columns actually shown and stays in sync
@@ -694,7 +694,7 @@ module Crysterm
       # handles correctly.
       protected def selection_columns_for_row(rl : Int32) : Range(Int32, Int32)?
         return unless selection_range
-        return if rl < 0 || rl >= @_clines.size
+        return if rl < 0 || rl >= @wrapped_lines.size
 
         selection_columns_for_row rl, pos_from_rowcol(rl, 0), pos_from_rowcol(rl, line_display_width(rl))
       end
@@ -714,7 +714,7 @@ module Crysterm
       # here would silently bypass the override.
       protected def selection_columns_for_row(rl : Int32, line_start : Int32, line_end : Int32) : Range(Int32, Int32)?
         return unless range = selection_range
-        return if rl < 0 || rl >= @_clines.size
+        return if rl < 0 || rl >= @wrapped_lines.size
 
         lo = Math.max(range.begin, line_start)
         hi = Math.min(range.end, line_end)

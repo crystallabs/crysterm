@@ -28,12 +28,12 @@ describe "Window#draw runtime color depth" do
       # Sanity: at the default (auto/truecolor here) depth, a 24-bit SGR is emitted.
       buf.clear
       s.draw
-      pending! "environment is not truecolor" unless s.colors >= 0x1000000
+      pending! "environment is not truecolor" unless s.color_count >= 0x1000000
       buf.to_s.should contain("38;2;") # truecolor form
 
       # Pin the depth to 16 colors at runtime.
       Config.colors_depth = Crysterm::ColorDepth::Ansi
-      s.colors.should eq 16
+      s.color_count.should eq 16
 
       # Re-emit the same cell (poison @flushed_lines so it differs) and confirm the
       # color is now reduced — no 24-bit sequence survives.

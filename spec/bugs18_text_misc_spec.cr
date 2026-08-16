@@ -82,7 +82,7 @@ describe "B18-75 sanitize_build_cell strips newlines like sanitize_cell" do
   it "round-trips through markdown export without splitting the row" do
     doc = TextDocument.new
     blocks = TextTable.build(["h1", "h2"], [["line1\nline2", "b"]])
-    doc.insert_fragment(0, TextDocumentFragment.new(blocks))
+    doc.cursor(0).insert_fragment(TextDocumentFragment.new(blocks))
     doc.to_plain_text.lines.size.should eq doc.blocks.size
     doc.to_markdown.should contain("line1 line2")
   end

@@ -384,7 +384,7 @@ module Crysterm
 
       # Renders via the base implementation, then overlays the emulator grid and
       # cursor onto the inner area.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         coords = super
         return coords unless coords
 

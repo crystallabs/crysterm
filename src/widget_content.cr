@@ -20,7 +20,7 @@ module Crysterm
     # Logical-line boundaries of RAW content: the same separators
     # `clean_content_chars` normalizes to `\n` (`\r\n` and bare `\r` included),
     # so splitting raw text on this stays index-for-index aligned with the
-    # parsed `@_clines.fake` lines. See `#raw_fake_lines`.
+    # parsed `@wrapped_lines.fake` lines. See `#raw_fake_lines`.
     RAW_LINE_REGEX = /\r\n|\r|\n/
 
     # Can element's content be word-wrapped?
@@ -107,20 +107,22 @@ module Crysterm
     #
     # Public getter (specs/benchmarks assert it stays `nil` while an append is
     # deferred); the setter is `protected` — writers go through the pipeline.
-    getter _pcontent : String?
-    protected setter _pcontent
+    #
+    # :nodoc:
+    getter printable_content : String?
+    protected setter printable_content
 
     # Printable content string, rebuilt from wrapped lines if stale. Consumers
-    # must go through this (not `@_pcontent` directly) so a deferred append is
+    # must go through this (not `@printable_content` directly) so a deferred append is
     # materialized before use.
     def pcontent : String
-      @_pcontent ||= clines_joined
+      @printable_content ||= clines_joined
     end
 
     # Wrapped lines as one `"\n"`-joined string. Single-line content returns the
     # sole line directly, avoiding a per-widget, per-frame duplicate allocation.
     private def clines_joined : String
-      cl = @_clines
+      cl = @wrapped_lines
       case cl.size
       when 0 then ""
       when 1 then cl[0]
@@ -128,17 +130,19 @@ module Crysterm
       end
     end
 
-    # Cached codepoint index over `@_pcontent`, reused across frames. Rebuilt only
-    # when `@_pcontent` becomes a different `String`.
+    # Cached codepoint index over `@printable_content`, reused across frames. Rebuilt only
+    # when `@printable_content` becomes a different `String`.
     @_content_index : StringIndex? = nil
 
     # Public getter (read widely by specs and subclass render code); the setter
     # is `protected` so external writes can't bypass the wrap/version pipeline.
-    getter _clines = CLines.new
-    protected setter _clines
+    #
+    # :nodoc:
+    getter wrapped_lines = CLines.new
+    protected setter wrapped_lines
 
     # Bumped on every `@content` change. `process_content` compares this against
-    # the version baked into `@_clines` to decide whether a reparse is needed.
+    # the version baked into `@wrapped_lines` to decide whether a reparse is needed.
     # `Int64` because it increases monotonically for the widget's whole life: a
     # busy `Log` at ~1000 lines/s would overflow an `Int32` in under a month.
     @_content_version = 0_i64
@@ -150,7 +154,7 @@ module Crysterm
     # Whether `@content` contains any Crysterm tags (`{...}` / `{/...}`), decided
     # from the raw text independent of `@parse_tags`/`no_tags` mode, so a later
     # `parse_tags = true` flip still finds the flag set. When false,
-    # `process_content` skips `_parse_tags` entirely.
+    # `process_content` skips `expand_tags` entirely.
     @_content_has_tags = false
 
     # Whether `@content` contains any brace at all. Distinct from
@@ -175,7 +179,7 @@ module Crysterm
     # later lines — must force the slow path.
     @_content_has_align_tag = false
 
-    # Whether `_parse_tags` over the current content ends with tag state still
+    # Whether `expand_tags` over the current content ends with tag state still
     # open: a non-empty fg/bg/flag stack (an unclosed `{red-fg}`/`{bold}`) or an
     # unterminated `{escape}`. This is the parser state a full reparse would carry
     # across an append boundary, so `append_content`'s fast path — which parses the
@@ -183,7 +187,7 @@ module Crysterm
     # the segment contains a brace.
     @_content_open_tags_at_end = false
 
-    # The `style_to_attr(style)` value the cached `@_clines.attr` was computed against.
+    # The `style_to_attr(style)` value the cached `@wrapped_lines.attr` was computed against.
     # `_parse_attr` depends only on content and this base attribute, so it's
     # skipped when both are unchanged. `nil` forces the first computation.
     @_parse_attr_default : Int64? = nil
@@ -201,9 +205,11 @@ module Crysterm
     #
     # * *no_tags* — store the content with tag parsing disabled for this widget
     #   (kept as `@_content_no_tags`, so later reparses stay literal too).
-    # * *no_clear* — vestigial (stale cells are cleared centrally by
-    #   `Window#repaint`); accepted for call compatibility.
-    def set_content(content = "", no_clear = false, no_tags = false)
+    #
+    # Keyword-only past *content*: `set_content "x", true` used to mean
+    # "no_clear", a vestigial flag that has been dropped (stale cells are
+    # cleared centrally by `Window#repaint`).
+    def set_content(content = "", *, no_tags = false)
       # Fold deferred appends so the comparison below sees current content.
       fold_content_tail
       # Idempotent no-op for re-setting identical content. Gates on the tag mode
@@ -224,7 +230,7 @@ module Crysterm
       @_content_version += 1
 
       process_content(no_tags)
-      # Detached: `process_content` bailed (no window), leaving `@_clines.fake`
+      # Detached: `process_content` bailed (no window), leaving `@wrapped_lines.fake`
       # describing the PREVIOUS content. The line editors
       # (`insert_line`/`delete_line`/`replace_line`/... and their index math)
       # trust `fake` unconditionally, so a stale copy would desync them from the
@@ -237,10 +243,10 @@ module Crysterm
       # `rebuild_content_from_raw` this is an identity resync (fake is
       # re-derived from the raw lines the editor just spliced).
       if window?.nil?
-        @_clines.fake.clear
-        @_clines.fake.concat(content.split(RAW_LINE_REGEX)) unless content.empty?
-        @_clines.ftor.clear
-        @_clines.rtof.clear
+        @wrapped_lines.fake.clear
+        @wrapped_lines.fake.concat(content.split(RAW_LINE_REGEX)) unless content.empty?
+        @wrapped_lines.ftor.clear
+        @wrapped_lines.rtof.clear
       end
       update
       emit(Crysterm::Event::ContentChanged)
@@ -251,18 +257,35 @@ module Crysterm
     # widget draws, not what was set (see `#content` for the raw half). Use
     # `#rendered_text` for the same view with the SGR stripped back out.
     def rendered_content : String
-      return "" if @_clines.empty?
-      @_clines.fake.join "\n"
+      return "" if @wrapped_lines.empty?
+      @wrapped_lines.fake.join "\n"
     end
 
     # Replaces the content with *content*'s plain text: inline SGR is stripped
     # out and tags are kept literal (`no_tags`), so nothing in *content* can
     # style the widget. The setter counterpart to `#rendered_text`.
-    #
-    # *no_clear* is vestigial; see `#set_content`.
-    def set_text(content = "", no_clear = false)
+    def set_text(content = "")
       content = content.gsub SGR_REGEX, ""
-      set_content content, no_clear, true
+      set_content content, no_tags: true
+    end
+
+    # The widget's text ↔ Qt's `QLabel#text` / `QAbstractButton#text`. An alias
+    # of the raw `#content`, so `#text` and `#content` can never disagree (the
+    # guarantee the marker controls also honor).
+    def text : String
+      content
+    end
+
+    # Property form of `#set_text`: stores *value*'s **plain** text — inline SGR
+    # is stripped and tags are kept literal, so nothing in *value* can style the
+    # widget. Use `#content=` when tags/SGR in the string are meant to render.
+    #
+    # Subclasses whose text is inherently markup-bearing (`Label`,
+    # `AbstractButton` and their descendants) override this with the
+    # tag-preserving `#content=` behavior.
+    def text=(value : String) : String
+      set_text value
+      value
     end
 
     # `#rendered_content` with the inline SGR stripped back out: the plain text

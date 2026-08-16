@@ -370,7 +370,8 @@ module Crysterm
     property ihorizontal : Int32 = 0
     property ivertical : Int32 = 0
 
-    property _scroll_bottom : Int32 = 0
+    # :nodoc: memoized scroll extent for the frame (ex-`_scroll_bottom`).
+    property scroll_bottom : Int32 = 0
     property _clean_sides : Bool? = nil
 
     # This box's extent — `Rectangle#size` parity, Qt's `QRect::size()`.
@@ -458,7 +459,7 @@ module Crysterm
       @ibottom = 0
       @ihorizontal = 0
       @ivertical = 0
-      @_scroll_bottom = 0
+      @scroll_bottom = 0
       @_clean_sides = nil
       self
     end

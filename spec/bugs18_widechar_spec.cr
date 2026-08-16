@@ -139,16 +139,16 @@ describe "BUGS18 wide-char measuring/painting" do
 
       cols = sb.awidth - 0 # no border/padding on this box
       # No wrap: legend(1) + plot(6) + caption(1) == 8 real lines, not 9.
-      sb._clines.size.should eq 8
-      # str_width, not raw Unicode.display_width: `_clines.fake` holds the
+      sb.wrapped_lines.size.should eq 8
+      # str_width, not raw Unicode.display_width: `wrapped_lines.fake` holds the
       # POST-parse line, with `{color-fg}`/`{/}` legend tags already turned
       # into real SGR escape sequences. Those sequences' printable bytes
       # ("[32m") would otherwise count as extra display columns; str_width
       # strips SGR before measuring, matching what legend_line's own budget
       # check (also str_width) guaranteed at build time.
-      sb.str_width(sb._clines.fake[0]).should be <= cols
+      sb.str_width(sb.wrapped_lines.fake[0]).should be <= cols
       # The bottom caption row survives instead of being pushed off-screen.
-      sb._clines.fake.last.should contain "web"
+      sb.wrapped_lines.fake.last.should contain "web"
     end
   end
 end

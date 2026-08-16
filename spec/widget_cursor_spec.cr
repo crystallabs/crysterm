@@ -36,7 +36,7 @@ describe "per-widget cursor" do
     w = Crysterm::Widget::Box.new parent: s, keys: true
     w.focus
 
-    w.cursor!.shape = :underline
+    w.ensure_cursor.shape = :underline
     s.active_cursor.should be(w.cursor.not_nil!)
 
     w.reset_cursor
@@ -49,8 +49,8 @@ describe "per-widget cursor" do
     a = Crysterm::Widget::Box.new parent: s, keys: true
     b = Crysterm::Widget::Box.new parent: s, keys: true
 
-    a.cursor!.shape = :line
-    b.cursor!.shape = :underline
+    a.ensure_cursor.shape = :line
+    b.ensure_cursor.shape = :underline
 
     a.focus
     s.active_cursor.shape.line?.should be_true

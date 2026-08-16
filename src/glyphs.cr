@@ -187,7 +187,7 @@ module Crysterm
       CursorBlock # artificial cursor, `block` shape — a literal glyph for any
       # consumer that needs to *draw* a block cursor (e.g. a custom `none`-shape
       # cursor with no `style.fill_char` of its own). The default steady-block
-      # cursor itself never uses this: `Window#_artificial_cursor_attr` draws it
+      # cursor itself never uses this: `Window#artificial_cursor_attr` draws it
       # by reverse-videoing whatever character already occupies the cell, which
       # correctly keeps the underlying glyph visible (like a real terminal's
       # hardware cursor) rather than painting over it.

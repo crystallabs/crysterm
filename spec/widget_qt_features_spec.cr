@@ -286,7 +286,7 @@ describe Crysterm::Widget::PlainTextEdit do
     s.repaint
     # Tall enough to fit: no vertical bar, wrap reserved exactly `content_margin_x`.
     ta.show_scrollbar?.should be_false
-    ta._clines.margin.should eq ta.content_margin_x
+    ta.wrapped_lines.margin.should eq ta.content_margin_x
 
     # Shrink height only; width/content/horizontal scroll unchanged — only
     # whether the AsNeeded bar is now needed (`content_margin_x`) changes.
@@ -297,7 +297,7 @@ describe Crysterm::Widget::PlainTextEdit do
     # Regression: wrapped lines must re-wrap to reserve the now-shown bar's
     # column. Without the margin in the reparse cache key, `margin` stayed
     # stale and the bar overpainted the last content column.
-    ta._clines.margin.should eq ta.content_margin_x
+    ta.wrapped_lines.margin.should eq ta.content_margin_x
   end
 
   it "scrolls horizontally for non-wrapped long lines, following the caret" do
@@ -605,7 +605,7 @@ describe Crysterm::Widget::Log do
     # no-op) and let the buffer grow unbounded. Must still get trimmed.
     log = Crysterm::Widget::Log.new parent: s, max_lines: 2
     50.times { |i| log.add "line #{i}" }
-    log.@_clines.fake.size.should be <= 3
+    log.@wrapped_lines.fake.size.should be <= 3
   end
 end
 

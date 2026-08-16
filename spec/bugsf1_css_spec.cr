@@ -198,12 +198,12 @@ describe "BUGS-F1 #21 @media queries are re-evaluated after a terminal resize" d
         # Mirror the resize path (resize; realloc; render) — nothing marks CSS
         # dirty, so this exercises the media-size-change trigger in `repaint`.
         screen.width = 40
-        screen.realloc
+        screen.spec_realloc
         screen.repaint
         box.styles.normal.fg.should eq rgb("green")
 
         screen.width = 100
-        screen.realloc
+        screen.spec_realloc
         screen.repaint
         box.styles.normal.fg.should eq rgb("white")
       end

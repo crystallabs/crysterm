@@ -257,7 +257,7 @@ module Crysterm
       # Renders via the base implementation (box, border, background), then — in
       # `:ansi` mode — sizes the emulator to the content area and paints its grid
       # over it. `:text` mode is left entirely to `Log`/`ScrollableText`.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         coords = super
         return coords unless coords && @mode.ansi?
 
@@ -321,7 +321,7 @@ module Crysterm
       end
 
       # :ditto:
-      def scroll_to(offset, always = false)
+      def scroll_to(offset, *, always = false)
         if em = @emulator
           em.scroll_to offset.to_i
           emit Crysterm::Event::Scroll

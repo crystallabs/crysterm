@@ -7,7 +7,7 @@ include Crysterm
 # src/widget_cursor.cr) were `window?.try`-guarded, so calling them on a
 # DETACHED widget silently discarded the setting — contradicting the module's
 # "recorded and applied on focus" contract and the always-recording
-# `cursor!.shape=` path. They now record on the widget's own cursor while
+# `ensure_cursor.shape=` path. They now record on the widget's own cursor while
 # detached; the setting takes effect once attached and focused.
 
 # A widget with no window: a parentless construction falls back to the global
@@ -48,9 +48,9 @@ describe "BUGS13 W15: cursor settings on a detached widget are recorded" do
     s = headless_screen(20, 6)
     w = detached_box s
     w.show_cursor
-    w.cursor.not_nil!._hidden.should be_false
+    w.cursor.not_nil!.hidden?.should be_false
     w.hide_cursor
-    w.cursor.not_nil!._hidden.should be_true
+    w.cursor.not_nil!.hidden?.should be_true
   ensure
     s.try &.destroy
   end

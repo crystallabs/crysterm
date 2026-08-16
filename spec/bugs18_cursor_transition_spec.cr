@@ -82,7 +82,7 @@ describe "apply_cursor artificial<->hardware transition (B18-04)" do
   it "hides the hardware cursor for a window whose cursor is artificial from the start" do
     # Mechanism (b) end-to-end: constructor `cursor:` with a custom shape.
     # `enter`'s `hide_cursor` takes the artificial branch (which only records
-    # `_hidden`); without the transition handling, civis would never be
+    # `hidden?`); without the transition handling, civis would never be
     # emitted and the terminal's own cursor would stay visible all session.
     c = Crysterm::Cursor.new
     c.shape = Tput::CursorShape::None

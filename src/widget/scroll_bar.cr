@@ -302,7 +302,7 @@ module Crysterm
         end
       end
 
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         base = style
         with_inner_coords(with_children) do |xi, xl, yi, yl|
           horizontal = @orientation.horizontal?

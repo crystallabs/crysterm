@@ -33,7 +33,7 @@ describe "BUGS17 B17-22: Splitter divider drag inside a scrolled container" do
     s.repaint
 
     k = 3
-    sc.scroll_to k, true
+    sc.scroll_to k, always: true
     s.repaint
 
     lp = sp.lpos.not_nil!
@@ -68,7 +68,7 @@ describe "BUGS17 B17-23: SizeGrip drag-resize inside a scrolled container" do
     s.repaint
 
     k = 3
-    sc.scroll_to k, true
+    sc.scroll_to k, always: true
     s.repaint
 
     # Sanity: the target and its grip are painted k rows above their layout row.
@@ -113,7 +113,7 @@ describe "BUGS17 B17-18: ColorDialog gradient hit-test inside a scrolled contain
     s.repaint
 
     k = 3
-    sc.scroll_to k, true
+    sc.scroll_to k, always: true
     s.repaint
 
     lp = cd.lpos.not_nil!

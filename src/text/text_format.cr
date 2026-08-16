@@ -127,8 +127,9 @@ module Crysterm
     # underlined); colors apply when set (`-1` maps to the terminal default).
     # `dim` has no packed flag in the cell model and `code` is semantic-only;
     # neither is rendered. The mask is ignored — for mask-aware Qt patch
-    # semantics use `#merge_onto`.
-    def apply_to_attr(attr : Int64) : Int64
+    # semantics use `#merge_onto`. Protected: the packed cell-attr word is
+    # the render pipeline's private encoding, not user API.
+    protected def apply_to_attr(attr : Int64) : Int64
       flags = ::Crysterm::Attr.flags(attr)
       flags |= ::Crysterm::Attr::BOLD if bold?
       flags |= ::Crysterm::Attr::ITALIC if italic?
@@ -143,8 +144,9 @@ module Crysterm
 
     # Applies this format as a *patch* over a packed cell-attr word (Qt merge
     # semantics: only attributes the format's mask specifies change — set or
-    # cleared per their value; colors apply when set).
-    def merge_onto(attr : Int64) : Int64
+    # cleared per their value; colors apply when set). Protected like
+    # `#apply_to_attr`.
+    protected def merge_onto(attr : Int64) : Int64
       flags = ::Crysterm::Attr.flags(attr)
       {% for a, flag in {bold: "BOLD", italic: "ITALIC", underline: "UNDERLINE", strike: "STRIKE", inverse: "REVERSE", blink: "BLINK"} %}
         if attr_mask.{{ a.id }}?

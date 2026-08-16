@@ -24,8 +24,8 @@ module Crysterm
   #   `{center}…{/center}` / `{right}…{/right}` wrapping tags — the export
   #   form, since widgets understand it.
   # - `{link=URL}…{/link}` — anchors, with `{`/`}` in the URL percent-encoded.
-  #   The one form the widget parser does NOT match; feeding it to a plain
-  #   widget leaks the tag text, so strip links first if that matters.
+  #   A plain widget has no anchor rendering and drops the tags, keeping the
+  #   link text (both parsers ride `.each_token`, which recognizes the form).
   # - `{dim}`/`{code}` — flags with no widget/SGR rendering; parsed and stored
   #   (`code` is the semantic verbatim marker).
   #
@@ -70,6 +70,128 @@ module Crysterm
       {TextCharFormat::Attr::Blink, "blink"},
       {TextCharFormat::Attr::Code, "code"},
     ]
+
+    # What `.each_token` yields.
+    enum TokenKind
+      # A verbatim run: plain text between tags, an `{escape}…{/escape}` body
+      # (or the unterminated-escape remainder), or the literal brace of
+      # `{open}`/`{close}` — normalized here, consumers never see those tags.
+      Text
+      # The `{|}` right-align separator.
+      Bar
+      # A `{link=URL}` opener; the value is the URL, percent-decoded.
+      Link
+      # A `{name}`/`{/name}` tag per `TAG_REGEX`; the value is the raw name
+      # (dash forms as written, compound `{a,b}` unsplit — dispatch is the
+      # consumer's), the flag whether it is the `{/...}` closer.
+      Tag
+    end
+
+    # Whether *c* may appear in a tag name — the character class `[\w\-,;!#]`
+    # of `TAG_REGEX`, where `\w` (PCRE2 default, non-UCP) is ASCII
+    # `[A-Za-z0-9_]`. Lets `.each_token` scan a `{tag}` by index instead of an
+    # allocating anchored regex match.
+    def self.tag_name_char?(c : Char) : Bool
+      c.ascii_letter? || c.ascii_number? ||
+        c == '_' || c == '-' || c == ',' || c == ';' || c == '!' || c == '#'
+    end
+
+    # Lexes tag markup into tokens — the ONE tokenizer both tag consumers
+    # ride (`TextTags::Parser` and `Widget#_parse_tags`), so the two grammars
+    # cannot drift. Yields `{kind, value, closer?}` triples in input order;
+    # see `TokenKind` for the vocabulary. A lone `{`/`}` that opens no
+    # recognized token is dropped (the shared drop-malformed policy). Returns
+    # whether the input ended inside an unterminated `{escape}` — parser
+    # state a continuation of the text would inherit.
+    #
+    # Kept O(n) and allocation-lean deliberately (this is the widget content
+    # parser's hot path): a `{escape}`/`{|}` presence test up front skips
+    # their per-position checks entirely, tags are scanned by index (no
+    # anchored regex `MatchData` per tag), and a plain run between braces is
+    # sliced once.
+    def self.each_token(text : String, & : TokenKind, String, Bool ->) : Bool
+      esc = false
+      pos = 0
+      size = text.size
+      anchored = Regex::MatchOptions::ANCHORED
+      has_escape = text.includes?("{escape}")
+      has_bar = text.includes?("{|}")
+
+      while pos < size
+        if has_escape
+          if !esc && (cap = /\{escape\}/.match(text, pos, options: anchored))
+            pos += cap[0].size
+            esc = true
+            next
+          end
+          # Body group is `*?`, not `+?`: an EMPTY `{escape}{/escape}` pair —
+          # the natural `"{escape}#{untrusted}{/escape}"` idiom with an empty
+          # string — must still match, else it takes the unterminated-escape
+          # bail below and dumps the remainder verbatim.
+          if esc && (cap = /([\s\S]*?)\{\/escape\}/.match(text, pos, options: anchored))
+            pos += cap[0].size
+            yield TokenKind::Text, cap[1], false unless cap[1].empty?
+            esc = false
+            next
+          end
+          if esc
+            # Unterminated escape: the rest is verbatim.
+            yield TokenKind::Text, text[pos..], false if pos < size
+            break
+          end
+        end
+
+        if has_bar && text[pos, 3]? == "{|}"
+          yield TokenKind::Bar, "", false
+          pos += 3
+          next
+        end
+
+        if text[pos]? == '{'
+          # `{link=…}` — '=' is outside the tag-name class, so this is
+          # checked before the tag scan, mirroring `LINK_REGEX`.
+          if text[pos + 1, 5]? == "link=" && (close = text.index('}', pos + 6))
+            url = text[pos + 6...close]
+            yield TokenKind::Link, url.gsub("%7B", "{").gsub("%7D", "}"), false
+            pos = close + 1
+            next
+          end
+
+          slash = text[pos + 1]? == '/'
+          name_start = slash ? pos + 2 : pos + 1
+          k = name_start
+          while (nc = text[k]?) && tag_name_char?(nc)
+            k += 1
+          end
+          if text[k]? == '}'
+            param = text[name_start...k]
+            pos = k + 1
+            case param
+            when "open"  then yield TokenKind::Text, "{", false
+            when "close" then yield TokenKind::Text, "}", false
+            else              yield TokenKind::Tag, param, slash
+            end
+            next
+          end
+        end
+
+        # A run of plain (brace-free) text passes through verbatim. Find the
+        # next brace by index, not an anchored regex match, to avoid a per-run
+        # `MatchData`/capture allocation.
+        b1 = text.index('{', pos)
+        b2 = text.index('}', pos)
+        nb = b1 ? (b2 ? Math.min(b1, b2) : b1) : (b2 || size)
+        if nb > pos
+          yield TokenKind::Text, text[pos...nb], false
+          pos = nb
+          next
+        end
+
+        # A lone brace that began no recognized token: dropped.
+        pos += 1
+      end
+      esc
+    end
 
     # Parses tag markup into detached blocks.
     def self.parse(text : String) : Array(TextBlock)
@@ -171,64 +293,23 @@ module Crysterm
       @cur_list_spec : {TextListFormat::Style, Int32, Int32}?
 
       def parse(text : String) : Array(TextBlock)
-        anchored = Regex::MatchOptions::ANCHORED
-        has_escape = text.includes?("{escape}")
-        has_bar = text.includes?("{|}")
-        esc = false
-        pos = 0
-        size = text.size
-
-        while pos < size
-          if has_escape
-            if !esc && (cap = /\{escape\}/.match(text, pos, options: anchored))
-              pos += cap[0].size
-              esc = true
-              next
-            end
-            if esc && (cap = /([\s\S]*?)\{\/escape\}/.match(text, pos, options: anchored))
-              pos += cap[0].size
-              append_text cap[1]
-              esc = false
-              next
-            end
-            if esc
-              # Unterminated escape: the rest is verbatim (matches `_parse_tags`).
-              append_text text[pos..]
-              break
-            end
-          end
-
-          if has_bar && text[pos, 3]? == "{|}"
-            pos += 3
-            next
-          end
-
-          if cap = TextTags::LINK_REGEX.match(text, pos, options: anchored)
-            pos += cap[0].size
-            @links << cap[1].gsub("%7B", "{").gsub("%7D", "}")
+        # The lexical layer is the shared `TextTags.each_token` (one grammar
+        # with the widget's SGR expander, `Widget#expand_tags`); this state
+        # machine owns only the document-format semantics of the tokens.
+        TextTags.each_token(text) do |kind, value, slash|
+          case kind
+          in .text?
+            append_text value
+          in .bar?
+            # `{|}`, the right-align separator, has no document
+            # representation and is dropped.
+          in .link?
+            @links << value
             @fmt = nil
-            next
+          in .tag?
+            handle_tag slash, value
           end
-
-          if cap = TextTags::TAG_REGEX.match(text, pos, options: anchored)
-            pos += cap[0].size
-            handle_tag !cap[1].empty?, cap[2]
-            next
-          end
-
-          b1 = text.index('{', pos)
-          b2 = text.index('}', pos)
-          nb = b1 ? (b2 ? Math.min(b1, b2) : b1) : (b2 || size)
-          if nb > pos
-            append_text text[pos...nb]
-            pos = nb
-            next
-          end
-
-          # A lone brace that began no recognized tag: dropped.
-          pos += 1
         end
-
         finish_block
         @blocks
       end
@@ -256,14 +337,10 @@ module Crysterm
         end
 
         case param
-        when "open"
-          append_text "{"
-          return
-        when "close"
-          append_text "}"
-          return
         when "link"
-          # Only the closer reaches here (`{link=…}` matched earlier).
+          # Only the closer reaches here — the `{link=…}` opener is its own
+          # token kind (`{open}`/`{close}` likewise never reach this: the
+          # tokenizer normalizes them into literal-brace text tokens).
           @links.pop? if slash
           @fmt = nil
           return
@@ -408,13 +485,15 @@ module Crysterm
     end
 
     # Replaces the whole content from tag markup. Same reset semantics as
-    # `set_plain_text` (not undoable, cursors rewind).
-    def set_tags(text : String) : Nil
+    # `set_plain_text` (not undoable, cursors rewind). Returns the assigned
+    # text.
+    def set_tags(text : String) : String
       replace_content(TextTags.parse(text))
+      text
     end
 
     # `=`-setter spelling of `#set_tags`.
-    def tags=(text : String) : Nil
+    def tags=(text : String) : String
       set_tags(text)
     end
 
@@ -433,6 +512,11 @@ module Crysterm
     # The fragment as tag markup (see `TextTags`).
     def to_tags : String
       TextTags.generate(@blocks)
+    end
+
+    # Alias for `#to_tags` — the bare-reader spelling the document also has.
+    def tags : String
+      to_tags
     end
   end
 end

@@ -120,7 +120,7 @@ class Scene < Widget::Box
     Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg))
   end
 
-  def paint(with_children = true)
+  def paint(*, with_children = true)
     # Establish `@lpos`/background via the normal box path (the compositor has
     # already cleared the buffer to the default cell, so this writes nothing new
     # on a full-screen default-styled box), then overpaint the scene.
@@ -229,13 +229,13 @@ scene = Scene.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 # genuine per-frame figures: render/draw/flush rates (R/D/F) plus the actual
 # terminal bandwidth (TX: bytes/s actually written after diffing; Σ: running
 # total). Added last, so it paints on top of the scene.
-Widget::Fps.new \
+Widget::FPS.new \
   parent: s, bottom: 0, left: 0,
   format: " FPS %s (avg %s)  R/D/F %s/%s/%s  TX %s/s  Σ %s ",
-  args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::FpsAvg,
-         Widget::Fps::Metric::Render, Widget::Fps::Metric::Draw,
-         Widget::Fps::Metric::Flush, Widget::Fps::Metric::ThroughputActualH,
-         Widget::Fps::Metric::TotalH],
+  args: [Widget::FPS::Metric::Fps, Widget::FPS::Metric::FpsAvg,
+         Widget::FPS::Metric::Render, Widget::FPS::Metric::Draw,
+         Widget::FPS::Metric::Flush, Widget::FPS::Metric::ThroughputActualH,
+         Widget::FPS::Metric::TotalH],
   style: Style.new(fg: "white", bg: "black")
 
 # One master clock advances the frame; the render right after it repaints the

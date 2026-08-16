@@ -12,14 +12,14 @@ include Crysterm
 
 # Counts calls to `#awidth` made with the default (un-rendered) argument — the
 # form both `UniformGrid#before_flow`'s scan and `Flow#flow_place`'s fit check
-# use (`el.awidth`). `#base_render` also calls `awidth(true)` on every widget
+# use (`el.awidth`). `#base_render` also calls `awidth(rendered: true)` on every widget
 # every frame (widget_rendering.cr) to read its own rendered size; that's
 # unrelated per-widget render bookkeeping, not the double layout-resolution
 # O4-16 is about, so it's excluded from the count.
 private class AwidthCountingBox < Widget::Box
   property awidth_calls = 0
 
-  def awidth(rendered = false) : Int32
+  def awidth(*, rendered = false) : Int32
     @awidth_calls += 1 unless rendered
     super
   end

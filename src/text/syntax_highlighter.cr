@@ -51,14 +51,13 @@ module Crysterm
         @ev_contents_change = nil
         # Drop this highlighter's overlays and user states so the old document
         # renders plain again and a later highlighter starts from clean
-        # `previous_block_state`s.
-        changed = false
+        # `previous_block_state`s. The setters are change-guarded and poke the
+        # document themselves (`TextDocument#note_overlay_change`), so views
+        # repaint without an extra emission here.
         old.blocks.each do |b|
-          changed = true if b.additional_formats || b.user_state != -1
           b.additional_formats = nil
           b.user_state = -1
         end
-        old.emit Crysterm::Event::ContentsChanged, 0, 0, 0 if changed
       end
       @document = doc
       if doc
@@ -132,11 +131,11 @@ module Crysterm
       # inherent limitation of the single overlay slot per block.
       return if removed == 0 && added == 0
       doc = @document || return
-      b1 = doc.block_at(pos)[0]
+      b1 = doc.block_at(pos).index
       # A removal ending exactly at a block boundary changes the *following*
       # block's `previous_block_state` without touching its own text, so the
       # window extends one block whenever anything was removed.
-      b2 = doc.block_at(pos + added + (removed > 0 ? 1 : 0))[0]
+      b2 = doc.block_at(pos + added + (removed > 0 ? 1 : 0)).index
       run_highlight { highlight_from(b1, b2) }
     end
 
@@ -158,34 +157,29 @@ module Crysterm
       end
     end
 
-    # Wraps a highlight batch: sets the reentrancy guard and, only when a
-    # block's overlay or state actually changed, pokes the document with a
-    # zero-length `ContentsChanged` so attached views repaint. Gating the poke
-    # on real change keeps two highlighters on one document from re-triggering
-    # each other forever.
+    # Wraps a highlight batch in the reentrancy guard. Repaint notification
+    # is the overlay setters' job: `TextBlock#additional_formats=`/
+    # `#user_state=` are change-guarded and poke the document with a
+    # zero-length `ContentsChanged` (`TextDocument#note_overlay_change`) only
+    # on real change — which is also what keeps two highlighters on one
+    # document from re-triggering each other forever (they ignore
+    # zero-length pokes).
     private def run_highlight(&) : Nil
-      doc = @document || return
-      @batch_changed = false
+      return unless @document
       @highlighting = true
       begin
         yield
       ensure
         @highlighting = false
       end
-      doc.emit Crysterm::Event::ContentsChanged, 0, 0, 0 if @batch_changed
     end
-
-    @batch_changed = false
 
     private def highlight_one(block : TextBlock, index : Int32) : Nil
       @current_block = block
       @current_index = index
       @pending = nil
-      old_formats = block.additional_formats
-      old_state = block.user_state
       highlight_block(block.text)
       block.additional_formats = @pending
-      @batch_changed = true if block.user_state != old_state || @pending != old_formats
       @current_block = nil
     end
   end

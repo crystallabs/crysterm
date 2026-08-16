@@ -499,11 +499,43 @@ module Crysterm
       geometry
     end
 
+    # A short, human-readable identification for logs and debugging:
+    # class, `#uid`, `#name` when set, and the current geometry —
+    # e.g. `Box#7 "sidebar" 20x5@(0,0)`.
+    #
+    # The geometry is the last *painted* rectangle when the widget has one,
+    # otherwise the live resolved one; it is omitted entirely on a widget that
+    # is not attached to a window (nothing to resolve against).
+    def to_s(io : IO) : Nil
+      io << self.class.name.rpartition("::")[2]
+      io << '#' << uid
+      (n = @name) && !n.empty? && (io << ' ' << n.inspect)
+      if lp = @lpos
+        io << ' ' << (lp.xl - lp.xi) << 'x' << (lp.yl - lp.yi) << "@(" << lp.xi << ',' << lp.yi << ')'
+      elsif window?
+        io << ' ' << awidth << 'x' << aheight << "@(" << aleft << ',' << atop << ')'
+      end
+    end
+
+    # :ditto:
+    def inspect(io : IO) : Nil
+      io << "#<"
+      to_s io
+      io << '>'
+    end
+
     # Alias of `#to_back` ↔ Qt's `QWidget::lower()`. (`#to_front` stays the
     # canonical raise-to-top call — a method literally named `raise` would
     # shadow Crystal's own `raise`.)
     def lower : Nil
       to_back
+    end
+
+    # The counterpart of `#lower`: alias of `#to_front` ↔ Qt's
+    # `QWidget::raise()`. Spelled `lift` because a method named `raise` would
+    # shadow Crystal's own `raise` — the canonical spelling stays `#to_front`.
+    def lift : Nil
+      to_front
     end
 
     # Moves this widget to *sibling*'s stacking slot ↔ Qt's
@@ -719,7 +751,7 @@ module Crysterm
         append child
       end
 
-      set_content content, true
+      set_content content
       label.try do |t|
         set_label t, :left
       end
@@ -804,7 +836,7 @@ module Crysterm
     # widget.capture path: "widget.png"
     # widget.capture format: "gif", duration: 2.seconds
     # ```
-    def capture(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : Bytes?
+    def capture(*, include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : Bytes?
       region = decoration_region(include_decorations, dxi, dxl, dyi, dyl)
       return unless region
       window.capture(*region, **opts)
@@ -873,7 +905,7 @@ module Crysterm
     # widget.dump path: "w.dump" # writes the file
     # widget.dump include_decorations: false
     # ```
-    def dump(include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : String?
+    def dump(*, include_decorations = true, dxi = 0, dxl = 0, dyi = 0, dyl = 0, **opts) : String?
       region = decoration_region(include_decorations, dxi, dxl, dyi, dyl)
       return unless region
       window.dump(*region, **opts)

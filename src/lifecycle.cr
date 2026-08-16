@@ -46,6 +46,8 @@ module Crysterm
   # a suspend leaves the shell prompt inside the app's alt buffer with pointer
   # motion spewing SGR sequences. Best-effort per window: a dead fd must not
   # block the rest.
+  #
+  # :nodoc: process-lifecycle plumbing; the signal traps below are its callers.
   def self.suspend_terminals : Nil
     Window.instances.dup.each do |w|
       next unless w.connected?

@@ -689,13 +689,13 @@ module Crysterm
       # (re)painted at this frame, or `nil` if it shouldn't be painted at all —
       # hidden (directly or via an ancestor), detached, or with no resolvable
       # box yet. The `visible_in_tree?` guard is required: a standalone
-      # `Rendered` listener must not resolve `coords(true)` against a hidden
+      # `Rendered` listener must not resolve `coords(rendered: true)` against a hidden
       # ancestor with no rendered position, which raises and kills the render
       # fiber.
       protected def overlay_geometry : Tuple(Int32, Int32, Int32, Int32)?
         return unless visible_in_tree?
         window? || return
-        pos = coords(true, into: @overlay_geom_lpos) || return
+        pos = coords(rendered: true, into: @overlay_geom_lpos) || return
         {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
       end
     end

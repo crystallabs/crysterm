@@ -108,9 +108,9 @@ describe Crysterm::TextTags do
   describe ".generate" do
     it "round-trips text, char formats and block formats" do
       doc = TextDocument.new("hello world\nsecond line")
-      doc.apply_char_format(0, 5, TextCharFormat.new(bold: true, fg: 0xFF0000))
-      doc.apply_char_format(6, 11, TextCharFormat.new(italic: true, underline: true, bg: 0x00FF00))
-      doc.apply_block_format(12, 12, TextBlockFormat.new(heading_level: 3, alignment: Tput::AlignFlag::HCenter))
+      doc.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true, fg: 0xFF0000))
+      doc.cursor(6, 11).set_char_format(TextCharFormat.new(italic: true, underline: true, bg: 0x00FF00))
+      doc.cursor(12, 12).set_block_format(TextBlockFormat.new(heading_level: 3, alignment: Tput::AlignFlag::HCenter))
 
       tags = doc.to_tags
       doc2 = TextDocument.from_tags(tags)
@@ -129,9 +129,9 @@ describe Crysterm::TextTags do
 
     it "round-trips anchors" do
       doc = TextDocument.new("click me")
-      doc.apply_char_format(6, 8, TextCharFormat.new(anchor_href: "http://x.io/{a}"))
+      doc.cursor(6, 8).set_char_format(TextCharFormat.new(anchor_href: "http://x.io/{a}"))
       doc2 = TextDocument.from_tags(doc.to_tags)
-      doc2.char_format_at(8).anchor_href.should eq "http://x.io/{a}"
+      doc2.typing_format_at(8).anchor_href.should eq "http://x.io/{a}"
     end
 
     it "escapes literal braces" do
@@ -151,8 +151,8 @@ describe Crysterm::TextTags do
       c.set_position(0)
       c.set_position(5, :keep_anchor)
       c.create_list(TextListFormat.new(style: :decimal, indent: 2, start: 3))
-      doc.apply_block_format(8, 8, TextBlockFormat.new(quote_level: 2))
-      doc.apply_block_format(15, 15, TextBlockFormat.new(horizontal_rule: true))
+      doc.cursor(8, 8).set_block_format(TextBlockFormat.new(quote_level: 2))
+      doc.cursor(15, 15).set_block_format(TextBlockFormat.new(horizontal_rule: true))
 
       doc2 = TextDocument.from_tags(doc.to_tags)
       lf1 = doc2.blocks[0].block_format.list_format.not_nil!

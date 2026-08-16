@@ -45,8 +45,8 @@ describe "Window#draw hardware cursor hide during the frame" do
     s = hw_hide_screen art_out
     prime s
     s.cursor.artificial = true
-    s.cursor._hidden = false
-    s.cursor._state = 1
+    s.cursor.hidden = false
+    s.cursor.state = 1
     s.cursor.shape = Tput::CursorShape::Block
     s.tput.show_cursor
     art_out.clear
@@ -57,6 +57,6 @@ describe "Window#draw hardware cursor hide during the frame" do
     # Window#hide_cursor emits no escape, so the burst must not go through it).
     art_out.to_s.includes?("\e[?25l").should be_true
     # The artificial cursor's own visibility was untouched by the burst.
-    s.cursor._hidden.should be_false
+    s.cursor.hidden?.should be_false
   end
 end

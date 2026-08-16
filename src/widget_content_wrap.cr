@@ -33,7 +33,7 @@ module Crysterm
     @_parse_attr_style_default : Int64? = nil
 
     # `awidth_hint`, when given, is this widget's already-resolved absolute width
-    # for the current frame — the render path knows it cheaply (`awidth(true)` is
+    # for the current frame — the render path knows it cheaply (`awidth(rendered: true)` is
     # an O(1) `lpos` read once the parent has rendered) and passes it in to skip
     # the default `awidth` ancestor-chain walk. Off-render callers (resize/
     # attach/scroll) omit it and resolve the width themselves.
@@ -45,13 +45,13 @@ module Crysterm
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = (awidth_hint || awidth) - ihorizontal
-      # `@_clines.margin` is part of the wrap cache key: an `AsNeeded` scroll bar's
+      # `@wrapped_lines.margin` is part of the wrap cache key: an `AsNeeded` scroll bar's
       # presence (and thus `content_margin_x`) can flip from a height-only change
       # (resize, `widget.height=`) that leaves the other cache-key fields
       # unchanged, and the stale-margin lines would let the bar overpaint the last
       # content column. The convergence loop below leaves
-      # `@_clines.margin == content_margin_x`, so this doesn't re-fire in steady state.
-      if @_clines.nil? || @_clines.empty? || @_clines.width != colwidth || @_clines.content_version != @_content_version || @_clines.base_x != @child_base_x || @_clines.margin != content_margin_x || @_clines.tab_size != style.tab_size || @_clines.tab_char != style.tab_char || @_clines.fill_char != style.fill_char
+      # `@wrapped_lines.margin == content_margin_x`, so this doesn't re-fire in steady state.
+      if @wrapped_lines.nil? || @wrapped_lines.empty? || @wrapped_lines.width != colwidth || @wrapped_lines.content_version != @_content_version || @wrapped_lines.base_x != @child_base_x || @wrapped_lines.margin != content_margin_x || @wrapped_lines.tab_size != style.tab_size || @wrapped_lines.tab_char != style.tab_char || @wrapped_lines.fill_char != style.fill_char
         # A reparse reads raw `@content`, so fold deferred appends first (the
         # cache-hit path below never reaches here).
         fold_content_tail
@@ -64,21 +64,21 @@ module Crysterm
         # renderer (keyed off `window.full_unicode?`).
 
         # Parse tags only when not disabled and content actually has tags; skips
-        # `_parse_tags`'s regex scan for plain text. `@_content_no_tags` records
+        # `expand_tags`'s regex scan for plain text. `@_content_no_tags` records
         # the mode content was set with (e.g. via `#set_text`), so a later
         # cache-miss reparse (width change, resize, scroll, attach — all calling
         # with the default `no_tags = false`) keeps tags literal.
         if !no_tags && !@_content_no_tags && @_content_has_tags
-          content = _parse_tags content
+          content = expand_tags content
           # This parse consumed the whole raw content, so its end state IS the
           # boundary state a future append would splice at.
-          @_content_open_tags_at_end = @_parse_tags_left_open
+          @_content_open_tags_at_end = @expand_tags_left_open
         else
           # Tags stay literal (none present, or `no_tags` mode), so no tag state
           # can be open at the end.
           @_content_open_tags_at_end = false
         end
-        ::Log.trace { "After _parse_tags: #{content.inspect}" }
+        ::Log.trace { "After expand_tags: #{content.inspect}" }
 
         # Wrap, then converge the scroll-bar reservation: an `AsNeeded` bar's
         # presence depends on the wrapped line count, known only after wrapping,
@@ -90,33 +90,33 @@ module Crysterm
         # suffice, and the no-bar fixed point wins whenever it exists.
         margin = content_margin_x_empty
         2.times do
-          @_clines = _wrap_content(content, colwidth, into: @_clines, margin: margin)
-          # Break test keys off line count, which `_wrap_content` already set;
+          @wrapped_lines = wrap_lines(content, colwidth, into: @wrapped_lines, margin: margin)
+          # Break test keys off line count, which `wrap_lines` already set;
           # cache-key fields below don't affect it, so set them once after.
           needed = content_margin_x
           break if needed == margin
           margin = needed
         end
-        @_clines.width = colwidth
-        @_clines.base_x = @child_base_x
-        @_clines.content = @content
-        @_clines.content_version = @_content_version
-        @_clines.tab_size = style.tab_size
-        @_clines.tab_char = style.tab_char
-        @_clines.fill_char = style.fill_char
+        @wrapped_lines.width = colwidth
+        @wrapped_lines.base_x = @child_base_x
+        @wrapped_lines.content = @content
+        @wrapped_lines.content_version = @_content_version
+        @wrapped_lines.tab_size = style.tab_size
+        @wrapped_lines.tab_char = style.tab_char
+        @wrapped_lines.fill_char = style.fill_char
         # `_parse_attr` also records `style_to_attr(style)` in `@_parse_attr_default`, so
         # no separate recompute is needed here.
-        @_clines.attr = _parse_attr @_clines
+        @wrapped_lines.attr = _parse_attr @wrapped_lines
         # Reuse the `CLines`' own `ci` array (clear + refill) instead of
         # allocating a fresh replacement every reparse.
-        ci = @_clines.ci
+        ci = @wrapped_lines.ci
         ci.clear
-        @_clines.reduce(0) do |total, line|
+        @wrapped_lines.reduce(0) do |total, line|
           ci.push(total)
           total + line.size + 1
         end
 
-        @_pcontent = clines_joined
+        @printable_content = clines_joined
         emit Crysterm::Event::ContentParsed
 
         return true
@@ -153,7 +153,7 @@ module Crysterm
           # equals `@_parse_attr_default`, so the refresh never fires again) and
           # appended/scrolled lines paint with the old default attr permanently.
           # `nil` means no reader can see it, so nothing to refresh.
-          @_clines.attr = _parse_attr(@_clines) unless @_clines.attr.nil?
+          @wrapped_lines.attr = _parse_attr(@wrapped_lines) unless @wrapped_lines.attr.nil?
         end
       end
 
@@ -182,11 +182,14 @@ module Crysterm
     # `into`, when given, is an existing `CLines` to refill in place rather than
     # allocating a fresh one, so steady-state reparsing reuses the same object and
     # its array buffers. When nil a new `CLines` is built.
-    def _wrap_content(content, colwidth, into : CLines? = nil, margin : Int32? = nil)
+    #
+    # :nodoc: the wrap engine behind `#wrapped_lines` (ex-`_wrap_content`);
+    # public only because the wrap specs drive it with an explicit column width.
+    def wrap_lines(content, colwidth, into : CLines? = nil, margin : Int32? = nil)
       default_state = @align
       # The right-edge reservation this wrap subtracts. When not passed in it must
-      # be captured HERE, before `outbuf.reset` clears `@_clines`: `content_margin_x`
-      # reads `@_clines.size` to size an `AsNeeded` bar and post-reset would see
+      # be captured HERE, before `outbuf.reset` clears `@wrapped_lines`: `content_margin_x`
+      # reads `@wrapped_lines.size` to size an `AsNeeded` bar and post-reset would see
       # zero lines mid-wrap.
       margin ||= content_margin_x
       outbuf = into || CLines.new
@@ -240,7 +243,7 @@ module Crysterm
         # Handle alignment tags. The opener may be preceded — and the closer
         # followed — by inline SGR, which happens when an alignment tag nests
         # inside an attribute tag: `{bold}{center}Hi{/center}{/bold}` becomes
-        # `\e[1m{center}Hi{/center}\e[22m` after `_parse_tags`. So the match must
+        # `\e[1m{center}Hi{/center}\e[22m` after `expand_tags`. So the match must
         # allow surrounding SGR (and re-prepend/-append it, consuming only the
         # alignment tag); anchoring at the absolute string edge instead silently
         # drops the alignment and leaks the literal tag into output.
@@ -364,7 +367,9 @@ module Crysterm
 
     # Aligns content, returning just the aligned string. `#aligned_with_width`
     # additionally hands back the result's display width, sparing a re-measure.
-    def _align(line, width, align = Tput::AlignFlag::None, align_left_too = false)
+    #
+    # :nodoc: (ex-`_align`) — a wrap-pipeline stage, public only for its specs.
+    def align_line(line, width, align = Tput::AlignFlag::None, align_left_too = false)
       aligned_with_width(line, width, align, align_left_too)[0]
     end
 

@@ -188,7 +188,7 @@ module Crysterm
       # lets a shown bar overpaint the last content column; a stale reservation
       # wastes a column the bar no longer needs. `right=` is a no-op when
       # unchanged. Shrink-to-content items carry `right: nil` and are left alone.
-      def paint(with_children = true)
+      def paint(*, with_children = true)
         # Only scrollable lists reserve a bar column; for a plain list/menu
         # `content_margin_x` is always 0, so skip the per-frame item walk.
         if scrollable?

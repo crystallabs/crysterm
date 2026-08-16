@@ -200,7 +200,7 @@ module Crysterm
           # stops, so overlay line art joins other overlay art but not the base
           # content beneath it. Skip negative rows, matching `Docking.dock`.
           scr = window
-          stops = scr.compositing_layers? ? scr._plane_dock_stops : scr._dock_stops
+          stops = scr.compositing_layers? ? scr.plane_dock_stops : scr.dock_stops
           (coords.yi..coords.yl - 1).each do |y|
             stops[y] = true if y >= 0
           end

@@ -41,7 +41,7 @@ describe Widget::TextEdit do
       te.text_cursor.insert_frame(TextFrameFormat.new(margin: 3))
       s.repaint
       row_text(s, 0, 0...8).should eq "   plain"
-      te._clines.size.should eq 1 # no border rows
+      te.wrapped_lines.size.should eq 1 # no border rows
     end
 
     it "nests boxes for nested frames" do
@@ -96,7 +96,7 @@ describe Widget::TextEdit do
       te.text_cursor.insert_frame(TextFrameFormat.new(border: true))
       s.repaint
       # Text rows all carry both bars.
-      (1...te._clines.size - 1).each do |rl|
+      (1...te.wrapped_lines.size - 1).each do |rl|
         s.cell_rows[rl][0].char.should eq '│'
         s.cell_rows[rl][19].char.should eq '│'
       end
