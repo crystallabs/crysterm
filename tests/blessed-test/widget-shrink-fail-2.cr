@@ -31,8 +31,7 @@ data = Text.new \
   left: 3,
   # NOTE: blessed height:'shrink' / width:'shrink' -> shrink_to_fit: true
   shrink_to_fit: true,
-  content: "",
-  parse_tags: true
+  content: ""
 
 data.content = sample.pretty_inspect
 

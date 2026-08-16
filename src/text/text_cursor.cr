@@ -11,7 +11,9 @@ module Crysterm
   # Document-level cursors know blocks, not visual lines: `StartOfLine` ==
   # `StartOfBlock` and `Up`/`Down` move by block preserving the block-local
   # column. Wrapped-line motion and sticky visual columns belong to the
-  # viewing widget.
+  # viewing widget. Tables are structure-transparent to vertical moves
+  # (border rows are skipped; a landing snaps into a cell), and
+  # `NextCell`/`PreviousCell`/`NextRow`/`PreviousRow` move cell-wise.
   class TextCursor
     enum MoveMode
       # Move the anchor along with the position (no selection) — Qt
@@ -44,6 +46,15 @@ module Crysterm
       NextBlock
       Up
       Down
+      # Table moves (Qt): to the start of the adjacent cell's text, reading
+      # order, wrapping across rows; fail outside a table's data cells and at
+      # the table's edge.
+      NextCell
+      PreviousCell
+      # To the same column of the adjacent data row; fail at the table's
+      # first/last row.
+      NextRow
+      PreviousRow
     end
 
     enum SelectionType
@@ -490,22 +501,60 @@ module Crysterm
         bi = doc.block_at(from).index
         bi < doc.block_count - 1 ? doc.block_position(bi + 1) : nil
       when .up?
-        loc = doc.block_at(from)
-        bi = loc.index
-        col = loc.offset
-        return if bi == 0
-        target = bi - 1
-        doc.block_position(target) + Math.min(col, doc.blocks[target].size)
+        vertical_move(from, -1)
       when .down?
-        loc = doc.block_at(from)
-        bi = loc.index
-        col = loc.offset
-        return if bi == doc.block_count - 1
-        target = bi + 1
-        doc.block_position(target) + Math.min(col, doc.blocks[target].size)
+        vertical_move(from, 1)
+      when .next_cell?, .previous_cell?, .next_row?, .previous_row?
+        table_move(from, op)
       else
         raise "unreachable: unhandled MoveOperation #{op}"
       end
+    end
+
+    # `Up`/`Down` by one block in *dir*, preserving the block-local column.
+    # Table structure is transparent: border rows are skipped, and a landing
+    # on a data row is clamped into the cell under the column (never onto a
+    # border glyph or its padding).
+    private def vertical_move(from : Int32, dir : Int32) : Int32?
+      doc = @document
+      loc = doc.block_at(from)
+      col = loc.offset
+      target = loc.index + dir
+      while (b = doc.blocks[target]?) && b.block_format.table_format && !TextTable.data_row?(b.text)
+        target += dir
+      end
+      return if target < 0 || target >= doc.block_count
+      pos = doc.block_position(target) + Math.min(col, doc.blocks[target].size)
+      snap_into_cell(pos, target)
+    end
+
+    # Clamps *pos* into the text range of the table cell under it when block
+    # *bi* is a table data row; *pos* unchanged otherwise.
+    private def snap_into_cell(pos : Int32, bi : Int32) : Int32
+      tf = @document.blocks[bi].block_format.table_format || return pos
+      tbl = TextTable.new(@document, tf)
+      cell = tbl.cell_at(pos) || return pos
+      r = tbl.cell_text_range(*cell) || return pos
+      pos.clamp(r.begin, r.end)
+    end
+
+    # One table move (`NextCell`/`PreviousCell`/`NextRow`/`PreviousRow`) from
+    # *from*: nil unless *from* sits in a data cell and the adjacent cell/row
+    # exists; otherwise the start of the target cell's text.
+    private def table_move(from : Int32, op : MoveOperation) : Int32?
+      loc = @document.block_at(from)
+      tf = @document.blocks[loc.index].block_format.table_format || return
+      tbl = TextTable.new(@document, tf)
+      cell = tbl.cell_at(from) || return
+      row, col = cell
+      target =
+        case op
+        when .next_cell?     then tbl.next_cell(row, col)
+        when .previous_cell? then tbl.previous_cell(row, col)
+        when .next_row?      then {row + 1, col} if row + 1 < tbl.rows
+        else                      {row - 1, col} if row > 0
+        end
+      target.try { |t| tbl.cell_text_range(*t).try(&.begin) }
     end
 
     # Start of the current/previous word: skip separators left, then word

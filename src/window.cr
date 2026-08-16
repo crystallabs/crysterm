@@ -698,7 +698,7 @@ module Crysterm
     end
 
     def enter
-      if !@cursor._set
+      if !@cursor.applied?
         apply_cursor
       end
 
@@ -765,7 +765,7 @@ module Crysterm
       disable_mouse if @screen.mouse_enabled?
 
       tput.normal_buffer
-      if cursor._set
+      if cursor.applied?
         reset_cursor
       end
 

@@ -320,11 +320,11 @@ module Crysterm
       # The replacement gets its own copy of the cursor (incl. its `Style`):
       # `#reparent_onto`'s destroy of THIS window runs `reset_cursor` on its
       # cursor object during `leave`, which would clobber a shared one back to
-      # a default block. `_set` is cleared so the new window's `enter` applies
+      # a default block. `#applied?` is cleared so the new window's `enter` applies
       # the carried shape/blink/color to the NEW terminal.
       carried_cursor = @cursor.dup
       carried_cursor.style = @cursor.style.dup
-      carried_cursor._set = false
+      carried_cursor.applied = false
       replacement = Window.new(
         probe: false,
         terminfo: Unibilium.from_terminal(term),

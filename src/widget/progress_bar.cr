@@ -1,3 +1,5 @@
+require "./graph/scale"
+
 module Crysterm
   class Widget
     # Progress bar element, modeled after Qt's `QProgressBar`.
@@ -7,6 +9,10 @@ module Crysterm
     # percentage) is derived from where `value` sits in that range, so callers may
     # drive the bar either in domain units (`bar.value = 42`, range 0..200) or in
     # plain percentages (`bar.percent = 50`) — both stay consistent.
+    #
+    # The fill advances in whole cells; `smooth: true` switches it to sub-cell
+    # (eighth-block) resolution, the same fill `Gauge` — the smooth-by-default
+    # dashboard sibling — draws.
     #
     # <!-- widget-examples:capture v1 -->
     # ![ProgressBar screenshot](../../tests/widget/progressbar/progressbar.5s.apng)
@@ -90,6 +96,18 @@ module Crysterm
       # Assigns `#format` and schedules a repaint (see `#text_visible=`).
       repaint_property format, String
 
+      # Whether the fill has sub-cell resolution. Unset (the default) the bar
+      # advances a whole cell at a time; set, the cell at the fill boundary
+      # carries a partial block glyph, so the bar moves in eighths of a cell —
+      # the fill `Gauge` draws (it is this same bar with `smooth` defaulting
+      # true). The ramp resolves CSS-first
+      # (`ProgressBar::indicator { glyphs: " ▏▎▍▌▋▊▉█" }`), then the registry's
+      # `ScaleHorizontal`/`ScaleVertical` at the effective tier.
+      getter? smooth : Bool = false
+
+      # Assigns `#smooth?` and schedules a repaint (see `#text_visible=`).
+      repaint_property smooth, Bool
+
       # Separate gates for keyboard vs. mouse interaction (an interactive bar can
       # be driven by either). Kept as `keys`/`mouse` rather than folded into one
       # `enabled?`: they toggle independently, and `enabled?` already carries Qt's
@@ -122,6 +140,7 @@ module Crysterm
         @keys = false,
         @mouse = false,
         @orientation = @orientation,
+        @smooth = false,
         **input,
       )
         # `single_step:` is the Qt-parity spelling and the only one accepted.
@@ -240,10 +259,33 @@ module Crysterm
           # `xi`/`xl`/`yi`/`yl` remain the full interior for the overlay below.
           fill_xl = xl
           fill_yi = yi
+          # Boundary cell of a `#smooth?` bar: its main-axis index and how many
+          # eighths of it are filled. `0` eighths means there is none — the fill
+          # landed on a cell boundary, ran off the end, or the bar isn't smooth.
+          part_cell = 0
+          part_eighths = 0
           if @orientation.horizontal?
-            fill_xl = xi + ((xl - xi) * (pct / 100)).to_i
+            if smooth?
+              e = smooth_eighths xl - xi
+              fill_xl = xi + e // 8
+              if fill_xl < xl && (rem = e % 8) > 0
+                part_cell = fill_xl
+                part_eighths = rem
+              end
+            else
+              fill_xl = xi + ((xl - xi) * (pct / 100)).to_i
+            end
           else
-            fill_yi = yi + ((yl - yi) - (((yl - yi) * (pct / 100)).to_i))
+            if smooth?
+              e = smooth_eighths yl - yi
+              fill_yi = yl - e // 8
+              if fill_yi - 1 >= yi && (rem = e % 8) > 0
+                part_cell = fill_yi - 1
+                part_eighths = rem
+              end
+            else
+              fill_yi = yi + ((yl - yi) - (((yl - yi) * (pct / 100)).to_i))
+            end
           end
 
           # The fill is the indicator's *background*, painted as-is — Qt's
@@ -263,6 +305,8 @@ module Crysterm
           # `ProgressBar::indicator { glyph: "▓" }`.
           window.fill_region default_attr, glyph(Glyphs::Role::ProgressFill, ind), xi, fill_xl, fill_yi, yl
 
+          draw_partial_cell ind, part_cell, part_eighths, xi, xl, fill_yi, yl if part_eighths > 0
+
           # Text to overlay: the Qt-style indicator when enabled, otherwise any
           # pre-parsed content (via `#pcontent`).
           if text_visible?
@@ -273,6 +317,36 @@ module Crysterm
             # would slide with the value.
             draw_text_run yi, xi, pc, xl
           end
+        end
+      end
+
+      # Filled eighth-cells across an axis *cells* long — the sub-cell
+      # resolution `#smooth?` renders at. Goes through `Graph::Scale`, the same
+      # scale `Gauge`/`GaugeList`/the bar charts measure their block fills with,
+      # so one value renders identically in all of them. Derived from `#value`
+      # against the raw range rather than from the rounded `#percent`: at 8x the
+      # cell resolution that rounding is visible.
+      private def smooth_eighths(cells : Int32) : Int32
+        Graph::Scale.eighths @value.to_f, @minimum.to_f, @maximum.to_f, cells
+      end
+
+      # Paints the boundary cell of a `#smooth?` fill: the ramp glyph for its
+      # *eighths*, drawn across the cross axis at main-axis cell *at*.
+      #
+      # The whole-cell fill is the indicator's *background* (Qt's
+      # `QProgressBar::chunk`), so here that same fill tone becomes the glyph's
+      # *foreground* over the widget's own background — a partial block then
+      # reads as a fraction of a filled cell rather than a whole one. An
+      # indicator with no background of its own leaves the glyph at the
+      # terminal's default foreground.
+      private def draw_partial_cell(ind, at : Int32, eighths : Int32, xi : Int32, xl : Int32, yi : Int32, yl : Int32) : Nil
+        role = @orientation.horizontal? ? Glyphs::SeqRole::ScaleHorizontal : Glyphs::SeqRole::ScaleVertical
+        ch = Graph::Scale.ramp_glyph glyph_seq(role, ind, cells: true), eighths, 0
+        attr = style_to_attr ind, ind.bg, style.bg
+        if @orientation.horizontal?
+          window.fill_region attr, ch, at, at + 1, yi, yl
+        else
+          window.fill_region attr, ch, xi, xl, at, at + 1
         end
       end
 

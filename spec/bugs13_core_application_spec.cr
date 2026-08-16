@@ -140,12 +140,12 @@ describe "BUGS13 C19/C24: per-window cursor/title re-asserted on a shared device
 
     a.title = "WIN-A"
     out = s.output.as(IO::Memory)
-    a.cursor._set = false
+    a.cursor.applied = false
     out.clear
 
     app.activate a
     # apply_cursor ran for the raised window...
-    a.cursor._set.should be_true
+    a.cursor.applied?.should be_true
     # ...and its title was re-pushed to the shared terminal.
     out.to_s.includes?("\e]0;WIN-A\a").should be_true
 
@@ -163,12 +163,12 @@ describe "BUGS13 C19/C24: per-window cursor/title re-asserted on a shared device
 
     a.title = "KEEP"
     out = s.output.as(IO::Memory)
-    a.cursor._set = false
+    a.cursor.applied = false
     out.clear
 
     # b departs the shared device; its pinned cursor/title must not outlive it.
     b.destroy
-    a.cursor._set.should be_true
+    a.cursor.applied?.should be_true
     out.to_s.includes?("\e]0;KEEP\a").should be_true
 
     a.destroy

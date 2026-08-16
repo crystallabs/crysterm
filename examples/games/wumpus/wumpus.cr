@@ -156,6 +156,8 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       scroll_on_input: true,
       layout_hint: :center,
       content: "",
+      # `Log` keeps braces literal by default; this transcript is written by
+      # the game itself, in tag markup.
       parse_tags: true,
       scrollbar_policy: :as_needed,
       style: Style.new(fg: "white", bg: "#1a1a2e", border: true,

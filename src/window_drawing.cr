@@ -981,16 +981,16 @@ module Crysterm
 
       return false unless pos
 
-      return pos._clean_sides unless pos._clean_sides.nil?
+      return pos.sides_uniform? unless pos.sides_uniform?.nil?
 
       if pos.xi <= 0 && pos.xl >= awidth
-        return pos._clean_sides = true
+        return pos.sides_uniform = true
       end
 
       if @optimization.fast_csr?
-        return pos._clean_sides = false if pos.yi < 0 || pos.yl > aheight
-        return pos._clean_sides = true if (awidth - (pos.xl - pos.xi)) < Config.render_csr_threshold
-        return pos._clean_sides = false
+        return pos.sides_uniform = false if pos.yi < 0 || pos.yl > aheight
+        return pos.sides_uniform = true if (awidth - (pos.xl - pos.xi)) < Config.render_csr_threshold
+        return pos.sides_uniform = false
       end
 
       return false unless @optimization.smart_csr?
@@ -998,20 +998,20 @@ module Crysterm
       yi = pos.yi + el.itop
       yl = pos.yl - el.ibottom
 
-      return pos._clean_sides = false if pos.yi < 0 || pos.yl > aheight
-      return pos._clean_sides = true if (pos.xi - 1) < 0 || pos.xl > awidth
+      return pos.sides_uniform = false if pos.yi < 0 || pos.yl > aheight
+      return pos.sides_uniform = true if (pos.xi - 1) < 0 || pos.xl > awidth
 
       # Both the band of columns left of the element and the band to its right must
       # be uniform top-to-bottom for the sides to count as clean.
       (pos.xi - 1).downto(0) do |x|
-        return pos._clean_sides = false unless column_uniform? x, yi, yl
+        return pos.sides_uniform = false unless column_uniform? x, yi, yl
       end
 
       (pos.xl...awidth).each do |x|
-        return pos._clean_sides = false unless column_uniform? x, yi, yl
+        return pos.sides_uniform = false unless column_uniform? x, yi, yl
       end
 
-      pos._clean_sides = true
+      pos.sides_uniform = true
     end
 
     # Whether column *x* of `@flushed_lines` holds the same cell on every row of

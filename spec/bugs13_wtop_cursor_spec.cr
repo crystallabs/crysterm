@@ -30,7 +30,7 @@ describe "BUGS13 W15: cursor settings on a detached widget are recorded" do
     c = w.cursor.not_nil!
     c.shape.should eq Tput::CursorShape::Underline
     c.blink.should be_true
-    c._set.should be_false # not applied yet — no window
+    c.applied?.should be_false # not applied yet — no window
   ensure
     s.try &.destroy
   end
@@ -73,7 +73,7 @@ describe "BUGS13 W15: cursor settings on a detached widget are recorded" do
 
     # Applying the active cursor consumes the recorded settings.
     s.apply_cursor
-    c._set.should be_true
+    c.applied?.should be_true
   ensure
     s.try &.destroy
   end

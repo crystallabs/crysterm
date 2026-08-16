@@ -4,12 +4,13 @@ require "../mixin/ranged_value"
 
 module Crysterm
   class Widget
-    # A horizontal meter, ported from blessed-contrib's `gauge`. Where
-    # `Widget::ProgressBar` is an *interactive* Qt-style control (keys/mouse move
-    # its value), `Gauge` is a *read-only display* tuned for dashboards: smooth
-    # sub-cell fill via horizontal eighth-block glyphs, an inline percentage
-    # label, and an optional *stacked* mode showing several colored segments in
-    # one bar.
+    # A horizontal meter, ported from blessed-contrib's `gauge`. It is the
+    # dashboard-tuned sibling of `Widget::ProgressBar`: `#smooth?` (sub-cell
+    # eighth-block fill) defaults **on** here and off there, and on top of the
+    # shared meter it adds a `Float64` range, an inline percentage label and an
+    # optional *stacked* mode showing several colored segments in one bar. Value
+    # editing is the other way round — `ProgressBar` takes `keys:`/`mouse:`,
+    # a `Gauge` is display-only.
     #
     # In single mode the fill tracks `#value` within `[#minimum, #maximum]`
     # (defaults `0`..`100`, so a value reads as its own percentage). In stacked
@@ -91,6 +92,14 @@ module Crysterm
       # Assigns `#format` and schedules a repaint (see `#show_label=`).
       repaint_property format, String
 
+      # Whether the single-mode fill has sub-cell resolution — `ProgressBar`'s
+      # `#smooth?`, defaulting **on** here. Unset, the bar advances a whole cell
+      # at a time instead of in eighths. Stacked mode is whole-cell either way.
+      getter? smooth : Bool
+
+      # Assigns `#smooth?` and schedules a repaint (see `#show_label=`).
+      repaint_property smooth, Bool
+
       # Fill color for single mode (and the default for segments without their
       # own color), a native `0xRRGGBB` `Int32`. `nil` uses the widget's
       # `style.fg`. A color name/`"#rrggbb"` string is accepted and converted.
@@ -135,6 +144,7 @@ module Crysterm
         @maximum : Number = 100.0,
         @show_label : Bool = true,
         @format : String = "%p%",
+        @smooth : Bool = true,
         fill_color : Int32 | String? = nil,
         @segments : Array(Segment)? = nil,
         **box,
@@ -178,10 +188,10 @@ module Crysterm
       # trailing `glyph_key(style)` covers every input the fill ramp resolves
       # from, so a tier upgrade or CSS `glyphs:` hot-reload rebuilds instead of
       # keeping a stale ramp.
-      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, Int32?, Bool, String, Float64, Float64, Int32, {String?, Glyphs::Tier, UInt64})? = nil
+      @content_key : Tuple(Float64, Int32, Int32, Int32, Int32, Int32?, Bool, String, Float64, Float64, Int32, Bool, {String?, Glyphs::Tier, UInt64})? = nil
 
       def paint(*, with_children = true)
-        key = {@value, awidth, aheight, ihorizontal, ivertical, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version,
+        key = {@value, awidth, aheight, ihorizontal, ivertical, @fill_color, @show_label, @format, @minimum, @maximum, @segments_version, @smooth,
                glyph_key(style)}
         if key != @content_key
           @content_key = key
@@ -214,13 +224,15 @@ module Crysterm
         Array.new(rows) { |r| r == mid ? with_labels(segs, cells, colors) : row }.join('\n')
       end
 
-      # Single-mode fill: sub-cell horizontal blocks up to `#percent`. The fill
-      # ramp resolves CSS-first (`Gauge { glyphs: " ▏▎▍▌▋▊▉█" }`), then the
-      # registry's `ScaleHorizontal` at the effective tier.
+      # Single-mode fill: horizontal blocks up to `#percent`, sub-cell while
+      # `#smooth?` and whole-cell otherwise. The fill ramp resolves CSS-first
+      # (`Gauge { glyphs: " ▏▎▍▌▋▊▉█" }`), then the registry's `ScaleHorizontal`
+      # at the effective tier.
       private def fill_single(cells, colors) : Nil
         cols = cells.size
         ramp = glyph_seq(Glyphs::SeqRole::ScaleHorizontal, style, cells: true)
         eighths = Graph::Scale.eighths(@value, @minimum, @maximum, cols)
+        eighths = Graph::Scale.whole_cells(eighths) unless smooth?
         Graph::Scale.fill_ramp cells, colors, ramp, eighths, color_tag(@fill_color), 0, cols
       end
 

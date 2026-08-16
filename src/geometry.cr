@@ -399,7 +399,13 @@ module Crysterm
 
     # :nodoc: memoized scroll extent for the frame.
     property scroll_bottom : Int32 = 0
-    property _clean_sides : Bool? = nil
+
+    # :nodoc: `Window#sides_uniform?` memoized for the frame — whether the
+    # columns flanking this box are uniform top-to-bottom, so scrolling it can
+    # go through the terminal's scroll region. `nil` means "not yet computed";
+    # the scan is expensive enough (two full column walks) to be worth caching,
+    # and `#reset` drops it with the rest of the frame's derived geometry.
+    property? sides_uniform : Bool? = nil
 
     # This box's extent — `Rectangle#size` parity, Qt's `QRect::size()`.
     def size : Size
@@ -455,7 +461,7 @@ module Crysterm
     # Re-initializes this instance in place to a freshly-constructed state, so the
     # render hot path can reuse a widget's `@lpos` rather than allocate.
     #
-    # MUST reset the lazily-computed cache fields (`aleft`/.../`_clean_sides`):
+    # MUST reset the lazily-computed cache fields (`aleft`/.../`sides_uniform?`):
     # they're keyed to the previous frame's geometry and would otherwise return
     # stale absolute positions after a widget moves.
     def reset(
@@ -487,7 +493,7 @@ module Crysterm
       @ihorizontal = 0
       @ivertical = 0
       @scroll_bottom = 0
-      @_clean_sides = nil
+      @sides_uniform = nil
       self
     end
   end

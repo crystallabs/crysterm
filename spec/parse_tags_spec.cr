@@ -135,3 +135,35 @@ describe "Widget#expand_tags alignment tags" do
     box.wrapped_lines.lines.should eq ["           \e[1mR\e[22m"]
   end
 end
+
+describe "Widget#parse_tags? default" do
+  it "is off for a plain widget" do
+    Widget::Box.new.parse_tags?.should be_false
+  end
+
+  it "keeps braces literal without an opt-in" do
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 2
+    box.set_content "{bold}hi{/bold}"
+    box.wrapped_lines.lines[0].should eq "{bold}hi{/bold}"
+  end
+
+  it "expands a tag with parse_tags: true" do
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 12, height: 2,
+      parse_tags: true
+    box.set_content "{bold}hi{/bold}"
+    box.wrapped_lines.lines[0].should contain "\e[1m"
+  end
+
+  it "is off for the raw-output and plain-text widgets" do
+    Widget::Log.new.parse_tags?.should be_false
+    Widget::LineEdit.new.parse_tags?.should be_false
+    Widget::PlainTextEdit.new.parse_tags?.should be_false
+  end
+
+  it "keeps tags literal when written through text=, even with parse_tags on" do
+    box = Widget::Box.new parent: headless_screen(default_quit_keys: true), width: 20, height: 2,
+      parse_tags: true
+    box.text = "{bold}hi{/bold}"
+    box.wrapped_lines.lines[0].should eq "{bold}hi{/bold}"
+  end
+end

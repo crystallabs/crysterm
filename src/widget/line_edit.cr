@@ -79,6 +79,8 @@ module Crysterm
         echo_mode : EchoMode? = nil,
         placeholder_text = nil,
         validator = nil,
+        # The edited text is shown verbatim, so braces the user types stay
+        # literal; pass `parse_tags: true` to render markup instead.
         parse_tags = false,
         input_on_focus = true,
         max_length = nil,

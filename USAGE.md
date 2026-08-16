@@ -1028,8 +1028,8 @@ The four sided slots on a `Style` accept the same family of shorthands, so
 takes a `BorderType` to choose the glyph family.
 
 For anything past "all sides the same", the named constructors are the
-unambiguous spellings. `Border`, `Padding` and `Margin` carry the whole set;
-`Shadow` carries `.ltrb`/`.trbl`/`.vh`:
+unambiguous spellings. `Border`, `Padding`, `Margin` and `Shadow` all carry the
+whole set — the per-side and pair forms, `.all`, and the two explicit orders:
 
 ```crystal
 Margin.top 1              # one side
@@ -1038,7 +1038,14 @@ Border.all 1              # every side
 Padding.ltrb 1, 2, 1, 2   # explicit, left-first
 Padding.trbl 2, 1, 2, 1   # explicit, CSS order
 Shadow.vh 1, 2            # vertical, horizontal
+Shadow.bottom             # a bottom band at its resting depth
 ```
+
+Given no amount, each form places that side's resting extent: one cell for
+`Border`/`Padding`/`Margin`, and for `Shadow` a 2-cell left/right band against a
+1-cell top/bottom one (a cell is about twice as tall as it is wide), so
+`Shadow.all` is `2/1/2/1`. Naming a side on a `Shadow` also pins it: the scene
+light places a shadow's sides only while none were given.
 
 `.ltrb` and `.trbl` are named because the two orders are genuinely different
 conventions; the plain positional four-argument constructor is not part of the
@@ -1093,7 +1100,9 @@ attributes, and alignment — written with curly braces, e.g.:
 ```
 
 Tags are interpreted when the widget's `parse_tags` is enabled (`false` by
-default; pass `parse_tags: true`). Internally, `expand_tags` converts them into
+default; pass `parse_tags: true`). A single literal brace inside parsed content
+is written `{open}` / `{close}`, or produced by `Widget.escape_tags`.
+Internally, `expand_tags` converts them into
 the corresponding terminal escape (SGR) sequences before the content is laid
 out. The same lexer backs the document tag grammar of
 [§7.7](#77-rich-text-textedit-and-documents), so the two agree by construction:
@@ -1252,6 +1261,13 @@ table = c.insert_table 3, 4                              # rows, columns
 table = c.insert_table ["Name", "Size"], [["a.txt", "12"]]  # header + body
 c.current_table                                          # the table around the cursor, or nil
 ```
+
+Inside a table, `move_position` also takes the cell-wise operations
+`:next_cell`, `:previous_cell` (start of the adjacent cell's text, wrapping
+across rows), `:next_row` and `:previous_row` (same column, adjacent row) —
+each returns `false` at the table's edge or outside a table. Plain `:up`/
+`:down` treat table structure as transparent: border rows are skipped and a
+landing inside the table snaps into a cell.
 
 Two format readers answer different questions, and picking the wrong one is the
 classic off-by-one: `doc.typing_format_at(pos)` is the format text *typed at*
@@ -1550,6 +1566,9 @@ runs on the input fiber — so a key handler that wants to ask a question spawns
   takes `value:` (`#percent` stays as a view property over it).
 - `ProgressBar` is read-only and unfocusable by default, as in Qt. Pass
   `keys: true` for the keyboard-editable variant.
+- `ProgressBar` fills in whole cells; `smooth: true` gives it sub-cell
+  (eighth-block) resolution instead. `Gauge` is the same fill with `smooth`
+  defaulting on, plus a `Float64` range, an inline label and stacked segments.
 - Scroll-bar visibility is `scrollbar_policy` alone, which accepts symbols:
   `w.scrollbar_policy = :as_needed`.
 

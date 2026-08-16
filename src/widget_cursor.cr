@@ -44,7 +44,7 @@ module Crysterm
         c = ensure_cursor
         c.shape = shape
         c.blink = blink
-        c._set = false
+        c.applied = false
       end
     end
 
@@ -63,7 +63,7 @@ module Crysterm
       else
         c = ensure_cursor
         c.style.fg = color
-        c._set = true
+        c.applied = true
       end
       color
     end

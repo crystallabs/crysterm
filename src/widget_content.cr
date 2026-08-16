@@ -27,6 +27,11 @@ module Crysterm
     property? wrap_content = true
 
     # Is element's content to be parsed for tags?
+    #
+    # Off by default, so content is shown verbatim and arbitrary data (file
+    # names, program output) can't inject markup. Pass `parse_tags: true` for
+    # `"{bold}hi{/bold}"`-style markup; in that mode a literal brace is
+    # escaped as `{open}`/`{close}` (see `Widget.escape_tags`).
     property? parse_tags = false
 
     # Alignment of contained text. (The `align`-consuming reads live in

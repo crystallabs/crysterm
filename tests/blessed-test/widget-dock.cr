@@ -50,7 +50,6 @@ bottomright = ListTable.new(
   height: "50%+1",
   # PER-SIDE: blessed {type:'line', left:true, top:true, right:false, bottom:false}
   align: ::Tput::AlignFlag::Center,
-  parse_tags: true,
   keys: true,
   vi_keys: true,
   mouse: true,

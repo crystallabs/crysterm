@@ -14,7 +14,6 @@ class X
       height: "50%",
       top: "center",
       left: "center",
-      parse_tags: true,
       style: Style.new(bg: "blue", scrollbar: Style.new(bg: "red"), track: Style.new(fill_char: '▒')),
       track: true,
       input_on_focus: true,

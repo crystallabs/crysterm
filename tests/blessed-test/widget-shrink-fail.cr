@@ -39,8 +39,7 @@ Text.new \
   top: 0,
   left: 0,
   height: 1,
-  content: "Foo",
-  parse_tags: true
+  content: "Foo"
 
 LineEdit.new \
   parent: form,
@@ -58,8 +57,7 @@ Text.new \
   top: 2,
   left: 0,
   height: 1,
-  content: "Bar",
-  parse_tags: true
+  content: "Bar"
 
 LineEdit.new \
   parent: form,
@@ -77,8 +75,7 @@ Text.new \
   top: 4,
   left: 0,
   height: 1,
-  content: "Baz",
-  parse_tags: true
+  content: "Baz"
 
 LineEdit.new \
   parent: form,
@@ -98,7 +95,6 @@ submit = Button.new \
   height: 1,
   width: 10,
   content: "send",
-  parse_tags: true,
   style: Style.new(bg: "black")
 
 submit.on_click do

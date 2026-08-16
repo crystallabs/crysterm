@@ -12,7 +12,6 @@ box = Widget::Box.new(
   parent: s,
   width: 60,
   wrap_content: false,
-  parse_tags: true,
   content: File.read(__FILE__)
 )
 

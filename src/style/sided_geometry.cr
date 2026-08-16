@@ -102,34 +102,44 @@ module Crysterm
     # the call site — the public alternative to the protected positional
     # 4-`Int` constructor, whose bare argument order is ambiguous against
     # CSS's TRBL.
-    macro named_constructors
+    #
+    # *h* and *v* are the resting extent of one side on each axis — what the
+    # zero-argument per-side constructors place. Both are a cell for the boxes
+    # that measure in cells (`Padding`, `Margin`, `Border`); `Shadow`, whose
+    # bands are read as a distance rather than counted, passes its own asymmetric
+    # pair (a cell is about twice as tall as it is wide, so its left/right bands
+    # are 2 cells against the top/bottom 1).
+    macro named_constructors(h = 1, v = 1)
       # LTRB (left, top, right, bottom) order.
       def self.ltrb(left : Int, top : Int, right : Int, bottom : Int) : self
-        new left, top, right, bottom
+        new left.to_i32, top.to_i32, right.to_i32, bottom.to_i32
       end
 
       # TRBL — CSS's clockwise-from-top 4-value shorthand order.
       def self.trbl(top : Int, right : Int, bottom : Int, left : Int) : self
-        new left, top, right, bottom
+        ltrb left, top, right, bottom
       end
 
       # VH — CSS's 2-value shorthand order: *v* for top/bottom, *h* for
       # left/right.
       def self.vh(v : Int, h : Int) : self
-        new h, v, h, v
+        ltrb h, v, h, v
       end
 
       # Per-side constructors: *amount* on the named side(s), 0 elsewhere.
+      # *amount* defaults to that axis's resting extent.
       {% for side in %w[left top right bottom horizontal vertical] %}
-        def self.{{ side.id }}(amount : Int = 1) : self
+        {% amount = %w[top bottom vertical].includes?(side) ? v : h %}
+        def self.{{ side.id }}(amount : Int = {{ amount }}) : self
           %s = SidedGeometry.sides Side::{{ side.camelcase.id }}, amount
-          new %s[:left], %s[:top], %s[:right], %s[:bottom]
+          ltrb %s[:left], %s[:top], %s[:right], %s[:bottom]
         end
       {% end %}
 
-      # All four sides at *amount*.
-      def self.all(amount : Int = 1) : self
-        new amount, amount, amount, amount
+      # All four sides on. *amount* applies to every side; given none, each
+      # axis takes its own resting extent.
+      def self.all(amount : Int? = nil) : self
+        ltrb amount || {{ h }}, amount || {{ v }}, amount || {{ h }}, amount || {{ v }}
       end
     end
 

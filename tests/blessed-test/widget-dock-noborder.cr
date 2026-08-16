@@ -46,7 +46,6 @@ table = ListTable.new(
   width: "50%+3",
   height: "50%+3",
   align: ::Tput::AlignFlag::Center,
-  parse_tags: true,
   keys: true,
   vi_keys: true,
   mouse: true,

@@ -125,6 +125,31 @@ module Crysterm
       TextCursor.new(document, r.begin)
     end
 
+    # The `{row, column}` after (*row*, *column*) in reading order — the last
+    # cell of a row wraps to the next row's first — or nil past the last
+    # cell. The grid geometry behind `TextCursor`'s `NextCell` and the
+    # widget's Tab navigation.
+    def next_cell(row : Int32, column : Int32) : {Int32, Int32}?
+      column += 1
+      if column >= columns
+        column = 0
+        row += 1
+      end
+      row < rows ? {row, column} : nil
+    end
+
+    # The `{row, column}` before (*row*, *column*) in reading order — the
+    # first cell of a row wraps to the previous row's last — or nil before
+    # the first cell.
+    def previous_cell(row : Int32, column : Int32) : {Int32, Int32}?
+      column -= 1
+      if column < 0
+        column = columns - 1
+        row -= 1
+      end
+      row >= 0 ? {row, column} : nil
+    end
+
     # Rewrites cell (*row*, *column*)'s text, re-rendering the column
     # padding (and borders when the column widens/narrows) — one undo step.
     # A newline in *text* becomes a space and a border glyph becomes an ASCII

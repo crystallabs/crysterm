@@ -20,6 +20,21 @@ module Crysterm
     property? hidden = true
     property char = '▮'
 
+    # :nodoc: Whether this cursor's settings are the ones currently pushed to
+    # the terminal. `Window#apply_cursor` sets it once it has issued them, and
+    # every path that changes a setting — a new shape, a reset, a cursor carried
+    # onto a fresh terminal — clears it so the next `apply_cursor` re-issues
+    # rather than short-circuits. Internal render plumbing between `Window`,
+    # `Widget` and this class; backed by the inherited `_set` flag.
+    def applied? : Bool
+      @_set
+    end
+
+    # :nodoc: Records whether the settings are pushed (see `#applied?`).
+    def applied=(value : Bool) : Bool
+      @_set = value
+    end
+
     @attr_memo = Style::AttrMemo.new
 
     # `Widget.style_to_attr(style)` for this cursor, memoized on
@@ -108,7 +123,7 @@ module Crysterm
         render_if_active if @_acur_y >= 0
       end
 
-      c._set = true
+      c.applied = true
     end
 
     # Whether the cursor asks for more than the default steady block — i.e. a
@@ -135,7 +150,7 @@ module Crysterm
     def set_cursor_shape(shape : Tput::CursorShape, *, blink : Bool = false, cursor : Cursor = @cursor) : Nil
       cursor.shape = shape
       cursor.blink = blink
-      cursor._set = false
+      cursor.applied = false
       apply_cursor active_cursor
     end
 
@@ -154,7 +169,7 @@ module Crysterm
     # on the next `update`; otherwise it is pushed to the terminal.
     def set_cursor_color(color : Int | String?, cursor : Cursor = @cursor) : Nil
       cursor.style.fg = color
-      cursor._set = true
+      cursor.applied = true
 
       ac = active_cursor
       if ac.artificial?
@@ -258,7 +273,7 @@ module Crysterm
       # until then.
       c.style.fg = nil
       c.style.bg = nil
-      c._set = false
+      c.applied = false
 
       reset_hardware_cursor
 

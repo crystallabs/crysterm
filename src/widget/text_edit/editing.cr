@@ -216,24 +216,27 @@ module Crysterm
         (b1..b2).any? { |i| !document.blocks[i].block_format.table_format.nil? }
       end
 
-      # Moves the caret *dir* cells (±1), wrapping across rows; Tab past the
-      # last cell appends a fresh row (Qt), Shift-Tab before the first stays.
-      # From a border row (no cell), lands on the first cell.
+      # Moves the caret *dir* cells (±1) via `TextTable#next_cell`/
+      # `#previous_cell`; Tab past the last cell appends a fresh row (Qt),
+      # Shift-Tab before the first stays. From a border row (no cell), lands
+      # on the first cell.
       private def table_tab(tbl : TextTable, info : {Int32, Int32}?, dir : Int32) : Nil
         unless info
           place_caret_in_cell(tbl, 0, 0, Int32::MAX)
           return
         end
         row, col = info
-        col += dir
-        if col >= tbl.columns
-          col = 0
-          row += 1
-          tbl.insert_row(row) if row >= tbl.rows
-        elsif col < 0
-          return if row == 0
-          row -= 1
-          col = tbl.columns - 1
+        if dir > 0
+          if target = tbl.next_cell(row, col)
+            row, col = target
+          else
+            row += 1
+            tbl.insert_row(row)
+            col = 0
+          end
+        else
+          return unless target = tbl.previous_cell(row, col)
+          row, col = target
         end
         place_caret_in_cell(tbl, row, col, Int32::MAX)
       end

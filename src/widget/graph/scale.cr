@@ -31,6 +31,14 @@ module Crysterm
           (norm * cells * 8).round.to_i
         end
 
+        # `#eighths` truncated to whole cells — the fill a meter draws when it
+        # renders at cell rather than sub-cell resolution (`ProgressBar`'s and
+        # `Gauge`'s `smooth: false`). The partial cell at the boundary is
+        # dropped, never rounded up: a bar must not read as fuller than it is.
+        def self.whole_cells(filled_eighths : Int32) : Int32
+          filled_eighths - filled_eighths % 8
+        end
+
         # Glyph for one *vertical* cell, given the column's total filled eighths
         # and how many whole cells sit below this one.
         def self.vglyph(filled_eighths : Int32, below_cells : Int32) : Char

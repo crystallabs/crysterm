@@ -281,25 +281,14 @@ module Crysterm
       end
     end
 
-    # Named constructors spelling out the side order at the call site, matching
-    # `Padding`/`Margin`/`Border` (see `SidedGeometry.named_constructors`).
-    # Explicit sides pin manual placement (no light auto-placement).
-
-    # LTRB (left, top, right, bottom) order.
-    def self.ltrb(left : Int, top : Int, right : Int, bottom : Int) : self
-      new left.to_i32, top.to_i32, right.to_i32, bottom.to_i32
-    end
-
-    # TRBL — CSS's clockwise-from-top 4-value shorthand order.
-    def self.trbl(top : Int, right : Int, bottom : Int, left : Int) : self
-      ltrb left, top, right, bottom
-    end
-
-    # VH — CSS's 2-value shorthand order: *v* for top/bottom, *h* for
-    # left/right.
-    def self.vh(v : Int, h : Int) : self
-      ltrb h, v, h, v
-    end
+    # The same named constructors `Padding`/`Margin`/`Border` get — the side
+    # orders (`.ltrb`/`.trbl`/`.vh`) and the per-side/`.all` forms — at
+    # `Shadow`'s own resting extents: a bare `.right`/`.horizontal` is a 2-cell
+    # band, a bare `.bottom`/`.vertical` a 1-cell one, and `.all` is the two
+    # together (`2/1/2/1`), each matching what `.from` gives for the same side.
+    # Naming any side pins manual placement — no light auto-placement — so
+    # `Shadow.bottom` is a bottom shadow whichever way the scene is lit.
+    SidedGeometry.named_constructors 2, 1
 
     def initialize(@opacity : Float64)
     end

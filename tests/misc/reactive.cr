@@ -51,7 +51,7 @@ meter = Widget::Box.new parent: panel, top: 8, left: 2, width: 58, height: 1,
 status_box = Widget::Box.new parent: panel, top: 10, left: 2, width: 58, height: 1,
   parse_tags: true, style: Style.new(bg: "#10141c")
 
-Widget::Box.new parent: panel, top: 12, left: 2, width: 58, height: 5, parse_tags: true,
+Widget::Box.new parent: panel, top: 12, left: 2, width: 58, height: 5,
   style: Style.new(fg: "#8a93a8", bg: "#10141c"),
   content: "level = Reactive::Property.new 0\n" \
            "Reactive.bind(bar, level) { bar.value = level.value }\n" \

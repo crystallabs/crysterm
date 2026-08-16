@@ -25,7 +25,6 @@ Widget::Box.new \
            "  → ← ↑ ↓ ★ ☆ ♥ ♦ ♣ ♠ ✓ ✗ λ ∑ ∞\n" \
            "Combining:\n" \
            "  á ê õ ñ ü  (a´ e^ o~ n~ u¨)",
-  parse_tags: true,
   style: Style.new(fg: "yellow", bg: "#101010", border: true)
 
 # Animated block-element bar graph: a `Widget::Graph::Bar` draws each value

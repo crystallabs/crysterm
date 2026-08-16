@@ -29,6 +29,9 @@ module Crysterm
       include Mixin::TextEditing::DocumentBuffer
 
       @scrollable = true
+      # Plain text (Qt's `QPlainTextEdit`): the buffer is shown verbatim, so
+      # braces the user types are literal, never markup.
+      @parse_tags = false
       # Scroll source of truth is `@child_base` (top visible wrapped row); the
       # text caret (`@cursor_pos`) is tracked separately. Unlike `List`, where
       # `@child_offset` is the selected row, this widget keeps `@child_offset` at

@@ -174,7 +174,7 @@ module Crysterm
       # Park below the region's *actual* on-screen footprint (which, under
       # auto-grow, may be smaller than `aheight`).
       tput.cursor_pos render_row_offset + @inline_visible, 0
-      reset_cursor if cursor._set
+      reset_cursor if cursor.applied?
 
       tput.flush
     end

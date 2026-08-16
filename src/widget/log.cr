@@ -6,6 +6,11 @@ module Crysterm
     # ![Log screenshot](../../tests/widget/log/log.5s.apng)
     # <!-- /widget-examples:capture -->
     class Log < ScrollableText
+      # Log lines are raw program output, so braces in them stay literal.
+      # Turn it on (`parse_tags: true`) for markup — including the colored
+      # `[LEVEL]` markers `#log` then emits.
+      @parse_tags = false
+
       # Severity of a log line, à la a typical logger / Qt logging categories.
       # Ordered from least to most severe so `#min_level` can filter.
       enum Level
