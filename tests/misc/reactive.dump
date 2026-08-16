@@ -15,7 +15,7 @@ w=80 h=24
 |        │                                                              │        |
 |        │                      ▅ HIGH — cruising                       │        |
 |        │                                                              │        |
-|        │  level = Reactive::Property.new 0                              │        |
+|        │  level = Reactive::Property.new 0                            │        |
 |        │  Reactive.bind(bar, level) { bar.value = level.value }       │        |
 |        │  status = Reactive.computed { … level.value … }              │        |
 |        │                                                              │        |

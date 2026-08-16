@@ -29,22 +29,20 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y2: 45-45:def/#32324d
-y3: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y4: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y5: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y6: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y7: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y8: 3-42:#c0caf5/def 45-45:#7aa2f7/#32324d
-y9: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y10: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y11: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y12: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y13: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y14: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y15: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y16: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y17: 45-45:def/#32324d
+y3: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y4: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y5: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y6: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y7: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y8: 3-42:#c0caf5/def 45-45:#7aa2f7/def
+y9: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y10: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y11: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y12: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y13: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y14: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y15: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y16: 3-42:#c0caf5/def 45-45:#0a0a0f/def
 
 === end ===
 w=80 h=24
@@ -75,19 +73,17 @@ w=80 h=24
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
-y2: 45-45:def/#32324d
-y3: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y4: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y5: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y6: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y7: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y8: 3-42:#c0caf5/def 45-45:#7aa2f7/#32324d
-y9: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y10: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y11: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y12: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y13: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y14: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y15: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y16: 3-42:#c0caf5/def 45-45:#0a0a0f/#32324d
-y17: 45-45:def/#32324d
+y3: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y4: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y5: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y6: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y7: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y8: 3-42:#c0caf5/def 45-45:#7aa2f7/def
+y9: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y10: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y11: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y12: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y13: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y14: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y15: 3-42:#c0caf5/def 45-45:#0a0a0f/def
+y16: 3-42:#c0caf5/def 45-45:#0a0a0f/def

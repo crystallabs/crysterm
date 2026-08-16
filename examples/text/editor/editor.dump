@@ -28,5 +28,5 @@ w=80 h=24
 attrs:
 y0: 0-17:#cdd6f4/def 18-79:#cdd6f4/#424453
 y1: 0-20:#cdd6f4/def 21-79:#cdd6f4/#424453
-y2: 0-0:def/def+r
+y22: 66-66:def/def+r
 y23: 0-79:#cdd6f4/#424453

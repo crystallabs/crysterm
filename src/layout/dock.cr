@@ -23,7 +23,7 @@ module Crysterm
     # direction is set by the layout. A child with no hint defaults to `Center`.
     #
     # <!-- widget-examples:capture v1 -->
-    # ![Border screenshot](../../tests/layout/dock/dock.5s.apng)
+    # ![Dock screenshot](../../tests/layout/dock/dock.5s.apng)
     # <!-- /widget-examples:capture -->
     class Dock < Layout
       enum Region
