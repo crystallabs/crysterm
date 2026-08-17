@@ -479,16 +479,15 @@ crystal examples/games/wumpus/wumpus.cr
 
 ## Dependencies and versioning
 
-Crysterm and the CrystalLabs shards it builds on (tput, event_handler,
-term_colors, and friends) follow semantic versioning, with releases tagged
+Crysterm and associated shards (tput, event_handler,
+term_colors, etc.) follow semantic versioning, with releases tagged
 `vX.Y.Z`. Crysterm's `shard.yml` pins each of those dependencies to its major
 version (e.g. `version: ~> 2.0`), so a plain clone plus `shards install`
-resolves to released, mutually compatible versions — minor and patch updates
-are picked up freely, while breaking changes never arrive unannounced.
+resolves to released versions, with minor and patch updates
+picked up.
 
-To develop against the current `master` HEADs instead, drop a
-`shard.override.yml` next to `shard.yml`. Shards picks it up automatically,
-and it applies to transitive dependencies too:
+To develop against the current `master` HEADs instead, place
+`shard.override.yml` next to `shard.yml`:
 
 ```yaml
 # shard.override.yml — track master HEADs instead of releases
@@ -522,7 +521,8 @@ dependencies:
     branch: master
 ```
 
-For work against local checkouts, `path: ../tput` entries work the same way.
+For working with local checkouts, `path: ../tput.cr` entries instead of `branch: ...`
+work the same way.
 
 ## Testing
 
@@ -539,12 +539,14 @@ its class documentation — run the docs pipeline instead:
 crystal tools/test.cr
 ```
 
-Invoked bare, it (re)captures any stale example outputs, embeds each widget's
+Invoked as shown, it (re)captures any stale example outputs, embeds each widget's
 capture into its doc comment, and builds `crystal docs` with the images copied
-into the `docs/` tree; then open `docs/index.html`. To narrow the run, name a
+into the `docs/` tree. Such improved documentation is available as usual in `docs/index.html`.
+
+To narrow the run, name a
 target and/or an action, e.g. re-make just one widget's captures with
-`crystal tools/test.cr -- tests/widget/button.cr`, or only re-embed and
-rebuild docs with `crystal tools/test.cr -- --doc-comments --docs`.
+`crystal tools/test.cr -- tests/widget/button.cr`, or only re-insert image
+links and rebuild docs with `crystal tools/test.cr -- --doc-comments --docs`.
 
 ## Thanks
 
