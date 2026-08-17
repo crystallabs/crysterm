@@ -131,12 +131,12 @@ end
 # Live performance overlay. Added last so it paints on top of the scene;
 # updates itself from render stats each frame (no `step` needed). Anchored
 # top-left here (default is bottom-left, where the sine scroller is).
-Fps.new \
+FPS.new \
   parent: s, top: 0, left: 0,
   format: " FPS %s (avg %s)  render %s  draw %s  flush %s ",
-  args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::FpsAvg,
-         Widget::Fps::Metric::Render, Widget::Fps::Metric::Draw,
-         Widget::Fps::Metric::Flush],
+  args: [Widget::FPS::Metric::Fps, Widget::FPS::Metric::FpsAvg,
+         Widget::FPS::Metric::Render, Widget::FPS::Metric::Draw,
+         Widget::FPS::Metric::Flush],
   style: Style.new(fg: "white", bg: "black")
 
 frame = 0

@@ -25,8 +25,8 @@ gl = GaugeList.new parent: s, top: 0, left: 42, width: 34, height: 11,
 
 # FPS overlay (bottom-left): with the 60 fps cap, driving updates at ~60 Hz
 # shows the counter climbing toward 60.
-Fps.new parent: s, top: "100%-1", left: 0,
-  format: "FPS %5s  (R %5s / D %5s)", args: [Widget::Fps::Metric::Fps, Widget::Fps::Metric::Render, Widget::Fps::Metric::Draw],
+FPS.new parent: s, top: "100%-1", left: 0,
+  format: "FPS %5s  (R %5s / D %5s)", args: [Widget::FPS::Metric::Fps, Widget::FPS::Metric::Render, Widget::FPS::Metric::Draw],
   style: Style.new(fg: "black", bg: 0x40e0c0)
 
 # Drive at ~60 Hz with a small per-frame step, so the animation stays smooth and

@@ -108,7 +108,7 @@ spawn do
   # each frame's own GIF delay, so playback keeps native timing.
   mark = ENV["TTYGIF_MARK"]?
   idx = 0
-  Crysterm::FrameClock.new(frame_delays[0].milliseconds) do |clock|
+  Crysterm::FrameClock.ticker(frame_delays[0].milliseconds) do |clock|
     # Tag every frame with an out-of-band marker (an APC string terminals
     # ignore) carrying its index and source delay, emitted before the frame is
     # drawn. The recorder uses these to grab one output frame per source frame

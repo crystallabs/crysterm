@@ -14,7 +14,6 @@ w=80 h=24
 |  parent: s,                                                                    |
 |  width: 60,                                                                    |
 |  wrap_content: false,                                                          |
-|  parse_tags: true,                                                             |
 |  content: File.read(__FILE__)                                                  |
 |)                                                                               |
 |                                                                                |
@@ -24,4 +23,5 @@ w=80 h=24
 |  if e.char == 'q' || e.key == ::Tput::Key::CtrlQ                               |
 |    s.destroy                                                                   |
 |    exit                                                                        |
+|  end                                                                           |
 +--------------------------------------------------------------------------------+

@@ -9,5 +9,5 @@ include Crysterm::Widgets
 
 Crysterm::WidgetExample.run "Fps" do |window|
   window.stylesheet = "Fps { border: solid; color: #9ece6a; }"
-  Fps.new parent: window, top: "center", left: "center", width: 30, height: 5
+  FPS.new parent: window, top: "center", left: "center", width: 30, height: 5
 end
