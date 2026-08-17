@@ -15,27 +15,27 @@ license: AGPLv3
 dependencies:
   tput:
     github: crystallabs/tput
-    branch: master
+    version: ~> 2.0
   crystallabs-helpers:
     github: crystallabs/crystallabs-helpers.cr
-    branch: master
+    version: ~> 1.1
   term_colors:
     github: crystallabs/term_colors
-    branch: master
+    version: ~> 2.0
   w3m_image_display:
     github: SamualLB/w3mimagedisplay
   event_handler:
     github: crystallabs/event_handler
-    branch: master
+    version: ~> 2.0
   gpm:
     github: crystallabs/gpm.cr
-    branch: master
+    version: ~> 2.0
   pnggif:
     github: crystallabs/pnggif
-    branch: master
+    version: ~> 0.1
   superconf:
     github: crystallabs/superconf.cr
-    branch: master
+    version: ~> 0.1
   html5:
     github: naqvis/crystal-html5
   markd:

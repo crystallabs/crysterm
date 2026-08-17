@@ -477,13 +477,74 @@ crystal examples/games/wumpus/wumpus.cr
 
 (And many more under `examples/` and `tests/`.)
 
+## Dependencies and versioning
+
+Crysterm and the CrystalLabs shards it builds on (tput, event_handler,
+term_colors, and friends) follow semantic versioning, with releases tagged
+`vX.Y.Z`. Crysterm's `shard.yml` pins each of those dependencies to its major
+version (e.g. `version: ~> 2.0`), so a plain clone plus `shards install`
+resolves to released, mutually compatible versions — minor and patch updates
+are picked up freely, while breaking changes never arrive unannounced.
+
+To develop against the current `master` HEADs instead, drop a
+`shard.override.yml` next to `shard.yml`. Shards picks it up automatically,
+and it applies to transitive dependencies too:
+
+```yaml
+# shard.override.yml — track master HEADs instead of releases
+dependencies:
+  tput:
+    github: crystallabs/tput
+    branch: master
+  crystallabs-helpers:
+    github: crystallabs/crystallabs-helpers.cr
+    branch: master
+  term_colors:
+    github: crystallabs/term_colors
+    branch: master
+  event_handler:
+    github: crystallabs/event_handler
+    branch: master
+  gpm:
+    github: crystallabs/gpm.cr
+    branch: master
+  pnggif:
+    github: crystallabs/pnggif
+    branch: master
+  superconf:
+    github: crystallabs/superconf.cr
+    branch: master
+  unibilium:
+    github: crystallabs/unibilium.cr
+    branch: master
+  unibilium-shim:
+    github: crystallabs/unibilium-shim.cr
+    branch: master
+```
+
+For work against local checkouts, `path: ../tput` entries work the same way.
+
 ## Testing
 
 Run `crystal spec` as usual.
 
 ## Documentation
 
-Run `crystal docs` as usual.
+Run `crystal docs` as usual for plain API docs.
+
+For the full docs — with every widget's screenshot or animation embedded into
+its class documentation — run the docs pipeline instead:
+
+```
+crystal tools/test.cr
+```
+
+Invoked bare, it (re)captures any stale example outputs, embeds each widget's
+capture into its doc comment, and builds `crystal docs` with the images copied
+into the `docs/` tree; then open `docs/index.html`. To narrow the run, name a
+target and/or an action, e.g. re-make just one widget's captures with
+`crystal tools/test.cr -- tests/widget/button.cr`, or only re-embed and
+rebuild docs with `crystal tools/test.cr -- --doc-comments --docs`.
 
 ## Thanks
 
