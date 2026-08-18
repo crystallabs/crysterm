@@ -1,0 +1,189 @@
+# A "cracktro" — the animated intro old-school crackers bolted onto pirated
+# games. Standard 80x15 window.
+#
+# Letters are shot out of the CRT centre dot and land in a clockwise spiral that
+# fills the whole screen: top row first, then down the right border, bottom row
+# right→left, up the left border, then inward until every cell is filled, then
+# it resets. Each letter fakes growing (. · : * o O 0 @) and adopts the
+# background it flies over.
+#
+# Underneath, the scene plays on until the spiral covers it:
+#   row 1 : copper / raster bar
+#   row 2 : a plain right-to-left text scroller (same message as the sine one)
+#   row 3 : copper / raster bar
+# Then a flashing greet, and the classic sine-wave rainbow scroller below.
+
+require "../../src/crysterm"
+
+include Crysterm
+include Crysterm::Widgets
+
+Crysterm::Config.set "screen.headless", Crysterm::Headless::Always
+
+# Full-screen animation that mutates `style.fg`/`bg` in place — mutations
+# dirty-mark-based damage tracking (the default) does not observe, so its
+# periodic selective re-probe could briefly show stale cells.
+# `OptimizationFlag::None` repaints the whole buffer every frame, picking those
+# mutations up. (Perf is no longer a reason: while latched full, damage
+# tracking sheds its per-frame bookkeeping and matches `None`.)
+s = Window.new title: "CRYSTERM cracktro", optimization: OptimizationFlag::None, width: 269, height: 80
+
+w = s.awidth
+h = s.aheight
+
+MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
+       "BLESSED-CONTRIB * QT * NCURSES (R.I.P.) * EVERY CRYSTAL CODER * " +
+       "THE WHOLE DEMOSCENE ...   REAL ONES NEVER REMOVE THE INTRO !   ......   ")
+
+# Copper bars on rows 1 and 3 (rows 0 and 2 carry the title and line scroller),
+# as reusable `Widget::Effect::CopperBar`s. Each is staggered around the color
+# wheel by `hue_offset` and advanced explicitly from the master loop below (via
+# `step`) so the whole scene stays on one clock.
+COPPER_ROWS = [1, 3]
+copper = COPPER_ROWS.map_with_index do |row, idx|
+  EffectCopperBar.new parent: s, top: row, left: 0, width: "100%", height: 1,
+    hue_offset: idx * 26, hue_speed: 9
+end
+copper_idx = {1 => 0, 3 => 1}
+
+# Row 2: right-to-left rainbow scroller of the same message, as a reusable
+# `Widget::Marquee`. Advanced explicitly via `step` (rather than `start` and its
+# own fiber) so it stays locked to the scene's clock and the recorded GIF tiles
+# seamlessly.
+hscroll = Marquee.new \
+  parent: s, top: 2, left: 0, width: "100%", height: 1,
+  text: MSG, rainbow: true, style: Style.new(bg: "black")
+
+# Flashing greet.
+greet = Widget::Box.new \
+  parent: s, top: 4, left: 0, width: "100%", height: 1, align: :hcenter,
+  content: "* CRACKED BY THE CRYSTERM CREW *", style: Style.new(fg: "yellow", bg: "black")
+
+# Sine-wave rainbow scroller in the lower portion, as a reusable
+# `Widget::Effect::SineScroller`. Advanced via `step` so it shares the one frame
+# clock.
+sine_top = 5
+sine = EffectSineScroller.new \
+  parent: s, top: sine_top, left: 0, width: "100%", height: h - sine_top,
+  text: MSG, style: Style.new(bg: "black")
+
+# Background present at each row for the current frame, so a flying letter can
+# adopt it without changing the background it passes over: copper rows carry
+# the current raster-bar hue, every other row is black. Recomputed once per row
+# each frame (`refresh_row_bg`), then read by index per cell — avoiding a `Hash`
+# lookup + `hsv` string re-parse per cell. (`hsv_i` yields the native
+# `0xRRGGBB` int directly.)
+row_bg = Array.new(h, 0x000000)
+refresh_row_bg = ->(fr : Int32) {
+  (0...h).each do |r|
+    row_bg[r] = (ci = copper_idx[r]?) ? Colors.hsv_i((ci * 26 + fr * 9) % 360) : 0x000000
+  end
+}
+
+# The top row is the title: "CRYSTERM " repeated across the whole width, every
+# non-space cell a letter shot from the centre.
+PATTERN  = "CRYSTERM "
+GROW     = [".", "·", ":", "*", "o", "O", "0", "@"]
+INTERVAL =  1 # frames between successive letter launches (rapid: fills the screen)
+TRAVEL   = 12 # frames a letter spends in flight
+HOLD     = 28 # frames the finished row is held before re-firing
+
+cx = w // 2
+cy = h // 2
+
+# Clockwise spiral over every cell, starting at the top-left corner: top row
+# left→right, then down the right border, bottom row right→left, up the left
+# border, then inward until the whole screen is filled. Each successive cell is
+# the destination of one shot-out letter.
+def spiral_order(w, h)
+  cells = [] of Tuple(Int32, Int32)
+  top = 0
+  bottom = h - 1
+  left = 0
+  right = w - 1
+  while top <= bottom && left <= right
+    (left..right).each { |x| cells << {x, top} } # top row, L→R
+    top += 1
+    (top..bottom).each { |y| cells << {right, y} } # right border, T→B
+    right -= 1
+    if top <= bottom
+      right.downto(left) { |x| cells << {x, bottom} } # bottom row, R→L
+      bottom -= 1
+    end
+    if left <= right
+      bottom.downto(top) { |y| cells << {left, y} } # left border, B→T
+      left += 1
+    end
+  end
+  cells
+end
+
+# Every cell receives a (non-space) letter so the screen fills in solid.
+LETTERS_SEQ = PATTERN.chars.reject { |c| c == ' ' }
+slots = spiral_order(w, h).map_with_index do |(x, y), i|
+  {x, y, LETTERS_SEQ[i % LETTERS_SEQ.size]}
+end
+cycle = slots.size * INTERVAL + TRAVEL + HOLD
+
+letters = slots.map do |_|
+  Widget::Box.new parent: s, top: cy, left: cx, width: 1, height: 1,
+    content: "·", style: Style.new(fg: 0xffffff, bg: 0x000000)
+end
+
+# Live performance overlay. Added last so it paints on top of the scene;
+# updates itself from render stats each frame (no `step` needed). Anchored
+# top-left here (default is bottom-left, where the sine scroller is).
+frame = 0
+tick = -> {
+  # copper bars hue-cycle (advance one frame; each CopperBar paints its own bg)
+  copper.each &.step
+
+  # row 2: right-to-left rainbow scroller (advance one column per master frame)
+  hscroll.step
+
+  greet.style.fg = (frame // 4).even? ? 0xffff00 : 0xff3030
+
+  # sine-wave rainbow scroller (advance one column per master frame)
+  sine.step
+
+  # per-row background for this frame (copper hue on the bar rows, else black)
+  refresh_row_bg.call frame
+
+  # letters shot from the centre dot, spiralling clockwise to fill the screen
+  f = frame % cycle
+  letters.each_with_index do |box, i|
+    destx, desty, fch = slots[i]
+    lf = i * INTERVAL
+    col = cx
+    row = cy
+    if f < lf
+      box.content = "·"
+      box.style.fg = (frame // 3).even? ? 0xff8080 : 0x80c0ff
+    elsif f < lf + TRAVEL
+      p = (f - lf) / TRAVEL.to_f
+      col = (cx + (destx - cx) * p).round.to_i
+      row = (cy + (desty - cy) * p).round.to_i
+      box.content = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
+      box.style.fg = Colors.hsv_i((i * 9 + frame * 9) % 360)
+    else
+      col = destx
+      row = desty
+      box.content = fch.to_s
+      box.style.fg = Colors.hsv_i((i * 9 + frame * 6) % 360)
+    end
+    box.left = col
+    box.top = row
+    box.style.bg = row_bg[row]
+  end
+
+  frame += 1
+}
+
+
+100.times { tick.call; s.repaint }
+6.times do |b|
+  t0 = Time.instant
+  300.times { tick.call; s.repaint }
+  puts "batch#{b}: #{(Time.instant - t0).total_milliseconds.round(1)} ms"
+end
+exit 0

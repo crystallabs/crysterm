@@ -1,0 +1,417 @@
+# crysterm dump (text golden; rewritten each run — git diff is the check)
+
+=== start ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│▾ MarkdownViewer         MarkdownViewer                                      █│|
+|│    Navigation                                                               █│|
+|│    Links                One document, two views: the sidebar is the         █│|
+|│    Sidebar              document's heading outline, the pane is a TextBrowse█│|
+|│                         r over the same TextDocument.                       █│|
+|│                                                                             █│|
+|│                         The outline is TextDocument#outline — the same flat █│|
+|│                         heading list the inline TextToc renders, here       █│|
+|│                         rebuilt live as a Tree, so it costs the document    █│|
+|│                         nothing: no reflow, no undo entries, no moved       █│|
+|│                         reading position.                                   █│|
+|│                                                                             ░│|
+|│                         Navigation                                          ░│|
+|│                                                                             ░│|
+|│                         Arrows move the outline selection; Enter jumps the  ░│|
+|│                         browser to the selected heading. The sidebar tracks ░│|
+|│                         the document live, so a page being streamed in      ░│|
+|│                         grows its outline as headings arrive.               ░│|
+|│                                                                             ░│|
+|│                         Anchors identify entries across rebuilds: a heading ░│|
+|│                         inserted above shifts every row, but the selection  ░│|
+|│                         and collapsed state stay with their headings. A     ░│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-39:#86b5ff/#24283b+b 40-77:#c0caf5/#24283b
+y2: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y3: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y4: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-67:#c0caf5/#24283b 68-77:#e0a85c/#202833
+y5: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-26:#e0a85c/#202833 27-41:#c0caf5/#24283b 42-53:#e0a85c/#202833 54-77:#c0caf5/#24283b
+y6: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y7: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-40:#c0caf5/#24283b 41-60:#e0a85c/#202833 61-77:#c0caf5/#24283b
+y8: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-49:#c0caf5/#24283b 50-56:#e0a85c/#202833 57-77:#c0caf5/#24283b
+y9: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-43:#c0caf5/#24283b 44-47:#e0a85c/#202833 48-77:#c0caf5/#24283b
+y10: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y11: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y12: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y13: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-35:#86b5ff/#24283b+b 36-77:#c0caf5/#24283b
+y14: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y15: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y16: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y17: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y18: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y19: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y20: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y21: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+y22: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b
+
+=== key down ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│▾ MarkdownViewer         MarkdownViewer                                      █│|
+|│    Navigation                                                               █│|
+|│    Links                One document, two views: the sidebar is the         █│|
+|│    Sidebar              document's heading outline, the pane is a TextBrowse█│|
+|│                         r over the same TextDocument.                       █│|
+|│                                                                             █│|
+|│                         The outline is TextDocument#outline — the same flat █│|
+|│                         heading list the inline TextToc renders, here       █│|
+|│                         rebuilt live as a Tree, so it costs the document    █│|
+|│                         nothing: no reflow, no undo entries, no moved       █│|
+|│                         reading position.                                   █│|
+|│                                                                             ░│|
+|│                         Navigation                                          ░│|
+|│                                                                             ░│|
+|│                         Arrows move the outline selection; Enter jumps the  ░│|
+|│                         browser to the selected heading. The sidebar tracks ░│|
+|│                         the document live, so a page being streamed in      ░│|
+|│                         grows its outline as headings arrive.               ░│|
+|│                                                                             ░│|
+|│                         Anchors identify entries across rebuilds: a heading ░│|
+|│                         inserted above shifts every row, but the selection  ░│|
+|│                         and collapsed state stay with their headings. A     ░│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-39:#86b5ff/#24283b+b 40-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y2: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y3: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y4: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-67:#c0caf5/#24283b 68-77:#e0a85c/#202833 78-78:#6a6e87/#06070a
+y5: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-26:#e0a85c/#202833 27-41:#c0caf5/#24283b 42-53:#e0a85c/#202833 54-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y6: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y7: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-40:#c0caf5/#24283b 41-60:#e0a85c/#202833 61-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y8: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-49:#c0caf5/#24283b 50-56:#e0a85c/#202833 57-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y9: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-43:#c0caf5/#24283b 44-47:#e0a85c/#202833 48-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y10: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y11: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y12: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y13: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-35:#86b5ff/#24283b+b 36-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y14: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y15: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y16: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y17: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y18: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y19: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y20: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y21: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y22: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+
+=== key enter ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│▾ MarkdownViewer         MarkdownViewer                                      █│|
+|│    Navigation                                                               █│|
+|│    Links                One document, two views: the sidebar is the         █│|
+|│    Sidebar              document's heading outline, the pane is a TextBrowse█│|
+|│                         r over the same TextDocument.                       █│|
+|│                                                                             █│|
+|│                         The outline is TextDocument#outline — the same flat █│|
+|│                         heading list the inline TextToc renders, here       █│|
+|│                         rebuilt live as a Tree, so it costs the document    █│|
+|│                         nothing: no reflow, no undo entries, no moved       █│|
+|│                         reading position.                                   █│|
+|│                                                                             ░│|
+|│                         Navigation                                          ░│|
+|│                                                                             ░│|
+|│                         Arrows move the outline selection; Enter jumps the  ░│|
+|│                         browser to the selected heading. The sidebar tracks ░│|
+|│                         the document live, so a page being streamed in      ░│|
+|│                         grows its outline as headings arrive.               ░│|
+|│                                                                             ░│|
+|│                         Anchors identify entries across rebuilds: a heading ░│|
+|│                         inserted above shifts every row, but the selection  ░│|
+|│                         and collapsed state stay with their headings. A     ░│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-39:#86b5ff/#24283b+b 40-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y2: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y3: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y4: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-67:#c0caf5/#24283b 68-77:#e0a85c/#202833 78-78:#6a6e87/#06070a
+y5: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-26:#e0a85c/#202833 27-41:#c0caf5/#24283b 42-53:#e0a85c/#202833 54-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y6: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y7: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-40:#c0caf5/#24283b 41-60:#e0a85c/#202833 61-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y8: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-49:#c0caf5/#24283b 50-56:#e0a85c/#202833 57-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y9: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-43:#c0caf5/#24283b 44-47:#e0a85c/#202833 48-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y10: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y11: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y12: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y13: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-35:#86b5ff/#24283b+b 36-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y14: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y15: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y16: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y17: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y18: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y19: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y20: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y21: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y22: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+
+=== key down x2 ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│▾ MarkdownViewer         MarkdownViewer                                      █│|
+|│    Navigation                                                               █│|
+|│    Links                One document, two views: the sidebar is the         █│|
+|│    Sidebar              document's heading outline, the pane is a TextBrowse█│|
+|│                         r over the same TextDocument.                       █│|
+|│                                                                             █│|
+|│                         The outline is TextDocument#outline — the same flat █│|
+|│                         heading list the inline TextToc renders, here       █│|
+|│                         rebuilt live as a Tree, so it costs the document    █│|
+|│                         nothing: no reflow, no undo entries, no moved       █│|
+|│                         reading position.                                   █│|
+|│                                                                             ░│|
+|│                         Navigation                                          ░│|
+|│                                                                             ░│|
+|│                         Arrows move the outline selection; Enter jumps the  ░│|
+|│                         browser to the selected heading. The sidebar tracks ░│|
+|│                         the document live, so a page being streamed in      ░│|
+|│                         grows its outline as headings arrive.               ░│|
+|│                                                                             ░│|
+|│                         Anchors identify entries across rebuilds: a heading ░│|
+|│                         inserted above shifts every row, but the selection  ░│|
+|│                         and collapsed state stay with their headings. A     ░│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-39:#86b5ff/#24283b+b 40-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y2: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y3: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y4: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-67:#c0caf5/#24283b 68-77:#e0a85c/#202833 78-78:#6a6e87/#06070a
+y5: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-26:#e0a85c/#202833 27-41:#c0caf5/#24283b 42-53:#e0a85c/#202833 54-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y6: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y7: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-40:#c0caf5/#24283b 41-60:#e0a85c/#202833 61-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y8: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-49:#c0caf5/#24283b 50-56:#e0a85c/#202833 57-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y9: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-43:#c0caf5/#24283b 44-47:#e0a85c/#202833 48-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y10: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y11: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y12: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y13: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-35:#86b5ff/#24283b+b 36-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y14: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y15: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y16: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y17: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y18: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y19: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y20: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y21: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y22: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+
+=== key enter ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│▾ MarkdownViewer         grows its outline as headings arrive.               ░│|
+|│    Navigation                                                               ░│|
+|│    Links                Anchors identify entries across rebuilds: a heading ░│|
+|│    Sidebar              inserted above shifts every row, but the selection  ░│|
+|│                         and collapsed state stay with their headings. A     ░│|
+|│                         skipped level (an h1 straight to an h3) gets a      ░│|
+|│                         filler node, so the tree keeps its shape.           ░│|
+|│                                                                             ░│|
+|│                         Links                                               █│|
+|│                                                                             █│|
+|│                         In the browser, Tab cycles link focus and Enter     █│|
+|│                         follows: a same-document anchor like Sidebar        █│|
+|│                         scrolls in place, and with a loader set, a          █│|
+|│                         cross-page link loads a new document — re-pointing  █│|
+|│                         the sidebar at its outline.                         █│|
+|│                                                                             █│|
+|│                         History records each step with the reading          █│|
+|│                         position it was left at, so Backspace returns to    █│|
+|│                         the exact spot — following an anchor is itself a    █│|
+|│                         history step.                                       ░│|
+|│                                                                             ░│|
+|│                         Sidebar                                             ░│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y2: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y3: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y4: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y5: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y6: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-43:#c0caf5/#24283b 44-45:#e0a85c/#202833 46-61:#c0caf5/#24283b 62-63:#e0a85c/#202833 64-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y7: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y8: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y9: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-30:#86b5ff/#24283b+b 31-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y10: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y11: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y12: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-62:#c0caf5/#24283b 63-69:#4fb6e6/#24283b+u 70-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y13: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-54:#c0caf5/#24283b 55-60:#e0a85c/#202833 61-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y14: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y15: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y16: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y17: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y18: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y19: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y20: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y21: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y22: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-32:#86b5ff/#24283b+b 33-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+
+=== char 't' ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│skipped level (an h1 straight to an h3) gets a filler node, so the tree      ░│|
+|│keeps its shape.                                                             ░│|
+|│                                                                             ░│|
+|│Links                                                                        ░│|
+|│                                                                             ░│|
+|│In the browser, Tab cycles link focus and Enter follows: a same-document     ░│|
+|│anchor like Sidebar scrolls in place, and with a loader set, a cross-page    ░│|
+|│link loads a new document — re-pointing the sidebar at its outline.          ░│|
+|│                                                                             ░│|
+|│History records each step with the reading position it was left at, so       █│|
+|│Backspace returns to the exact spot — following an anchor is itself a        █│|
+|│history step.                                                                █│|
+|│                                                                             █│|
+|│Sidebar                                                                      █│|
+|│                                                                             █│|
+|│Hide it (show_toc = false) and the browser takes the full width; the         █│|
+|│detached outline keeps tracking the document and comes back current. The     █│|
+|│divider between the panes is draggable, and toc_width sets the extent a      █│|
+|│(re)shown sidebar gets.                                                      █│|
+|│                                                                             █│|
+|│                                                                             █│|
+|│                                                                             █│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-18:#c0caf5/#24283b 19-20:#e0a85c/#202833 21-36:#c0caf5/#24283b 37-38:#e0a85c/#202833 39-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y2: 1-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y3: 1-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y4: 1-5:#86b5ff/#24283b+b 6-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y5: 1-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y6: 1-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y7: 1-12:#c0caf5/#24283b 13-19:#4fb6e6/#24283b+u 20-49:#c0caf5/#24283b 50-55:#e0a85c/#202833 56-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y8: 1-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y9: 1-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y10: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y11: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y12: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y13: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y14: 1-7:#86b5ff/#24283b+b 8-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y15: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y16: 1-9:#c0caf5/#24283b 10-25:#e0a85c/#202833 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y17: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y18: 1-44:#c0caf5/#24283b 45-53:#e0a85c/#202833 54-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y19: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y20: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y21: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y22: 1-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+
+=== char 't' ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│▾ MarkdownViewer         grows its outline as headings arrive.               ░│|
+|│    Navigation                                                               ░│|
+|│    Links                Anchors identify entries across rebuilds: a heading ░│|
+|│    Sidebar              inserted above shifts every row, but the selection  ░│|
+|│                         and collapsed state stay with their headings. A     ░│|
+|│                         skipped level (an h1 straight to an h3) gets a      ░│|
+|│                         filler node, so the tree keeps its shape.           ░│|
+|│                                                                             ░│|
+|│                         Links                                               █│|
+|│                                                                             █│|
+|│                         In the browser, Tab cycles link focus and Enter     █│|
+|│                         follows: a same-document anchor like Sidebar        █│|
+|│                         scrolls in place, and with a loader set, a          █│|
+|│                         cross-page link loads a new document — re-pointing  █│|
+|│                         the sidebar at its outline.                         █│|
+|│                                                                             █│|
+|│                         History records each step with the reading          █│|
+|│                         position it was left at, so Backspace returns to    █│|
+|│                         the exact spot — following an anchor is itself a    █│|
+|│                         history step.                                       ░│|
+|│                                                                             ░│|
+|│                         Sidebar                                             ░│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y2: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y3: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y4: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y5: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y6: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-43:#c0caf5/#24283b 44-45:#e0a85c/#202833 46-61:#c0caf5/#24283b 62-63:#e0a85c/#202833 64-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y7: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y8: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y9: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-30:#86b5ff/#24283b+b 31-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y10: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y11: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y12: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-62:#c0caf5/#24283b 63-69:#4fb6e6/#24283b+u 70-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y13: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-54:#c0caf5/#24283b 55-60:#e0a85c/#202833 61-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y14: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y15: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y16: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y17: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y18: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y19: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y20: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y21: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y22: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-32:#86b5ff/#24283b+b 33-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+
+=== end ===
+w=80 h=24
++--------------------------------------------------------------------------------+
+|┌──────────────────────────────────────────────────────────────────────────────┐|
+|│▾ MarkdownViewer         grows its outline as headings arrive.               ░│|
+|│    Navigation                                                               ░│|
+|│    Links                Anchors identify entries across rebuilds: a heading ░│|
+|│    Sidebar              inserted above shifts every row, but the selection  ░│|
+|│                         and collapsed state stay with their headings. A     ░│|
+|│                         skipped level (an h1 straight to an h3) gets a      ░│|
+|│                         filler node, so the tree keeps its shape.           ░│|
+|│                                                                             ░│|
+|│                         Links                                               █│|
+|│                                                                             █│|
+|│                         In the browser, Tab cycles link focus and Enter     █│|
+|│                         follows: a same-document anchor like Sidebar        █│|
+|│                         scrolls in place, and with a loader set, a          █│|
+|│                         cross-page link loads a new document — re-pointing  █│|
+|│                         the sidebar at its outline.                         █│|
+|│                                                                             █│|
+|│                         History records each step with the reading          █│|
+|│                         position it was left at, so Backspace returns to    █│|
+|│                         the exact spot — following an anchor is itself a    █│|
+|│                         history step.                                       ░│|
+|│                                                                             ░│|
+|│                         Sidebar                                             ░│|
+|└──────────────────────────────────────────────────────────────────────────────┘|
++--------------------------------------------------------------------------------+
+attrs:
+y1: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y2: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y3: 1-24:#7aa2f7/def 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y4: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y5: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y6: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-43:#c0caf5/#24283b 44-45:#e0a85c/#202833 46-61:#c0caf5/#24283b 62-63:#e0a85c/#202833 64-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y7: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y8: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y9: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-30:#86b5ff/#24283b+b 31-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y10: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y11: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y12: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-62:#c0caf5/#24283b 63-69:#4fb6e6/#24283b+u 70-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y13: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-54:#c0caf5/#24283b 55-60:#e0a85c/#202833 61-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y14: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y15: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y16: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y17: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y18: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y19: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#6a6e87/#06070a
+y20: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y21: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a
+y22: 1-24:#7aa2f7/#1f2335 25-25:def/#3b4261 26-32:#86b5ff/#24283b+b 33-77:#c0caf5/#24283b 78-78:#2a2c38/#06070a

@@ -36,10 +36,10 @@ module Crysterm
         when "border-right"         then apply_border_side border, Side::Right, value, el_color
         when "border-bottom"        then apply_border_side border, Side::Bottom, value, el_color
         when "border-left"          then apply_border_side border, Side::Left, value, el_color
-        when "border-top-width"     then border_cells?(value, vertical: true).try { |c| border.top = c }
-        when "border-right-width"   then border_cells?(value).try { |c| border.right = c }
-        when "border-bottom-width"  then border_cells?(value, vertical: true).try { |c| border.bottom = c }
-        when "border-left-width"    then border_cells?(value).try { |c| border.left = c }
+        when "border-top-width"     then apply_side_width border, Side::Top, value
+        when "border-right-width"   then apply_side_width border, Side::Right, value
+        when "border-bottom-width"  then apply_side_width border, Side::Bottom, value
+        when "border-left-width"    then apply_side_width border, Side::Left, value
         when "border-top-style"     then apply_border_style border, value, {Side::Top}
         when "border-right-style"   then apply_border_style border, value, {Side::Right}
         when "border-bottom-style"  then apply_border_style border, value, {Side::Bottom}
@@ -546,6 +546,14 @@ module Crysterm
         elsif !style_tokens.empty?
           ensure_side border, side
         end
+      end
+
+      # A `border-<side>-width` longhand: resolves *value* on that side's axis
+      # (top/bottom scale absolute units vertically) through the shared
+      # `border_cells?` resolver and sets the side; an unparseable value is an
+      # invalid declaration and is dropped, per CSS.
+      private def self.apply_side_width(border : Border, side : Side, value : String) : Nil
+        border_cells?(value, vertical: side.top? || side.bottom?).try { |c| set_side border, side, c }
       end
 
       # A `border-<side>-color` longhand: resolves *value* (dropping a blank or

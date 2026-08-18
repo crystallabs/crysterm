@@ -127,8 +127,7 @@ module Crysterm
       # fix. The pause leaves `@pulse_paused` set, so the Show/Attached hook
       # resumes it on the first render after `show`/re-attach. Installed
       # once, on first `#pulse`.
-      unless @fade_hooks_installed
-        @fade_hooks_installed = true
+      install_once fade_hooks_installed do
         on(::Crysterm::Event::Hide) { pause_pulse }
         on(::Crysterm::Event::Detached) { pause_pulse }
         on(::Crysterm::Event::Show) { resume_pulse }

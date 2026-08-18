@@ -81,8 +81,7 @@ module Crysterm
       # descendants (via `emit_descendants`), covering animated children of a
       # hidden container. Installed once, on first start (mirrors
       # `Effect::Animated`'s one-time `Event::Destroy` hook).
-      unless @css_animation_hooks_installed
-        @css_animation_hooks_installed = true
+      install_once css_animation_hooks_installed do
         on(::Crysterm::Event::Hide) { @css_animation.try &.stop }
         on(::Crysterm::Event::Detached) { @css_animation.try &.stop }
       end

@@ -90,9 +90,9 @@ module Crysterm
     # Wires the attach/detach lifecycle for installed actions — once, lazily,
     # so widgets that never carry actions don't pay for the handlers.
     private def wire_actions : Nil
-      return if @_actions_wired
-      @_actions_wired = true
-      wire_action_shortcuts
+      install_once _actions_wired do
+        wire_action_shortcuts
+      end
     end
 
     # A plain widget's shortcut-owning actions are the ones `#add_action`
@@ -369,7 +369,7 @@ module Crysterm
     # shows/hides the tooltip automatically. Set `nil` to disable.
     def tool_tip=(text : String?)
       @tool_tip = text
-      wire_tool_tip if text && !@_tool_tip_wired
+      wire_tool_tip if text
       text
     end
 
@@ -411,11 +411,12 @@ module Crysterm
     end
 
     private def wire_tool_tip : Nil
-      @_tool_tip_wired = true
-      on(Crysterm::Event::MouseEnter) { |e| show_tool_tip e.x, e.y }
-      on(Crysterm::Event::MouseLeave) { hide_tool_tip }
-      # A hidden widget must not leave its tooltip lingering.
-      on(Crysterm::Event::Hide) { hide_tool_tip }
+      install_once _tool_tip_wired do
+        on(Crysterm::Event::MouseEnter) { |e| show_tool_tip e.x, e.y }
+        on(Crysterm::Event::MouseLeave) { hide_tool_tip }
+        # A hidden widget must not leave its tooltip lingering.
+        on(Crysterm::Event::Hide) { hide_tool_tip }
+      end
     end
 
     # The GUI mouse-pointer shape requested while the pointer is over this widget
@@ -438,21 +439,22 @@ module Crysterm
     # (already-installed handlers become no-ops; next leave restores default).
     def mouse_cursor_shape=(shape : ::Tput::MouseCursorShape?)
       @mouse_cursor_shape = shape
-      wire_mouse_cursor_shape if shape && !@_mouse_cursor_shape_wired
+      wire_mouse_cursor_shape if shape
       shape
     end
 
     private def wire_mouse_cursor_shape : Nil
-      @_mouse_cursor_shape_wired = true
-      on(Crysterm::Event::MouseEnter) do
-        @mouse_cursor_shape.try { |shape| window?.try(&.mouse_cursor_shape=(shape)) }
-      end
-      on(Crysterm::Event::MouseLeave) { window?.try(&.mouse_cursor_shape=(nil)) }
-      # If hidden while it owns the pointer shape, restore the default: no
-      # `MouseLeave` fires for a widget that vanishes under the pointer.
-      on(Crysterm::Event::Hide) do
-        s = window?
-        s.mouse_cursor_shape = nil if s && s.hovered == self
+      install_once _mouse_cursor_shape_wired do
+        on(Crysterm::Event::MouseEnter) do
+          @mouse_cursor_shape.try { |shape| window?.try(&.mouse_cursor_shape=(shape)) }
+        end
+        on(Crysterm::Event::MouseLeave) { window?.try(&.mouse_cursor_shape=(nil)) }
+        # If hidden while it owns the pointer shape, restore the default: no
+        # `MouseLeave` fires for a widget that vanishes under the pointer.
+        on(Crysterm::Event::Hide) do
+          s = window?
+          s.mouse_cursor_shape = nil if s && s.hovered == self
+        end
       end
     end
 
@@ -523,15 +525,15 @@ module Crysterm
     private def enable_drag : Bool
       @draggable = true
 
-      if drag_mode.reposition? && !@_drag_reposition_installed
-        @_drag_reposition_installed = true
+      if drag_mode.reposition?
+        install_once _drag_reposition_installed do
+          on(Crysterm::Event::DragStart) do |e|
+            @_drag_dx, @_drag_dy = drag_grab_offset e.x, e.y
+          end
 
-        on(Crysterm::Event::DragStart) do |e|
-          @_drag_dx, @_drag_dy = drag_grab_offset e.x, e.y
-        end
-
-        on(Crysterm::Event::Drag) do |e|
-          drag_move_to e.x, e.y, @_drag_dx, @_drag_dy
+          on(Crysterm::Event::Drag) do |e|
+            drag_move_to e.x, e.y, @_drag_dx, @_drag_dy
+          end
         end
       end
 

@@ -787,9 +787,10 @@ module Crysterm
       on(Crysterm::Event::Attached) { process_content }
 
       if @scrollable
-        @_scroll_index_wired = true
-        on(Crysterm::Event::ContentParsed) do
-          reclamp_scroll_index
+        install_once _scroll_index_wired do
+          on(Crysterm::Event::ContentParsed) do
+            reclamp_scroll_index
+          end
         end
 
         reclamp_scroll_index

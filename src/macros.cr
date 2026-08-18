@@ -242,5 +242,19 @@ module Crysterm
     macro handle(event, handler = nil)
       on({{ event }}, ->handle_{{ handler || (event.stringify.split("::")[-1].underscore.id) }}({{ event }}))
     end
+
+    # Runs the block at most once per instance, guarded by the `Bool` ivar
+    # `@flag`: the first call sets the flag and runs the block, later calls
+    # no-op. Names the wire-handlers-exactly-once idiom (a run of `on(...)`
+    # registrations that must not stack duplicates when the enabling setter or
+    # entry point is hit again). Declare the ivar (`@flag = false`) at the
+    # class as usual — its declaration site, not this guard, is where its doc
+    # comment belongs.
+    macro install_once(flag)
+      unless @{{ flag.id }}
+        @{{ flag.id }} = true
+        {{ yield }}
+      end
+    end
   end
 end

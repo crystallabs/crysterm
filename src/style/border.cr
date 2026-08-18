@@ -395,25 +395,19 @@ module Crysterm
 
     setter top_fg, right_fg, bottom_fg, left_fg
 
+    # Generates one falling-back `<side>_fg` getter per named side — the
+    # single spelling of the per-side color chain, so adding a side (or a
+    # fourth fallback) is one edit here rather than four hand-kept mirrors.
+    private macro side_fg_getter(*sides)
+      {% for side in sides %}
+        def {{ side.id }}_fg : Int32?
+          @{{ side.id }}_fg || @fg
+        end
+      {% end %}
+    end
+
     # The effective foreground color for each side (per-side override or `#fg`).
-    def top_fg : Int32?
-      @top_fg || @fg
-    end
-
-    # :ditto:
-    def right_fg : Int32?
-      @right_fg || @fg
-    end
-
-    # :ditto:
-    def bottom_fg : Int32?
-      @bottom_fg || @fg
-    end
-
-    # :ditto:
-    def left_fg : Int32?
-      @left_fg || @fg
-    end
+    side_fg_getter top, right, bottom, left
 
     # `currentColor` markers, one per color slot. CSS resolves `currentColor`
     # at computed-value time — against the element's FINAL `color`, regardless

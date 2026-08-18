@@ -146,35 +146,34 @@ module Crysterm
       # Wires the title-row toggle-click and the child-adopt reflect handlers.
       # Idempotent via `@checkable_wired`.
       private def install_checkable_handlers : Nil
-        return if @checkable_wired
-        @checkable_wired = true
-
-        # Toggle only when the *title* row is clicked, as Qt toggles via the
-        # group's checkbox, not the whole area. Uses `Mouse` (not `Click`)
-        # because only it carries coordinates. Guarded on `checkable?` so a later
-        # `checkable = false` stops it from toggling.
-        on(Crysterm::Event::Mouse) do |e|
-          next unless checkable? && e.action.down?
-          # Hit-test the *painted* rect (`@lpos`), not layout coords
-          # (`aleft`/`atop`): inside a scrolled container the painted rect is
-          # shifted by the ancestor's scroll base, and dispatch hit-tests
-          # `@lpos`. Guard on `no_top?` too — when the title row itself is
-          # scrolled out of view, `lpos.yi` clips to the viewport top instead
-          # of vanishing, which would otherwise toggle on the first visible
-          # body row.
-          if (lp = @lpos) && !lp.no_top? && e.y == lp.yi && e.x >= lp.xi && e.x < lp.xl
-            toggle
-            e.accept
+        install_once checkable_wired do
+          # Toggle only when the *title* row is clicked, as Qt toggles via the
+          # group's checkbox, not the whole area. Uses `Mouse` (not `Click`)
+          # because only it carries coordinates. Guarded on `checkable?` so a later
+          # `checkable = false` stops it from toggling.
+          on(Crysterm::Event::Mouse) do |e|
+            next unless checkable? && e.action.down?
+            # Hit-test the *painted* rect (`@lpos`), not layout coords
+            # (`aleft`/`atop`): inside a scrolled container the painted rect is
+            # shifted by the ancestor's scroll base, and dispatch hit-tests
+            # `@lpos`. Guard on `no_top?` too — when the title row itself is
+            # scrolled out of view, `lpos.yi` clips to the viewport top instead
+            # of vanishing, which would otherwise toggle on the first visible
+            # body row.
+            if (lp = @lpos) && !lp.no_top? && e.y == lp.yi && e.x >= lp.xi && e.x < lp.xl
+              toggle
+              e.accept
+            end
           end
-        end
 
-        # A child added to an unchecked group must come up disabled. Children
-        # are appended after construction, so reflect state on each as it's
-        # adopted, not just on toggle. Only the disabling direction applies
-        # here: on a *checked* group `apply_enabled` would instead run the
-        # restore branch and force-enable every child the app itself disabled
-        # (there was nothing for this adopt to restore).
-        on(Crysterm::Event::ChildAdded) { apply_enabled if checkable? && !checked? }
+          # A child added to an unchecked group must come up disabled. Children
+          # are appended after construction, so reflect state on each as it's
+          # adopted, not just on toggle. Only the disabling direction applies
+          # here: on a *checked* group `apply_enabled` would instead run the
+          # restore branch and force-enable every child the app itself disabled
+          # (there was nothing for this adopt to restore).
+          on(Crysterm::Event::ChildAdded) { apply_enabled if checkable? && !checked? }
+        end
       end
 
       private def label_text : String

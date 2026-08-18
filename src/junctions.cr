@@ -230,14 +230,15 @@ module Crysterm
        {0, 1, BITWISE_U_ANGLE, BITWISE_D_ANGLE} }.each do |(dx, dy, opp_bit, bit)|
         result = neighbor_angle lines, row, x, y, dx, dy, opp_bit, bit, attr, junction_contrast, ascii
         return ch if result.nil?
-        recip |= result
+        arm, line = result
+        recip |= arm
 
         # Preserve this cell's own arm toward any *present* line-drawing
         # neighbor, even one whose glyph doesn't point back — a junction rebuilt
         # purely from reciprocating neighbors severs a corner wherever one box's
         # border runs past another's. Gated on a line neighbor, so a `┐` against
         # a blank/off-grid edge still reduces.
-        if (self_bits & bit) != 0 && neighbor_line?(lines, x, y, dx, dy, ascii)
+        if (self_bits & bit) != 0 && line
           preserve |= bit
         end
       end
@@ -306,25 +307,21 @@ module Crysterm
       {nrow, nx}
     end
 
-    # Whether the cell offset by (`dx`, `dy`) from (`x`, `y`) holds a
-    # line-drawing glyph.
-    private def neighbor_line?(lines, x, y, dx, dy, ascii : Bool = false) : Bool
-      return false unless cell = neighbor_cell(lines, x, y, dx, dy)
-      nrow, nx = cell
-      angle? nrow.chars.unsafe_fetch(nx), ascii
-    end
-
     # Evaluates a single neighbor of the cell at (`x`, `y`), offset by
-    # (`dx`, `dy`). Returns `bit` if that neighbor holds a line-drawing
-    # character pointing back at this cell (drawing the `opp_bit` arm), `0` if
-    # it does not participate, or `nil` to signal the caller to abort docking
-    # (`Skip` with a contrasting neighbor). For `Blend`, the cell's
-    # attribute is blended with the neighbor's as a side effect.
-    private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, junction_contrast, ascii : Bool = false)
-      return 0 unless cell = neighbor_cell(lines, x, y, dx, dy)
+    # (`dx`, `dy`). Returns `{arm, line}`: *arm* is `bit` if that neighbor
+    # holds a line-drawing character pointing back at this cell (drawing the
+    # `opp_bit` arm), else `0`; *line* is whether the neighbor holds any
+    # line-drawing glyph at all (the caller's arm-preservation gate — resolved
+    # here so the cell is fetched and pattern-matched once, not twice per
+    # arm). Returns `nil` to signal the caller to abort docking (`Skip` with a
+    # contrasting neighbor). For `Blend`, the cell's attribute is blended with
+    # the neighbor's as a side effect.
+    private def neighbor_angle(lines, row, x, y, dx, dy, opp_bit, bit, attr, junction_contrast, ascii : Bool = false) : {Int32, Bool}?
+      return {0, false} unless cell = neighbor_cell(lines, x, y, dx, dy)
       nrow, nx = cell
 
-      return 0 unless (glyph_bits(nrow.chars.unsafe_fetch(nx), ascii) & opp_bit) != 0
+      nbits = glyph_bits(nrow.chars.unsafe_fetch(nx), ascii)
+      return {0, nbits != 0} unless (nbits & opp_bit) != 0
 
       nattr = nrow.attrs.unsafe_fetch(nx)
       if nattr != attr
@@ -350,7 +347,7 @@ module Crysterm
         end
       end
 
-      bit
+      {bit, true}
     end
   end
 end

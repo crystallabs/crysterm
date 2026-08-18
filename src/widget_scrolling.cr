@@ -27,8 +27,7 @@ module Crysterm
       # clipping ancestor may differ.
       invalidate_clip_ancestor_cache
       if value
-        unless @_scroll_index_wired
-          @_scroll_index_wired = true
+        install_once _scroll_index_wired do
           on(Crysterm::Event::ContentParsed) { reclamp_scroll_index }
         end
         reclamp_scroll_index

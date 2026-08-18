@@ -186,6 +186,9 @@ may do with it. Pick the first row that fits:
 
 `Widget::PlainTextEdit` is the plain-text editor beside `TextEdit`, and
 `Widget::LineEdit` the single-line field ([§10.2](#102-editing-widgets)).
+For reading long documents, `Widget::MarkdownViewer` pairs a `TextBrowser`
+with a live heading-outline sidebar (`Widget::TocView`) in a `Splitter` —
+selecting an outline entry jumps the browser to that heading.
 
 ---
 

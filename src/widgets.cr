@@ -49,6 +49,7 @@ module Crysterm
     alias List = Widget::List
     alias Tree = Widget::Tree
     alias TocView = Widget::TocView
+    alias MarkdownViewer = Widget::MarkdownViewer
     alias Table = Widget::Table
     alias Form = Widget::Form
     alias FileManager = Widget::FileManager
