@@ -107,16 +107,12 @@ module Crysterm
     # geometry, and `Widget#coords` shifts the whole rendered box — border,
     # content, shadow and children together — by it while the state lasts.
     # `nil` = no offset on that side. Set all four via `#offsets=`.
-    property offset_left : Int32?
-
-    # :ditto:
-    property offset_top : Int32?
-
-    # :ditto:
-    property offset_right : Int32?
-
-    # :ditto:
-    property offset_bottom : Int32?
+    #
+    # Declared at the class tail (see the bottom of this file), NOT here: the
+    # four nilable ivars are 64 bytes of cold, rarely-set data, and placing
+    # them mid-object would split the render-hot field cluster
+    # (`attr_revision`, the border/padding/margin/shadow refs) across extra
+    # cache lines. Cold data belongs after the hot fields.
 
     # The resolved horizontal nudge: Qt's rule is `left` when given, else the
     # negated `right` (`right: 1` ≡ `left: -1`), else 0.
@@ -281,6 +277,25 @@ module Crysterm
     # several times), so compare for equality — don't count increments.
     getter attr_revision : Int64 = 0_i64
 
+    # This style's fields packed as a cell attr word (`Attr` layout) — exactly
+    # the set `Widget.style_to_attr` reads: `fg`/`bg`, the six SGR booleans and
+    # `visible` (as the INVISIBLE flag). Maintained incrementally by those
+    # fields' setters — the same tracked-setter invariant `attr_revision`
+    # relies on — so deriving a style's attr is one load instead of a 9-field
+    # gather, which per-frame color animation (`style.fg = …` on every widget)
+    # otherwise re-runs per widget per frame.
+    getter packed_attr : Int64 = Attr.pack(0, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
+
+    # Re-derives `packed_attr`'s flag bits after a boolean attribute write,
+    # preserving the color fields. Flag writes are rare next to the per-frame
+    # color writes, so a full 7-field regather is fine here.
+    private def repack_attr_flags : Nil
+      flags = Attr.flags_of(
+        bold: @bold, italic: @italic, underline: @underline, blink: @blink,
+        reverse: @reverse, strike: @strike, invisible: !@visible)
+      @packed_attr = Attr.pack(flags, Attr.fg(@packed_attr), Attr.bg(@packed_attr))
+    end
+
     # Raised on an attribute write to a frozen render-derived `Style` copy
     # (see `Style#freeze!`): the write would land on a transient object and be
     # silently lost. Write via `Widget#restyle`/`#state_style` (the persistent
@@ -330,6 +345,8 @@ module Crysterm
         @specified_mask |= SPEC_{{ attr.upcase.id }}
         @attr_revision &+= 1
         @{{ attr.id }} = value
+        repack_attr_flags
+        value
       end
     {% end %}
 
@@ -346,6 +363,7 @@ module Crysterm
           frozen_write_check
           @attr_revision &+= 1
           super
+          @packed_attr = Attr.with_{{ color.id }}(@packed_attr, Attr.pack_color(@{{ color.id }} || -1))
         end
       {% end %}
     {% end %}
@@ -527,11 +545,15 @@ module Crysterm
       end
     end
 
-    # Length in number of characters to replace TABs with
-    property tab_size = 4
+    # Length in number of characters to replace TABs with. Explicitly typed —
+    # an inferred ivar is laid out at the object's tail, and this field is read
+    # per widget per frame (the wrap-cache key), so it must stay near the other
+    # hot fields instead of pulling in the last cache line of a 700-byte object.
+    property tab_size : Int32 = 4
 
-    # Character to replace TABs with, multiplied by tab_size
-    property tab_char = " "
+    # Character to replace TABs with, multiplied by tab_size. Explicitly typed
+    # for the same layout reason as `tab_size`.
+    property tab_char : String = " "
 
     # Re-wrap the TAB-expansion setters so an explicit assignment is recorded as
     # `specified`; otherwise the defaults are indistinguishable from an
@@ -615,7 +637,9 @@ module Crysterm
     # fill glyph + attrs). `false` leaves whatever is underneath showing through —
     # e.g. a transparent overlay or a label that draws only its own text. Gated in
     # the render path (`fill && …` before the `fill_region` sweep).
-    property? fill = true
+    # Explicitly typed for layout (read per widget per frame in `base_render`;
+    # an inferred ivar would land in the object's last cache line).
+    property? fill : Bool = true
 
     # Whether the widget may paint into its own border band rather than only the
     # interior — lets a `Widget::Scrollbar` sit *on* the frame instead of inset
@@ -894,6 +918,21 @@ module Crysterm
     def self.opacity_from(value : Float64?)
       value
     end
+
+    # The state-rule positional-nudge sides (see `#offset_x`/`#offset_y` and
+    # the note at their methods): declared last on purpose, so this cold,
+    # rarely-set data sits past the render-hot fields instead of pushing them
+    # across a cache-line boundary.
+    property offset_left : Int32?
+
+    # :ditto:
+    property offset_top : Int32?
+
+    # :ditto:
+    property offset_right : Int32?
+
+    # :ditto:
+    property offset_bottom : Int32?
   end
 end
 

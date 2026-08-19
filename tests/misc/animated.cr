@@ -32,17 +32,22 @@ Widget::Box.new \
 half = s.awidth // 2
 row_h = (s.aheight - 2) // 2
 
+# The kitty panel soft-falls back on terminals without the protocol (pinning
+# it there would print the raw APC payload as text); quadrant glyphs keep the
+# four panels distinct. Captures always keep kitty (composited in-process).
+kitty = Widget::Media.type_or_fallback(Widget::Media::Type::Kitty, Widget::Media::Type::GlyphQuadrant)
+
 [
-  {Widget::Media::Type::Kitty, "kitty"},
-  {Widget::Media::Type::GlyphOctant, "glyph_octant"},
-  {Widget::Media::Type::GlyphSextant, "glyph_sextant"},
-  {Widget::Media::Type::GlyphBraille, "glyph_braille"},
-].each_with_index do |(type, name), i|
+  {kitty, kitty.kitty? ? " --media-backend=kitty " : " glyph_quadrant · kitty n/a "},
+  {Widget::Media::Type::GlyphOctant, " --media-backend=glyph_octant "},
+  {Widget::Media::Type::GlyphSextant, " --media-backend=glyph_sextant "},
+  {Widget::Media::Type::GlyphBraille, " --media-backend=glyph_braille "},
+].each_with_index do |(type, label), i|
   Widget::Media.new \
     parent: s, type: type, file: img, fit: Widget::Media::Fit::Contain,
     animate: clock,
     top: 1 + (i // 2) * row_h, left: (i % 2) * half, width: half, height: row_h,
-    label: " --media-backend=#{name} ",
+    label: label,
     style: Style.new(border: true)
 end
 

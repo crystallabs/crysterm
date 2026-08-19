@@ -173,24 +173,25 @@ module Crysterm
       attr
     end
 
-    protected def _parse_attr(lines : CLines)
+    protected def _parse_attr(lines : CLines) : Array(Int64)?
       default_attr = style_to_attr(style)
       # Record the base attribute this parse was built against, so callers don't
       # recompute `style_to_attr(style)` separately.
       @_parse_attr_default = default_attr
+
+      # Fast path for the common plain-text case: with no inline SGR at all (no
+      # raw `\e`, no tags expanding into one) every line starts at the base attr
+      # — exactly the fallback the sole reader (`base_render`'s line-start
+      # lookup) applies when the array is absent. Build nothing; the `nil` also
+      # keeps `process_content`'s attr-refresh gate permanently off this widget,
+      # so a per-frame `style.fg = …` animation stops rebuilding the array.
+      return if !@_content_has_sgr && !@_content_has_tags
+
       attr = default_attr
       # Reuse the `CLines`' own `attr` array (clear + refill) instead of
       # allocating a fresh `Array(Int64)` each reparse.
       attrs = (lines.attr ||= [] of Int64)
       attrs.clear
-
-      # Fast path for the common plain-text case: with no inline SGR at all (no
-      # raw `\e`, no tags expanding into one) every line carries the same base
-      # attr, so fill directly and skip the per-line `_attr_after` scan.
-      if !@_content_has_sgr && !@_content_has_tags
-        lines.size.times { attrs.push default_attr }
-        return attrs
-      end
 
       lines.each do |line|
         attrs.push attr

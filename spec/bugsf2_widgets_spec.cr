@@ -147,10 +147,13 @@ end
 
 # ── 21 ──────────────────────────────────────────────────────────────────────
 describe "BUGS-F2 21: per-line attr cache refreshes on a single-line base-style change" do
+  # The content's leading SGR is what makes the per-line attr array exist at
+  # all (SGR-free content stores none); `attr[0]` is the line-start attr, i.e.
+  # still the base attr.
   it "recomputes the packed attr array when the default style changes" do
     s = headless_screen(80, 24)
     box = Widget::Box.new parent: s, scrollable: true, scrollbar_policy: :always_off,
-      width: 10, height: 3, content: "hi"
+      width: 10, height: 3, content: "\e[4mhi"
     s.update
     before = box.wrapped_lines.attr.not_nil![0]
 

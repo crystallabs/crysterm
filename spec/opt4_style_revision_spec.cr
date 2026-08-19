@@ -86,11 +86,29 @@ describe "Style#attr_revision" do
   end
 end
 
+# Content in these examples carries a leading SGR so the per-line attr array
+# exists at all: SGR-free content stores none (`_parse_attr` returns nil —
+# every line starts at the base attr, the renderer's fallback). The line-START
+# attr (`attr[0]`) is still the base attr, before the SGR applies.
 describe "process_content cache-hit attr memo (O4-12)" do
-  it "in-place style mutation still refreshes the cached attr (CopperBar case)" do
+  it "plain (SGR-free) content carries no per-line attr array" do
     s = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
       content: "Hi"
+    s.repaint
+    box.wrapped_lines.attr.nil?.should be_true
+
+    # An in-place mutation refreshes the derived base attr without
+    # materializing the array.
+    box.style.bg = 0x102030
+    box.process_content.should be_false
+    box.wrapped_lines.attr.nil?.should be_true
+  end
+
+  it "in-place style mutation still refreshes the cached attr (CopperBar case)" do
+    s = headless_screen(default_quit_keys: true)
+    box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
+      content: "\e[4mHi"
     s.repaint
 
     before = box.wrapped_lines.attr.not_nil![0]
@@ -111,7 +129,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
   it "keeps the attr stable and current across unchanged repeat processing" do
     s = headless_screen(default_quit_keys: true)
     box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
-      content: "Hi", style: Style.new(bg: 0x223344)
+      content: "\e[4mHi", style: Style.new(bg: 0x223344)
     s.repaint
 
     expected = Widget.style_to_attr(box.style)
@@ -127,7 +145,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
       a = Style.new(bg: 0x111111)
       b = Style.new(bg: 0x222222)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
-        content: "Hi", style: a
+        content: "\e[4mHi", style: a
       s.repaint
       # Stamp the memo on a cache-hit pass, then align `b`'s counter with `a`'s
       # via same-value re-assignments so only object identity distinguishes them.
@@ -149,7 +167,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
       a = Style.new(bg: 0x111111)
       b = Style.new(bg: 0x222222)
       box = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 3,
-        content: "Hi", style: a
+        content: "\e[4mHi", style: a
       s.repaint
       # Stamp the memo against `a`.
       box.process_content.should be_false
@@ -158,7 +176,7 @@ describe "process_content cache-hit attr memo (O4-12)" do
       # Swap to `b` and reparse under it: `_parse_attr` rewrites
       # `@_parse_attr_default` to `b`'s attr without touching the memo key.
       box.style = b
-      box.set_content "Yo"
+      box.set_content "\e[4mYo"
 
       # Swap back: same object, same revision — the stamped-default third of
       # the memo key must still force a re-derive, or the widget keeps `b`'s

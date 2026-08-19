@@ -45,13 +45,19 @@ module Crysterm
       ::Log.trace { "Parsing widget content: #{@content.inspect}" }
 
       colwidth = (awidth_hint || awidth) - ihorizontal
+      # Resolve the frame style once for the whole pass (cache-key reads here,
+      # the memo tail below).
+      st = style
       # `@wrapped_lines.margin` is part of the wrap cache key: an `AsNeeded` scroll bar's
       # presence (and thus `content_margin_x`) can flip from a height-only change
       # (resize, `widget.height=`) that leaves the other cache-key fields
       # unchanged, and the stale-margin lines would let the bar overpaint the last
       # content column. The convergence loop below leaves
       # `@wrapped_lines.margin == content_margin_x`, so this doesn't re-fire in steady state.
-      if @wrapped_lines.nil? || @wrapped_lines.empty? || @wrapped_lines.width != colwidth || @wrapped_lines.content_version != @_content_version || @wrapped_lines.base_x != @child_base_x || @wrapped_lines.margin != content_margin_x || @wrapped_lines.tab_size != style.tab_size || @wrapped_lines.tab_char != style.tab_char || @wrapped_lines.fill_char != style.fill_char
+      # The `tab_char` half is identity-first: the cache holds the very String
+      # object it was wrapped with, so the steady-state compare is a pointer
+      # test, not a per-frame `String#==` call.
+      if @wrapped_lines.nil? || @wrapped_lines.empty? || @wrapped_lines.width != colwidth || @wrapped_lines.content_version != @_content_version || @wrapped_lines.base_x != @child_base_x || @wrapped_lines.margin != content_margin_x || @wrapped_lines.tab_size != st.tab_size || !(@wrapped_lines.tab_char.same?(st.tab_char) || @wrapped_lines.tab_char == st.tab_char) || @wrapped_lines.fill_char != st.fill_char
         # A reparse reads raw `@content`, so fold deferred appends first (the
         # cache-hit path below never reaches here).
         fold_content_tail
@@ -138,7 +144,6 @@ module Crysterm
       # stamp this key (`_parse_attr` keeps `@_parse_attr_default` current
       # itself), so the first cache-hit frame after a reparse recomputes once
       # and restamps — correct, just not free.
-      st = style
       unless st.same?(@_parse_attr_style) &&
              @_parse_attr_style_revision == st.attr_revision &&
              @_parse_attr_style_default == @_parse_attr_default

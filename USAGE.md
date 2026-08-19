@@ -125,8 +125,8 @@ are kept in the window's (and each widget's) `children` array.
 Rendering happens on a dedicated background fiber, so `exec` does not run a
 classic "draw-everything-each-iteration" loop. Instead, **changing a widget
 schedules the frame that paints it**, and the render fiber coalesces those
-requests: a burst of changes collapses into one repaint, capped at ~60fps. So
-application code sets state and stops there —
+requests: a burst of changes collapses into one repaint, capped by default
+at ~60fps. So application code sets state and stops there —
 
 ```cr
 status.content = "Saved"   # repaints; no `window.update` needed

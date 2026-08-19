@@ -226,6 +226,18 @@ module Crysterm
       # boundary: first new line starts from the attr the existing content ended
       # on, each subsequent line continues from the previous — matching
       # `_parse_attr`'s line-to-line carry.
+      #
+      # SGR-free content carries no attr array at all (`_parse_attr` returns
+      # `nil`: every line starts at the base attr, which is the reader's
+      # fallback). An appended segment that first introduces SGR (raw, or
+      # expanded from a tag above) must materialize it — the existing lines'
+      # start attrs are all the base attr — or the carry below has nowhere to
+      # land and the segment's later lines would lose their colors. A segment
+      # without SGR extends the all-default state, so `nil` stays.
+      if cl.attr.nil? && seg.includes?('\e')
+        da0 = style_to_attr(style)
+        cl.attr = Array(Int64).new(base_real, da0)
+      end
       if attrs = cl.attr
         da = style_to_attr(style)
         # `base_real >= 1` (content non-blank); degrade to default if `attrs` is

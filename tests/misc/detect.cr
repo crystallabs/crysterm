@@ -23,10 +23,13 @@ Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
 
 # The same radial gauge twice; only the pinned Media backend differs. Both
 # are driven in lockstep below (one shared value), so the two renderings can
-# be compared against each other at any instant.
+# be compared against each other at any instant. The kitty pin soft-falls
+# back to octant glyphs on terminals without the protocol (a hard pin there
+# would print the raw APC payload as text); captures always keep kitty.
+kitty_type = Widget::Media.type_or_fallback(Widget::Media::Type::Kitty, Widget::Media::Type::GlyphOctant)
 kitty = GraphDonut.new parent: s, top: 2, left: 4, width: 30, height: 13,
-  value: 60, label: "KITTY", fill_color: 0xE0A040, show_track: true, track_color: 0x2A3440,
-  type: Widget::Media::Type::Kitty,
+  value: 60, label: kitty_type.kitty? ? "KITTY" : "OCTANT", fill_color: 0xE0A040, show_track: true, track_color: 0x2A3440,
+  type: kitty_type,
   style: Style.new(fg: "white", bg: "#101820", border: true)
 
 braille = GraphDonut.new parent: s, top: 2, left: 46, width: 30, height: 13,
@@ -35,7 +38,8 @@ braille = GraphDonut.new parent: s, top: 2, left: 46, width: 30, height: 13,
   style: Style.new(fg: "white", bg: "#101820", border: true)
 
 Widget::Box.new parent: s, top: 15, left: 4, width: 30, height: 1, parse_tags: true,
-  content: "{center}Forced: kitty pixels{/center}", style: Style.new(fg: "#e0a040")
+  content: "{center}#{kitty_type.kitty? ? "Forced: kitty pixels" : "Kitty n/a → octant glyphs"}{/center}",
+  style: Style.new(fg: "#e0a040")
 Widget::Box.new parent: s, top: 15, left: 46, width: 30, height: 1, parse_tags: true,
   content: "{center}Forced: glyph braille{/center}", style: Style.new(fg: "#40e0d0")
 

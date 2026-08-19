@@ -1,3 +1,7 @@
+# The shard's definitions must load before this file: the `codepoint_width`
+# redefinition below only wins as the later definition.
+require "tput"
+
 module Crysterm
   # Unicode display-width support for terminal cells — the base implementation
   # lives in the tput shard (`Tput::Unicode`): terminal column-width is a
@@ -21,6 +25,38 @@ end
 class Tput
   module Unicode
     extend self
+
+    # Columns occupied by a single codepoint (redefines the shard method with a
+    # wider fast path): combining marks begin at U+0300 and the lowest
+    # zero-width/wide codepoint sits higher still (U+1160), so every printable
+    # codepoint below U+0300 — ASCII, Latin-1, Latin Extended — is exactly 1
+    # column, with no category search. Called per cell per frame by the render
+    # and draw loops. Must stay behavior-identical to `Tput::Unicode`'s
+    # definition for codepoints ≥ U+0300.
+    def codepoint_width(char : Char) : Int32
+      cp = char.ord
+      return 1 if 0x20 <= cp <= 0x7E
+      # C0/C1 controls and NUL — the whole of Unicode category Cc.
+      return 0 if cp <= 0x1F || (0x7F <= cp <= 0x9F)
+      return 1 if cp < 0x300
+      if cp < 0x1100
+        # Below the first WIDE range: never wide, so skip that binary search.
+        return 0 if char.mark? # combining marks
+        return 0 if zero_width? cp
+        return 1
+      end
+      # `wide?` first: CJK/emoji cells resolve on one binary search instead of
+      # paying the `mark?` category search (a miss for them) before it. The only
+      # zero-width marks *inside* WIDE blocks are U+302A..302F and U+3099..309A —
+      # excluded here so they keep width 0 (order elsewhere doesn't matter:
+      # every other mark/zero-width codepoint is outside the WIDE ranges).
+      unless (0x302A <= cp <= 0x302F) || (0x3099 <= cp <= 0x309A)
+        return 2 if wide? cp
+      end
+      return 0 if char.mark? # combining marks
+      return 0 if zero_width? cp
+      1
+    end
 
     # Width, in terminal COLUMNS, of *text*'s visible content. SGR sequences are
     # stripped (they occupy no columns); whitespace is preserved. With

@@ -186,16 +186,23 @@ module Crysterm
     # corners to close them. The border painter draws those with the cap glyphs
     # rather than the line-family runs (see `Border#glyph_octet`) — `│` belongs
     # to a family that implies corners, so a lone pair reads as a broken frame.
+    # Fast guard: nothing to inset — no border, no padding, no scroll-hidden
+    # band. The overwhelmingly common widget, and this runs twice per widget
+    # per frame (`base_render` + `with_inset_coords`), so the guard folds into
+    # the caller (no call, no by-memory `Insets` return) and only widgets that
+    # actually inset pay the outlined four-edge fitting math.
+    @[AlwaysInline]
     protected def effective_insets(border, padding, rect : RenderedGeometry) : Insets
-      # Fast path: nothing to inset — no border, no padding, no scroll-hidden
-      # band. The overwhelmingly common widget, and this runs twice per widget
-      # per frame (`base_render` + `with_inset_coords`), so it skips the
-      # four-edge fitting math outright.
       if !border.any? && !padding.any? &&
          rect.hidden_left == 0 && rect.hidden_top == 0 &&
          rect.hidden_right == 0 && rect.hidden_bottom == 0
         return Insets.new({0, 0}, {0, 0}, {0, 0}, {0, 0}, capped_v: false, capped_h: false)
       end
+      effective_insets_slow border, padding, rect
+    end
+
+    # The inset-bearing arm of `#effective_insets`.
+    protected def effective_insets_slow(border, padding, rect : RenderedGeometry) : Insets
       l = effective_edge_insets(border.left, padding.left, rect.hidden_left)
       t = effective_edge_insets(border.top, padding.top, rect.hidden_top)
       r = effective_edge_insets(border.right, padding.right, rect.hidden_right)
@@ -1271,6 +1278,15 @@ module Crysterm
     end
 
     def self.style_to_attr(style, fg = nil, bg = nil) : Int64
+      pack_attr style_to_attr_flags(style), style, fg, bg
+    end
+
+    # `Style` overload: with no fg/bg override the style already maintains its
+    # packed attr incrementally (`Style#packed_attr`), so the whole derivation
+    # is a single load — the per-frame path for every widget whose style
+    # animates in place.
+    def self.style_to_attr(style : ::Crysterm::Style, fg = nil, bg = nil) : Int64
+      return style.packed_attr if fg.nil? && bg.nil?
       pack_attr style_to_attr_flags(style), style, fg, bg
     end
 

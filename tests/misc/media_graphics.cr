@@ -28,11 +28,16 @@ row_h = (s.aheight - 2) // 2
   {Widget::Media::Type::Kitty, "kitty"},
   {Widget::Media::Type::Iterm, "iterm"},
   {Widget::Media::Type::Regis, "regis"},
-].each_with_index do |(type, name), i|
+].each_with_index do |(want, name), i|
+  # Each panel pins one protocol, but only where the terminal can render it —
+  # elsewhere the raw escape payload would print as text, so it soft-falls
+  # back to glyphs. Captures always keep the pin (composited in-process).
+  type = Widget::Media.type_or_fallback(want)
+  label = type == want ? " --media-backend=#{name} " : " glyphs · #{name} n/a "
   Widget::Media.new \
     parent: s, type: type, file: img, fit: Widget::Media::Fit::Contain,
     top: 1 + (i // 2) * row_h, left: (i % 2) * half, width: half, height: row_h,
-    label: " --media-backend=#{name} ",
+    label: label,
     style: Style.new(border: true)
 end
 

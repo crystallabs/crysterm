@@ -374,10 +374,6 @@ module Crysterm
                    ] %}
       # Returns computed {{ axis[:dim].id }}, in cells. See *rendered* above.
       def a{{ axis[:dim].id }}(*, rendered = false) : Int32
-        # Layout-assigned values when managed, else the user's specs (see
-        # `eff_*`); the far edge is never layout-managed.
-        o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
-        o{{ axis[:far].id }} = @{{ axis[:far].id }}
         {{ axis[:dim].id }} = eff_{{ axis[:dim].id }}
 
         # Parent's rendered position is only needed by the Dim/String/`nil` branches;
@@ -404,6 +400,12 @@ module Crysterm
         # function from content size, seeded by the element's own {{ axis[:dim].id }},
         # so it's calculated here too.
         if {{ axis[:dim].id }}.nil?
+          # Layout-assigned values when managed, else the user's specs (see
+          # `eff_*`); the far edge is never layout-managed. Loaded only here —
+          # the fixed-size branches never read the edges, so the common
+          # `Int32`-size call skips the union loads.
+          o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
+          o{{ axis[:far].id }} = @{{ axis[:far].id }}
           parent = rendered ? parent_or_window.last_rendered_position : parent_or_window
           # `parent.a{{ axis[:dim].id }}` climbs the whole ancestor chain. It's needed
           # twice here (string base + size subtraction); computing it once collapses

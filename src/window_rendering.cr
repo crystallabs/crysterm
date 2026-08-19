@@ -118,6 +118,13 @@ module Crysterm
     # this is inert. Defaults to `Config.render_pause_when_unfocused`.
     property? pause_when_unfocused : Bool = Config.render_pause_when_unfocused
 
+    # Whether the render loop collects garbage in the idle gap right after a
+    # frame is flushed, when the heap is near the collector's natural trigger —
+    # see `Config` `render.idle_gc`. Placement only: total GC work is unchanged,
+    # but the pause lands between frames instead of inside a later frame's
+    # render/draw phase (where it reads as a multi-FPS loss on an animation).
+    property? idle_gc : Bool = Config.render_idle_gc
+
     # Whether the render loop should skip building frames right now: the
     # unfocused-pause is on and the terminal window is unfocused.
     private def render_paused? : Bool
@@ -373,6 +380,11 @@ module Crysterm
         begin
           repaint
           @last_render_at = Time.instant
+          # The frame is flushed and the loop is about to park: if the heap is
+          # close to the collector's natural trigger, collect NOW — the pause
+          # overlaps the terminal digesting the frame just written, instead of
+          # firing mid-allocation inside a later frame's render/draw phase.
+          idle_gc_collect if @idle_gc
         rescue ex : IO::Error
           # Output vanished mid-paint — almost always because the window was
           # closed (or `#disconnect` ran) in the gap after the `@connected`
@@ -382,6 +394,20 @@ module Crysterm
           raise ex if @connected
         end
       end
+    end
+
+    # The idle-gap collection behind `#idle_gc?`: run a full collection when
+    # allocation since the last one has consumed most of the heap's free space
+    # (3/4 — early enough that the natural trigger, which fires around the
+    # free-space mark, is never reached mid-frame; late enough that light
+    # allocation never collects here at all). Runs on the render fiber right
+    # after a flush, so the pause coincides with the terminal processing the
+    # written frame.
+    private def idle_gc_collect : Nil
+      stats = GC.stats
+      free = stats.free_bytes
+      return if free == 0
+      GC.collect if stats.bytes_since_gc > free // 4 * 3
     end
 
     # Rows where line-drawing characters were emitted this frame and need

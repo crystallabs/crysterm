@@ -128,13 +128,23 @@ module Crysterm
 
     # Whether the scroll bar chrome should be shown now: never when non-scrollable
     # or `AlwaysOff`, always under `AlwaysOn`, on overflow under `AsNeeded`.
+    # `AlwaysInline` + the leading `scrollable?` test so the non-scrollable
+    # widget — the overwhelmingly common one, probed per widget per frame via
+    # `content_margin_x` — answers with one inlined flag load instead of the
+    # outlined policy/overflow call chain (which `policy_shows?` still guards
+    # identically for its other callers).
+    @[AlwaysInline]
     def show_scrollbar? : Bool
+      return false unless scrollable?
       policy_shows?(scrollbar_policy) { overflows_y? }
     end
 
     # Horizontal counterpart of `#show_scrollbar?`, keyed off
     # `#horizontal_scrollbar_policy` and horizontal overflow.
+    # :ditto:
+    @[AlwaysInline]
     def show_horizontal_scrollbar? : Bool
+      return false unless scrollable?
       policy_shows?(horizontal_scrollbar_policy) { overflows_x? }
     end
 

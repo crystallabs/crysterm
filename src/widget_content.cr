@@ -90,9 +90,18 @@ module Crysterm
       @content
     end
 
-    # Folds `@_content_tail` into `@content`. No-op when nothing is pending.
+    # Folds `@_content_tail` into `@content`. `AlwaysInline` so the no-op case —
+    # every call on a widget nothing appends to, several times per widget per
+    # frame — folds to one empty check at the call site; the fold itself stays
+    # outlined in the slow arm.
+    @[AlwaysInline]
     private def fold_content_tail : Nil
       return if @_content_tail.empty?
+      fold_content_tail_slow
+    end
+
+    # The pending-tail arm of `#fold_content_tail`.
+    private def fold_content_tail_slow : Nil
       @content = String.build do |s|
         s << @content
         @_content_tail.each do |t|
@@ -215,6 +224,10 @@ module Crysterm
     # Options past *content* are keyword-only. Stale cells need no clearing
     # here: `Window#repaint` clears the buffer centrally each frame.
     def set_content(content = "", *, no_tags = false)
+      # Identity fast path: re-assigning the very String object already held
+      # (an animation tick re-assigning a literal each frame), with no deferred
+      # tail pending, can change nothing — skip even the value compare.
+      return if content.same?(@content) && no_tags == @_content_no_tags && @_content_tail.empty?
       # Fold deferred appends so the comparison below sees current content.
       fold_content_tail
       # Idempotent no-op for re-setting identical content. Gates on the tag mode

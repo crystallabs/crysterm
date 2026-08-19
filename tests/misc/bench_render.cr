@@ -179,7 +179,6 @@ tick = -> {
   frame += 1
 }
 
-
 100.times { tick.call; s.repaint }
 6.times do |b|
   t0 = Time.instant

@@ -11,15 +11,17 @@ include Crysterm
 # `ProgressBar`, `BigText`, `StatusBar`, `Effect::Direct`,
 # `Effect::SineScroller`, `Chat::Input`'s prompt stamp).
 
-# A `Style` whose `bold?` alternates on every read. `style_to_attr` reads the
-# flag exactly once per derivation, so a repeat `fetch` under an unchanged
-# {identity, revision} key can only return the first attr if it did NOT
-# re-derive — making a memo hit directly observable.
+# A `Style` whose `packed_attr` alternates its BOLD bit on every read.
+# `style_to_attr(Style)` reads the packed word exactly once per derivation, so
+# a repeat `fetch` under an unchanged {identity, revision} key can only return
+# the first attr if it did NOT re-derive — making a memo hit directly
+# observable.
 private class FlipStyle < Crysterm::Style
   @flip = false
 
-  def bold? : Bool
+  def packed_attr : Int64
     @flip = !@flip
+    Attr.pack(@flip ? Attr::BOLD.to_i64 : 0_i64, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
   end
 end
 
@@ -48,13 +50,13 @@ describe Style::AttrMemo do
     memo = Style::AttrMemo.new
     s = FlipStyle.new
 
-    # First derivation reads `bold?` once (-> true): BOLD is packed in.
+    # First derivation reads `packed_attr` once (-> true): BOLD is packed in.
     first = memo.fetch(s)
     (Attr.flags(first) & Attr::BOLD).should_not eq 0
 
-    # Identity and revision unchanged: a re-derivation would read `bold?`
-    # again (-> false) and drop BOLD, so equality proves the cached value was
-    # returned without recomputing.
+    # Identity and revision unchanged: a re-derivation would read
+    # `packed_attr` again (-> false) and drop BOLD, so equality proves the
+    # cached value was returned without recomputing.
     memo.fetch(s).should eq first
 
     # Sanity: a direct derivation now really would differ.

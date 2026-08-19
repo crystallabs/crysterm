@@ -383,6 +383,22 @@ module Crysterm
         end
       end
 
+      # Soft fallback for a pinned backend: *type* when `available?` here,
+      # *fallback* otherwise. For demos/UIs that force a specific backend for
+      # comparison: an in-band graphics type (Kitty/Iterm/Sixel/Regis) pinned
+      # on a terminal without the protocol floods the screen with the raw
+      # escape payload, so swap in something universal instead. A capture run
+      # (any of the `window.shot`/`window.dump`/`window.anim` capture vars set)
+      # keeps *type* unconditionally: `Window#capture` composites the in-band
+      # protocols in-process, so the pinned backend always renders in the
+      # output files regardless of the hosting terminal.
+      def self.type_or_fallback(type : Type, fallback : Type = Type::Glyph, tput : ::Tput? = nil) : Type
+        return type if Crysterm::Config.window_shot.presence ||
+                       Crysterm::Config.window_dump.presence ||
+                       Crysterm::Config.window_anim.presence
+        available?(type, tput) ? type : fallback
+      end
+
       # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
       # A generic network fetch shared by every backend that accepts URLs.
       def self.fetch(url : String) : Bytes
