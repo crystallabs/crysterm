@@ -106,8 +106,25 @@ wide CJK cells, ambiguous-width resolution probed from the live terminal,
 East Asian width, and glyph chrome that auto-upgrades on modern-font
 terminals.
 
-(The demo program below shows unupgraded glyph chrome due to the screen
-capturing method used.)
+Icons and glyph chrome exist in up to three renditions, and detection is
+automatic:
+
+* **ASCII** — plain 7-bit fallback characters, for terminals/fonts that
+  would otherwise show tofu.
+* **Monochrome (GNU Unifont)** — the deterministic bitmap face used by the
+  built-in capture facility: captures are rasterized in-process with
+  Unifont, so they look the same everywhere, independent of any real
+  terminal or font.
+* **Full-color** — in a live terminal, emoji glyphs are drawn by the
+  terminal's own color emoji font.
+
+All Crysterm captures shown in this document are the middle variant; run
+the examples in a modern terminal to see the full-color renditions. For
+example, the "Save" icon (`Glyphs::Role::IconSave`) in all three:
+
+| ASCII | Capture (Unifont) | Terminal |
+|:-----:|:-----------------:|:--------:|
+| `s`   | ![](data/font/unifont-save-icon.png) | 💾 |
 
 ![](examples/text/editor/editor.5s.apng)
 
