@@ -442,24 +442,27 @@ through which all app events and input are routed.
 ```cr
 require "crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+# The two conventional short aliases — nothing is `include`d into your namespace.
+alias CT = Crysterm
+alias CW = Crysterm::Widgets
 
 # A `Window` is the surface your widgets live on.
-window = Window.new title: "hello"
+window = CT::Window.new title: "hello"
 
-# (`Widget::Box`, not bare `Box` — that name is taken by Crystal's stdlib;
-# most other widgets are directly visible through `include Crysterm::Widgets`.)
-Widget::Box.new \
+# `tagged:` is `content:` with the {tags} parsed.
+CW::Box.new \
   parent: window,
   top: :center, left: :center, width: 20, height: 5,
-  content: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
-  parse_tags: true,
-  style: Style.new(fg: "yellow", bg: "blue", border: true)
+  tagged: "{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
+  style: CT::Style.new(fg: "yellow", bg: "blue", border: true)
 
 # `q` / Ctrl-Q quit by default. Run the main loop:
 window.exec
 ```
+
+A step-by-step tutorial building up from this program is in
+[GETTING-STARTED.md](GETTING-STARTED.md), and a ready-to-copy project
+skeleton is in [examples/template/](examples/template/).
 
 ## Examples
 
@@ -546,6 +549,9 @@ work the same way.
 Run `crystal spec` as usual.
 
 ## Documentation
+
+For a hands-on, chapter-by-chapter tutorial — from an empty directory to a
+styled, interactive application — see [GETTING-STARTED.md](GETTING-STARTED.md).
 
 Run `crystal docs` as usual for plain API docs.
 

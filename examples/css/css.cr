@@ -12,10 +12,10 @@ require "../../src/crysterm"
 #
 # Run with:  crystal examples/css/css.cr
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = Crysterm::Widgets
 
-window = Window.new title: "CSS demo"
+window = CT::Window.new title: "CSS demo"
 
 window.stylesheet = <<-CSS
   Box {
@@ -37,17 +37,16 @@ window.stylesheet = <<-CSS
   }
   CSS
 
-# (`Widget::Box`, not bare `Box` — that name is taken by Crystal's stdlib.)
-card = Widget::Box.new parent: window, top: :center, left: :center, width: 44, height: 12
+card = CW::Box.new parent: window, top: :center, left: :center, width: 44, height: 12
 
-Label.new parent: card, top: 0, left: 0, width: "100%", height: 2, parse_tags: true,
-  content: "{center}Everything here is styled by the\nstylesheet — no Style.new anywhere.{/center}"
+CW::Label.new parent: card, top: 0, left: 0, width: "100%", height: 2,
+  tagged: "{center}Everything here is styled by the\nstylesheet — no Style.new anywhere.{/center}"
 
-Label.new parent: card, top: 3, left: 0, width: "100%", height: 1, parse_tags: true,
-  content: "{center}Tab between the buttons: :focus restyles.{/center}"
+CW::Label.new parent: card, top: 3, left: 0, width: "100%", height: 1,
+  tagged: "{center}Tab between the buttons: :focus restyles.{/center}"
 
-Button.new parent: card, top: 5, left: 4, width: 12, height: 3, content: "One"
-Button.new parent: card, top: 5, left: 24, width: 12, height: 3, content: "Two"
+CW::Button.new parent: card, top: 5, left: 4, width: 12, height: 3, content: "One"
+CW::Button.new parent: card, top: 5, left: 24, width: 12, height: 3, content: "Two"
 
 # `q` / Ctrl-Q quit by default. Run the main loop:
 window.exec

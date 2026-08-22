@@ -4,6 +4,8 @@ Examples are functional, reusable programs that you can use or
 copy as a base for your projects.
 
 - the "Hello world" from the top-level README lives in `tests/hellos/`
+- `template/` — a copy-runnable skeleton for a new application (`shard.yml` +
+  `src/main.cr`); start here when copying any example out of this repository
 - `claude/` — a Claude-style chat session rendered with rich text (Markdown/GFM)
 - `css/` — a whole app styled by one authored CSS stylesheet (no `Style.new`)
 - `direct/` — direct (inline) mode: a widget app on the command line, `fzf`-style

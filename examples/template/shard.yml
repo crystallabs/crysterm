@@ -1,0 +1,23 @@
+# Rename `myapp` (here and in `targets:`) to your application's name.
+name: myapp
+version: 0.1.0
+
+authors:
+  - Your Name <you@example.org>
+
+crystal: ">= 1.21.0"
+
+license: MIT
+
+targets:
+  myapp:
+    main: src/main.cr
+
+dependencies:
+  crysterm:
+    github: crystallabs/crysterm
+    version: ~> 1.0
+    # To track the development version instead, replace `version:` with:
+    #   branch: master
+    # and see "Dependencies and versioning" in Crysterm's README for the
+    # shard.override.yml that tracks its dependencies' masters too.

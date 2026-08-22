@@ -1,8 +1,21 @@
 module Crysterm
-  # Convenience namespace for widgets
+  # Convenience namespace for widgets: short names for every widget class
+  # (and the layout engines), without the `Widget::` prefix.
   #
-  #    include Widgets
-  #    t = Text.new
+  # The conventional way to use it is through short aliases, which keeps your
+  # own namespace clean (`alias`, not plain constant assignment — constant
+  # lookup does not traverse a constant that merely holds a module):
+  #
+  #    alias CT = Crysterm
+  #    alias CW = Crysterm::Widgets
+  #
+  #    w = CT::Window.new
+  #    t = CW::Text.new parent: w
+  #
+  # (`include Crysterm::Widgets` also works, but pulls every name into your
+  # namespace, and the stdlib's `Box` then shadows `Widgets::Box`, forcing the
+  # `Widget::Box` spelling for that one widget. With the `CW` alias, `CW::Box`
+  # is unambiguous.)
   module Widgets
     # Blessed-like
     alias Box = Widget::Box

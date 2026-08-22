@@ -3,17 +3,16 @@
 # hue travels across the cells while the text stays black.
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = Crysterm::Widgets
 
-window = Window.new title: "hello2"
+window = CT::Window.new title: "hello2"
 
-box = Widget::Box.new \
+box = CW::Box.new \
   parent: window,
   top: :center, left: :center, width: 20, height: 5,
-  content: "\n{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
-  parse_tags: true,
-  style: Style.new(fg: "black")
+  tagged: "\n{center}'Hello {bold}world{/bold}!'\nPress q to quit.{/center}",
+  style: CT::Style.new(fg: "black")
 
 # The rainbow: after the standard box/content pass, repack every cell's
 # *background* to the hue at its column, leaving the glyphs and their black
@@ -27,8 +26,8 @@ box.paint_handler do |_xi, _xl, _yi, _yl|
     next unless line = rows[y]?
     (Math.max(rect.xi, 0)...rect.xl).each do |x|
       next unless cell = line[x]?
-      hue = Attr.pack_color Colors.hsv_i((phase - (x - rect.xi) * 15) % 360)
-      attr = Attr.with_bg cell.attr, hue
+      hue = CT::Attr.pack_color CT::Colors.hsv_i((phase - (x - rect.xi) * 15) % 360)
+      attr = CT::Attr.with_bg cell.attr, hue
       next if attr == cell.attr
       cell.attr = attr
       cell.mark_dirty
@@ -38,7 +37,7 @@ end
 
 # Advance the marquee. `update!` (not `update`) — an animation deliberately
 # asks for another frame even though no tracked widget state changed.
-Timer.every(0.05.seconds) do
+CT::Timer.every(0.05.seconds) do
   phase += 8
   box.update!
 end
@@ -46,7 +45,7 @@ end
 # Hop to a random position, keeping the box on screen. `immediate: false`
 # leaves the first 2 seconds centered; the position setters schedule the
 # repaint themselves.
-mover = Timer.new 2.seconds, immediate: false
+mover = CT::Timer.new 2.seconds, immediate: false
 mover.on_tick do
   box.left = rand(0..Math.max(0, window.awidth - 20))
   box.top = rand(0..Math.max(0, window.aheight - 5))

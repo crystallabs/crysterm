@@ -677,6 +677,10 @@ module Crysterm
 
       content = "",
       @parse_tags = @parse_tags,
+      # Tagged-content shorthand: `tagged: "{bold}hi{/bold}"` is
+      # `content: ..., parse_tags: true` in one argument (and wins over
+      # `content:` if both are given).
+      tagged : String? = nil,
       @wrap_content = @wrap_content,
 
       label = nil,
@@ -774,6 +778,10 @@ module Crysterm
         append child
       end
 
+      if tagged
+        content = tagged
+        @parse_tags = true
+      end
       set_content content
       label.try do |t|
         set_label t, :left
