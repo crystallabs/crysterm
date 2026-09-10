@@ -372,16 +372,25 @@ module Crysterm
         # row before the cursor shifts later rows down by one, so the cursor
         # slides too. Otherwise `@selected` jumps to the next item or points past
         # the end. Removing the selected row itself selects the row before it.
+        #
+        # The raw `@selected` is realigned directly here, not only through
+        # `#current_index=` — that setter no-ops while `interactive?` is false
+        # or `#selection_mode` is `NoSelection`, which would otherwise leave
+        # `@selected` pointing past `@item_boxes` on such a view. The
+        # `#current_index=` call still follows, to run the scroll/emit side
+        # effects when the view *is* interactive.
         if i < @selected
-          self.current_index = @selected - 1
+          @selected -= 1
+          self.current_index = @selected
         elsif i == @selected
           # When the removed row was first (`i == 0`), the cursor stays at index
           # 0 (now holding the next row) — same `@selected` value, so
           # `#current_index=`'s unchanged-index short-circuit would skip refreshing
           # `@value`/emitting `ItemSelected`. Clear the latch to force a full
           # re-run. No-op for `i > 0`, where the index actually changes.
+          @selected = Math.max(0, i - 1)
           @_list_initialized = false
-          self.current_index = i - 1
+          self.current_index = @selected
         end
 
         emit ::Crysterm::Event::ItemRemoved
@@ -507,8 +516,12 @@ module Crysterm
         # multi-selection slide above (`s >= i`) and the realignment `remove_item`
         # performs. Must check `i <= selected`, not just `i == selected`, or an
         # insert before the cursor leaves `@selected`/`@value` stale.
+        #
+        # `@selected` is realigned directly, like `#remove_item` — see its
+        # comment for why that can't be left to `#current_index=` alone.
         if i <= @selected
-          self.current_index = @selected + 1
+          @selected += 1
+          self.current_index = @selected
         end
         emit Crysterm::Event::ItemInserted
       end
@@ -649,9 +662,11 @@ module Crysterm
       # `Event::ItemSelected`: `#current_index=` already emits that, and adding one
       # here fires it twice per Enter while the selection has not moved at all.
       def activate_current
-        # `item_boxes[@selected]` raises `IndexError` on an empty list under
-        # Crystal's strict indexing.
-        return if @item_boxes.empty?
+        # `@item_boxes[@selected]` raises `IndexError` under Crystal's strict
+        # indexing both on an empty list and when `@selected` is stale (a
+        # non-interactive/`NoSelection` view can leave it pointing past a
+        # shrunk `@item_boxes`).
+        return unless 0 <= @selected < @item_boxes.size
         emit Crysterm::Event::ItemActivated, @item_boxes[@selected], @selected
       end
 
@@ -664,8 +679,9 @@ module Crysterm
       # Cancels the current item, emitting both `Event::ItemActivated` and
       # `Event::ItemCancelled`.
       def cancel_current
-        # See `#activate_current`: guard against `IndexError` on an empty list.
-        return if @item_boxes.empty?
+        # See `#activate_current`: guard against `IndexError` from an empty
+        # list or a stale `@selected`.
+        return unless 0 <= @selected < @item_boxes.size
         emit Crysterm::Event::ItemActivated, @item_boxes[@selected], @selected
         emit Crysterm::Event::ItemCancelled, @item_boxes[@selected], @selected
       end

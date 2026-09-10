@@ -71,6 +71,18 @@ module Crysterm
       @master = IO::FileDescriptor.new master_fd
       slave = IO::FileDescriptor.new slave_fd
 
+      # `IO::FileDescriptor.new` does not set `FD_CLOEXEC` on the fd it wraps
+      # (it only queries/toggles the kernel flag) and `openpty(3)` doesn't set
+      # it either, so without this every fork (this spawn, and any descendant
+      # the child later forks) inherits a live copy of both ends of the pty.
+      # The slave's copy is safe to mark CLOEXEC before spawning: `Process.new`
+      # reaches the child's stdio via `dup2`, which always clears CLOEXEC on
+      # the duplicate, so fds 0/1/2 in the child survive exec regardless — only
+      # the extra, higher-numbered fd (this `slave` local, and the parent's
+      # `@master`) gets closed at exec time.
+      @master.close_on_exec = true
+      slave.close_on_exec = true
+
       process = begin
         spawn_child command, args, slave, env, chdir
       rescue ex
@@ -132,15 +144,36 @@ module Crysterm
       @exit_code = (@process.wait.exit_code rescue nil)
     end
 
-    # Hangs up the child (SIGHUP to *this* process only) and releases the master
-    # fd. Idempotent. Signals nothing if the child has already exited.
-    def kill : Nil
+    # Hangs up the child (SIGHUP to *this* process only) and releases the
+    # master fd, then escalates to SIGTERM and SIGKILL on its own fiber if the
+    # child is still alive after *grace* — a child that ignores or traps HUP
+    # (`nohup`, `trap '' HUP`, a daemon) would otherwise never exit, leaving
+    # `#reap`'s `Process#wait` parked forever. Idempotent; every signal is
+    # best-effort (a process that has already exited is skipped, and a race
+    # losing to that check is swallowed).
+    def kill(grace : Time::Span = 2.seconds) : Nil
       return if @closed
       @closed = true
+      process = @process
       begin
-        @process.signal Signal::HUP unless @process.terminated?
+        process.signal Signal::HUP unless process.terminated?
       rescue
-        # Child already gone / not signalable.
+      end
+      spawn do
+        sleep grace
+        unless process.terminated?
+          begin
+            process.signal Signal::TERM
+          rescue
+          end
+        end
+        sleep grace
+        unless process.terminated?
+          begin
+            process.signal Signal::KILL
+          rescue
+          end
+        end
       end
       @master.close rescue nil
     end

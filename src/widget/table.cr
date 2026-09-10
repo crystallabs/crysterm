@@ -99,9 +99,14 @@ module Crysterm
 
         self.rows = @rows
 
-        on(Crysterm::Event::Attached) { self.rows = @rows }
+        # Re-derive column widths and content in the context the table actually
+        # renders in (its tree position / new size). Skipped for an empty
+        # model: there are no columns to lay out, and the rebuild's
+        # empty-the-view `set_content ""` would wipe content that was set
+        # directly (e.g. replayed by the DOM loader before the append).
+        on(Crysterm::Event::Attached) { self.rows = @rows unless @rows.empty? }
         on(Crysterm::Event::Resize) do
-          self.rows = @rows
+          self.rows = @rows unless @rows.empty?
           update!
         end
       end

@@ -151,6 +151,35 @@ module Crysterm
         remove_item(widget) && widget
       end
 
+      # Removes the command at *child* — a row index, the item/element widget,
+      # or a widget embedded with `#add_widget` — and returns its box, mirroring
+      # `Mixin::ActionBar#remove_item`. Also released here (`Mixin::ActionBar`
+      # doesn't know about `Action`s): the removed button's `@item_actions`
+      # entry, its change-watcher, and its window accelerator — matching
+      # `Menu#remove_action`'s teardown. The `#>>` operator alias and any other
+      # caller of `#remove_item` (including `Mixin::ActionBar#clear`, via the
+      # `#items=` override below) share this through ordinary virtual dispatch.
+      def remove_item(child : Int | Widget)
+        box = super
+        if box && (act = @item_actions.delete(box))
+          unwatch_action act
+          window?.try { |w| act.uninstall_shortcut w }
+        end
+        box
+      end
+
+      # (Re)defines the full command set, mirroring `Mixin::ActionBar#items=`.
+      # `Mixin::ActionBar#clear` (and thus `Mixin::ActionBar#items=`'s wholesale
+      # rebuild) drops every existing command directly rather than routing each
+      # one through `#remove_item`, so the same action teardown as there is run
+      # here first, over every button this bar currently owns.
+      def items=(commands : Array(Mixin::ActionBar::Command))
+        window?.try { |w| @item_actions.each_value &.uninstall_shortcut(w) }
+        unwatch_all_actions
+        @item_actions.clear
+        super
+      end
+
       # Operator alias for `#add_action`, e.g. `toolbar << action`. `Action` is
       # not a `Widget`, so this doesn't collide with `Mixin::Children#<<(Widget)`
       # (which still appends a raw child). `#add_action` stays the primary,

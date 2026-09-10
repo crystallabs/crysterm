@@ -584,7 +584,7 @@ module Crysterm
           if ch == '\n'
             # On the first cell, if the last cell of the previous line wasn't a
             # newline, treat this newline as already "counted".
-            if (x == xi) && (y != yi) && (content[ci - 2]? != '\n')
+            if (x == xi) && (y != yi) && ci >= 2 && (content[ci - 2]? != '\n')
               x -= 1
               next
             end

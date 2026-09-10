@@ -208,7 +208,7 @@ module Crysterm
         # axes; sizes stay unmanaged/`nil`, flow children keep their own).
         if (last = @last_rendered) && !deferred_this_frame?(last) &&
            (llp = rendered_geometry(last))
-          left = (llp.xl + last.mright) - xi + @sp_h
+          left = (llp.xl.to_i64 + last.mright - xi + @sp_h).clamp(0_i64, width.to_i64).to_i32
           last_drawn = llp.width
         elsif (last = @prev_el)
           last_drawn = occupied_width last

@@ -624,8 +624,8 @@ module Crysterm
       # change when the frame does: the geometry `#hit_candidate?` tests is
       # `lpos`, which only a render lays down. So the frame counter carries the
       # invalidation, and a repeat within one frame skips the walk entirely. The
-      # candidate test's other half, `wants_mouse?`, is not render-derived, so
-      # `#register_clickable` drops the memo by hand.
+      # answer's non-render-derived inputs — tree membership, visibility,
+      # `wants_mouse?` — drop the memo by hand through `#invalidate_hit_memo`.
       #
       # Only the plain hover/click lookup is memoized. A `skip:` lookup (the drag
       # path) asks a different question at the same coordinates, and a drag ghost
@@ -667,6 +667,23 @@ module Crysterm
     @_hit_memo_x = Int32::MIN
     @_hit_memo_y = Int32::MIN
     @_hit_memo_renders = -1
+
+    # Drops the hover memo so the next `#widget_at` re-walks the tree, and
+    # releases the memoized widget. The single entry point for every input the
+    # frame counter does NOT cover: a widget entering or leaving a `children`
+    # list, a visibility flip, a fresh clickable registration. Each can change
+    # the answer under a pointer that has not moved, with no render in between —
+    # `Window#click` dispatches press and release back to back, so without this a
+    # widget that removes or hides itself on press still receives the release
+    # (and the hover re-entry) afterwards.
+    #
+    # Only the memo is cleared; the live hover/arm/captor pointers are transient
+    # *interaction* state, torn down for a departing subtree by
+    # `#release_transient_state_for`.
+    protected def invalidate_hit_memo : Nil
+      @_hit_memo_renders = -1
+      @_hit_memo = nil
+    end
 
     # Scratch state for `#widget_at`'s allocation-free traversal: the best hit
     # so far and its compositing layer key. Only valid for the duration of one
@@ -880,9 +897,9 @@ module Crysterm
     def register_clickable(el : Widget)
       return unless register_in el, @clickable
       # A new candidate can change the answer under a pointer that has not moved,
-      # and no render need intervene — the one hover-memo input the frame counter
-      # does not cover (see `#widget_at`).
-      @_hit_memo_renders = -1
+      # and no render need intervene — one of the hover-memo inputs the frame
+      # counter does not cover (see `#widget_at`).
+      invalidate_hit_memo
       el.clickable = true
       @screen.enable_mouse(focus: send_focus?) if @screen.mouse_enabled?
     end

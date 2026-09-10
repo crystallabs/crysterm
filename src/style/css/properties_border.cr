@@ -98,7 +98,10 @@ module Crysterm
       # conventionally do); an unparseable or blank value is dropped.
       private def self.apply_border_radius(border : Border, value : String) : Nil
         v = value.strip.split('/').first
-        nums = v.split.compact_map { |token| token.match(/-?\d+(?:\.\d+)?/).try(&.[0].to_f?) }
+        nums = v.split.compact_map do |token|
+          n = token.match(/-?\d+(?:\.\d+)?/).try(&.[0].to_f?)
+          n && n.finite? ? n : nil
+        end
         return if nums.empty?
         tl, tr, br, bl =
           case nums.size
@@ -136,6 +139,7 @@ module Crysterm
         return if v.empty?
         return unless m = v.match(/-?\d+(?:\.\d+)?/)
         return unless r = m[0].to_f?
+        return unless r.finite?
         set_corner_radius border, which, r
       end
 
@@ -145,7 +149,7 @@ module Crysterm
       # note `Corners#radii` stores in field order (tl, tr, bl, br).
       private def self.set_corner_radius(border : Border, which : Int32, radius : Float64) : Nil
         style = radius > 0 ? Border::Corner::Rounded : Border::Corner::Square
-        r = radius > 0 ? Math.max(radius.round.to_i, 1) : 0
+        r = radius > 0 ? Math.max(Crysterm.saturate_cells_round(radius), 1) : 0
         c = border.corners
         radii = c.radii
         border.corners =

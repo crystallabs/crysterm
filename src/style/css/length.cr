@@ -163,16 +163,24 @@ module Crysterm
       # this matches any casing; `viewport_cells` lower-cases before dispatch.
       VIEWPORT = /\A(#{NUM})(vw|vh|vmin|vmax)\z/i
 
-      # Rounds fractional cells to an `Int32`, clamping into range so an absurd
-      # length (`99999999999px`) can't raise `OverflowError`. NaN (e.g. a
+      # Cells clamp into `±MAX_CELLS`, well short of `Int32::MAX`, so a value
+      # accepted here can't overflow further downstream: geometry/box-model
+      # math (`shift_margin`, `SidedGeometry#adjust`, ...) adds/subtracts a
+      # handful of such cell counts together and only checks for `Int32`
+      # overflow, and `tab-size` multiplies a fill character by the count.
+      MAX_CELLS = 1_000_000.0
+
+      # Rounds fractional cells to an `Int32`, clamping into `±MAX_CELLS` so an
+      # absurd length (`99999999999px`) can't raise `OverflowError` here *or*
+      # in a later arithmetic/allocation step downstream. NaN (e.g. a
       # `calc()` whose finite terms overflow to `Infinity` and are then
       # multiplied by 0) slips through the comparison-based clamp below — both
       # comparisons are false for NaN — straight to `.to_i`, which raises;
-      # neutralize it to 0 first (same hole as `Dim#resolve`/
+      # neutralized to 0 first (same hole as `Dim#resolve`/
       # `#resolve_viewport`). Also covers `#to_cells` and `#viewport_cells`,
       # which both round through here.
       def self.to_cell_count(cells : Float64) : Int32
-        Crysterm.saturate_cells_round(cells)
+        Crysterm.saturate_cells_round(cells, -MAX_CELLS, MAX_CELLS)
       end
 
       # Cells for a bare integer (`5` → 5), a unit'd length (`200px` → 20 with the

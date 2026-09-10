@@ -52,13 +52,17 @@ module Crysterm
       # equal-`{tier, layer, specificity}` tie resolves to the later sheet
       # (the sort is not stable, and per-sheet `rule.order` ranges collide).
       # Far above any real sheet's rule count and `SELECTION_ORDER_BIAS`.
-      SHEET_ORDER_BIAS = 10_000_000
+      # `Int64` so a tier with hundreds of per-widget sheets (each widget's own
+      # `stylesheet=`/`add_stylesheet` contributes one slot) can't overflow the
+      # order component this multiplies into.
+      SHEET_ORDER_BIAS = 10_000_000_i64
 
       # An accumulated match: `{tier, layer_rank, specificity, order,
       # declarations}`, sorted by the first four (origin/importance, then
       # `@layer`, then specificity, then source order) so the winning
-      # declaration applies last.
-      alias Entry = Tuple(Int32, Int32, Tuple(Int32, Int32, Int32), Int32, Hash(String, String))
+      # declaration applies last. `order` is `Int64` so `SHEET_ORDER_BIAS`
+      # biasing across many same-tier sheets can't overflow it.
+      alias Entry = Tuple(Int32, Int32, Tuple(Int32, Int32, Int32), Int64, Hash(String, String))
 
       # Resolves the author *stylesheet* (plus the default stylesheet beneath it)
       # against the tree rooted at *window*, matching against the prebuilt CSS
@@ -163,7 +167,7 @@ module Crysterm
         # tier is unbiased, so the common default+author case copies nothing).
         tier_slots = Hash(Int32, Int32).new(0)
         sheets.each do |(sheet, tier, owner)|
-          bias = tier_slots[tier] * SHEET_ORDER_BIAS
+          bias = tier_slots[tier].to_i64 * SHEET_ORDER_BIAS
           tier_slots[tier] += 1
           sheet.rules.each_with_index do |rule, rule_index|
             next if rule.selector.empty?
@@ -669,7 +673,7 @@ module Crysterm
         has_normal = has_selection?(rule.declarations)
         has_important = has_selection?(rule.important)
         return EMPTY_ENTRIES unless has_normal || has_important
-        order = rule.order + SELECTION_ORDER_BIAS
+        order = (rule.order + SELECTION_ORDER_BIAS).to_i64
         entries = [] of Entry
         # `selection-*` styles the selected state, so — like a `:selected` rule —
         # an author-origin one sorts at `TIER_AUTHOR_STATE` (a default-origin one
@@ -708,7 +712,7 @@ module Crysterm
 
       # *entries* with each order component shifted by *bias* (see
       # `SHEET_ORDER_BIAS`); the cached array itself when unbiased.
-      private def self.bias_entries(entries : Array(Entry), bias : Int32) : Array(Entry)
+      private def self.bias_entries(entries : Array(Entry), bias : Int64) : Array(Entry)
         return entries if bias == 0 || entries.empty?
         entries.map { |(tier, layer, spec, order, decls)| {tier, layer, spec, order + bias, decls} }
       end
@@ -751,8 +755,9 @@ module Crysterm
         # and share across cascades (only ever `concat`-ed, never mutated).
         sheet.rule_entries_cache.fetch({index, base_tier}) do
           entries = [] of Entry
-          entries << {base_tier, rule.layer_rank, rule.specificity, rule.order, rule.declarations} unless rule.declarations.empty?
-          entries << {TIER_IMPORTANT, rule.layer_rank, rule.specificity, rule.order, rule.important} unless rule.important.empty?
+          order = rule.order.to_i64
+          entries << {base_tier, rule.layer_rank, rule.specificity, order, rule.declarations} unless rule.declarations.empty?
+          entries << {TIER_IMPORTANT, rule.layer_rank, rule.specificity, order, rule.important} unless rule.important.empty?
           sheet.rule_entries_cache[{index, base_tier}] = entries
         end
       end

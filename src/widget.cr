@@ -360,6 +360,8 @@ module Crysterm
       @width = width
       @height = height
 
+      css_note_geometry_write left: left, top: top, width: width, height: height
+
       update
       emit ::Crysterm::Event::Move if moved
       emit ::Crysterm::Event::Resize if resized

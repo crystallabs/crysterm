@@ -118,6 +118,16 @@ module Crysterm
         update!
       end
 
+      # The body of the no-argument `Dialog#open` (reached from `#exec` and from
+      # a bare `open` call): presents through the same read/callback path as
+      # the block-based `#open` above, with an empty callback, so the ok/cancel
+      # wiring, the field's read session and `#accept`/`#reject` all end up
+      # wired the same way as `.read` — Enter/Escape/OK/Cancel actually close
+      # the dialog instead of doing nothing.
+      protected def present_modal : Nil
+        open(nil, @line_edit.value) { }
+      end
+
       # The affirmative gesture submits the embedded field rather than closing
       # outright: the field's own read callback carries the entered value, runs
       # the `#validator`, and closes the dialog from there. Closing here

@@ -225,6 +225,7 @@ module Crysterm
       end
       name = stroke.split('+').join do |part|
         part = part.strip
+        raise ArgumentError.new("Unrecognized key stroke #{stroke.inspect} (empty chord part)") if part.empty?
         # Qt / display spelling → Tput::Key member-fragment spelling.
         case part.downcase
         when "esc"            then "Escape"

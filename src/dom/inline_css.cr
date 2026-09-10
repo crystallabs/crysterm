@@ -1,7 +1,8 @@
 module Crysterm
-  # Inline-`<style>` support for self-contained layouts, compiled only with
-  # `-Dremote`. Reopens `Window` to keep an inline CSS source, extracted from a
-  # loaded layout's `<style>`, alongside the external file/string source, and
+  # Inline-`<style>` support for self-contained layouts, part of every build
+  # (required unconditionally, ahead of the `-Dremote`-gated network surface).
+  # Reopens `Window` to keep an inline CSS source, extracted from a loaded
+  # layout's `<style>`, alongside the external file/string source, and
   # recomposes both into the active stylesheet. The core `Window` knows nothing
   # of this; these overrides supersede its plain versions when present.
   class Window
@@ -103,9 +104,32 @@ module Crysterm
     # Combines two parsed stylesheets into one, `base` first so `extra`'s rules
     # win on equal specificity, layering the recomposed text sources over an
     # object-assigned author sheet without needing that sheet's source text.
+    #
+    # `Rule#order`/`#layer_rank` are assigned per parse starting from 0, so
+    # `base` and `extra` each carry their own overlapping `0..n` ranges —
+    # concatenating them verbatim would leave source-order ties between the
+    # two halves resolved arbitrarily instead of by `extra` winning. Every
+    # appended rule's order is shifted past `base`'s so the two halves sort
+    # into one contiguous, correctly ordered sequence; a *named* `@layer`
+    # rank gets the same treatment, shifted past `base`'s highest named layer
+    # (`CSS::UNLAYERED` is a sentinel, not a real layer slot, and is left
+    # alone so an unlayered rule can never be shifted into — and start
+    # outranking — the named-layer range).
     private def merge_stylesheet(base : CSS::Stylesheet, extra : CSS::Stylesheet) : CSS::Stylesheet
+      order_shift = base.rules.size
+      named_layer_max = base.rules.compact_map { |r| r.layer_rank == CSS::UNLAYERED ? nil : r.layer_rank }.max?
+      layer_shift = named_layer_max ? named_layer_max + 1 : 0
+      shifted = extra.rules.map do |r|
+        CSS::Rule.new(
+          r.selector, r.declarations, r.important, r.state, r.specificity,
+          r.order + order_shift,
+          r.media, r.has,
+          r.layer_rank == CSS::UNLAYERED ? CSS::UNLAYERED : r.layer_rank + layer_shift,
+          r.ancestor_has,
+        )
+      end
       CSS::Stylesheet.new(
-        base.rules + extra.rules,
+        base.rules + shifted,
         base.variables.merge(extra.variables),
         base.warnings + extra.warnings,
         base.keyframes.merge(extra.keyframes),

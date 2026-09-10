@@ -76,6 +76,11 @@ module Crysterm
       # resulting month so the `Time` stays valid. *field* is the absolute
       # component index — 0=year 1=month 2=day 3=hour 4=minute 5=second — so each
       # editor maps its `@section` onto it.
+      #
+      # This is the raw component arithmetic only: the caller assigns the result
+      # through its value setter, which clamps it into the widget's
+      # `[@minimum_date_time, @maximum_date_time]` — as Qt's
+      # `QDateTimeEditPrivate::stepBy` bounds its own result.
       protected def step_time_field(t : Time, field : Int32, delta : Int32) : Time
         y, mo, d = t.year, t.month, t.day
         h, mi, s = t.hour, t.minute, t.second
@@ -177,7 +182,9 @@ module Crysterm
 
       # Generates the value getter *name* (returning *ivar*) plus a
       # change-guarded setter *name*= that stores the (optionally *normalize*d)
-      # value on *ivar* and hands it to `#commit_value`.
+      # value — clamped into `[@minimum_date_time, @maximum_date_time]`, the
+      # bounds `DateTimeEdit` declares — on *ivar* and hands it to
+      # `#commit_value`.
       #
       # Generates only the two methods, not an instance-variable type
       # declaration — a macro-generated ivar type declaration inside a mixin can
@@ -194,6 +201,7 @@ module Crysterm
           {% else %}
             v = value
           {% end %}
+          v = v.clamp(@minimum_date_time, @maximum_date_time)
           return {{ ivar }} if v == {{ ivar }}
           {{ ivar }} = v
           commit_value {{ ivar }}

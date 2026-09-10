@@ -186,6 +186,10 @@ module Crysterm
         getter warnings = [] of String
         getter layers = {} of String => Int32
         getter keyframes = {} of String => Array(KeyframeDef)
+        # Absolute paths currently being parsed via `@import`, so a cycle
+        # (self-import or A -> B -> A) is caught instead of recursing until
+        # the stack overflows.
+        getter importing = Set(String).new
         property order = 0
         # Mutable so a nested `@import` can resolve relative to the *importing*
         # file's directory (saved/restored around the recursive parse), not the
@@ -426,6 +430,12 @@ module Crysterm
           ctx.warnings << "@import: cannot read #{resolved.inspect}"
           return
         end
+        # Guard against a self-import or an A -> B -> A cycle: without this,
+        # a cyclic `@import` recurses until the stack overflows.
+        unless ctx.importing.add?(resolved)
+          ctx.warnings << "@import: cyclic import of #{resolved.inspect} skipped"
+          return
+        end
         # An `@import` *inside* the imported file resolves relative to that
         # file's own directory, so `base_path` points at it for the recursive
         # parse and is restored afterwards for sibling imports in the outer file.
@@ -435,6 +445,7 @@ module Crysterm
           parse_scope decommented(content), [] of String, nil, layer_rank, ctx
         ensure
           ctx.base_path = saved
+          ctx.importing.delete resolved
         end
       end
 

@@ -177,7 +177,8 @@ module Crysterm
     end
 
     private def handle_ground(c : Char) : Nil
-      case c.ord
+      o = c.ord
+      case o
       when 0x1b             then @state = :esc
       when 0x07             then @on_bell.try &.call
       when 0x08             then backspace
@@ -186,26 +187,58 @@ module Crysterm
       when 0x0d             then @x = 0; @wrap_pending = false
       when 0x0e             then @gl = 1 # SO: invoke G1 into GL
       when 0x0f             then @gl = 0 # SI: invoke G0 into GL
+      # C1 controls (0x80-0x9f, arriving UTF-8-encoded, e.g. `C2 9B` for CSI):
+      # xterm and VTE execute them as controls, so route each through the same
+      # handler as its 7-bit `ESC Fe` equivalent. Writing them to the grid
+      # instead would forward host-interpretable control bytes verbatim
+      # (escape injection) and desync the host cursor (they occupy 0 columns).
+      when 0x84                   then line_feed              # IND (ESC D)
+      when 0x85                   then @x = 0; line_feed      # NEL (ESC E)
+      when 0x88                   then @tab_stops << cursor_x # HTS (ESC H)
+      when 0x8d                   then reverse_index          # RI  (ESC M)
+      when 0x90, 0x98, 0x9e, 0x9f then enter_string           # DCS/SOS/PM/APC (ESC P/X/^/_)
+      when 0x9b                   then enter_csi              # CSI (ESC [)
+      when 0x9d                   then enter_osc              # OSC (ESC ])
       else
         # 0x7f (DEL) is a fill/padding control, not a glyph: VT100/xterm discard
-        # it rather than writing a cell. (0x80+ are printable multibyte glyphs.)
-        print_char c if c.ord >= 0x20 && c.ord != 0x7f
+        # it rather than writing a cell. The remaining C1 controls — including a
+        # stray ST (0x9c) with no string open — likewise execute as no-ops
+        # rather than printing.
+        print_char c if o >= 0x20 && o != 0x7f && !(0x80 <= o <= 0x9f)
       end
+    end
+
+    # Enters CSI parameter collection (`ESC [` / C1 CSI).
+    private def enter_csi : Nil
+      @state = :csi
+      @csi_buf.clear
+      @csi_private = false
+      @csi_prefix = nil
+      @csi_intermediate = false
+    end
+
+    # Enters OSC string collection (`ESC ]` / C1 OSC).
+    private def enter_osc : Nil
+      @state = :osc
+      @osc_buf.clear
+      @osc_esc = false
+      @osc_string = false
+    end
+
+    # Enters a DCS/SOS/PM/APC string (`ESC P/X/^/_` / their C1 forms) — swallowed
+    # like an OSC (until ST/BEL), but flagged so the payload is discarded rather
+    # than parsed as an OSC title.
+    private def enter_string : Nil
+      @state = :osc
+      @osc_buf.clear
+      @osc_esc = false
+      @osc_string = true
     end
 
     private def handle_esc(c : Char) : Nil
       case c
-      when '['
-        @state = :csi
-        @csi_buf.clear
-        @csi_private = false
-        @csi_prefix = nil
-        @csi_intermediate = false
-      when ']'
-        @state = :osc
-        @osc_buf.clear
-        @osc_esc = false
-        @osc_string = false
+      when '[' then enter_csi
+      when ']' then enter_osc
       when '(', ')', '*', '+'
         @charset_index = case c
                          when '(' then 0
@@ -224,12 +257,7 @@ module Crysterm
         @charset_index = -1
         @state = :charset
       when 'P', 'X', '^', '_'
-        # DCS/SOS/PM/APC string — swallow like an OSC (until ST/BEL), but flag it
-        # so the payload is discarded rather than parsed as an OSC title.
-        @state = :osc
-        @osc_buf.clear
-        @osc_esc = false
-        @osc_string = true
+        enter_string # DCS/SOS/PM/APC
       when '7' then save_cursor; @state = :ground
       when '8' then restore_cursor; @state = :ground
       when 'H' then @tab_stops << cursor_x; @state = :ground # HTS: set tab stop at cursor

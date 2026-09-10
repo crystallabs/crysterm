@@ -26,6 +26,11 @@ module Crysterm
     end
 
     def insert(element, i = -1)
+      # A widget joining the tree — or merely changing z-order in the reorder
+      # branch below — can change what sits under a resting pointer with no
+      # render in between, which the hover memo's frame counter cannot see.
+      invalidate_hit_memo
+
       # Reorder of an existing top-level child. `Mixin::Children#insert` rejects
       # a duplicate before mutating the list, so it can't reposition; do the
       # remove-then-add here. The widget stays on this window, so no attach/
@@ -48,6 +53,13 @@ module Crysterm
       # window. Must be sampled before the unlink severs the `#parent` link the
       # window is derived through.
       same_screen_move = !element.parent.nil? && element.window? == self
+
+      # Whether the element currently sits in *some* tree. An element holding a
+      # window while listed in no `children` — a stand-alone widget on the
+      # auto-assigned global window — is attached nowhere, so this insertion is
+      # its first attach rather than a move away from that window. Sampled
+      # alongside `same_screen_move`, for the same reason.
+      in_tree = element.attached?
 
       # An element moved here from another home must first be unlinked from it,
       # or it stays double-parented — listed in both its old container's
@@ -73,8 +85,16 @@ module Crysterm
       # that actually stores its screen; descendants derive it from the tree.
       # For a same-window move hand `attach` this window so it no-ops,
       # suppressing a spurious `Attached`; otherwise the unlink above already
-      # emitted `Detached`, leaving `previous` nil.
-      previous = same_screen_move ? self : element.window?
+      # emitted `Detached`, leaving `previous` nil. A first attach of an element
+      # that was in no tree passes nil explicitly: it still holds the window it
+      # was auto-assigned at construction, and handing that over would make
+      # `attach` read the fresh attach as a same-window no-op and emit no
+      # `Attached` at all.
+      previous = if same_screen_move
+                   self
+                 elsif in_tree
+                   element.window?
+                 end
       element.window = self
       attach element, previous
 
@@ -114,6 +134,12 @@ module Crysterm
       refocus = (f = focused) && element.covers?(f)
 
       super
+
+      # As in `#insert`: the element has left the children list, so an answer
+      # memoized earlier in this same frame can still name it — a press handler
+      # that removes its own widget would otherwise see the release, and the
+      # hover re-entry, land on the detached widget.
+      invalidate_hit_memo
 
       # Drop this element (and its subtree) from the keyboard/mouse registries so
       # detached widgets don't linger in `@keyable`/`@clickable`.

@@ -320,7 +320,7 @@ module Crysterm
       # ── Selection movement (keyboard) ─────────────────────────────────────
 
       private def shift_selection_days(n : Int32) : Nil
-        self.selected_date = @date + n.days
+        self.selected_date = @date.shift(days: n)
       end
 
       private def shift_selection_months(n : Int32) : Nil
@@ -399,7 +399,7 @@ module Crysterm
 
           nrows.times do |r|
             if weeks
-              row_date = first + (r * 7 - lead).days
+              row_date = first.shift(days: r * 7 - lead)
               # The row's Thursday can land in January 10000 (last grid row of
               # December 9999, the default `@maximum_date`), outside Crystal's
               # `Time` range: blank the gutter rather than crash the render.

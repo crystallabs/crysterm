@@ -107,7 +107,11 @@ module Crysterm
       end
 
       w = ::Crysterm::Unicode.width c
-      w = 1 if w < 1 # zero-width / control: place as a single cell (no combining yet)
+      # A zero-width codepoint (combining mark, ZWJ, control) occupies no column
+      # on the host terminal: discard it rather than store a 1-cell entry the
+      # host cursor would not advance over, which would shift the rest of the
+      # row. (No combining-mark composition onto the previous cell.)
+      return if w < 1
 
       if @wrap_pending
         @x = 0
@@ -119,6 +123,10 @@ module Crysterm
       # leaving the final column blank (matching xterm) — but only when autowrap
       # is on; otherwise it overwrites the last column in place below.
       if @autowrap && w == 2 && @x == @cols - 1
+        # The pre-wrap blank overwrites the last column; when that cell is a
+        # trailing CONTINUATION, its lead one column left would survive bare —
+        # blank it first, the same split-pair repair every other writer runs.
+        blank_split_lead cur_line, @x
         cur_line[@x] = Cell.new(@cur_attr, ' ')
         @x = 0
         line_feed

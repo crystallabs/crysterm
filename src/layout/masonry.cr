@@ -103,7 +103,7 @@ module Crysterm
             # zero, matching the horizontal chain's additive convention
             # (`flow_place`'s `last.mright`).
             # `@sp_v` keeps the inter-row gap under gravitation too.
-            bottom = (lp.yl - yi) + l.mbottom + @sp_v
+            bottom = ((lp.yl - yi).to_i64 + l.mbottom + @sp_v).clamp(0_i64, interior.height.to_i64).to_i32
           end
           @prev_row << {left, bottom}
         end

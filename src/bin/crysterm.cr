@@ -1,4 +1,5 @@
 require "option_parser"
+require "random/secure"
 require "../crysterm"
 
 # `crysterm` CLI — run a terminal GUI defined entirely in HTML + CSS, with
@@ -30,7 +31,7 @@ require "../crysterm"
         o.on("--handler CMD", "Handler process to spawn (any language)") { |v| handler_cmd = v }
         o.on("--host HOST", "Bind host (default 127.0.0.1)") { |v| host = v }
         o.on("--port PORT", "Bind port (default 7000)") { |v| port = v.to_i }
-        o.on("--token TOKEN", "Require this bearer token on /rpc and /events") { |v| token = v }
+        o.on("--token TOKEN", "Bearer token required on /rpc and /events (generated if unset)") { |v| token = v }
         o.on("--watch", "Hot-reload the .html/.css on change") { watch = true }
         o.on("-h", "--help", "Show help") { puts o; exit 0 }
         o.unknown_args do |args|
@@ -44,6 +45,18 @@ require "../crysterm"
       unless (lp = layout_path) && File.exists?(lp)
         STDERR.puts layout_path ? "No such file: #{layout_path}" : parser
         exit 1
+      end
+
+      # The bridge always runs authenticated: with no `--token`, one is
+      # generated rather than leaving `/rpc` and `/events` open to anything
+      # that can reach the port. A handler spawned by `--handler` receives it
+      # through `CRYSTERM_TOKEN` and needs no further arrangement; a handler
+      # started separately can't be told that way, so the generated value is
+      # printed before the UI takes over the terminal (pass `--token` to choose
+      # it instead).
+      if token.nil?
+        token = Random::Secure.hex 16
+        STDERR.puts "crysterm: bridge token #{token} (pass --token to set your own)" unless handler_cmd
       end
 
       # Running the server command *is* the runtime opt-in.

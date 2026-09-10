@@ -48,6 +48,9 @@ module Crysterm
     # stops reading a property stops depending on it. This is the tool for dynamic
     # dependency sets; prefer `bind` when the set is fixed.
     #
+    # A write the effect performs to one of its own dependencies during a run
+    # does not re-trigger it — only changes arriving between runs do.
+    #
     # ```
     # Crysterm::Reactive.effect { label.content = show.value ? a.value : b.value }
     # ```
@@ -81,6 +84,14 @@ module Crysterm
       # long-lived owner. Set by `Reactive.effect`.
       protected property owner_sub : ::Crysterm::Subscription?
       getter? disposed = false
+      # True while this effect's body is executing. `schedule` ignores changes
+      # fired while it is set: on a single fiber, any such change was caused by
+      # a write inside this effect's own run, and a self-write does not re-run
+      # the effect (Solid/Vue semantics). Writes from anywhere else — another
+      # effect, or code outside any effect — find it false and schedule
+      # normally. Also guards `run` against re-entry, so an eager effect that
+      # writes one of its own dependencies recomputes once instead of recursing.
+      @running = false
 
       # *eager* effects recompute synchronously the moment an upstream changes,
       # even mid-wave/mid-batch, instead of deferring to the flush — the basis of
@@ -111,8 +122,12 @@ module Crysterm
       # derived value settles within the current propagation wave. A leaf effect
       # is enqueued for the flush whenever a wave or batch is open, so it runs
       # exactly once, after every upstream `Computed` has settled.
+      #
+      # A change arriving while this effect is itself running is dropped: it can
+      # only come from a write inside the effect's own body, and re-running on a
+      # self-write would never settle.
       protected def schedule : Nil
-        return if disposed?
+        return if disposed? || @running
         if @eager
           run
         elsif Reactive.deferring?
@@ -137,38 +152,43 @@ module Crysterm
       # dependency not re-read before the raise, silently freezing the effect
       # while `disposed?` still reads false.
       def run : Nil
-        return if disposed?
-        # Bags are reused in place, not reallocated per run.
-        @tracked.clear
-        @added.clear
+        return if disposed? || @running
+        @running = true
         begin
-          Reactive.with_current(self) { @block.call }
-        rescue ex
-          # Keep the last run's deps live: cancel only the subscriptions added
-          # during this failed run.
-          @added.each { |id| @subs_by_id.delete(id).try &.off }
+          # Bags are reused in place, not reallocated per run.
+          @tracked.clear
           @added.clear
-          raise ex
-        end
-        # A dispose that raced in mid-body (directly or via a nested run)
-        # cleared the sub map at its point in time; cancel anything that
-        # survived — subs added earlier in this same run before re-clearing, or
-        # re-adds from a nested run — instead of re-tracking a dead effect.
-        if disposed?
-          release_tracking
-          return
-        end
-        # Drop subscriptions for deps not read this run. Fast path: matching
-        # sizes mean @tracked (⊆ @subs_by_id) equals the live set, so a
-        # stable-dependency effect neither allocates nor iterates.
-        if @subs_by_id.size != @tracked.size
-          @subs_by_id.reject! do |id, sub|
-            next false if @tracked.includes? id
-            sub.off
-            true
+          begin
+            Reactive.with_current(self) { @block.call }
+          rescue ex
+            # Keep the last run's deps live: cancel only the subscriptions added
+            # during this failed run.
+            @added.each { |id| @subs_by_id.delete(id).try &.off }
+            @added.clear
+            raise ex
           end
+          # A dispose that raced in mid-body (directly or via a nested run)
+          # cleared the sub map at its point in time; cancel anything that
+          # survived — subs added earlier in this same run before re-clearing, or
+          # re-adds from a nested run — instead of re-tracking a dead effect.
+          if disposed?
+            release_tracking
+            return
+          end
+          # Drop subscriptions for deps not read this run. Fast path: matching
+          # sizes mean @tracked (⊆ @subs_by_id) equals the live set, so a
+          # stable-dependency effect neither allocates nor iterates.
+          if @subs_by_id.size != @tracked.size
+            @subs_by_id.reject! do |id, sub|
+              next false if @tracked.includes? id
+              sub.off
+              true
+            end
+          end
+          Reactive.request_repaint @owner
+        ensure
+          @running = false
         end
-        Reactive.request_repaint @owner
       end
 
       # Cancels all subscriptions and stops the effect. Idempotent.

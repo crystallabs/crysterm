@@ -32,6 +32,16 @@ module Crysterm
       end
     end
 
+    # Whether this widget actually sits in a tree: nested under a widget
+    # parent, or listed among a window's top-level children. `false` for a
+    # stand-alone widget that merely holds a window reference (the
+    # auto-assigned global window, or an explicit `window:`) while in no
+    # `children` list — such a widget is never rendered and receives its first
+    # `Event::Attached` only once inserted somewhere.
+    def attached? : Bool
+      !@parent.nil? || !!window?.try(&.child?(self))
+    end
+
     # Tears down an owned *satellite* widget — one a control appends to the
     # *window* (a search box, a pop-up menu, a completion list, a hover tooltip)
     # rather than to itself, so the owner's `#destroy` never recurses into it.
@@ -104,8 +114,14 @@ module Crysterm
       # is derived through. A *top-level* element (parent nil) moving into a
       # widget on the same window counts as a same-window move too, and needs the
       # same suppression on the `Window#remove` path below.
+      #
+      # `in_tree` separates a move from a first attach: an element holding a
+      # window while listed in no `children` — a stand-alone widget on the
+      # auto-assigned global window — is attached nowhere, so inserting it here
+      # is not a move away from that window, and must not be suppressed as one.
       dest_screen = window?
-      same_screen_move = !dest_screen.nil? && dest_screen == element.window?
+      in_tree = element.attached?
+      same_screen_move = in_tree && !dest_screen.nil? && dest_screen == element.window?
 
       # When `element` is already a child of *this same* parent, the detach below
       # shifts the later siblings left, so a caller-supplied `i` computed against
@@ -125,16 +141,29 @@ module Crysterm
       end
 
       # For a suppressed same-window move, hand `attach` that shared window so it
-      # no-ops. Otherwise `window?` is non-nil only for an unattached element
-      # holding the auto-assigned global window without being in any `children` —
-      # the window it is moving away from, so `attach` emits the right
-      # cross-window `Detached`/`Attached`.
-      previous = same_screen_move ? dest_screen : element.window?
+      # no-ops. A genuine move was unlinked above, which nils the element's
+      # window, so `attach` sees a nil `previous` and emits the cross-window
+      # `Detached`/`Attached` pair. A first attach passes nil explicitly: the
+      # element still holds the window auto-assigned at construction, and handing
+      # that over would make `attach` read the fresh attach as a same-window
+      # no-op and emit no `Attached` at all.
+      previous = if same_screen_move
+                   dest_screen
+                 elsif in_tree
+                   element.window?
+                 end
 
       # Same-parent reorder: adjust the now-stale insertion index.
       if oi = old_i
         i -= 1 if i >= 0 && oi < i
       end
+
+      # Normalize a negative (count-from-the-end) index against the post-removal
+      # list, then clamp — as `Window#insert` does, and as Qt's `insertWidget`
+      # specifies: an out-of-range slot appends (or prepends) instead of raising
+      # the `IndexError` the bare `Array#insert` would.
+      i += children.size + 1 if i < 0
+      i = i.clamp(0, children.size)
 
       super element, i
       # A nested widget derives its window from `#parent`, so must not keep its
@@ -160,6 +189,10 @@ module Crysterm
           clear_subtree_lpos element
         end
       end
+
+      # The set of widgets under a resting pointer just changed, with no render
+      # in between for the hover memo's frame counter to notice.
+      dest_screen.try &.invalidate_hit_memo
 
       window?.try &.attach(element, previous)
 
@@ -204,6 +237,11 @@ module Crysterm
       end
 
       return unless super
+
+      # As in `#insert`: the detached subtree is still what an answer memoized
+      # earlier in this frame names, so a widget removed from a press handler
+      # would keep taking the release and the hover re-entry.
+      s.try &.invalidate_hit_memo
 
       # Capture the window the element is leaving *before* unlinking, so its
       # subtree can be told it has been detached.
@@ -326,7 +364,13 @@ module Crysterm
       # fires, and order-dependent selectors (`:nth-child`, `:first`/`:last-child`,
       # sibling combinators) never re-evaluate.
       update
-      window?.try &.damage_force_full
+      window?.try do |w|
+        w.damage_force_full
+        # The reorder decides which sibling is topmost under the pointer, and
+        # mutating the list directly bypasses the insert/remove path, so the
+        # hover memo has to be dropped here too.
+        w.invalidate_hit_memo
+      end
       invalidate_css_tree
 
       index

@@ -208,8 +208,9 @@ module Crysterm
     # The single implementation of "transition the terminal's SGR state", shared
     # by the two sites in `#draw` that need it: the BCE clear-to-EOL branch
     # (which must establish the target bg before `el` erases with it) and the
-    # per-cell attribute change. *df* is the frame's default attr (the state a
-    # bare `\e[m` leaves the terminal in) and *ncolors* the output color depth.
+    # per-cell attribute change. *df* is the terminal's bare-reset attr
+    # (`DEFAULT_ATTR` — the state `\e[m` leaves the terminal in) and *ncolors*
+    # the output color depth.
     #
     # The standalone `\e[m` reset is dropped when the incoming spec fully
     # re-establishes the terminal state on its own: it turns ON every flag the
@@ -279,15 +280,17 @@ module Crysterm
       ansi_cursor = caps.ansi_cursor
 
       bce_opt = @optimization.bce?
-      # The bg/deco fields the BCE look-ahead gate compares against; `@default_attr`
-      # is constant for the whole call.
-      default_bg = Attr.bg(@default_attr)
-      default_deco = Attr.flags(@default_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)
-      # Frame-constant default attr hoisted to a local: the compiler can't hoist
-      # the ivar load out of the per-cell transition checks below (no aliasing
-      # guarantee across the calls in the loop body), so each changed cell would
-      # otherwise pay an ivar load where a register read suffices.
-      df = @default_attr
+      # The bg/deco fields the BCE look-ahead gate compares against. They must
+      # describe what `el` actually paints: on a non-BCE terminal `el` erases
+      # with the terminal's built-in default background, and on any terminal it
+      # fills undecorated — so the reference is the bare-reset state
+      # (`DEFAULT_ATTR`), independent of the window's `default_attr` buffer fill.
+      default_bg = Attr.bg(DEFAULT_ATTR)
+      default_deco = Attr.flags(DEFAULT_ATTR) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)
+      # The terminal's bare-reset SGR state — the reference every transition and
+      # end-of-row reset below compares against. Hoisted to a local so the hot
+      # per-cell checks pay a register read.
+      df = DEFAULT_ATTR
       fu = full_unicode_effective?
       # Output color depth used to reduce SGR colors. NOT the frozen
       # `caps.ncolors`: `#color_count` re-resolves the `colors.depth` config/env
@@ -410,7 +413,11 @@ module Crysterm
 
         @outbuf.clear
 
-        attr = @default_attr
+        # Terminal SGR state entering this row. Every emitted row leaves the
+        # terminal reset (see the end-of-row reset), and a row that emits
+        # nothing doesn't touch it, so the wire state here is always the bare
+        # `\e[m` state.
+        attr = df
 
         # When a wide grapheme is emitted it also covers the following
         # (continuation) cell, so that cell is skipped on the next iteration.

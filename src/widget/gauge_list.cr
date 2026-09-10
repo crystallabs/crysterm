@@ -58,7 +58,7 @@ module Crysterm
         # a list, bumps that list's version counter and repaints.
         def value=(v : Number) : Float64
           f = v.to_f
-          @value = @owner.try(&.sanitize_value(f, @owner.try(&.minimum) || 0.0)) || 0.0
+          @value = f.finite? ? f : (@owner.try(&.minimum) || 0.0)
           @owner.try &.item_changed
           @value
         end

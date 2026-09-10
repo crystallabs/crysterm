@@ -73,7 +73,11 @@ module Crysterm
 
       # Steps the active section by *delta*, wrapping within its own range. The
       # time sections 0/1/2 (hour/minute/second) are the component indices 3/4/5,
-      # so offset `@section` by 3; the date component is left untouched.
+      # so offset `@section` by 3; the date component is left untouched. The
+      # stepped value goes through `#time=`, so it also lands within
+      # `[#minimum_date_time, #maximum_date_time]`; those are full instants, so
+      # they constrain the hours only once a bound falls on the value's own day
+      # (Qt's `QTimeEdit` bounds the same way, over its own fixed date).
       private def step(delta : Int32) : Nil
         self.time = step_time_field @time, @section + 3, delta
       end

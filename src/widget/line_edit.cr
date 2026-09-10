@@ -132,12 +132,15 @@ module Crysterm
         super
       end
 
-      # Single-line: a pasted trailing newline is dropped and interior newlines
-      # collapse to single spaces (the Qt `QLineEdit` convention), so a pasted
-      # shell command never puts a literal `\n` in the buffer.
+      # Single-line: a pasted trailing line ending is dropped and interior
+      # line breaks (LF, CRLF, or bare CR — terminals translate LF to any of
+      # these on paste) collapse to single spaces (the Qt `QLineEdit`
+      # convention), so a pasted shell command never puts a literal newline
+      # or `\r` in the buffer.
       private def sanitize_paste(text : String) : String
-        return text unless text.includes? '\n'
-        text.chomp.gsub(/\r?\n/, ' ')
+        return text unless text.includes?('\n') || text.includes?('\r')
+        text = text.chomp.gsub(/\r\n?|\n/, ' ')
+        text.matches?(PASTE_CONTROL_CHARS) ? text.gsub(PASTE_CONTROL_CHARS, "") : text
       end
 
       # Expanded-codepoint index of the first content column currently shown —

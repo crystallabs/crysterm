@@ -32,6 +32,12 @@ module Crysterm
     # <!-- widget-examples:capture v1 -->
     # ![Terminal screenshot](../../tests/widget/terminal/terminal.5s.apng)
     # <!-- /widget-examples:capture -->
+    #
+    # Not loadable from a layout DOM: this widget runs a child program, and
+    # markup (a layout file, a hot-reload, or an `append` over the HTTP bridge)
+    # is data, never a way to start a process. Build one in Crystal instead
+    # (see `Crysterm::DOM::Skip`).
+    @[::Crysterm::DOM::Skip]
     class Terminal < Widget
       include Mixin::EmulatorBlit
 

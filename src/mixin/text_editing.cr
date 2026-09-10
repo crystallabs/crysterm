@@ -289,10 +289,20 @@ module Crysterm
         _setup_text_mouse
       end
 
-      # Adapts pasted text to what this widget can hold before it is inserted.
-      # The default keeps it verbatim (multiline editors take newlines as-is);
+      # C0 control characters (and DEL) that never belong in a pasted text
+      # buffer — the same set `clean_content_chars` strips from painted
+      # content, plus ESC. Tab and the line-ending chars are excluded here;
+      # `#sanitize_paste` handles those itself.
+      private PASTE_CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/
+
+      # Adapts pasted text to what this widget can hold before it is
+      # inserted: normalizes CRLF/bare-CR line endings to `\n` (terminals
+      # routinely translate LF to CRLF or CR on paste) and drops stray C0
+      # controls. Multiline editors otherwise take the text as-is;
       # single-line widgets override (`Widget::LineEdit` flattens newlines).
       private def sanitize_paste(text : String) : String
+        text = text.gsub(/\r\n?/, "\n") if text.includes?('\r')
+        text = text.gsub(PASTE_CONTROL_CHARS, "") if text.matches?(PASTE_CONTROL_CHARS)
         text
       end
 

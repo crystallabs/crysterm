@@ -157,6 +157,7 @@ module Crysterm
       # already maintains. A no-op (beyond returning the existing button) if
       # *standard* is already present.
       def add_button(standard : StandardButton) : Button
+        raise ArgumentError.new("add_button takes a single StandardButton") unless standard.value.popcount == 1
         self.standard_buttons = @standard_buttons | standard
         @standard.key_for(standard)
       end

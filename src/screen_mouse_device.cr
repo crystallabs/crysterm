@@ -171,8 +171,12 @@ module Crysterm
       @_gpm = gpm
       @_gpm_fiber = spawn do
         while e = gpm.get_event
-          (application || Application.global).route_input self,
-            ::Tput::InputEvent.new('\0', mouse: gpm_to_event(e))
+          begin
+            (application || Application.global).route_input self,
+              ::Tput::InputEvent.new('\0', mouse: gpm_to_event(e))
+          rescue ex
+            ::Log.error(exception: ex) { "Crysterm: mouse handler raised; continuing gpm reader" }
+          end
         end
       end
     end

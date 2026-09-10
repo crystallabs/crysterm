@@ -830,12 +830,18 @@ module Crysterm
         wire_listener_lifecycle
       end
 
-      # Registers *block* now when a window is resolvable, else defers to the
-      # `Attached`/`Reparented` hooks. A backend built detached (compose-then-attach,
-      # or a parent not yet on a `Window`) has no window at construction, so
-      # calling the raising `window` accessor here would crash.
+      # Registers *block* now when the widget already sits in a tree, else
+      # defers to the `Attached`/`Reparented` hooks. A backend built detached
+      # (compose-then-attach, or a parent not yet on a `Window`) has no window
+      # at construction, so calling the raising `window` accessor here would
+      # crash. The `attached?` gate matters for a *stand-alone* construction
+      # too: `window?` then answers with the auto-assigned global window the
+      # widget doesn't actually live on, and registering there would latch
+      # `@listener_screen` onto the wrong window — the first real insertion
+      # emits only `Attached` (no `Detached` to tear the latch down), whose
+      # re-registration the stale latch would then block.
       protected def register_render_hook_deferred(&block : ::Crysterm::Event::Rendered ->)
-        if s = window?
+        if (s = window?) && attached?
           register_render_hook(s, &block)
         else
           @render_hook_block = block

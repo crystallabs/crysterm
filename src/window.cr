@@ -650,6 +650,8 @@ module Crysterm
       return if @visible
       @visible = true
       enter
+      invalidate_region 0, awidth, 0, aheight
+      damage_force_full
       update
     end
 

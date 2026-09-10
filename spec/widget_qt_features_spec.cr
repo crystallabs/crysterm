@@ -2551,19 +2551,28 @@ describe "ComboBox opening" do
 end
 
 describe "DateEdit year clamping" do
-  it "does not crash when stepping the year past Time's 1..9999 range" do
+  # As in Qt (`QDateTimeEditPrivate::stepBy` ends in `bound()`), a step lands
+  # inside `[#minimum_date_time, #maximum_date_time]` — by default Qt's own
+  # 1752-09-14 .. 9999-12-31 23:59:59 span. A construction value outside the
+  # range is left alone until the first edit (Qt's `init` assigns it directly),
+  # so stepping the year down from year 1 pulls the value up to the minimum
+  # rather than running off `Time`'s supported 1..9999 range.
+  it "clamps the stepped year into the widget's date range" do
     s = headless_screen(80, 24)
     de = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(1, 1, 1), calendar_popup: false
+    de.date.year.should eq 1
     de.handle_key_press keypress('\0', Tput::Key::Left) # day -> month
     de.handle_key_press keypress('\0', Tput::Key::Left) # month -> year
     de.handle_key_press keypress('\0', Tput::Key::Down) # year - 1 would be year 0
-    de.date.year.should eq 1
+    de.date.should eq de.minimum_date_time
+    de.date.should eq Time.utc(1752, 9, 14)
 
     de2 = Crysterm::Widget::DateEdit.new parent: s, date: Time.local(9999, 1, 1), calendar_popup: false
     de2.handle_key_press keypress('\0', Tput::Key::Left)
     de2.handle_key_press keypress('\0', Tput::Key::Left)
-    de2.handle_key_press keypress('\0', Tput::Key::Up)
+    de2.handle_key_press keypress('\0', Tput::Key::Up) # year + 1 would be year 10000
     de2.date.year.should eq 9999
+    de2.date.should eq Time.local(9999, 1, 1) # below the 9999-12-31 maximum: untouched
   end
 end
 

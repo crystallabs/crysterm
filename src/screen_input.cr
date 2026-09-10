@@ -21,7 +21,11 @@ module Crysterm
   class Screen
     include RestoreGuard
 
-    # The input read fiber. There is at most one; `#start_input` is idempotent.
+    # The input read fiber handle. Records *intent* — set by `#start_input`,
+    # cleared only by `#stop_input` — so it survives the fiber itself ending on
+    # EOF or a closed fd (`#listening?` must keep answering "input was started
+    # and not stopped" for probe gating and listening-state handovers).
+    # Liveness is tracked separately via `@_keys_done_gen`.
     @_keys_fiber : Fiber?
 
     # Cooperative-cancel generation for the input read fiber. Each spawn
@@ -35,15 +39,30 @@ module Crysterm
     # the mismatch — but it will not dispatch it.
     @_keys_gen = 0_u64
 
+    # Highest generation whose read fiber has finished (its `tput.listen`
+    # returned on EOF or the fd closed under it). When it has caught up with
+    # `@_keys_gen`, the current fiber is done: `#input_fiber?` stops handing
+    # out the dead fiber and `#start_input` starts a fresh generation instead
+    # of no-opping.
+    @_keys_done_gen = 0_u64
+
+    # Whether the current input-fiber generation is still running (a stopped
+    # or never-started device has no live fiber either way).
+    private def input_fiber_live? : Bool
+      @_keys_done_gen < @_keys_gen
+    end
+
     # Spawns the device's input read fiber: `tput.listen` parses each byte
     # sequence into a `Tput::InputEvent` and routes it *up* to the `Application`
     # dispatcher, which picks the active `Window` on this device. The device
     # itself knows nothing about focus or widgets.
     #
-    # `tput.listen` returns on EOF, so closing the input ends this fiber.
-    # Idempotent: a second call while a fiber exists is a no-op.
+    # `tput.listen` returns on EOF, so closing the input ends this fiber; the
+    # handle (and `#listening?`) stays set, and a later call here — e.g. after
+    # swapping in a fresh input IO — starts a new fiber. Idempotent while the
+    # fiber is live: a second call then is a no-op.
     def start_input : Nil
-      return if @_keys_fiber
+      return if @_keys_fiber && input_fiber_live?
       gen = (@_keys_gen += 1)
       @_keys_fiber = spawn do
         tput.listen do |e|
@@ -66,19 +85,29 @@ module Crysterm
         # the rescue must wrap the `listen` call itself — a block-body rescue
         # never sees it and the fiber dies with an unhandled-exception
         # backtrace on the launching terminal.
+      ensure
+        # Record completion (monotonic: a stale generation ending late must
+        # not mask a newer, still-live one). The handle itself stays set — it
+        # is intent state, dropped only by `#stop_input`.
+        @_keys_done_gen = gen if gen > @_keys_done_gen
       end
     end
 
-    # Whether the input read fiber has been started (and not yet dropped).
+    # Whether input reading was started (and not stopped) on this device.
+    # Intent state: stays `true` even after the read fiber itself ended on
+    # EOF/closed fd — probe gating and listening-state handovers depend on
+    # that. Use `#input_fiber?` for liveness.
     def listening? : Bool
       !@_keys_fiber.nil?
     end
 
-    # The device's input read fiber, or `nil` while not listening. Exposed so a
-    # fiber-blocking call can refuse to run on it — key delivery stops for as
-    # long as that fiber is parked.
+    # The device's *live* input read fiber, or `nil` when there is none —
+    # including when the last fiber already finished on EOF/closed fd, so a
+    # dead fiber is never handed out. Exposed so a fiber-blocking call can
+    # refuse to run on it — key delivery stops for as long as that fiber is
+    # parked.
     def input_fiber? : Fiber?
-      @_keys_fiber
+      @_keys_fiber if input_fiber_live?
     end
 
     # Drops the input-fiber handle so a later `#start_input` can start fresh,

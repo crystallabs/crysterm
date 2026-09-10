@@ -23,6 +23,12 @@ module Crysterm
     # (opened by every write), a batch explicit. Both defer leaf `Effect`s.
     @@wave_depth = 0
 
+    # Upper bound on items drained by a single `flush`. A healthy queue is a
+    # few items per frame; hitting this bound means drained items keep waking
+    # one another (a dependency cycle between effects/bindings), and `flush`
+    # raises instead of spinning forever.
+    FLUSH_CYCLE_LIMIT = 100_000
+
     # Whether a `flush` drain is in progress. A drained item's `run` may write a
     # property, whose wave-close calls `flush` re-entrantly; that nested call must
     # no-op — the active outer drain picks up any newly enqueued work — or items
@@ -97,15 +103,27 @@ module Crysterm
     # once, in its original position. Genuinely new work woken by such a write
     # is appended to the live queue and drained by this same call; the nested
     # wave-close `flush` no-ops on `@@flushing`.
+    #
+    # Bounded: a drain that exceeds `FLUSH_CYCLE_LIMIT` items — effects or
+    # bindings endlessly re-waking one another — clears the queue and raises,
+    # so a dependency cycle surfaces as an error instead of a hang.
     def self.flush : Nil
       return if @@flushing
       @@flushing = true
       # Each item runs isolated: if one raises, the rest must still run. The
       # first exception is re-raised once the queue has drained.
       first_ex = nil
+      drained = 0
       begin
         while item = @@pending.shift?
           @@pending_set.delete item
+          if (drained += 1) > FLUSH_CYCLE_LIMIT
+            # Drop the cycling work so the next write starts from a clean
+            # queue rather than resuming the same spin.
+            @@pending.clear
+            @@pending_set.clear
+            raise "Reactive: propagation did not settle after #{FLUSH_CYCLE_LIMIT} deferred runs — effects/bindings are waking one another in a cycle"
+          end
           begin
             # Suspend tracking for the drained item's run. A leaf `Effect`
             # re-establishes its own scope via `with_current`, so its

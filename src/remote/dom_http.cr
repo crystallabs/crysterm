@@ -17,7 +17,11 @@ module Crysterm
   #
   # Selectors are full CSS, so commands act on every match. Declarative `on*`
   # actions in the HTML run in-process; only *named* actions reach the handler.
-  # An optional bearer token gates `/rpc` and `/events` for non-local binds.
+  # An optional bearer token gates `/rpc` and `/events`; independently of it,
+  # requests carrying browser provenance (`Origin`, or a `Sec-Fetch-Site` other
+  # than `none`) and POSTs whose declared body type isn't JSON are refused, so
+  # a web page can't drive the UI (the `crysterm` CLI also always runs with a
+  # token, generating one when none is given).
   #
   # Concurrency: all widget mutation/reads marshal onto Crysterm's render fiber
   # via `Window#post` (`#on_ui`); events fan out with a non-blocking send so a
@@ -208,6 +212,34 @@ module Crysterm
     # ---- HTTP routing -------------------------------------------------------
 
     private def handle(context : HTTP::Server::Context) : Nil
+      request = context.request
+      # The bridge is a private control channel for a handler process, not a
+      # web resource: a request made by a browser page is refused outright,
+      # before routing or authentication. A browser attaches `Origin` to every
+      # cross-site request (and to every POST), and `Sec-Fetch-Site` to
+      # everything it sends — with `none` reserved for user-initiated
+      # navigations. A handler speaking straight to the port sends neither, so
+      # this costs a direct client nothing while closing the drive-by path: a
+      # page the user has open otherwise reaches `append`, `setAttribute` and
+      # `quit` through a no-preflight "simple" POST.
+      if request.headers["Origin"]? || request.headers["Sec-Fetch-Site"]?.try { |site| site != "none" }
+        context.response.status_code = 403
+        context.response.print "forbidden"
+        return
+      end
+      # An RPC body is JSON. A form post or a no-preflight `fetch` can only
+      # label its body `text/plain`, `application/x-www-form-urlencoded` or
+      # `multipart/form-data`, so a declared type that isn't JSON is not an RPC
+      # call. An absent header is accepted: plain clients (curl, minimal HTTP
+      # libraries) omit it, and the header checks above are what keep browsers
+      # out.
+      if request.method == "POST" &&
+         (content_type = request.headers["Content-Type"]?) &&
+         !content_type.lstrip.downcase.starts_with?("application/json")
+        context.response.status_code = 415
+        context.response.print "unsupported media type"
+        return
+      end
       unless authorized? context
         context.response.status_code = 401
         context.response.print "unauthorized"

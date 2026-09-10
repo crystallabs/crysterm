@@ -89,6 +89,11 @@ module Crysterm
       @io : IO?
       @started = false
 
+      # Whether `#close` should close `@io`: `false` for the caller-`IO` form
+      # (the caller owns that lifetime), `true` for the spawned-command form
+      # (the pipe is ours).
+      @owns_io : Bool
+
       # A single logical line is flushed unconditionally once its buffered bytes
       # exceed this, so a firehose that never emits a newline can't grow `@carry`
       # (and its per-chunk recopy) without bound.
@@ -106,6 +111,7 @@ module Crysterm
       # stops. The caller owns the `IO`'s lifetime beyond `#close`.
       def initialize(io : IO, mode : Mode = Mode::Text, **log)
         @mode = mode
+        @owns_io = false
         super **log
         @io = io
         wire
@@ -122,6 +128,7 @@ module Crysterm
                      env : Process::Env = nil, chdir : String? = nil,
                      mode : Mode = Mode::Text, **log)
         @mode = mode
+        @owns_io = true
         super **log
 
         # One pipe fed by both stdout and stderr: the parent reads a single
@@ -351,17 +358,21 @@ module Crysterm
         end
       end
 
-      # Stops streaming: closes our read end (unblocking the reader → EOF path)
-      # and terminates the child. Idempotent; wired to `Event::Destroy`.
+      # Stops streaming: closes our read end (unblocking the reader → EOF path,
+      # for the IO we own) and terminates the child. Idempotent; wired to
+      # `Event::Destroy`, which normally runs on the render fiber, so nothing
+      # here may block waiting on the child.
       def close : Nil
         return if @closed
         @closed = true
-        @process.try { |p| p.terminate rescue nil }
-        @io.try &.close rescue nil
-        # If the reader never started, nothing else will reap the child.
-        unless @started
-          @process.try { |p| p.wait rescue nil }
-        end
+        process = @process
+        process.try { |p| p.terminate rescue nil }
+        @io.try &.close rescue nil if @owns_io
+        # If the reader never started, nothing else will reap the child. Wait
+        # on its own fiber (mirroring `Crysterm::Terminal.terminate_and_reap`)
+        # so a child that ignores `#terminate`'s SIGTERM can't block whichever
+        # fiber called `#close`.
+        spawn { process.try { |p| p.wait rescue nil } } unless @started
       end
     end
   end

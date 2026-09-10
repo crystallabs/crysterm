@@ -85,8 +85,10 @@ module Crysterm
       end
 
       # Steps the active section by *delta*, wrapping within that section's own
-      # range without carrying: day within month, month within year, year
-      # unbounded; day then clamped to the (possibly shorter) target month.
+      # range without carrying: day within month, month within year; day then
+      # clamped to the (possibly shorter) target month. The stepped value goes
+      # through `#date=`, so it also lands within
+      # `[#minimum_date_time, #maximum_date_time]`.
       private def step(delta : Int32) : Nil
         self.date = step_time_field @date, @section, delta
       end

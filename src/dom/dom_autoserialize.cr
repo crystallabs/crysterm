@@ -3,11 +3,16 @@ module Crysterm
     # Initializer arg names owned by the base handler, or structural/interaction
     # flags that aren't serializable layout content — skipped by the automatic
     # scan below.
+    # The last row is process-launch state (the program, its argv, its
+    # environment and the `TERM` it advertises). It is never emitted and never
+    # replayed: markup is data, so no attribute may decide what a widget
+    # executes, whichever class the name appears on.
     BASE_KEYS = %w[
       left top right bottom width height name content parse_tags wrap_content
       align overflow style styles visible scrollable input focused children
       index shrink_to_fit fixed draggable keys vi_keys mouse layout layout_hint
       scrollbar track always_scroll focus_on_click tool_tip label parent window
+      shell args env term_name
     ]
   end
 end

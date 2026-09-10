@@ -130,7 +130,7 @@ module Crysterm
 
       # Shows *value* formatted per `#mode`.
       def display(value : Int) : Nil
-        @last_int = value.to_i64
+        @last_int = (Int64::MIN <= value <= Int64::MAX) ? value.to_i64 : nil
         @value = value.to_f
         s = case @mode
             when .hex? then value.to_s(16).upcase

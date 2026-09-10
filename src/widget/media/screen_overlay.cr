@@ -105,12 +105,17 @@ module Crysterm
         clear_overlay e.window
       end
 
-      # Registers the overlay listeners now when a window is resolvable, else
-      # defers to the `Attached`/`Reparented` hooks. A backend built detached (the
-      # standard compose-then-attach pattern) has no window at construction, so
-      # registering via the raising `window` accessor would crash.
+      # Registers the overlay listeners now when the widget already sits in a
+      # tree, else defers to the `Attached`/`Reparented` hooks. A backend built
+      # detached (the standard compose-then-attach pattern) has no window at
+      # construction, so registering via the raising `window` accessor would
+      # crash. The `attached?` gate also keeps a *stand-alone* construction
+      # deferred: `window?` then answers with the auto-assigned global window
+      # the widget doesn't live on, and latching `@listener_screen` onto it
+      # would block the re-registration on the first real insertion, which
+      # emits only `Attached` (no `Detached` to clear the latch).
       protected def register_overlay_listeners_deferred
-        if s = window?
+        if (s = window?) && attached?
           on_overlay_window s
         else
           wire_listener_lifecycle

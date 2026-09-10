@@ -257,8 +257,9 @@ describe "CSS geometry units" do
     a = Widget::Box.new parent: s, content: "x"
     a.css_id = "a"
     s.repaint # must not raise OverflowError
-    a.width_spec.should eq Int32::MAX
-    a.height_spec.should eq Int32::MAX
+    max = Crysterm::CSS::Length::MAX_CELLS.to_i
+    a.width_spec.should eq max
+    a.height_spec.should eq max
   end
 
   it "seeds the px divisor from the css.px_per_cell config option" do

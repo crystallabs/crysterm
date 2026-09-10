@@ -681,10 +681,16 @@ module Crysterm
         t, b = region
         d = @child_base - base
 
-        if d > 0 && d < visible
+        # The shift distance must fit the *painted* band (`t..b`, which a
+        # scrollable ancestor's viewport may have clipped below the spec-based
+        # `visible` row count): the line ops recycle rows within that band
+        # only, so a distance reaching it or beyond has no rows to preserve —
+        # the ordinary repaint below covers it.
+        band = b - t + 1
+        if d > 0 && d < band
           # scrolled down
           window.scroll_delete_rows(d, t, t, b)
-        elsif d < 0 && -d < visible
+        elsif d < 0 && -d < band
           # scrolled up
           d = -d
           window.scroll_insert_rows(d, t, t, b)
@@ -711,8 +717,15 @@ module Crysterm
     # `@lines`/`@flushed_lines` from the terminal. Off-screen rows can't be
     # CSR-scrolled anyway. Shared by `#scroll` and `#render_line_shift`
     # (widget_content_lines.cr), which face the identical hazard.
+    #
+    # The band must also be non-degenerate (`top <= bottom`): the bounds derive
+    # from the painted `@lpos`, which a scrollable ancestor's viewport clamp
+    # can shrink below the insets, inverting the band. An inverted band names
+    # no rows — `set_scroll_region(top, bottom)` with `top > bottom` is invalid
+    # DECSTBM (xterm keeps the prior region, so the line ops would scroll the
+    # whole screen) — so it falls back to a normal repaint.
     protected def csr_region_for(top : Int32, bottom : Int32) : {Int32, Int32}?
-      return unless top >= 0 && bottom <= window.aheight - 1 && window.sides_uniform?(self)
+      return unless top >= 0 && top <= bottom && bottom <= window.aheight - 1 && window.sides_uniform?(self)
       {top, bottom}
     end
 

@@ -90,11 +90,23 @@ module Crysterm
       # rather than an early, wrong distribution. Once adjusted, only clamps.
       @user_positioned = false
 
+      # Set for the duration of `#destroy`: guards `#rebuild_dividers` against
+      # allocating fresh `Divider`s while the panes are being torn down one by
+      # one underneath it.
+      @destroying = false
+
       def initialize(@orientation = @orientation, **box)
         super **box
 
         on(Crysterm::Event::Attached) { relayout }
         on(Crysterm::Event::Resize) { relayout; update! }
+      end
+
+      # Tears the splitter and every pane/divider down. Dividers aren't
+      # rebuilt mid-teardown — see `#rebuild_dividers`.
+      def destroy
+        @destroying = true
+        super
       end
 
       # Relayout on every paint: pane sizes depend on the splitter's resolved
@@ -124,14 +136,26 @@ module Crysterm
 
       # Appends a pane to the right/bottom, inserting a draggable divider before
       # it (except for the first pane). Existing dividers are re-evened.
+      #
+      # Re-adding a pane the splitter already holds is a move: it is dropped
+      # from its current slot first (rebuilding the divider set for the
+      # shrunk pane list) so the fresh divider pushed below and the append
+      # land on a consistent count, rather than appending a duplicate that
+      # `#remove` would later delete out from under the pane list.
       def add_widget(widget : Widget) : self
+        remove_widget widget
+
         unless @panes.empty?
           @dividers << make_divider(@dividers.size)
           @positions << 0
         end
 
-        @panes << widget
+        # Append before registering the pane: if this attach still has to
+        # detach the widget from elsewhere, that detach's own bookkeeping
+        # (including a same-splitter `#remove`) runs against a `@panes` that
+        # doesn't yet list it.
         append widget
+        @panes << widget
         @dividers.each &.to_front
 
         even_positions
@@ -168,11 +192,17 @@ module Crysterm
       # `QSplitter#insertWidget`. Appending is the common case and keeps the
       # existing dividers untouched; a mid-list insert renumbers the dividers, so
       # they are rebuilt and the panes re-evened.
+      #
+      # Re-inserting a pane the splitter already holds is a move: dropped from
+      # its current slot first (see `#add_widget`), with *index* then clamped
+      # against the post-removal pane count.
       def insert_widget(index : Int, widget : Widget) : self
+        remove_widget widget
+
         i = index.clamp(0, @panes.size)
         return add_widget widget if i >= @panes.size
-        @panes.insert i, widget
         append widget
+        @panes.insert i, widget
         rebuild_dividers
         self
       end
@@ -193,11 +223,16 @@ module Crysterm
       # which land here via `parent.remove(self)`), or a reparenting append.
       # Dividers themselves pass through untouched (`rebuild_dividers` removes
       # them with this very method).
+      #
+      # Deletes by the captured index, not by value: `element` may sit at only
+      # one slot (a duplicate pane is deduped in `#add_widget`/`#insert_widget`
+      # before it could ever reach `@panes` twice), and index-based removal
+      # keeps it that way rather than dropping every `==`-equal entry.
       def remove(element)
-        was_pane = @panes.includes? element
+        idx = @panes.index element
         super
-        if was_pane
-          @panes.delete element
+        if idx
+          @panes.delete_at idx
           rebuild_dividers
         end
       end
@@ -206,7 +241,14 @@ module Crysterm
       # insert renumbers them: each divider's drag/key handlers capture their
       # positional index, so keeping the old boxes would drive the wrong split.
       # Positions are re-evened across the new arrangement.
+      #
+      # A no-op while the splitter itself is being torn down (`#destroy`):
+      # each pane's own teardown detaches through `#remove`, and rebuilding
+      # after every single one would allocate fresh `Divider`s on a splitter
+      # that's on its way out anyway.
       private def rebuild_dividers : Nil
+        return if @destroying
+
         @dividers.each { |d| remove d }
         @dividers.clear
         @positions.clear

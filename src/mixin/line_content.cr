@@ -17,6 +17,40 @@ module Crysterm
     # helpers (`#visible_content_rows`, `#csr_region_for`), all of which the
     # base class provides.
     module LineContent
+      # The `@_content_version` at which a line editor last wrote the widget's
+      # logical lines (`-1` = never; versions start at 0 and only grow).
+      #
+      # Blank content is ambiguous: a widget with NO logical lines and one
+      # holding a single EMPTY logical line have the same `#content` (`""`) and
+      # the same `@wrapped_lines` (`wrap_lines`' empty-content shape leaves
+      # `fake` empty for both). The editors therefore record which of the two the
+      # current content stands for; `#lines_seeded?` reads it, and
+      # `#fake_line_count`/`#raw_fake_lines` resolve the blank case through it.
+      #
+      # A content *version* rather than a plain flag, so that a direct
+      # `#set_content` re-arms seeding for free: it bumps `@_content_version`
+      # past the stamp, and the widget is "no lines" again — the next
+      # `#append_line` seeds line 0 instead of appending after a phantom empty
+      # line. (`#set_content` with the content already held changes nothing at
+      # all, version included, and so leaves the line set as it is.)
+      @_lines_seeded_version : Int64 = -1_i64
+
+      # Whether the current content is a line set written by a line editor.
+      # Only interesting while `#content_blank?`: blank content written by an
+      # editor is one empty logical line; blank content otherwise is no lines.
+      private def lines_seeded? : Bool
+        @_lines_seeded_version == @_content_version
+      end
+
+      # Number of logical lines the editors address — `@wrapped_lines.fake`,
+      # plus the one empty logical line the blank-content shape can't represent
+      # (see `@_lines_seeded_version`).
+      private def fake_line_count : Int32
+        count = @wrapped_lines.fake.size
+        return 1 if count.zero? && content_blank? && lines_seeded?
+        count
+      end
+
       # The RAW (pre-parse) logical lines backing the fake-line editors
       # (`insert_line`/`delete_line`/`replace_line`/...): raw `#content` split at
       # the same line boundaries `clean_content_chars` normalizes
@@ -29,7 +63,9 @@ module Crysterm
       # every reparse instead of only the first.
       #
       # Empty `@wrapped_lines.fake` means the widget currently renders no logical lines
-      # (no content at all, or content whose cleaned/parsed form is empty). The
+      # (no content at all, or content whose cleaned/parsed form is empty), with
+      # one exception: blank content a line editor wrote is one empty logical
+      # line, reported as `[""]` (see `@_lines_seeded_version`). Otherwise the
       # editors index off `fake`, so mirror that here as "no raw lines"; an edit
       # then discards such invisible content.
       #
@@ -45,7 +81,10 @@ module Crysterm
       # tagged, so `@_content_has_tags` lands true after the first such edit and
       # the regime is never re-entered (no double escaping).
       private def raw_fake_lines : Array(String)
-        return [] of String if @wrapped_lines.fake.empty?
+        if @wrapped_lines.fake.empty?
+          return [] of String unless content_blank? && lines_seeded?
+          return [""]
+        end
         lines = content.split(Widget::RAW_LINE_REGEX)
         if @parse_tags && !@_content_no_tags && !@_content_has_tags && @_content_has_braces
           lines.map! { |l| Widget.escape_tags(l) }
@@ -62,12 +101,17 @@ module Crysterm
         # `no_tags:` MUST carry the widget's tag mode: letting it default to false
         # would permanently flip a literal-tags widget back into tag-parsing mode.
         set_content(raw.join('\n'), no_tags: @_content_no_tags)
+        # Record the line set the (possibly blank) content now stands for, so a
+        # rebuild down to a single empty line is remembered as one logical line
+        # rather than as no content at all (see `@_lines_seeded_version`).
+        # Stamped after `set_content`, whose version bump would invalidate it.
+        @_lines_seeded_version = raw.empty? ? -1_i64 : @_content_version
       end
 
       # Appends *line* after the last logical line. Splits on `\n` for multi-line
       # input.
       def insert_line(line : String) : Nil
-        insert_line(@wrapped_lines.fake.size, line)
+        insert_line(fake_line_count, line)
       end
 
       def insert_line(index : Int32, line : String) : Nil
@@ -151,8 +195,9 @@ module Crysterm
       # behavior). A zero-arg def, not `(n : Int32 = 1)`: that signature would be
       # merged with the `(index, n)` overload below and replace it.
       def delete_line : Nil
-        return if @wrapped_lines.fake.empty?
-        delete_line(@wrapped_lines.fake.size - 1, 1)
+        count = fake_line_count
+        return if count.zero?
+        delete_line(count - 1, 1)
       end
 
       def delete_line(index : Int32, n : Int32 = 1) : Nil
@@ -280,7 +325,7 @@ module Crysterm
       end
 
       def clear_line(i)
-        i = Math.min(i, @wrapped_lines.fake.size - 1)
+        i = Math.min(i, fake_line_count - 1)
         replace_line(i, "")
       end
 
@@ -298,9 +343,12 @@ module Crysterm
       end
 
       def append_line(line)
-        # Seed line 0 when there is no content yet (counting deferred appends
-        # without materializing them).
-        if content_blank?
+        # Seed line 0 when the widget holds no logical lines yet (counting
+        # deferred appends without materializing them). Blank content that a
+        # line editor wrote is one empty logical line, so it takes the appending
+        # path below and the new line lands after it, at index 1
+        # (see `@_lines_seeded_version`).
+        if content_blank? && !lines_seeded?
           return replace_line(0, line)
         end
         # Appending at the end is the common case (logs, transcripts, streaming
@@ -310,16 +358,20 @@ module Crysterm
         # NOTE: there is deliberately no `Widget#<<` text alias — `<<` already means
         # "append a child widget".
         return if append_content(line)
-        insert_line(@wrapped_lines.fake.size, line)
+        insert_line(fake_line_count, line)
       end
 
       def remove_last_line(n)
-        delete_line(@wrapped_lines.fake.size - 1, n)
+        delete_line(fake_line_count - 1, n)
       end
 
       # All original ("fake") lines, as rendered. A copy; mutating it does not
       # touch the widget.
       def lines
+        # `@wrapped_lines.fake` is empty for the one empty logical line a line
+        # editor can leave behind (see `@_lines_seeded_version`); report that
+        # line, so `lines.size` is the count the editors index against.
+        return [""] if @wrapped_lines.fake.empty? && fake_line_count == 1
         @wrapped_lines.fake.dup
       end
 

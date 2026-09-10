@@ -49,6 +49,11 @@ module Crysterm
       # widget that later changes state resurrects its stale per-state visibility.
       @styles.visible = value
       persist_inline_style(&.visible=(value))
+      # Visibility decides whether the hit test descends into this widget, and
+      # the flip needs no render, so the window's hover memo (keyed on the frame
+      # counter) would otherwise keep answering with a widget that is now hidden
+      # — or keep missing one that is now shown — for the rest of the frame.
+      window?.try &.invalidate_hit_memo
     end
 
     # Mirrors a just-applied state-style change onto the inline `@style`, but only
