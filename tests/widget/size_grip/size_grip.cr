@@ -4,12 +4,12 @@
 # Run it:     crystal run tests/widget/size_grip/size_grip.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "SizeGrip" do |window|
   window.stylesheet = "Box { border: solid; color: #c0caf5; } SizeGrip { color: #7aa2f7; }"
-  Widget::Box.new parent: window, top: 2, left: 2, width: 40, height: 14,
+  CW::Box.new parent: window, top: 2, left: 2, width: 40, height: 14,
     content: " A resizable panel — the grip sits in its corner."
-  SizeGrip.new parent: window, top: 15, left: 41
+  CW::SizeGrip.new parent: window, top: 15, left: 41
 end

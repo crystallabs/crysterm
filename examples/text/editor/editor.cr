@@ -14,7 +14,8 @@
 
 require "../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 SAMPLE = <<-TEXT
 Crysterm speaks Unicode natively.
@@ -39,22 +40,22 @@ The status bar below tracks Ln/Col live, the toolbar buttons are
 plain Unicode glyphs, and everything you see is themable with CSS.
 TEXT
 
-s = Window.new title: "Editor"
+s = CT::Window.new title: "Editor"
 
-win = Widget::MainWindow.new parent: s
+win = CW::MainWindow.new parent: s
 
-status = Widget::StatusBar.new
+status = CW::StatusBar.new
 win.status_bar = status
 pos_section = status.add_permanent "⌖ Ln 1, Col 1"
 status.add_permanent "🌐 UTF-8"
 mod_section = status.add_permanent "✔ saved"
 
-ed = Widget::TextEdit.new input_on_focus: true
+ed = CW::TextEdit.new input_on_focus: true
 win.central_widget = ed
 
 # --- Menus -------------------------------------------------------------------
 
-menubar = Widget::MenuBar.new
+menubar = CW::MenuBar.new
 win.menu_bar = menubar
 
 msg = ->(t : String) { status.show_message " #{t}" }
@@ -74,7 +75,7 @@ menubar.add_menu("Help").add_action("About") { msg.call "Crysterm editor — ful
 
 # --- Tool bar: Unicode icon buttons ------------------------------------------
 
-toolbar = Widget::ToolBar.new
+toolbar = CW::ToolBar.new
 win.add_tool_bar toolbar
 toolbar.add_button("📄") { ed.text = ""; msg.call "new buffer" }
 toolbar.add_button("📂") { ed.text = SAMPLE; msg.call "opened sample.txt" }
@@ -93,7 +94,7 @@ update_pos = -> do
   pos_section.text = "⌖ Ln #{cur.block_number + 1}, Col #{cur.column_number + 1}"
 end
 
-ed.on(Event::TextChanged) do
+ed.on(CT::Event::TextChanged) do
   mod_section.text = "✎ modified"
   update_pos.call
 end
@@ -102,7 +103,7 @@ update_pos.call
 # --- Self-driving script: typing, a mouse click on a menu, wheel scrolling ---
 
 type = ->(text : String) do
-  text.each_char { |ch| ed.emit Event::KeyPress, Event::KeyPress.new(ch, nil) }
+  text.each_char { |ch| ed.emit CT::Event::KeyPress, CT::Event::KeyPress.new(ch, nil) }
 end
 mouse = ->(action : ::Tput::Mouse::Action, x : Int32, y : Int32) do
   s.dispatch_mouse ::Tput::Mouse::Event.new(action, ::Tput::Mouse::Button::Left, x, y)

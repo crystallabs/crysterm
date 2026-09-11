@@ -4,10 +4,10 @@
 # Run it:     crystal run tests/widget/bigtext/bigtext.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-WidgetExample.run "BigText" do |window|
+CT::WidgetExample.run "BigText" do |window|
   window.stylesheet = "BigText { color: #f7768e; }"
-  BigText.new parent: window, top: "center", left: "center", content: "Hi!"
+  CW::BigText.new parent: window, top: "center", left: "center", content: "Hi!"
 end

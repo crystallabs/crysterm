@@ -10,12 +10,12 @@ require "../../src/crysterm"
 #   * Ctrl-Q to kill all the shells and quit.
 #
 # A shell's window title (OSC 0/2) updates the terminal's label
-# (`Event::ContentSet`, new title in `terminal.title`).
+# (`CT::Event::ContentSet`, new title in `terminal.title`).
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-window = Window.new title: "multiplex.cr", border_junctions: true
+window = CT::Window.new title: "multiplex.cr", border_junctions: true
 window.enable_mouse
 
 window.stylesheet = <<-CSS
@@ -23,25 +23,25 @@ window.stylesheet = <<-CSS
   Terminal:focus  { border-color: green; }
 CSS
 
-topleft = Terminal.new(
+topleft = CW::Terminal.new(
   parent: window, cursor_shape: :line,
   label: " multiplex.cr ",
   left: 0, top: 0, width: "50%", height: "50%",
 )
 
-topright = Terminal.new(
+topright = CW::Terminal.new(
   parent: window, cursor_shape: :block,
   label: " multiplex.cr ",
   left: "50%", top: 0, width: "50%", height: "50%",
 )
 
-bottomleft = Terminal.new(
+bottomleft = CW::Terminal.new(
   parent: window, cursor_shape: :block,
   label: " multiplex.cr ",
   left: 0, top: "50%", width: "50%", height: "50%",
 )
 
-bottomright = Terminal.new(
+bottomright = CW::Terminal.new(
   parent: window, cursor_shape: :block,
   label: " multiplex.cr ",
   left: "50%", top: "50%", width: "50%", height: "50%",
@@ -52,19 +52,19 @@ terminals = [topleft, topright, bottomleft, bottomright]
 terminals.each do |term|
   term.draggable = true
   # Reflect the child's window title on the label.
-  term.on(Event::ContentSet) do
+  term.on(CT::Event::ContentSet) do
     if title = term.title
       window.title = title
       term.label = " #{title} "
     end
   end
   # Click to focus.
-  term.on(Event::Click) { term.focus }
+  term.on(CT::Event::Click) { term.focus }
 end
 
 topleft.focus
 
-window.on(Event::KeyPress) do |e|
+window.on(CT::Event::KeyPress) do |e|
   if e.key == Tput::Key::CtrlQ
     terminals.each &.kill
     window.quit

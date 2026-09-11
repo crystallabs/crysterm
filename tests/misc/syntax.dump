@@ -3,48 +3,48 @@ w=80 h=24
 |       SyntaxHighlighter — Qt-style per-block formats over a TextDocument       |
 |                                                                                |
 |        ┌─ hello.cr ───────────────────────────────────────────────────┐        |
-|        │require "crysterm"                                            │        |
-|        │                                                              │        |
-|        │# The smallest useful Crysterm application: a                 │        |
-|        │# titled window with one centered greeting box.               │        |
-|        │class Hello                                                   │        |
-|        │  include Crysterm                                            │        |
-|        │  def run                                                     │        |
-|        │    w = Window.new title: "Hello"                             │        |
-|        │    Widget::Box.new parent: w,                                │        |
-|        │      top: "center", left: "center",                          │        |
-|        │      width: 40, height: 5, parse_tags: true,                 │        |
-|        │      content: "{center}Hello, Crysterm!{/center}",           │        |
-|        │      style: Style.new(border: true, bg: 0x103080)            │        |
-|        │    w.on(Event::KeyPress) { w.destroy }                       │        |
-|        │    w.exec                                                    │        |
-|        │  end                                                         │        |
-|        │end                                                           │        |
-|        │                                                              │        |
-|        │Hello.new.run                                                 │        |
+|        │# The smallest useful Crysterm application: a                ░│        |
+|        │# titled window with one centered greeting box.              ░│        |
+|        │alias CT = Crysterm                                          █│        |
+|        │alias CW = CT::Widgets                                       █│        |
+|        │                                                             █│        |
+|        │class Hello                                                  █│        |
+|        │  def run                                                    █│        |
+|        │    w = CT::Window.new title: "Hello"                        █│        |
+|        │    CW::Box.new parent: w,                                   █│        |
+|        │      top: "center", left: "center",                         █│        |
+|        │      width: 40, height: 5, parse_tags: true,                █│        |
+|        │      content: "{center}Hello, Crysterm!{/center}",          █│        |
+|        │      style: CT::Style.new(border: true, bg: 0x103080)       █│        |
+|        │    w.on(CT::Event::KeyPress) { w.destroy }                  █│        |
+|        │    w.exec                                                   █│        |
+|        │  end                                                        █│        |
+|        │end                                                          █│        |
+|        │                                                             █│        |
+|        │Hello.new.run                                                █│        |
 |        └──────────────────────────────────────────────────────────────┘        |
 |                                                                                |
 +--------------------------------------------------------------------------------+
 attrs:
 y0: 0-79:#e5e5e5/#202830
 y2: 8-9:def/#0d1117 10-19:#abb2bf/def 20-71:def/#0d1117
-y3: 8-8:def/#0d1117 9-15:#c678dd/#0d1117+b 16-16:#abb2bf/#0d1117 17-26:#98c379/#0d1117 27-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y4: 8-8:def/#0d1117 9-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y5: 8-8:def/#0d1117 9-53:#7f848e/#0d1117+i 54-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y6: 8-8:def/#0d1117 9-55:#7f848e/#0d1117+i 56-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y7: 8-8:def/#0d1117 9-13:#c678dd/#0d1117+b 14-14:#abb2bf/#0d1117 15-19:#e5c07b/#0d1117 20-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y8: 8-8:def/#0d1117 9-10:#abb2bf/#0d1117 11-17:#c678dd/#0d1117+b 18-18:#abb2bf/#0d1117 19-26:#e5c07b/#0d1117 27-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y9: 8-8:def/#0d1117 9-10:#abb2bf/#0d1117 11-13:#c678dd/#0d1117+b 14-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y10: 8-8:def/#0d1117 9-16:#abb2bf/#0d1117 17-22:#e5c07b/#0d1117 23-23:#abb2bf/#0d1117 24-26:#c678dd/#0d1117+b 27-34:#abb2bf/#0d1117 35-41:#98c379/#0d1117 42-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y11: 8-8:def/#0d1117 9-12:#abb2bf/#0d1117 13-18:#e5c07b/#0d1117 19-20:#abb2bf/#0d1117 21-23:#e5c07b/#0d1117 24-24:#abb2bf/#0d1117 25-27:#c678dd/#0d1117+b 28-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y12: 8-8:def/#0d1117 9-19:#abb2bf/#0d1117 20-27:#98c379/#0d1117 28-35:#abb2bf/#0d1117 36-43:#98c379/#0d1117 44-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y13: 8-8:def/#0d1117 9-21:#abb2bf/#0d1117 22-23:#d19a66/#0d1117 24-33:#abb2bf/#0d1117 34-34:#d19a66/#0d1117 35-48:#abb2bf/#0d1117 49-52:#c678dd/#0d1117+b 53-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y14: 8-8:def/#0d1117 9-23:#abb2bf/#0d1117 24-58:#98c379/#0d1117 59-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y15: 8-8:def/#0d1117 9-21:#abb2bf/#0d1117 22-26:#e5c07b/#0d1117 27-27:#abb2bf/#0d1117 28-30:#c678dd/#0d1117+b 31-39:#abb2bf/#0d1117 40-43:#c678dd/#0d1117+b 44-49:#abb2bf/#0d1117 50-57:#d19a66/#0d1117 58-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y16: 8-8:def/#0d1117 9-17:#abb2bf/#0d1117 18-22:#e5c07b/#0d1117 23-24:#abb2bf/#0d1117 25-32:#e5c07b/#0d1117 33-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y17: 8-8:def/#0d1117 9-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y18: 8-8:def/#0d1117 9-10:#abb2bf/#0d1117 11-13:#c678dd/#0d1117+b 14-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y19: 8-8:def/#0d1117 9-11:#c678dd/#0d1117+b 12-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y20: 8-8:def/#0d1117 9-70:#abb2bf/#0d1117 71-71:def/#0d1117
-y21: 8-8:def/#0d1117 9-13:#e5c07b/#0d1117 14-14:#abb2bf/#0d1117 15-17:#c678dd/#0d1117+b 18-70:#abb2bf/#0d1117 71-71:def/#0d1117
+y3: 8-8:def/#0d1117 9-53:#7f848e/#0d1117+i 54-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y4: 8-8:def/#0d1117 9-55:#7f848e/#0d1117+i 56-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y5: 8-8:def/#0d1117 9-14:#abb2bf/#0d1117 15-16:#e5c07b/#0d1117 17-19:#abb2bf/#0d1117 20-27:#e5c07b/#0d1117 28-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y6: 8-8:def/#0d1117 9-14:#abb2bf/#0d1117 15-16:#e5c07b/#0d1117 17-19:#abb2bf/#0d1117 20-21:#e5c07b/#0d1117 22-23:#abb2bf/#0d1117 24-30:#e5c07b/#0d1117 31-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y7: 8-8:def/#0d1117 9-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y8: 8-8:def/#0d1117 9-13:#c678dd/#0d1117+b 14-14:#abb2bf/#0d1117 15-19:#e5c07b/#0d1117 20-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y9: 8-8:def/#0d1117 9-10:#abb2bf/#0d1117 11-13:#c678dd/#0d1117+b 14-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y10: 8-8:def/#0d1117 9-16:#abb2bf/#0d1117 17-18:#e5c07b/#0d1117 19-20:#abb2bf/#0d1117 21-26:#e5c07b/#0d1117 27-27:#abb2bf/#0d1117 28-30:#c678dd/#0d1117+b 31-38:#abb2bf/#0d1117 39-45:#98c379/#0d1117 46-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y11: 8-8:def/#0d1117 9-12:#abb2bf/#0d1117 13-14:#e5c07b/#0d1117 15-16:#abb2bf/#0d1117 17-19:#e5c07b/#0d1117 20-20:#abb2bf/#0d1117 21-23:#c678dd/#0d1117+b 24-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y12: 8-8:def/#0d1117 9-19:#abb2bf/#0d1117 20-27:#98c379/#0d1117 28-35:#abb2bf/#0d1117 36-43:#98c379/#0d1117 44-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y13: 8-8:def/#0d1117 9-21:#abb2bf/#0d1117 22-23:#d19a66/#0d1117 24-33:#abb2bf/#0d1117 34-34:#d19a66/#0d1117 35-48:#abb2bf/#0d1117 49-52:#c678dd/#0d1117+b 53-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y14: 8-8:def/#0d1117 9-23:#abb2bf/#0d1117 24-58:#98c379/#0d1117 59-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y15: 8-8:def/#0d1117 9-21:#abb2bf/#0d1117 22-23:#e5c07b/#0d1117 24-25:#abb2bf/#0d1117 26-30:#e5c07b/#0d1117 31-31:#abb2bf/#0d1117 32-34:#c678dd/#0d1117+b 35-43:#abb2bf/#0d1117 44-47:#c678dd/#0d1117+b 48-53:#abb2bf/#0d1117 54-61:#d19a66/#0d1117 62-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y16: 8-8:def/#0d1117 9-17:#abb2bf/#0d1117 18-19:#e5c07b/#0d1117 20-21:#abb2bf/#0d1117 22-26:#e5c07b/#0d1117 27-28:#abb2bf/#0d1117 29-36:#e5c07b/#0d1117 37-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y17: 8-8:def/#0d1117 9-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y18: 8-8:def/#0d1117 9-10:#abb2bf/#0d1117 11-13:#c678dd/#0d1117+b 14-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y19: 8-8:def/#0d1117 9-11:#c678dd/#0d1117+b 12-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y20: 8-8:def/#0d1117 9-69:#abb2bf/#0d1117 71-71:def/#0d1117
+y21: 8-8:def/#0d1117 9-13:#e5c07b/#0d1117 14-14:#abb2bf/#0d1117 15-17:#c678dd/#0d1117+b 18-69:#abb2bf/#0d1117 71-71:def/#0d1117
 y22: 8-71:def/#0d1117

@@ -4,16 +4,16 @@
 # Run it:     crystal run tests/widget/pine/setup/setup.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "Setup" do |window|
   window.stylesheet = "Setup { border: solid; color: #c0caf5; }"
-  st = PineSetup.new parent: window, top: "center", left: "center", width: 50, height: 12, label: " Setup "
+  st = CW::PineSetup.new parent: window, top: "center", left: "center", width: 50, height: 12, label: " Setup "
   st.options = ([
-    PineSetup::Option.new("Printer", "Configure printer support", enabled: true),
-    PineSetup::Option.new("Newmail", "Notify on new mail", enabled: true),
-    PineSetup::Option.new("Threading", "Group messages by thread", enabled: false),
+    CW::PineSetup::Option.new("Printer", "Configure printer support", enabled: true),
+    CW::PineSetup::Option.new("Newmail", "Notify on new mail", enabled: true),
+    CW::PineSetup::Option.new("Threading", "Group messages by thread", enabled: false),
   ])
   st.focus
 end

@@ -4,10 +4,10 @@
 # Run it:     crystal run tests/widget/tool_button/tool_button.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "ToolButton" do |window|
   window.stylesheet = "ToolButton { border: solid; background-color: #394b70; color: #c0caf5; }"
-  ToolButton.new parent: window, top: "center", left: "center", width: 14, height: 3, content: " Format ▾"
+  CW::ToolButton.new parent: window, top: "center", left: "center", width: 14, height: 3, content: " Format ▾"
 end

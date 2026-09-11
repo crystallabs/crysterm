@@ -10,24 +10,25 @@
 
 require "../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Tek"
+s = CT::Window.new title: "Tek"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
   content: "{center}Media::Tek · Tektronix 4014 vectors · see the separate \"tektronix\" window{/center}",
-  parse_tags: true, style: Style.new(fg: "#33ff66", bg: "black")
+  parse_tags: true, style: CT::Style.new(fg: "#33ff66", bg: "black")
 
-Widget::Media::Tek.new \
+CW::MediaTek.new \
   parent: s,
-  dither: (ENV["TEK_DITHER"]? != "0" ? Widget::Media::Dither::Auto : Widget::Media::Dither::None),
+  dither: (ENV["TEK_DITHER"]? != "0" ? CT::Widget::Media::Dither::Auto : CT::Widget::Media::Dither::None),
   invert: (ENV["TEK_INVERT"]? == "1"),
   # Fits into the 1024x780 Tek screen; Contain preserves aspect ratio.
   fit: (case ENV["TEK_FIT"]?
-  when "stretch" then Widget::Media::Fit::Stretch
-  when "cover"   then Widget::Media::Fit::Cover
-  else                Widget::Media::Fit::Contain
+  when "stretch" then CT::Widget::Media::Fit::Stretch
+  when "cover"   then CT::Widget::Media::Fit::Cover
+  else                CT::Widget::Media::Fit::Contain
   end),
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 

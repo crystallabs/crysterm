@@ -20,29 +20,30 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Widgets 1/2"
+s = CT::Window.new title: "Widgets 1/2"
 s.border_junctions = true
 
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
   content: "{center}{bold}Qt-like widgets 1/2{/bold} — Button · CheckBox · LineEdit · List · ProgressBar · Slider{/center}"
 
 # The 3×2 grid: each widget sits in a titled 26×11 GroupBox cell.
 cell = ->(row : Int32, col : Int32, title : String) do
-  Widget::GroupBox.new parent: s,
+  CW::GroupBox.new parent: s,
     top: 1 + row * 11, left: 1 + col * 26, width: 26, height: 11, title: title
 end
 
 # --- Button ------------------------------------------------------------------
 
 gb = cell.call 0, 0, "Button"
-btn = Widget::Button.new parent: gb, top: 2, left: 2, width: 20, height: 3,
+btn = CW::Button.new parent: gb, top: 2, left: 2, width: 20, height: 3,
   content: "Submit", align: :center, focus_on_click: false,
-  style: Style.new(border: true)
-pressed = Widget::Box.new parent: gb, top: 6, left: 2, width: 20, height: 1, align: :center
+  style: CT::Style.new(border: true)
+pressed = CW::Box.new parent: gb, top: 6, left: 2, width: 20, height: 1, align: :center
 clicks = 0
-btn.on(Event::Pressed) do
+btn.on(CT::Event::Pressed) do
   clicks += 1
   pressed.content = "pressed #{clicks}×"
 end
@@ -50,21 +51,21 @@ end
 # --- CheckBox ----------------------------------------------------------------
 
 gb = cell.call 0, 1, "CheckBox"
-cb1 = Widget::CheckBox.new parent: gb, top: 2, left: 2, width: 20, height: 1,
+cb1 = CW::CheckBox.new parent: gb, top: 2, left: 2, width: 20, height: 1,
   content: "Autosave", checked: true
-cb2 = Widget::CheckBox.new parent: gb, top: 4, left: 2, width: 20, height: 1,
+cb2 = CW::CheckBox.new parent: gb, top: 4, left: 2, width: 20, height: 1,
   content: "Word wrap"
-cb3 = Widget::CheckBox.new parent: gb, top: 6, left: 2, width: 20, height: 1,
+cb3 = CW::CheckBox.new parent: gb, top: 6, left: 2, width: 20, height: 1,
   content: "Keep backups"
 
 # --- LineEdit ----------------------------------------------------------------
 
 gb = cell.call 0, 2, "LineEdit"
-Widget::Box.new parent: gb, top: 2, left: 2, width: 6, height: 1, content: "Name:"
-name = Widget::LineEdit.new parent: gb, top: 2, left: 8, width: 14, height: 1,
+CW::Box.new parent: gb, top: 2, left: 2, width: 6, height: 1, content: "Name:"
+name = CW::LineEdit.new parent: gb, top: 2, left: 8, width: 14, height: 1,
   placeholder_text: "type here…"
-Widget::Box.new parent: gb, top: 4, left: 2, width: 6, height: 1, content: "Pass:"
-pass = Widget::LineEdit.new parent: gb, top: 4, left: 8, width: 14, height: 1,
+CW::Box.new parent: gb, top: 4, left: 2, width: 6, height: 1, content: "Pass:"
+pass = CW::LineEdit.new parent: gb, top: 4, left: 8, width: 14, height: 1,
   echo_mode: :password
 
 NAME   = "Ada Lovelace"
@@ -73,27 +74,27 @@ SECRET = "hunter42"
 # --- List --------------------------------------------------------------------
 
 gb = cell.call 1, 0, "List"
-list = Widget::List.new parent: gb, top: 1, left: 1, right: 1, bottom: 1,
+list = CW::List.new parent: gb, top: 1, left: 1, right: 1, bottom: 1,
   items: ["main.cr", "window.cr", "widget.cr", "style.cr",
           "layout.cr", "event.cr", "tput.cr", "shard.yml"]
 
 # --- ProgressBar -------------------------------------------------------------
 
 gb = cell.call 1, 1, "ProgressBar"
-Widget::Box.new parent: gb, top: 2, left: 2, width: 10, height: 1, content: "Download:"
-pb_h = Widget::ProgressBar.new parent: gb, top: 3, left: 2, width: 16, height: 1
-pb_v = Widget::ProgressBar.new parent: gb, top: 1, left: 20, width: 3, height: 7,
+CW::Box.new parent: gb, top: 2, left: 2, width: 10, height: 1, content: "Download:"
+pb_h = CW::ProgressBar.new parent: gb, top: 3, left: 2, width: 16, height: 1
+pb_v = CW::ProgressBar.new parent: gb, top: 1, left: 20, width: 3, height: 7,
   orientation: :vertical
 
 # --- Slider ------------------------------------------------------------------
 
 gb = cell.call 1, 2, "Slider"
-Widget::Box.new parent: gb, top: 2, left: 2, width: 8, height: 1, content: "Volume:"
-slider = Widget::Slider.new parent: gb, top: 3, left: 2, width: 20, height: 2,
+CW::Box.new parent: gb, top: 2, left: 2, width: 8, height: 1, content: "Volume:"
+slider = CW::Slider.new parent: gb, top: 3, left: 2, width: 20, height: 2,
   minimum: 0, maximum: 100, value: 0, text_visible: true,
-  tick_position: Widget::Slider::TickPosition::Below, tick_interval: 25
+  tick_position: CW::Slider::TickPosition::Below, tick_interval: 25
 
-Widget::Box.new parent: s, top: 23, left: 0, width: "100%", height: 1, parse_tags: true,
+CW::Box.new parent: s, top: 23, left: 0, width: "100%", height: 1, parse_tags: true,
   content: "{center}part 2: widgets2.cr · full chrome: qt_widgets.cr · q quits{/center}"
 
 # --- Master clock ------------------------------------------------------------

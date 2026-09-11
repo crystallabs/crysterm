@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/menu/menu.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("Menu",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,6 +14,6 @@ Crysterm::WidgetExample.run("Menu",
     d.key :up, times: 3, dwell: 0.4
   }) do |window|
   window.stylesheet = "Menu { border: solid; color: #c0caf5; }"
-  menu = Menu.new parent: window, top: "center", left: "center"
+  menu = CW::Menu.new parent: window, top: "center", left: "center"
   %w[New Open Save Quit].each { |t| menu.add_action t }
 end

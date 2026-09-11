@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/radioset/radioset.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("RadioSet",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -16,9 +16,9 @@ Crysterm::WidgetExample.run("RadioSet",
     d.key :backtab; d.key :space, dwell: 0.6 # back to Medium (initial)
   }) do |window|
   window.stylesheet = "RadioSet { border: solid; } RadioButton { color: #c0caf5; }"
-  rs = RadioSet.new parent: window, top: "center", left: "center", width: 28, height: 7, label: " Size "
+  rs = CW::RadioSet.new parent: window, top: "center", left: "center", width: 28, height: 7, label: " Size "
   btns = %w[Small Medium Large].map_with_index do |t, i|
-    RadioButton.new parent: rs, top: i, left: 1, content: t, checked: i == 1
+    CW::RadioButton.new parent: rs, top: i, left: 1, content: t, checked: i == 1
   end
   btns.first.focus
 end

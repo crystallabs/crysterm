@@ -1,15 +1,16 @@
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new
+s = CT::Window.new
 
-b = Widget::Box.new(
-  style: Style.new(
+b = CW::Box.new(
+  style: CT::Style.new(
     bg: "red",
     # TODO This part is not required in Blessed. See why is it required here and,
     # if it makes sense, return the behavior back to be compatible with Blessed.
-    border: Border.new(
+    border: CT::Border.new(
       bg: "black"
     ),
     padding: 2
@@ -24,7 +25,7 @@ b = Widget::Box.new(
 
 s.append b
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   # STDERR.puts e.inspect
   if e.char == 'q'
     # e.accept

@@ -1,11 +1,12 @@
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new
+s = CT::Window.new
 
-b = Widget::Box.new(
-  style: Style.new(
+b = CW::Box.new(
+  style: CT::Style.new(
     bg: "blue",
   ),
   parse_tags: true,
@@ -18,7 +19,7 @@ b = Widget::Box.new(
 
 s.append b
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   # STDERR.puts e.inspect
   if e.char == 'q'
     # e.accept

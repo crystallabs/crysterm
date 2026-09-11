@@ -30,7 +30,17 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
+
+# The benchmark times the draw and flush phases separately, but `Window#draw`
+# is protected (the render loop owns it) — reopen the class for a public
+# forwarder scoped to this program.
+class Crysterm::Window
+  def nitro_draw_only : Nil
+    draw flush: false
+  end
+end
 
 MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
        "BLESSED-CONTRIB * QT * NCURSES (R.I.P.) * EVERY CRYSTAL CODER * " +
@@ -70,7 +80,7 @@ end
 
 # Pack fg/bg (native `0xRRGGBB`, or -1 = terminal default) into a cell attr.
 def cell_attr(fg, bg) : Int64
-  Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg))
+  CT::Attr.pack(0, CT::Attr.pack_color(fg), CT::Attr.pack_color(bg))
 end
 
 # Paint one glyph string into a single row, one cell at a time (each a change-
@@ -82,7 +92,7 @@ def put_str(win, str, x, y, fg, bg)
   end
 end
 
-s = Window.new title: "CRYSTERM nitro", optimization: OptimizationFlag::None
+s = CT::Window.new title: "CRYSTERM nitro", optimization: CT::OptimizationFlag::None
 
 # The buffer exists once the window is sized; make sure it is allocated whether
 # we go interactive (via `exec`) or self-capture (below) without `exec`.
@@ -119,13 +129,13 @@ paint = ->(fr : Int64) do
   # Copper rows: one solid hue-cycled band each, staggered 26° apart, +9°/frame.
   COPPER_ROWS.each_with_index do |row, idx|
     next unless row < h
-    s.fill_region cell_attr(-1, Colors.hsv_i((idx * 26 + fr * 9) % 360)), ' ', 0, w, row, row + 1
+    s.fill_region cell_attr(-1, CT::Colors.hsv_i((idx * 26 + fr * 9) % 360)), ' ', 0, w, row, row + 1
   end
 
   # Per-row letter background (copper hue on the bar rows, else black).
   (0...h).each do |r|
     ci = COPPER_ROWS.index(r)
-    row_bg[r] = ci ? Colors.hsv_i((ci * 26 + fr * 9) % 360) : BLACK
+    row_bg[r] = ci ? CT::Colors.hsv_i((ci * 26 + fr * 9) % 360) : BLACK
   end
 
   # Row 2: right-to-left rainbow line scroller.
@@ -134,7 +144,7 @@ paint = ->(fr : Int64) do
     (0...w).each do |x|
       ch = chars[(fr + x) % n]
       next if ch == ' '
-      s.fill_region cell_attr(Colors.hsv_i((x * 7 + fr * 8) % 360), BLACK), ch, x, x + 1, 2, 3
+      s.fill_region cell_attr(CT::Colors.hsv_i((x * 7 + fr * 8) % 360), BLACK), ch, x, x + 1, 2, 3
     end
   end
 
@@ -159,7 +169,7 @@ paint = ->(fr : Int64) do
       ch = chars[(fr + x) % n]
       next if ch == ' '
       r = (amp * (1.0 + Math.sin(x * 0.32 + fr * 0.22))).round.to_i.clamp(0, sh - 1)
-      s.fill_region cell_attr(Colors.hsv_i((x * 7 + fr * 6) % 360), BLACK), ch, x, x + 1, sine_top + r, sine_top + r + 1
+      s.fill_region cell_attr(CT::Colors.hsv_i((x * 7 + fr * 6) % 360), BLACK), ch, x, x + 1, sine_top + r, sine_top + r + 1
     end
   end
 
@@ -177,11 +187,11 @@ paint = ->(fr : Int64) do
       col = (cx + (destx - cx) * p).round.to_i
       row = (cy + (desty - cy) * p).round.to_i
       ch = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
-      fg = Colors.hsv_i((i * 9 + fr * 9) % 360)
+      fg = CT::Colors.hsv_i((i * 9 + fr * 9) % 360)
     else
       col, row = destx, desty
       ch = fch
-      fg = Colors.hsv_i((i * 9 + fr * 6) % 360)
+      fg = CT::Colors.hsv_i((i * 9 + fr * 6) % 360)
     end
     s.fill_region cell_attr(fg, row_bg[row]), ch, col, col + 1, row, row + 1
   end
@@ -200,9 +210,9 @@ rate = ->(span : Time::Span) {
 }
 
 # ---- headless capture (nitro drives it itself; see the header) --------------
-shot = Config.window_shot.presence
-dump_dest = Config.window_dump.presence
-anim = Config.window_anim.presence
+shot = CT::Config.window_shot.presence
+dump_dest = CT::Config.window_dump.presence
+anim = CT::Config.window_anim.presence
 
 if shot || dump_dest || anim
   # Start at frame 0, so the captured artifacts line up with quicktro's (which
@@ -218,7 +228,7 @@ if shot || dump_dest || anim
     fr = start_frame
     # `capture(duration:)` snapshots the buffer on every `Event::Rendered`; nitro
     # has no `repaint`, so it emits the event itself after painting each frame.
-    clock = FrameClock.ticker(0.07.seconds) do
+    clock = CT::FrameClock.ticker(0.07.seconds) do
       fr += 1
       # Keep the overlay alive in the recording: time the paint as `update` and
       # the frame cadence as `fps` (there is no terminal draw/flush to time here).
@@ -226,11 +236,11 @@ if shot || dump_dest || anim
       paint.call fr
       stat_render = rate.call(Time.instant - t0)
       stat_fps = stat_fps_avg = (1.0 / 0.07).to_i64
-      s.emit Crysterm::Event::Rendered
+      s.emit CT::Event::Rendered
     end
     clock.start
-    s.capture path: anim, duration: Config.window_anim_secs.seconds,
-      fps: Config.window_anim_fps, loops: 0
+    s.capture path: anim, duration: CT::Config.window_anim_secs.seconds,
+      fps: CT::Config.window_anim_fps, loops: 0
     clock.stop
   end
 
@@ -241,7 +251,7 @@ end
 frame = 0_i64
 last_start : Time::Instant? = nil
 
-FrameClock.ticker(0.07.seconds) do
+CT::FrameClock.ticker(0.07.seconds) do
   t0 = Time.instant
   if prev = last_start
     stat_fps = rate.call(t0 - prev)
@@ -251,7 +261,7 @@ FrameClock.ticker(0.07.seconds) do
   paint.call frame
 
   t1 = Time.instant
-  s.draw flush: false
+  s.nitro_draw_only
   t2 = Time.instant
   s.flush_frame
   t3 = Time.instant

@@ -1,12 +1,12 @@
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new
+s = CT::Window.new
 
-prompt = InputDialog.new(
-  style: Style.new(border: true),
+prompt = CW::InputDialog.new(
+  style: CT::Style.new(border: true),
   shrink_to_fit: true,
   width: "50%",
   top: "center",
@@ -17,8 +17,8 @@ prompt = InputDialog.new(
   # vi_keys: true
 )
 
-question = MessageBox.new(
-  style: Style.new(border: true),
+question = CW::MessageBox.new(
+  style: CT::Style.new(border: true),
   shrink_to_fit: true,
   width: "50%",
   top: "center",
@@ -29,8 +29,8 @@ question = MessageBox.new(
   # vi_keys: true
 )
 
-msg = MessageBox.new(
-  style: Style.new(border: true),
+msg = CW::MessageBox.new(
+  style: CT::Style.new(border: true),
   shrink_to_fit: true,
   width: "50%",
   top: "center",
@@ -42,8 +42,8 @@ msg = MessageBox.new(
   # vi_keys: true
 )
 
-loader = Loading.new(
-  style: Style.new(border: true),
+loader = CW::Loading.new(
+  style: CT::Style.new(border: true),
   shrink_to_fit: true,
   width: "50%",
   top: "center",
@@ -60,7 +60,7 @@ s.append question
 s.append msg
 s.append loader
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   # STDERR.puts e.inspect
   if e.char == 'q' || e.key.try(&.==(::Tput::Key::CtrlQ))
     e.accept

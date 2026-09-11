@@ -4,11 +4,11 @@
 # Run it:     crystal run tests/widget/combo_box/combo_box.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-WidgetExample.run("ComboBox",
-  script: ->(d : WidgetExample::Driver) {
+CT::WidgetExample.run("ComboBox",
+  script: ->(d : CT::WidgetExample::Driver) {
     d.hold 0.5
     d.key :enter, dwell: 0.5
     d.key :down, dwell: 0.4
@@ -16,7 +16,7 @@ WidgetExample.run("ComboBox",
     d.key :escape, dwell: 0.5
   }) do |window|
   window.stylesheet = "ComboBox { border: solid; color: #c0caf5; }"
-  ComboBox.new \
+  CW::ComboBox.new \
     parent: window, top: "center", left: "center", width: 24, height: 3,
     options: %w[Red Green Blue Yellow], current_index: 2
 end

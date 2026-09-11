@@ -10,27 +10,28 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Cursors"
+s = CT::Window.new title: "Cursors"
 
 # Backdrop and caption.
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  style: Style.new(bg: "#1a1b26")
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
+  style: CT::Style.new(bg: "#1a1b26")
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Hardware & artificial cursors — per-widget shape, blink, color and custom glyphs{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
-Widget::Box.new parent: s, top: 2, left: "center", width: 72, height: 2,
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
+CW::Box.new parent: s, top: 2, left: "center", width: 72, height: 2,
   content: "{center}Styled shapes use the terminal's hardware cursor when it can comply;\n" \
            "otherwise Crysterm composites an artificial cursor into the cells.{/center}",
-  parse_tags: true, style: Style.new(fg: "#565f89", bg: "#1a1b26")
+  parse_tags: true, style: CT::Style.new(fg: "#565f89", bg: "#1a1b26")
 
 # One LineEdit per cursor override; the border label names the override.
-fields = [] of Widget::LineEdit
+fields = [] of CW::LineEdit
 mk_field = ->(top : Int32, label : String, value : String) do
-  w = Widget::LineEdit.new parent: s, top: top, left: "center", width: 52, height: 3,
+  w = CW::LineEdit.new parent: s, top: top, left: "center", width: 52, height: 3,
     label: label,
-    style: Style.new(fg: "#c0caf5", bg: "#1f2335", border: Border.new(fg: "#3b4261"))
+    style: CT::Style.new(fg: "#c0caf5", bg: "#1f2335", border: CT::Border.new(fg: "#3b4261"))
   w.value = value
   fields << w
   w
@@ -55,11 +56,11 @@ c.cursor_color = "#7dcfff"
 # terminal — so it also appears in this demo's captures.
 d = mk_field.call 17, " :none — custom artificial glyph ", "A custom-glyph artificial cursor"
 d.set_cursor :none
-d.ensure_cursor.style = Style.new(fill_char: '▚', fg: "#e0af68", bg: "#414868")
+d.ensure_cursor.style = CT::Style.new(fill_char: '▚', fg: "#e0af68", bg: "#414868")
 
-Widget::Box.new parent: s, top: 21, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, top: 21, left: 0, width: "100%", height: 1,
   content: "{center}Focus (and with it the active cursor) moves to the next field every 1.2 s{/center}",
-  parse_tags: true, style: Style.new(fg: "#565f89", bg: "#1a1b26")
+  parse_tags: true, style: CT::Style.new(fg: "#565f89", bg: "#1a1b26")
 
 # Start on the custom artificial cursor (it is composited into the cells,
 # so it shows even in single-frame captures), then cycle focus so each

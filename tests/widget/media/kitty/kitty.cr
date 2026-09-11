@@ -9,19 +9,20 @@
 
 require "../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Kitty"
+s = CT::Window.new title: "Kitty"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Kitty  ·  Kitty graphics protocol, true-color RGBA  ·  the Matterhorn{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
 iw = s.awidth
 ih = s.aheight - 1
 
-Widget::Media::Kitty.new \
+CW::MediaKitty.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   cell_pixel_width: (ENV["CELL_PW"]? || "0").to_i, # 0 = auto-detect (TIOCGWINSZ)
   cell_pixel_height: (ENV["CELL_PH"]? || "0").to_i,

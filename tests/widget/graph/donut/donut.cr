@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/graph/donut/donut.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("Donut",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -13,10 +13,10 @@ Crysterm::WidgetExample.run("Donut",
     # Ramp the value up and back to its initial 65 (read-only widget, no keys —
     # reach it via the window and set #value, guarded by the concrete type).
     [65, 75, 85, 95, 85, 75, 65].each do |v|
-      d.act(dwell: 0.4) { |s| s.children.each { |c| c.value = v if c.is_a?(GraphDonut) } }
+      d.act(dwell: 0.4) { |s| s.children.each { |c| c.value = v if c.is_a?(CW::GraphDonut) } }
     end
   }) do |window|
   # No show_track: the braille backend is one colour per cell, so a track
   # ring's dim "off" dots can't be distinguished and just clutter the arc.
-  GraphDonut.new parent: window, top: "center", left: "center", width: 24, height: 12, value: 65
+  CW::GraphDonut.new parent: window, top: "center", left: "center", width: 24, height: 12, value: 65
 end

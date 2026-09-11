@@ -4,10 +4,10 @@
 # Run it:     crystal run tests/widget/label/label.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "Label" do |window|
   window.stylesheet = "Label { color: #9ece6a; }"
-  Label.new parent: window, top: "center", left: "center", content: "A Label widget"
+  CW::Label.new parent: window, top: "center", left: "center", content: "A Label widget"
 end

@@ -1,12 +1,13 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-csr.js
 # A centered 80%x80% green box with a line border, plus a centered 50%x50%
 # draggable ScrollableText whose long, multi-line content can be scrolled with
 # the mouse, arrow keys or vi_keys keys. Demonstrates that change-scroll-region
 # (CSR) optimization still renders correctly with overlapping widgets.
-include Crysterm
-include Crysterm::Widgets
 
 # Blessed reads test/git.diff for scrollable content; substituted with a
 # generated multi-line String.
@@ -14,22 +15,22 @@ lorem = (1..40).map { |i| "Line #{i}: Lorem ipsum dolor sit amet, consectetur ad
 
 # Blessed's cleanSides/_oscroll overrides and CSR test-harness assertions
 # have no visual purpose; dropped. Only the two visible widgets remain.
-s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagated_keys: [::Tput::Key::CtrlQ]
+s = CT::Window.new optimization: CT::OptimizationFlag::SmartCSR, always_propagated_keys: [::Tput::Key::CtrlQ]
 
-btext = Widget::Box.new(
+btext = CW::Box.new(
   parent: s,
   left: "center",
   top: "center",
   width: "80%",
   height: "80%",
-  style: Style.new(bg: "green", border: BorderType::Solid),
+  style: CT::Style.new(bg: "green", border: CT::BorderType::Solid),
   content: "CSR should still work.",
 )
 
-text = ScrollableText.new(
+text = CW::ScrollableText.new(
   parent: s,
   content: lorem,
-  style: Style.new(border: BorderType::Solid),
+  style: CT::Style.new(border: CT::BorderType::Solid),
   left: "center",
   top: "center",
   draggable: true,
@@ -43,7 +44,7 @@ text = ScrollableText.new(
 
 text.focus
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
     s.destroy
     exit

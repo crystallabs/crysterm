@@ -4,12 +4,12 @@
 # Run it:     crystal run tests/widget/box/box.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-WidgetExample.run "Box" do |window|
+CT::WidgetExample.run "Box" do |window|
   window.stylesheet = "Box { border: solid; background-color: #1a1a2e; color: #e0e0e0; }"
-  Widget::Box.new \
+  CW::Box.new \
     parent: window, top: "center", left: "center", width: 34, height: 7,
     content: "{center}A Box widget{/center}", parse_tags: true
 end

@@ -10,26 +10,27 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Border docking"
+s = CT::Window.new title: "Border docking"
 s.border_junctions = true
-s.junction_contrast = JunctionContrast::Blend
+s.junction_contrast = CT::JunctionContrast::Blend
 
 # Backdrop and caption strip.
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  style: Style.new(bg: "#1a1b26")
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
+  style: CT::Style.new(bg: "#1a1b26")
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Border docking — touching borders merge into shared junction glyphs{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
 # Live mode indicator, updated by the mode-cycling timer below.
-mode_box = Widget::Box.new parent: s, top: 2, left: 0, width: "100%", height: 1,
+mode_box = CW::Box.new parent: s, top: 2, left: 0, width: "100%", height: 1,
   content: "{center}window.junction_contrast = {bold}Blend{/bold} — junction cells blend the two border colors{/center}",
-  parse_tags: true, style: Style.new(fg: "#c0caf5", bg: "#1a1b26")
+  parse_tags: true, style: CT::Style.new(fg: "#c0caf5", bg: "#1a1b26")
 
 # The three contrast policies, next to the grid that demonstrates them.
-Widget::Box.new parent: s, top: 4, left: 2, width: 36, height: 11,
+CW::Box.new parent: s, top: 4, left: 2, width: 36, height: 11,
   label: " JunctionContrast ", parse_tags: true,
   content: "\n{#7dcfff-fg}Blend{/#7dcfff-fg}  — junction cells mix the\n" \
            "          two border colors\n\n" \
@@ -37,7 +38,7 @@ Widget::Box.new parent: s, top: 4, left: 2, width: 36, height: 11,
            "          its own color\n\n" \
            "{#f7768e-fg}Skip{/#f7768e-fg}   — differing colors\n" \
            "          don't dock at all",
-  style: Style.new(fg: "#a9b1d6", bg: "#24283b", border: Border.new(fg: "#3b4261"))
+  style: CT::Style.new(fg: "#a9b1d6", bg: "#24283b", border: CT::Border.new(fg: "#3b4261"))
 
 # A 2x2 grid of boxes sharing border rows/columns: their meeting points
 # resolve to ┬ ├ ┼ ┤ ┴ junctions. Four different border colors, so the
@@ -49,27 +50,27 @@ grid = [
   {9, 59, 19, 6, "#f7768e"},
 ]
 grid.each do |(top, left, width, height, color)|
-  Widget::Box.new parent: s, top: top, left: left, width: width, height: height,
+  CW::Box.new parent: s, top: top, left: left, width: width, height: height,
     content: "{center}#{color}{/center}", parse_tags: true,
-    style: Style.new(fg: "#565f89", bg: "#1f2335", border: Border.new(fg: color))
+    style: CT::Style.new(fg: "#565f89", bg: "#1f2335", border: CT::Border.new(fg: color))
 end
 
 # The docking target: a static box near the right edge …
-Widget::Box.new parent: s, top: 16, left: 56, width: 22, height: 7,
+CW::Box.new parent: s, top: 16, left: 56, width: 22, height: 7,
   content: "{center}static{/center}", parse_tags: true,
-  style: Style.new(fg: "#565f89", bg: "#1f2335", border: Border.new(fg: "#7dcfff"))
+  style: CT::Style.new(fg: "#565f89", bg: "#1f2335", border: CT::Border.new(fg: "#7dcfff"))
 
 # … and the slider: it glides right until its border overlaps the target's
 # and docks (shared edge becomes ┬/┴ junctions), pauses, and swings back.
-slider = Widget::Box.new parent: s, top: 16, left: 37, width: 20, height: 7,
+slider = CW::Box.new parent: s, top: 16, left: 37, width: 20, height: 7,
   content: "{center}sliding …{/center}", parse_tags: true,
-  style: Style.new(fg: "#c0caf5", bg: "#292e42", border: Border.new(fg: "#bb9af7"))
+  style: CT::Style.new(fg: "#c0caf5", bg: "#292e42", border: CT::Border.new(fg: "#bb9af7"))
 
 # The three contrast policies, cycled so the same junctions show them all.
 modes = [
-  {JunctionContrast::Blend, "junction cells blend the two border colors"},
-  {JunctionContrast::Ignore, "junctions form; each cell keeps its own color"},
-  {JunctionContrast::Skip, "borders with differing colors stay undocked"},
+  {CT::JunctionContrast::Blend, "junction cells blend the two border colors"},
+  {CT::JunctionContrast::Ignore, "junctions form; each cell keeps its own color"},
+  {CT::JunctionContrast::Skip, "borders with differing colors stay undocked"},
 ]
 set_mode = ->(i : Int32) do
   mode, desc = modes[i]

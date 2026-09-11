@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/lineedit/lineedit.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("LineEdit",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,7 +14,7 @@ Crysterm::WidgetExample.run("LineEdit",
     d.key :backspace, times: 5, dwell: 0.16
   }) do |window|
   window.stylesheet = "LineEdit { border: solid; color: #c0caf5; background-color: #1f2335; }"
-  tb = LineEdit.new parent: window, top: "center", left: "center", width: 42, height: 3
+  tb = CW::LineEdit.new parent: window, top: "center", left: "center", width: 42, height: 3
   tb.value = "Editable text — type here"
   tb.focus
 end

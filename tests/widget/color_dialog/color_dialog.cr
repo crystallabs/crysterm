@@ -4,11 +4,11 @@
 # Run it:     crystal run tests/widget/color_dialog/color_dialog.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-WidgetExample.run "ColorDialog" do |window|
+CT::WidgetExample.run "ColorDialog" do |window|
   window.stylesheet = "ColorDialog { border: solid; }"
   # Wants roughly 56x20 (see class docs); smaller and children spill past the border.
-  ColorDialog.new parent: window, top: "center", left: "center", width: 56, height: 20
+  CW::ColorDialog.new parent: window, top: "center", left: "center", width: 56, height: 20
 end

@@ -28,7 +28,8 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
        "BLESSED-CONTRIB * QT * NCURSES (R.I.P.) * EVERY CRYSTAL CODER * " +
@@ -56,7 +57,7 @@ BLACK = 0x000000
 # `cracktro.cr` builds from separate widgets is reproduced here with the same
 # per-frame math, but written straight to cells via `window.fill_region` — the
 # fast path the effect widgets themselves use internally.
-class Scene < Widget::Box
+class Scene < CW::Box
   # Frame counter, advanced by the master clock below. `#paint` is a pure
   # function of it (state and paint are split, exactly as the real effect
   # widgets split `#step` from `#paint`).
@@ -117,7 +118,7 @@ class Scene < Widget::Box
   # Pack a foreground/background pair (native `0xRRGGBB`, or -1 = terminal
   # default) into a cell attr. No flags — the cracktro scene uses none.
   private def attr(fg, bg) : Int64
-    Attr.pack(0, Attr.pack_color(fg), Attr.pack_color(bg))
+    CT::Attr.pack(0, CT::Attr.pack_color(fg), CT::Attr.pack_color(bg))
   end
 
   def paint(*, with_children = true)
@@ -137,14 +138,14 @@ class Scene < Widget::Box
     # Copper rows: one solid hue-cycled band each, staggered around the wheel.
     COPPER_ROWS.each_with_index do |row, idx|
       next unless row < h
-      bg = Colors.hsv_i((idx * 26 + fr * 9) % 360)
+      bg = CT::Colors.hsv_i((idx * 26 + fr * 9) % 360)
       win.fill_region attr(-1, bg), ' ', 0, w, row, row + 1
     end
 
     # This frame's per-row letter background (copper hue on bar rows, else black).
     (0...h).each do |r|
       ci = COPPER_ROWS.index(r)
-      @row_bg[r] = ci ? Colors.hsv_i((ci * 26 + fr * 9) % 360) : BLACK
+      @row_bg[r] = ci ? CT::Colors.hsv_i((ci * 26 + fr * 9) % 360) : BLACK
     end
 
     n = @chars.size
@@ -157,7 +158,7 @@ class Scene < Widget::Box
       (0...w).each do |x|
         ch = @chars[(fr + x) % n]
         next if ch == ' '
-        win.fill_region attr(Colors.hsv_i((x * 7 + fr * 8) % 360), BLACK), ch, x, x + 1, 2, 3
+        win.fill_region attr(CT::Colors.hsv_i((x * 7 + fr * 8) % 360), BLACK), ch, x, x + 1, 2, 3
       end
     end
 
@@ -184,7 +185,7 @@ class Scene < Widget::Box
         ch = @chars[(fr + x) % n]
         next if ch == ' '
         r = (amp * (1.0 + Math.sin(x * 0.32 + fr * 0.22))).round.to_i.clamp(0, sh - 1)
-        win.fill_region attr(Colors.hsv_i((x * 7 + fr * 6) % 360), BLACK), ch, x, x + 1, sine_top + r, sine_top + r + 1
+        win.fill_region attr(CT::Colors.hsv_i((x * 7 + fr * 6) % 360), BLACK), ch, x, x + 1, sine_top + r, sine_top + r + 1
       end
     end
 
@@ -205,11 +206,11 @@ class Scene < Widget::Box
         col = (@cx + (destx - @cx) * p).round.to_i
         row = (@cy + (desty - @cy) * p).round.to_i
         ch = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
-        fg = Colors.hsv_i((i * 9 + fr * 9) % 360)
+        fg = CT::Colors.hsv_i((i * 9 + fr * 9) % 360)
       else
         col, row = destx, desty
         ch = fch
-        fg = Colors.hsv_i((i * 9 + fr * 6) % 360)
+        fg = CT::Colors.hsv_i((i * 9 + fr * 6) % 360)
       end
       win.fill_region attr(fg, @row_bg[row]), ch, col, col + 1, row, row + 1
     end
@@ -221,7 +222,7 @@ end
 # and freeze the scene on a selective repaint. `OptimizationFlag::None`
 # repaints the whole buffer every frame, exactly as in `cracktro.cr`. (Perf is
 # a wash: while latched full, damage tracking sheds its bookkeeping.)
-s = Window.new title: "CRYSTERM quicktro", optimization: OptimizationFlag::None
+s = CT::Window.new title: "CRYSTERM quicktro", optimization: CT::OptimizationFlag::None
 
 scene = Scene.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 
@@ -229,14 +230,14 @@ scene = Scene.new parent: s, top: 0, left: 0, width: "100%", height: "100%"
 # genuine per-frame figures: render/draw/flush rates (R/D/F) plus the actual
 # terminal bandwidth (TX: bytes/s actually written after diffing; Σ: running
 # total). Added last, so it paints on top of the scene.
-Widget::FPS.new \
+CW::FPS.new \
   parent: s, bottom: 0, left: 0,
   format: " FPS %s (avg %s)  R/D/F %s/%s/%s  TX %s/s  Σ %s ",
-  args: [Widget::FPS::Metric::Fps, Widget::FPS::Metric::FpsAvg,
-         Widget::FPS::Metric::Render, Widget::FPS::Metric::Draw,
-         Widget::FPS::Metric::Flush, Widget::FPS::Metric::ThroughputActualH,
-         Widget::FPS::Metric::TotalH],
-  style: Style.new(fg: "white", bg: "black")
+  args: [CW::FPS::Metric::Fps, CW::FPS::Metric::FpsAvg,
+         CW::FPS::Metric::Render, CW::FPS::Metric::Draw,
+         CW::FPS::Metric::Flush, CW::FPS::Metric::ThroughputActualH,
+         CW::FPS::Metric::TotalH],
+  style: CT::Style.new(fg: "white", bg: "black")
 
 # One master clock advances the frame; the render right after it repaints the
 # whole scene. (State-advance here, painting in `#paint` — the same split the

@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/time_edit/time_edit.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("TimeEdit",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,6 +14,6 @@ Crysterm::WidgetExample.run("TimeEdit",
     d.key :down, times: 3, dwell: 0.4
   }) do |window|
   window.stylesheet = "TimeEdit { border: solid; color: #c0caf5; }"
-  te = TimeEdit.new parent: window, top: "center", left: "center", width: 14, height: 3, time: Time.utc(2026, 6, 24, 13, 37, 5)
+  te = CW::TimeEdit.new parent: window, top: "center", left: "center", width: 14, height: 3, time: Time.utc(2026, 6, 24, 13, 37, 5)
   te.focus
 end

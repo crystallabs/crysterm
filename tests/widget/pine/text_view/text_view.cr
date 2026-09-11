@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/pine/text_view/text_view.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "TextView" do |window|
   window.stylesheet = "TextView { border: solid; }"
@@ -24,7 +24,7 @@ Crysterm::WidgetExample.run "TextView" do |window|
   then press Home to return to the very beginning again.
   TEXT
 
-  view = PineTextView.new \
+  view = CW::PineTextView.new \
     content: help,
     parent: window, top: 0, left: 0, width: "100%", height: "100%"
   view.focus

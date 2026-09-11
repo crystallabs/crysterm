@@ -1,8 +1,9 @@
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-logger = Widget::Log.new \
+logger = CW::Log.new \
   top: "center",
   left: "center",
   width: "50%",
@@ -12,23 +13,23 @@ logger = Widget::Log.new \
   # vi_keys: true,
   # mouse: true,
   max_lines: 100,
-  style: Style.new(
+  style: CT::Style.new(
     border: true,
-    scrollbar: Style.new(
+    scrollbar: CT::Style.new(
       fill_char: ' ',
-      track: Style.new(
+      track: CT::Style.new(
         bg: "yellow"
       )
     )
   )
 
-Window.global.append logger
+CT::Window.global.append logger
 # Seed one line so the still capture / first frame isn't an empty box (the
 # timer below only starts logging after 0.5s).
 logger.add "Hello world: #{Time.utc}."
 # logger.focus
 
-logger.window.on(Event::KeyPress) do |e|
+logger.window.on(CT::Event::KeyPress) do |e|
   if e.char == 'q' || e.key == Tput::Key::CtrlQ
     logger.window.destroy
     exit

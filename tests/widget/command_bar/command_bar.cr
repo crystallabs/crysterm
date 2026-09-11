@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/command_bar/command_bar.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("CommandBar",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -16,7 +16,7 @@ Crysterm::WidgetExample.run("CommandBar",
   window.stylesheet = "CommandBar { color: #c0caf5; }"
   # `keys: true` opts into keyboard navigation (see the class docs) — without
   # it the bar never registers as keyable and the scripted arrows do nothing.
-  lb = CommandBar.new parent: window, top: "center", left: 0, width: "100%", height: 1,
+  lb = CW::CommandBar.new parent: window, top: "center", left: 0, width: "100%", height: 1,
     mouse: true, keys: true
   lb.items = ["File", "Edit", "View", "Tools", "Help"]
   lb.focus

@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/tree/tree.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("Tree",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,7 +14,7 @@ Crysterm::WidgetExample.run("Tree",
     d.key :up, times: 4, dwell: 0.35
   }) do |window|
   window.stylesheet = "Tree { border: solid; color: #c0caf5; }"
-  tree = Tree.new parent: window, top: "center", left: "center", width: 34, height: 12, label: " Project "
+  tree = CW::Tree.new parent: window, top: "center", left: "center", width: 34, height: 12, label: " Project "
   src = tree.add "src"
   src.add "crysterm.cr"
   src.add "widget.cr"

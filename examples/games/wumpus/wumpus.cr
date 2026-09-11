@@ -1,9 +1,9 @@
 require "../../../src/crysterm"
 
-class Wumpus
-  include Crysterm
-  include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
+class Wumpus
   private def help
     say "
 A faithful little port of Gregory Yob's 1973 classic, built in Crysterm.
@@ -138,7 +138,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
   @score_arrows = 0
 
   def initialize(@opt : Hash(String, Bool))
-    @window = Window.new title: "Hunt the Wumpus"
+    @window = CT::Window.new title: "Hunt the Wumpus"
 
     # A `Border` layout carves the terminal into the teletype's two regions: the
     # scrolling transcript takes the center, the input line docks to the bottom
@@ -146,13 +146,13 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     # the text row); Border spans it across the width and hands the transcript
     # whatever is left — so there is no `"100%-3"` height and no `top: "100%-3"`
     # to keep in sync with each other whenever the input box's height changes.
-    frame = Box.new parent: @window, width: "100%", height: "100%",
-      layout: Layout::Dock.new
+    frame = CW::Box.new parent: @window, width: "100%", height: "100%",
+      layout: CT::Layout::Dock.new
 
     # A `Log`: append-only output with sticky-bottom scrolling built in —
     # `scroll_on_input` jumps back to the tail on new output even after a
     # manual scroll-up, exactly the teletype behavior a transcript wants.
-    @transcript = Log.new \
+    @transcript = CW::Log.new \
       scroll_on_input: true,
       layout_hint: :center,
       content: "",
@@ -160,17 +160,17 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       # the game itself, in tag markup.
       parse_tags: true,
       scrollbar_policy: :as_needed,
-      style: Style.new(fg: "white", bg: "#1a1a2e", border: true,
-        scrollbar: Style.new(bg: "#5555aa"))
+      style: CT::Style.new(fg: "white", bg: "#1a1a2e", border: true,
+        scrollbar: CT::Style.new(bg: "#5555aa"))
 
-    @input = LineEdit.new \
+    @input = CW::LineEdit.new \
       layout_hint: :bottom,
       height: 3,
       # Yellow text field, but give the border its own dark background/white
       # rule so it blends into the surrounding chrome (matching the transcript
       # box above) instead of drawing a stark yellow frame.
-      style: Style.new(fg: "black", bg: "#e0e000",
-        border: Border.new(bg: "#1a1a2e", fg: "white"))
+      style: CT::Style.new(fg: "black", bg: "#e0e000",
+        border: CT::Border.new(bg: "#1a1a2e", fg: "white"))
 
     # Scoreboard: a small titled box pinned to the top-right corner, inside the
     # transcript's outer border. Shown only when "score" is on (see
@@ -185,14 +185,14 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     # 15 columns and reflow the text out from under it — and the box appears and
     # disappears with the "score" flag, which would make the transcript's width
     # jump. Qt hangs a HUD overlay off the plain parent for the same reason.
-    @scorebox = GroupBox.new \
+    @scorebox = CW::GroupBox.new \
       top: 1,
       right: 1,
       width: 15,
       height: 7,
       title: " Score ",
       parse_tags: true,
-      style: Style.new(fg: "white", bg: "#16213e", border: true, margin: Margin.right,
+      style: CT::Style.new(fg: "white", bg: "#16213e", border: true, margin: CT::Margin.right,
         z_index: 10)
 
     frame.append @transcript
@@ -200,7 +200,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
     @window.append @scorebox
     @input.focus
 
-    @input.on(Event::Submitted) do |e|
+    @input.on(CT::Event::Submitted) do |e|
       text = e.value.to_s.strip
       if text.empty?
         # Enter on an empty line re-prints the current status: the room
@@ -217,7 +217,7 @@ The Wumpus can move and stay in a room with bats or a pit. You cannot.
       @input.focus
     end
 
-    @window.on(Event::KeyPress) do |e|
+    @window.on(CT::Event::KeyPress) do |e|
       if e.key == Tput::Key::CtrlQ
         # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
         @window.quit

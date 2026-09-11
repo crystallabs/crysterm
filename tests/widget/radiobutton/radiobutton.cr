@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/radiobutton/radiobutton.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("RadioButton",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,6 +14,6 @@ Crysterm::WidgetExample.run("RadioButton",
     d.key :space, dwell: 0.9
   }) do |window|
   window.stylesheet = "RadioButton { color: #c0caf5; }"
-  rb = RadioButton.new parent: window, top: "50%-1", left: "center", content: "Enable option"
+  rb = CW::RadioButton.new parent: window, top: "50%-1", left: "center", content: "Enable option"
   rb.focus
 end

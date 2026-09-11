@@ -1,45 +1,46 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-dock-noborder.js
 #
 # Same as widget-dock, but quadrants use plain `line` borders at negative
 # offsets (left:-1, top:-1) with "50%+1"/"50%+3" sizes so borders overlap and dock.
-include Crysterm
-include Crysterm::Widgets
 
-s = Window.new optimization: OptimizationFlag::SmartCSR, border_junctions: true, always_propagated_keys: [::Tput::Key::CtrlQ]
+s = CT::Window.new optimization: CT::OptimizationFlag::SmartCSR, border_junctions: true, always_propagated_keys: [::Tput::Key::CtrlQ]
 
-Widget::Box.new(
+CW::Box.new(
   parent: s,
   left: -1,
   top: -1,
   width: "50%+1",
   height: "50%+1",
-  style: Style.new(border: BorderType::Solid),
+  style: CT::Style.new(border: CT::BorderType::Solid),
   content: "Foo"
 )
 
-Widget::Box.new(
+CW::Box.new(
   parent: s,
   left: "50%-1",
   top: -1,
   width: "50%+3",
   height: "50%+1",
-  style: Style.new(border: BorderType::Solid),
+  style: CT::Style.new(border: CT::BorderType::Solid),
   content: "Bar"
 )
 
-Widget::Box.new(
+CW::Box.new(
   parent: s,
   left: -1,
   top: "50%-1",
   width: "50%+1",
   height: "50%+3",
-  style: Style.new(border: BorderType::Solid),
+  style: CT::Style.new(border: CT::BorderType::Solid),
   content: "Foo"
 )
 
-table = ListTable.new(
+table = CW::ListTable.new(
   parent: s,
   left: "50%-1",
   top: "50%-1",
@@ -49,13 +50,13 @@ table = ListTable.new(
   keys: true,
   vi_keys: true,
   mouse: true,
-  styles: Styles.new(
-    normal: Style.new(
-      border: Border.new(fg: nil),
-      header: Style.new(fg: "blue", bold: true),
-      cell: Style.new(fg: "magenta"),
+  styles: CT::Styles.new(
+    normal: CT::Style.new(
+      border: CT::Border.new(fg: nil),
+      header: CT::Style.new(fg: "blue", bold: true),
+      cell: CT::Style.new(fg: "magenta"),
     ),
-    selected: Style.new(bg: "blue"),
+    selected: CT::Style.new(bg: "blue"),
   )
 )
 
@@ -69,7 +70,7 @@ table.rows = [
 
 table.focus
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
     s.destroy
     exit

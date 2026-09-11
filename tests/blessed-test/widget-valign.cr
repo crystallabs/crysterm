@@ -1,22 +1,23 @@
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new
+s = CT::Window.new
 
-b = Widget::Box.new(
+b = CW::Box.new(
   top: "center",
   left: "center",
   width: "50%",
   height: 5,
   align: Tput::AlignFlag::Center,
   content: "Foobar.",
-  style: Style.new(border: true)
+  style: CT::Style.new(border: true)
 )
 
 s.append b
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   # STDERR.puts e.inspect
   if e.char == 'q'
     # e.accept

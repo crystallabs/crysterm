@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/graph/stacked_bar/stacked_bar.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("StackedBar",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -18,11 +18,11 @@ Crysterm::WidgetExample.run("StackedBar",
       [[1.0, 4.0, 4.0], [5.0, 1.0, 1.0], [2.0, 2.0, 5.0], [4.0, 4.0, 1.0]],
       [[3.0, 2.0, 1.0], [2.0, 4.0, 2.0], [1.0, 3.0, 4.0], [4.0, 1.0, 2.0]],
     ].each do |vals|
-      d.act(dwell: 0.6) { |s| s.children.each { |c| c.values = vals if c.is_a?(GraphStackedBar) } }
+      d.act(dwell: 0.6) { |s| s.children.each { |c| c.values = vals if c.is_a?(CW::GraphStackedBar) } }
     end
   }) do |window|
   window.stylesheet = "StackedBar { border: solid; color: #c0caf5; }"
-  GraphStackedBar.new \
+  CW::GraphStackedBar.new \
     parent: window, top: "center", left: "center", width: 46, height: 12,
     values: [[3.0, 2.0, 1.0], [2.0, 4.0, 2.0], [1.0, 3.0, 4.0], [4.0, 1.0, 2.0]],
     labels: %w[Q1 Q2 Q3 Q4], bar_width: 4, bar_spacing: 3

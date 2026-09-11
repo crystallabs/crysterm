@@ -1,30 +1,31 @@
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 include Tput::Namespace
 
-s = Window.new optimization: OptimizationFlag::SmartCSR
+s = CT::Window.new optimization: CT::OptimizationFlag::SmartCSR
 
-b = BigText.new \
+b = CW::BigText.new \
   content: "Hello",
   # parse_tags: true,
   shrink_to_fit: true,
   width: "80%",
 
-  style: Style.new(
+  style: CT::Style.new(
     fg: "red",
     bg: "blue",
     bold: false,
     fill_char: '▒',
-    border: BorderType::Solid,
+    border: CT::BorderType::Solid,
   )
 
 s.append b
 b.focus
 s.update
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   e.accept
   if e.char == 'q'
     s.destroy

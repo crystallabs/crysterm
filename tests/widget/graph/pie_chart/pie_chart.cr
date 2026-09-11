@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/graph/pie_chart/pie_chart.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("PieChart",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -21,21 +21,21 @@ Crysterm::WidgetExample.run("PieChart",
     ].each do |vals|
       d.act(dwell: 0.6) do |s|
         s.children.each do |c|
-          next unless c.is_a?(GraphPieChart)
-          colors = GraphPieChart::DEFAULT_COLORS
+          next unless c.is_a?(CW::GraphPieChart)
+          colors = CW::GraphPieChart::DEFAULT_COLORS
           labels = %w[web db cache]
           c.slices = vals.map_with_index do |v, i|
-            GraphPieChart::Slice.new(v, colors[i], labels[i])
+            CW::GraphPieChart::Slice.new(v, colors[i], labels[i])
           end
         end
       end
     end
   }) do |window|
-  GraphPieChart.new \
+  CW::GraphPieChart.new \
     parent: window, top: "center", left: "center", width: 24, height: 13,
     slices: [
-      GraphPieChart::Slice.new(50.0, 0x40E0D0, "web"),
-      GraphPieChart::Slice.new(30.0, 0xE0A040, "db"),
-      GraphPieChart::Slice.new(20.0, 0xE04060, "cache"),
+      CW::GraphPieChart::Slice.new(50.0, 0x40E0D0, "web"),
+      CW::GraphPieChart::Slice.new(30.0, 0xE0A040, "db"),
+      CW::GraphPieChart::Slice.new(20.0, 0xE04060, "cache"),
     ]
 end

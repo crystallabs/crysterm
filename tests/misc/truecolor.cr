@@ -10,39 +10,40 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "TrueColor"
+s = CT::Window.new title: "TrueColor"
 
 w = s.awidth
 
 # Static `Gradient` (no `animate:`, renders once), one color per column. The
 # explicit `stops:` give a soft cyan→green→amber→red sweep interpolated
 # in RGB, instead of the default's full-saturation HSV rainbow.
-Widget::Gradient.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
+CW::Gradient.new parent: s, top: 0, left: 0, width: "100%", height: "100%",
   stops: [0x00dbdf, 0x61fc9f, 0xb4f647, 0xebcb00, 0xff8100, 0xeb2300, 0xb40000, 0x610000, 0x000000]
 
 # Caption strip drawn on top of the gradient.
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}24-bit TrueColor & alpha compositing{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#202830")
+  style: CT::Style.new(fg: "white", bg: "#202830")
 
-box1 = Widget::Box.new \
+box1 = CW::Box.new \
   parent: s,
   top: 2, left: 2, width: 30, height: 8,
   content: "{center}24-bit TrueColor{/center}\n\n" \
            "{center}Translucent box with a\nshadow, blended in RGB.{/center}",
   parse_tags: true,
-  style: Style.new(bg: 0x103080, opacity: 0.5, border: true, shadow: true)
+  style: CT::Style.new(bg: 0x103080, opacity: 0.5, border: true, shadow: true)
 
-box2 = Widget::Box.new \
+box2 = CW::Box.new \
   parent: s,
   top: 5, left: 40, width: 30, height: 8,
   content: "{center}Alpha compositing{/center}\n\n" \
            "{center}Slides over the one\non the left.{/center}",
   parse_tags: true,
-  style: Style.new(bg: 0x208020, opacity: 0.5, border: true, shadow: true)
+  style: CT::Style.new(bg: 0x208020, opacity: 0.5, border: true, shadow: true)
 
 # One full swing every 2.5 s (50 ticks at 0.05 s), phased off a tick counter
 # rather than an accumulating float: the state is a pure function of

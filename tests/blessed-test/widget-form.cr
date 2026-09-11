@@ -1,17 +1,17 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-form.js
 #
 # Demonstrates `Widget::Form`: Tab/Shift+Tab (and vi_keys j/k) navigation between a
 # radio set, text box, checkboxes and submit button, with value collection on submit.
 class X
-  include Crysterm
-  include Crysterm::Widgets
-
   def initialize
-    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
+    s = CT::Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
-    form = Form.new \
+    form = CW::Form.new \
       parent: s,
       keys: true,
       vi_keys: true,
@@ -20,17 +20,17 @@ class X
       width: "100%",
       height: "100%",
       scrollable: true,
-      style: Style.new(bg: "green")
+      style: CT::Style.new(bg: "green")
 
-    set = RadioSet.new \
+    set = CW::RadioSet.new \
       parent: form,
       left: 1,
       top: 1,
       width: 30,
       height: 1,
-      style: Style.new(bg: "magenta")
+      style: CT::Style.new(bg: "magenta")
 
-    RadioButton.new \
+    CW::RadioButton.new \
       parent: set,
       keys: true,
       height: 1,
@@ -38,9 +38,9 @@ class X
       top: 0,
       name: "radio1",
       content: "radio1",
-      style: Style.new(bg: "magenta")
+      style: CT::Style.new(bg: "magenta")
 
-    RadioButton.new \
+    CW::RadioButton.new \
       parent: set,
       keys: true,
       height: 1,
@@ -48,9 +48,9 @@ class X
       top: 0,
       name: "radio2",
       content: "radio2",
-      style: Style.new(bg: "magenta")
+      style: CT::Style.new(bg: "magenta")
 
-    LineEdit.new \
+    CW::LineEdit.new \
       parent: form,
       keys: true,
       height: 1,
@@ -58,9 +58,9 @@ class X
       left: 1,
       top: 3,
       name: "text",
-      style: Style.new(bg: "blue")
+      style: CT::Style.new(bg: "blue")
 
-    CheckBox.new \
+    CW::CheckBox.new \
       parent: form,
       keys: true,
       height: 1,
@@ -68,9 +68,9 @@ class X
       top: 1,
       name: "check",
       content: "check",
-      style: Style.new(bg: "magenta")
+      style: CT::Style.new(bg: "magenta")
 
-    submit = Button.new \
+    submit = CW::Button.new \
       parent: form,
       keys: true,
       height: 1,
@@ -81,9 +81,9 @@ class X
       name: "submit",
       content: " submit ",
       align: ::Tput::AlignFlag::Center,
-      style: Style.new(bg: "blue")
+      style: CT::Style.new(bg: "blue")
 
-    output = ScrollableText.new \
+    output = CW::ScrollableText.new \
       parent: form,
       keys: true,
       left: 0,
@@ -91,19 +91,19 @@ class X
       top: 6,
       height: 6,
       content: "Press Tab/Shift+Tab to move, Enter to edit/toggle, then Submit.",
-      style: Style.new(bg: "red")
+      style: CT::Style.new(bg: "red")
 
     submit.on_click do
       form.submit
     end
 
-    form.on(Crysterm::Event::FormSubmitted) do |e|
+    form.on(CT::Event::FormSubmitted) do |e|
       lines = e.data.map { |f| "#{f.name}: #{f.value}" }
       output.content = "Submitted:\n" + lines.join("\n")
       s.update
     end
 
-    s.on(Crysterm::Event::KeyPress) do |e|
+    s.on(CT::Event::KeyPress) do |e|
       if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
         s.destroy
         exit

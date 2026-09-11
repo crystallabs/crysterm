@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/table/table.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 # `Table` is the static data grid (`ListTable` is the interactive, selectable
 # variant), so the demo animates the *data*: the Commits column ticks up for
@@ -23,7 +23,7 @@ def rows_at(beat : Int32) : Array(Array(String))
    ["Grace", "Architect", (BASE[2] + k * STEP[2]).to_s]]
 end
 
-table : Widget::Table? = nil
+table : CW::Table? = nil
 
 Crysterm::WidgetExample.run("Table",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -38,7 +38,7 @@ Crysterm::WidgetExample.run("Table",
   # from the cell text (constant digit counts across the cycle), whereas a
   # fixed width leaves slack whose distribution shifts by a cell on the first
   # post-repaint reload, breaking the loop's first==last frame match.
-  table = Table.new \
+  table = CW::Table.new \
     parent: window, top: "center", left: "center", height: 10,
     rows: rows_at(0)
 end

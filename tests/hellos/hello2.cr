@@ -4,7 +4,7 @@
 require "../../src/crysterm"
 
 alias CT = Crysterm
-alias CW = Crysterm::Widgets
+alias CW = CT::Widgets
 
 window = CT::Window.new title: "hello2"
 

@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/scrollable_text/scrollable_text.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("ScrollableText",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,7 +14,7 @@ Crysterm::WidgetExample.run("ScrollableText",
     d.key :up, times: 8, dwell: 0.22
   }) do |window|
   window.stylesheet = "ScrollableText { border: solid; color: #c0caf5; }"
-  st = ScrollableText.new \
+  st = CW::ScrollableText.new \
     parent: window, top: "center", left: "center", width: 44, height: 9, scrollbar_policy: :as_needed, keys: true,
     content: (1..40).map { |i| "Scrollable text line #{i}" }.join("\n")
   st.focus

@@ -4,13 +4,13 @@
 # Run it:     crystal run tests/widget/group_box/group_box.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "GroupBox" do |window|
   window.stylesheet = "GroupBox { border: solid; color: #c0caf5; }"
-  gb = GroupBox.new parent: window, top: "center", left: "center", width: 40, height: 8, title: " Connection "
-  Widget::Box.new parent: gb, top: 1, left: 2, content: "Host: localhost"
-  Widget::Box.new parent: gb, top: 2, left: 2, content: "Port: 5432"
-  Widget::Box.new parent: gb, top: 3, left: 2, content: "SSL:  enabled"
+  gb = CW::GroupBox.new parent: window, top: "center", left: "center", width: 40, height: 8, title: " Connection "
+  CW::Box.new parent: gb, top: 1, left: 2, content: "Host: localhost"
+  CW::Box.new parent: gb, top: 2, left: 2, content: "Port: 5432"
+  CW::Box.new parent: gb, top: 3, left: 2, content: "SSL:  enabled"
 end

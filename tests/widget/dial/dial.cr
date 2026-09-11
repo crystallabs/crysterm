@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/dial/dial.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("Dial",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,6 +14,6 @@ Crysterm::WidgetExample.run("Dial",
     d.key :down, times: 4, dwell: 0.35
   }) do |window|
   window.stylesheet = "Dial { border: solid; color: #7aa2f7; }"
-  dial = Dial.new parent: window, top: "center", left: "center", width: 21, height: 11, value: 65
+  dial = CW::Dial.new parent: window, top: "center", left: "center", width: 21, height: 11, value: 65
   dial.focus
 end

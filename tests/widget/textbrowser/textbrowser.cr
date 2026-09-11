@@ -7,8 +7,8 @@
 # Run it:     crystal run tests/widget/textbrowser/textbrowser.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 PAGES = {
   "home" => <<-MD,
@@ -57,11 +57,11 @@ Crysterm::WidgetExample.run("TextBrowser",
   }) do |window|
   window.stylesheet = "TextBrowser { border: solid; color: #c0caf5; background-color: #1f2335; }"
 
-  tb = Widget::TextBrowser.new parent: window, input_on_focus: true,
+  tb = CW::TextBrowser.new parent: window, input_on_focus: true,
     top: "center", left: "center", width: 58, height: 24
 
   tb.loader = ->(url : String) {
-    PAGES[url]?.try { |md| TextDocument.from_markdown(md) }
+    PAGES[url]?.try { |md| CT::TextDocument.from_markdown(md) }
   }
   tb.source = "home"
 

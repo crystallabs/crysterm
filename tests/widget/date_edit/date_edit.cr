@@ -4,11 +4,11 @@
 # Run it:     crystal run tests/widget/date_edit/date_edit.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-WidgetExample.run("DateEdit",
-  script: ->(d : WidgetExample::Driver) {
+CT::WidgetExample.run("DateEdit",
+  script: ->(d : CT::WidgetExample::Driver) {
     d.hold 0.5
     d.key :enter, dwell: 0.6
     d.key :right, times: 3, dwell: 0.35
@@ -16,6 +16,6 @@ WidgetExample.run("DateEdit",
     d.key :escape, dwell: 0.6
   }) do |window|
   window.stylesheet = "DateEdit { border: solid; color: #c0caf5; }"
-  de = DateEdit.new parent: window, top: "center", left: "center", width: 16, height: 3, date: Time.utc(2026, 6, 24)
+  de = CW::DateEdit.new parent: window, top: "center", left: "center", width: 16, height: 3, date: Time.utc(2026, 6, 24)
   de.focus
 end

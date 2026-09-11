@@ -20,37 +20,38 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Widgets 2/2"
+s = CT::Window.new title: "Widgets 2/2"
 s.border_junctions = true
 
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
   content: "{center}{bold}Qt-like widgets 2/2{/bold} — ComboBox · SpinBox · Dial · Table · Tree · Calendar{/center}"
 
 # The 3×2 grid: each widget sits in a titled 26×11 GroupBox cell.
 cell = ->(row : Int32, col : Int32, title : String) do
-  Widget::GroupBox.new parent: s,
+  CW::GroupBox.new parent: s,
     top: 1 + row * 11, left: 1 + col * 26, width: 26, height: 11, title: title
 end
 
 # --- ComboBox ----------------------------------------------------------------
 
 gb = cell.call 0, 0, "ComboBox"
-Widget::Box.new parent: gb, top: 2, left: 2, width: 7, height: 1, content: "Theme:"
-combo = Widget::ComboBox.new parent: gb, top: 2, left: 9, width: 13, height: 1,
+CW::Box.new parent: gb, top: 2, left: 2, width: 7, height: 1, content: "Theme:"
+combo = CW::ComboBox.new parent: gb, top: 2, left: 9, width: 13, height: 1,
   options: ["Breeze", "Nord", "Solarized", "Tokyo Night", "Gruvbox"]
-Widget::Box.new parent: gb, top: 5, left: 2, width: 20, height: 2,
+CW::Box.new parent: gb, top: 5, left: 2, width: 20, height: 2,
   content: "The drop-down opens\nover the cell below."
 
 # --- SpinBox -----------------------------------------------------------------
 
 gb = cell.call 0, 1, "SpinBox"
-Widget::Box.new parent: gb, top: 2, left: 2, width: 7, height: 1, content: "Qty:"
-spin = Widget::SpinBox.new parent: gb, top: 2, left: 9, width: 13, height: 1,
+CW::Box.new parent: gb, top: 2, left: 2, width: 7, height: 1, content: "Qty:"
+spin = CW::SpinBox.new parent: gb, top: 2, left: 9, width: 13, height: 1,
   minimum: 0, maximum: 25, value: 0, suffix: " pcs"
-Widget::Box.new parent: gb, top: 4, left: 2, width: 7, height: 1, content: "Ratio:"
-dspin = Widget::DoubleSpinBox.new parent: gb, top: 4, left: 9, width: 13, height: 1,
+CW::Box.new parent: gb, top: 4, left: 2, width: 7, height: 1, content: "Ratio:"
+dspin = CW::DoubleSpinBox.new parent: gb, top: 4, left: 9, width: 13, height: 1,
   minimum: 0.0, maximum: 1.0, single_step: 0.04, value: 0.0
 
 # --- Dial (with an LCDNumber readout) ----------------------------------------
@@ -58,12 +59,12 @@ dspin = Widget::DoubleSpinBox.new parent: gb, top: 4, left: 9, width: 13, height
 gb = cell.call 0, 2, "Dial"
 # `wrapping` maps the range onto the full circle, so 360° lands back on the
 # 0° pointer and the revolution below is seamless.
-dial = Widget::Dial.new parent: gb, top: 2, left: 2, width: 9, height: 4,
+dial = CW::Dial.new parent: gb, top: 2, left: 2, width: 9, height: 4,
   minimum: 0, maximum: 360, value: 0, wrapping: true
-lcd = Widget::LCDNumber.new parent: gb, top: 2, left: 12, width: 11, height: 3,
+lcd = CW::LCDNumber.new parent: gb, top: 2, left: 12, width: 11, height: 3,
   digit_count: 3
 lcd.display 0
-Widget::Box.new parent: gb, top: 6, left: 12, width: 11, height: 1, content: "degrees"
+CW::Box.new parent: gb, top: 6, left: 12, width: 11, height: 1, content: "degrees"
 
 # --- Table -------------------------------------------------------------------
 
@@ -84,12 +85,12 @@ table_rows = ->(i : Int32) do
   [["Host", "CPU%", "MB"]] +
   CPU.keys.map { |h| [h, CPU[h][i].to_s, MB[h][i].to_s] }
 end
-table = Widget::Table.new parent: gb, top: 2, left: 2, rows: table_rows.call(0)
+table = CW::Table.new parent: gb, top: 2, left: 2, rows: table_rows.call(0)
 
 # --- Tree --------------------------------------------------------------------
 
 gb = cell.call 1, 1, "Tree"
-tree = Widget::Tree.new parent: gb, top: 1, left: 1, right: 1, bottom: 1
+tree = CW::Tree.new parent: gb, top: 1, left: 1, right: 1, bottom: 1
 src = tree.add "src"
 wdir = src.add "widget"
 wdir.add "tree.cr"
@@ -103,10 +104,10 @@ tree.expand src
 
 gb = cell.call 1, 2, "Calendar"
 # A pinned month (rather than "now") keeps the capture reproducible.
-cal = Widget::Calendar.new parent: gb, top: 1, left: 1, width: 22, height: 8,
+cal = CW::Calendar.new parent: gb, top: 1, left: 1, width: 22, height: 8,
   date: Time.utc(2026, 6, 1)
 
-Widget::Box.new parent: s, top: 23, left: 0, width: "100%", height: 1, parse_tags: true,
+CW::Box.new parent: s, top: 23, left: 0, width: "100%", height: 1, parse_tags: true,
   content: "{center}part 1: widgets.cr · full chrome: qt_widgets.cr · q quits{/center}"
 
 # --- Master clock ------------------------------------------------------------
@@ -117,7 +118,7 @@ Widget::Box.new parent: s, top: 23, left: 0, width: "100%", height: 1, parse_tag
 # "Breeze" back, the tree closes every branch it opened, the calendar dismisses
 # both of its nav drop-downs unchanged, and the sweeps are triangles or
 # sawtooths.
-popup = -> { combo.popup_widget.as?(Widget::ComboBox::Popup) }
+popup = -> { combo.popup_widget.as?(CW::ComboBox::Popup) }
 tick = 0
 s.every(0.1.seconds) do
   t = tick % 50

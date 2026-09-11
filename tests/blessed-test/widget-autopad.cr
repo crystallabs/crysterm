@@ -1,30 +1,31 @@
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new optimization: OptimizationFlag::SmartCSR
+s = CT::Window.new optimization: CT::OptimizationFlag::SmartCSR
 
-b = Widget::Box.new(
+b = CW::Box.new(
   top: "center",
   left: "center",
   width: 20,
   height: 10,
-  style: Style.new(border: true),
+  style: CT::Style.new(border: true),
 )
 
 # Must add the Widget to screen in this way for the moment
 s.append b
 
-b2 = Widget::Box.new(
+b2 = CW::Box.new(
   parent: b,
   top: 0,
   left: 0,
   width: 10,
   height: 5,
-  style: Style.new(border: true),
+  style: CT::Style.new(border: true),
 )
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   # STDERR.puts e.inspect
   if e.char == 'q'
     # e.accept

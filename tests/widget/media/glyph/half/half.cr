@@ -2,20 +2,20 @@
 # Fixed variant of Media::Glyph (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Media::Unicode::Half"
+s = CT::Window.new title: "Media::Unicode::Half"
 
-Media::Unicode::Half.new \
+CW::MediaUnicodeHalf.new \
   parent: s, top: 1, left: 0, width: s.awidth, height: s.aheight - 1,
   animate: false,
   file: "#{__DIR__}/../../../../../data/image/matterhorn.png"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Unicode::Half  ·  Half-block 1x2 · 2 colors/cell{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#202830")
+  style: CT::Style.new(fg: "white", bg: "#202830")
 
 s.update
 s.exec

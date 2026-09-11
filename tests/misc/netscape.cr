@@ -19,8 +19,8 @@
 
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 img_path = ENV["IMAGE"]? || "#{__DIR__}/../../data/image/netscape.gif"
 name = File.basename(img_path)
@@ -28,11 +28,11 @@ name = File.basename(img_path)
 # Pick the rendering backend; all of these animate and resize.
 def make_image(backend, **opts)
   case backend
-  when "kitty" then MediaKitty.new(**opts)
-  when "sixel" then MediaSixel.new(**opts)
-  when "iterm" then MediaIterm.new(**opts)
-  when "ansi"  then MediaAnsi.new(**opts)
-  else              MediaGlyph.new(**opts, mode: MediaGlyph.best_mode)
+  when "kitty" then CW::MediaKitty.new(**opts)
+  when "sixel" then CW::MediaSixel.new(**opts)
+  when "iterm" then CW::MediaIterm.new(**opts)
+  when "ansi"  then CW::MediaAnsi.new(**opts)
+  else              CW::MediaGlyph.new(**opts, mode: CW::MediaGlyph.best_mode)
   end
 end
 
@@ -47,16 +47,16 @@ frame_delays = begin
 end
 frame_count = frame_delays.size
 
-s = Window.new title: "Netscape"
+s = CT::Window.new title: "Netscape"
 
 # Header label: the glyph backend resolves to a concrete sub-cell family
 # (`Glyph.best_mode`, the same choice `make_image` makes), so show which one.
-desc = backend == "glyph" ? "glyph (#{MediaGlyph.best_mode.to_s.downcase})" : backend
+desc = backend == "glyph" ? "glyph (#{CW::MediaGlyph.best_mode.to_s.downcase})" : backend
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}#{name}  ·  #{desc} graphics  ·  left: fixed size   ·   right: resizing while it plays{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
 ih = s.aheight - 1
 half = s.awidth // 2
@@ -64,14 +64,14 @@ half = s.awidth // 2
 # Left: the animation at a fixed size.
 left = make_image backend,
   parent: s, top: 1, left: 0, width: half, height: ih,
-  fit: Widget::Media::Fit::Contain, file: img_path,
-  style: Style.new(border: true)
+  fit: CW::Media::Fit::Contain, file: img_path,
+  style: CT::Style.new(border: true)
 
 # Right: the same animation in a box we resize on every frame.
 right = make_image backend,
   parent: s, top: 1, left: half, width: s.awidth - half, height: ih,
-  fit: Widget::Media::Fit::Contain, file: img_path,
-  style: Style.new(border: true)
+  fit: CW::Media::Fit::Contain, file: img_path,
+  style: CT::Style.new(border: true)
 
 rmaxw = s.awidth - half
 
@@ -93,8 +93,8 @@ end
 # When recording (TTYGIF_MARK, set by make-gifs.sh), each frame is tagged with
 # a capture marker so the recorder can grab exactly one loop.
 spawn do
-  ready = ->(w : Widget) { w.responds_to?(:frames_ready?) ? w.frames_ready? : true }
-  show = ->(w : Widget, i : Int32) { w.anim_index = i if w.responds_to?(:anim_index=) }
+  ready = ->(w : CT::Widget) { w.responds_to?(:frames_ready?) ? w.frames_ready? : true }
+  show = ->(w : CT::Widget, i : Int32) { w.anim_index = i if w.responds_to?(:anim_index=) }
 
   until ready.call(left) && ready.call(right)
     sleep 0.02.seconds
@@ -108,7 +108,7 @@ spawn do
   # each frame's own GIF delay, so playback keeps native timing.
   mark = ENV["TTYGIF_MARK"]?
   idx = 0
-  Crysterm::FrameClock.ticker(frame_delays[0].milliseconds) do |clock|
+  CT::FrameClock.ticker(frame_delays[0].milliseconds) do |clock|
     # Tag every frame with an out-of-band marker (an APC string terminals
     # ignore) carrying its index and source delay, emitted before the frame is
     # drawn. The recorder uses these to grab one output frame per source frame

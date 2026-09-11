@@ -14,7 +14,8 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 CELL_W = 40
 CELL_H = 13
@@ -31,41 +32,41 @@ CSS_DIR = File.expand_path "../../data/css", __DIR__
 # One themed mini-app: a menu bar, a completer-backed "Lang" field, a couple
 # of buttons and a group box — enough chrome for a theme to show its colors,
 # borders and highlights.
-record ChildApp, window : Window, menubar : Widget::MenuBar, lang : Widget::LineEdit
+record ChildApp, window : CT::Window, menubar : CW::MenuBar, lang : CW::LineEdit
 
 def build_child(theme_file : String?) : ChildApp
-  w = Window.new \
+  w = CT::Window.new \
     input: IO::Memory.new, output: IO::Memory.new, error: IO::Memory.new,
     width: CELL_W, height: CELL_H, alternate: false, default_quit_keys: false
   w.border_junctions = true
   w.load_stylesheet File.join(CSS_DIR, theme_file) if theme_file
 
-  menubar = Widget::MenuBar.new parent: w, top: 0, left: 0, width: "100%", height: 1
+  menubar = CW::MenuBar.new parent: w, top: 0, left: 0, width: "100%", height: 1
   file = menubar.add_menu "File"
   file.add_action("New") { }
   file.add_action("Open") { }
   file.add_separator
   file.add_action("Quit") { }
-  menubar.add_menu "Edit", [Action.new("Cut"), Action.new("Copy"), Action.new("Paste")]
+  menubar.add_menu "Edit", [CW::Action.new("Cut"), CW::Action.new("Copy"), CW::Action.new("Paste")]
   menubar.add_menu("Help").add_action("About") { }
 
-  Widget::Box.new parent: w, top: 2, left: 1, width: 6, height: 1, content: "Lang:"
-  lang = Widget::LineEdit.new parent: w, top: 2, left: 7, width: 14, height: 1
-  Completer.new(%w[C Crystal Ruby Rust Python Perl Go]).attach lang
+  CW::Box.new parent: w, top: 2, left: 1, width: 6, height: 1, content: "Lang:"
+  lang = CW::LineEdit.new parent: w, top: 2, left: 7, width: 14, height: 1
+  CW::Completer.new(%w[C Crystal Ruby Rust Python Perl Go]).attach lang
 
-  Widget::Button.new parent: w, top: 2, left: 22, width: 8, height: 1,
+  CW::Button.new parent: w, top: 2, left: 22, width: 8, height: 1,
     content: "Save", align: :center
-  Widget::CheckBox.new parent: w, top: 2, left: 31, width: 9, height: 1,
+  CW::CheckBox.new parent: w, top: 2, left: 31, width: 9, height: 1,
     content: "Wrap", checked: true
 
-  gb = Widget::GroupBox.new parent: w, top: 4, left: 1, right: 1, bottom: 0,
+  gb = CW::GroupBox.new parent: w, top: 4, left: 1, right: 1, bottom: 0,
     title: "Options", checkable: true, checked: true
-  Widget::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
-  Widget::Slider.new parent: gb, top: 1, left: 9, width: 24, height: 2,
+  CW::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
+  CW::Slider.new parent: gb, top: 1, left: 9, width: 24, height: 2,
     minimum: 0, maximum: 100, value: 40, text_visible: true,
-    tick_position: Widget::Slider::TickPosition::Below, tick_interval: 25
-  Widget::Box.new parent: gb, top: 4, left: 1, width: 8, height: 1, content: "Done:"
-  Widget::ProgressBar.new parent: gb, top: 4, left: 9, width: 24, height: 1, value: 65
+    tick_position: CW::Slider::TickPosition::Below, tick_interval: 25
+  CW::Box.new parent: gb, top: 4, left: 1, width: 8, height: 1, content: "Done:"
+  CW::ProgressBar.new parent: gb, top: 4, left: 9, width: 24, height: 1, value: 65
 
   ChildApp.new w, menubar, lang
 end
@@ -76,12 +77,12 @@ children = THEMES.map { |(file, _label)| build_child file }
 
 # Direct cell-buffer writes (the blit below) live outside the damage-tracked
 # cell model, so run the master window with plain full-frame rendering.
-s = Window.new title: "QSS Themes", width: 80, height: 43,
-  optimization: OptimizationFlag::None
+s = CT::Window.new title: "QSS Themes", width: 80, height: 43,
+  optimization: CT::OptimizationFlag::None
 
 # Copies every child window's finished cell buffer (attrs, chars and grapheme
 # clusters) into the master grid — six live windows composited into one.
-class ThemeGrid < Widget::Box
+class ThemeGrid < CW::Box
   def initialize(@apps : Array(ChildApp), **kwargs)
     super **kwargs
   end
@@ -116,7 +117,7 @@ class ThemeGrid < Widget::Box
   end
 end
 
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1, parse_tags: true,
   content: "{center}{bold}Unmodified QSS themes{/bold} — one scene, six windows" \
            " · {#57c7ff-fg}--colors-stylesheet data/css/<name>.qss{/}{/center}"
 
@@ -124,7 +125,7 @@ ThemeGrid.new parent: s, apps: children, top: 2, left: 0, width: "100%", height:
 
 # Captions render after (over) the grid — its background covers rows 15/29.
 THEMES.each_with_index do |(_file, label), i|
-  Widget::Box.new parent: s,
+  CW::Box.new parent: s,
     top: 1 + (i // 2) * (CELL_H + 1), left: (i % 2) * CELL_W, width: CELL_W, height: 1,
     parse_tags: true, content: " {#8a94a6-fg}▍{/}{bold}#{label}{/bold}"
 end
@@ -135,8 +136,8 @@ end
 # File menu, close it, pop the completer on the Lang field, filter, commit.
 # The 2.5 s cycle divides the 5 s capture exactly, so the looping animation
 # wraps seamlessly whatever the recording's start phase.
-press = ->(w : Widget, char : Char, key : ::Tput::Key?) do
-  w.emit Event::KeyPress, Event::KeyPress.new(char, key)
+press = ->(w : CT::Widget, char : Char, key : ::Tput::Key?) do
+  w.emit CT::Event::KeyPress, CT::Event::KeyPress.new(char, key)
 end
 
 tick = 0

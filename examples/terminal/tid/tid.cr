@@ -1,5 +1,8 @@
 require "../../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # tid — terminal identification.
 #
 # Standalone diagnostic answering: what terminal am I running in, and what can
@@ -19,7 +22,6 @@ require "../../../src/crysterm"
 # Probing only happens on a real terminal; when output is redirected (a pipe or
 # file) the live section is skipped and the verdict falls back to env/TERM
 # heuristics — called out in the report.
-include Crysterm
 include Tput::Namespace
 
 verbose = no_probe = json = false
@@ -50,7 +52,7 @@ end
 # `probe: false`) and, on top of it, Crysterm's per-terminal `DrawCaps` —
 # without entering the alt-screen or otherwise taking over the terminal.
 # (Terminfo for $TERM loads automatically, with an `xterm` fallback.)
-screen = Screen.new
+screen = CT::Screen.new
 tput = screen.tput
 
 # Ask the terminal about itself: round-trip live query sequences (colors,
@@ -159,7 +161,7 @@ if verbose
     {"size", "#{screen.width} x #{screen.height}",
      screen.explicit_size? ? "explicit (constructor)" : "probed from terminal"},
     {"colors", screen.color_count.to_s,
-     "effective depth; policy #{Config.screen_color_force} / #{Config.colors_depth}, tput detected #{f.number_of_colors}"},
+     "effective depth; policy #{CT::Config.screen_color_force} / #{CT::Config.colors_depth}, tput detected #{f.number_of_colors}"},
     {"truecolor", screen.truecolor?.to_s, "effective (colors >= 16M)"},
     {"force_unicode", screen.force_unicode?.to_s, "Crysterm option (screen.force_unicode)"},
     {"full_unicode (requested)", screen.full_unicode?.to_s, "Crysterm option (screen.full_unicode)"},

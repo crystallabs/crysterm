@@ -18,7 +18,8 @@
 
 require "../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 COMMANDS = %w[bench build clean deploy docs format install lint publish release run spec update]
 
@@ -27,18 +28,18 @@ DONE = "{#8a94a6-fg}❯ deploy\n{/}{#98c379-fg}  ✓ deploy: 3 targets updated{/
 
 # An inline window: 12 rows at the shell cursor, normal buffer, scrollback
 # above it intact.
-s = Window.new title: "completer", inline: true, height: 12
+s = CT::Window.new title: "completer", inline: true, height: 12
 
-history = Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 2,
+history = CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 2,
   parse_tags: true, content: DONE
 
-Widget::Box.new parent: s, top: 2, left: 0, width: 2, height: 1,
+CW::Box.new parent: s, top: 2, left: 0, width: 2, height: 1,
   parse_tags: true, content: "{#57c7ff-fg}❯{/}"
-cmd = Widget::LineEdit.new parent: s, top: 2, left: 2, width: 32, height: 1
-Completer.new(COMMANDS).attach cmd
+cmd = CW::LineEdit.new parent: s, top: 2, left: 2, width: 32, height: 1
+CW::Completer.new(COMMANDS).attach cmd
 cmd.focus
 
-Widget::Box.new parent: s, bottom: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, bottom: 0, left: 0, width: "100%", height: 1,
   parse_tags: true,
   content: "{#8a94a6-fg}type to filter · ↓ opens the list · Tab/Enter accepts · Ctrl-Q quits{/}"
 
@@ -48,7 +49,7 @@ Widget::Box.new parent: s, bottom: 0, left: 0, width: "100%", height: 1,
 # the starting state, so the looping animation wraps seamlessly whatever the
 # recording's start phase.
 press = ->(char : Char, key : ::Tput::Key?) do
-  cmd.emit Event::KeyPress, Event::KeyPress.new(char, key)
+  cmd.emit CT::Event::KeyPress, CT::Event::KeyPress.new(char, key)
 end
 
 tick = 0

@@ -7,13 +7,13 @@ require "../../src/crysterm"
 #   * press Enter while focused -> different content, plus a set/insert line demo,
 #   * q / Escape / Ctrl-C quits.
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-window = Window.new title: "widget.cr"
+window = CT::Window.new title: "widget.cr"
 
 # Box centered horizontally and vertically.
-box = Widget::Box.new(
+box = CW::Box.new(
   parent: window,
   top: "center",
   left: "center",
@@ -21,16 +21,16 @@ box = Widget::Box.new(
   height: "50%",
   content: "Hello {bold}world{/bold}!",
   parse_tags: true,
-  style: Style.new(fg: "white", bg: "magenta", border: true),
+  style: CT::Style.new(fg: "white", bg: "magenta", border: true),
 )
 
 # Change content on click.
-box.on(Event::Click) do
+box.on(CT::Event::Click) do
   box.content = "{center}Some different {red-fg}content{/red-fg}.{/center}"
 end
 
 # Handle Enter when focused.
-box.on(Event::KeyPress) do |e|
+box.on(CT::Event::KeyPress) do |e|
   if e.key == Tput::Key::Enter
     box.content = "{right}Even different {black-fg}content{/black-fg}.{/right}\n"
     box.replace_line 1, "bar"
@@ -39,7 +39,7 @@ box.on(Event::KeyPress) do |e|
 end
 
 # Quit on Escape, q, or Ctrl-C.
-window.on(Event::KeyPress) do |e|
+window.on(CT::Event::KeyPress) do |e|
   if e.char == 'q' || e.key == Tput::Key::Escape || e.key == Tput::Key::CtrlC
     window.quit
   end

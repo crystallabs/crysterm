@@ -15,8 +15,8 @@
 
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 # Full-screen animation that mutates `style.fg`/`bg` in place — mutations
 # dirty-mark-based damage tracking (the default) does not observe, so its
@@ -24,7 +24,7 @@ include Crysterm::Widgets
 # `OptimizationFlag::None` repaints the whole buffer every frame, picking those
 # mutations up. (Perf is no longer a reason: while latched full, damage
 # tracking sheds its per-frame bookkeeping and matches `None`.)
-s = Window.new title: "CRYSTERM cracktro", optimization: OptimizationFlag::None
+s = CT::Window.new title: "CRYSTERM cracktro", optimization: CT::OptimizationFlag::None
 
 w = s.awidth
 h = s.aheight
@@ -39,7 +39,7 @@ MSG = ("WELCOME TO THE CRYSTERM CRACKTRO !!!   GREETINGS TO:  BLESSED * " +
 # `step`) so the whole scene stays on one clock.
 COPPER_ROWS = [1, 3]
 copper = COPPER_ROWS.map_with_index do |row, idx|
-  EffectCopperBar.new parent: s, top: row, left: 0, width: "100%", height: 1,
+  CW::EffectCopperBar.new parent: s, top: row, left: 0, width: "100%", height: 1,
     hue_offset: idx * 26, hue_speed: 9
 end
 copper_idx = {1 => 0, 3 => 1}
@@ -48,22 +48,22 @@ copper_idx = {1 => 0, 3 => 1}
 # `Widget::Marquee`. Advanced explicitly via `step` (rather than `start` and its
 # own fiber) so it stays locked to the scene's clock and the recorded GIF tiles
 # seamlessly.
-hscroll = Marquee.new \
+hscroll = CW::Marquee.new \
   parent: s, top: 2, left: 0, width: "100%", height: 1,
-  text: MSG, rainbow: true, style: Style.new(bg: "black")
+  text: MSG, rainbow: true, style: CT::Style.new(bg: "black")
 
 # Flashing greet.
-greet = Widget::Box.new \
+greet = CW::Box.new \
   parent: s, top: 4, left: 0, width: "100%", height: 1, align: :hcenter,
-  content: "* CRACKED BY THE CRYSTERM CREW *", style: Style.new(fg: "yellow", bg: "black")
+  content: "* CRACKED BY THE CRYSTERM CREW *", style: CT::Style.new(fg: "yellow", bg: "black")
 
 # Sine-wave rainbow scroller in the lower portion, as a reusable
 # `Widget::Effect::SineScroller`. Advanced via `step` so it shares the one frame
 # clock.
 sine_top = 5
-sine = EffectSineScroller.new \
+sine = CW::EffectSineScroller.new \
   parent: s, top: sine_top, left: 0, width: "100%", height: h - sine_top,
-  text: MSG, style: Style.new(bg: "black")
+  text: MSG, style: CT::Style.new(bg: "black")
 
 # Background present at each row for the current frame, so a flying letter can
 # adopt it without changing the background it passes over: copper rows carry
@@ -74,7 +74,7 @@ sine = EffectSineScroller.new \
 row_bg = Array.new(h, 0x000000)
 refresh_row_bg = ->(fr : Int32) {
   (0...h).each do |r|
-    row_bg[r] = (ci = copper_idx[r]?) ? Colors.hsv_i((ci * 26 + fr * 9) % 360) : 0x000000
+    row_bg[r] = (ci = copper_idx[r]?) ? CT::Colors.hsv_i((ci * 26 + fr * 9) % 360) : 0x000000
   end
 }
 
@@ -124,20 +124,20 @@ end
 cycle = slots.size * INTERVAL + TRAVEL + HOLD
 
 letters = slots.map do |_|
-  Widget::Box.new parent: s, top: cy, left: cx, width: 1, height: 1,
-    content: "·", style: Style.new(fg: 0xffffff, bg: 0x000000)
+  CW::Box.new parent: s, top: cy, left: cx, width: 1, height: 1,
+    content: "·", style: CT::Style.new(fg: 0xffffff, bg: 0x000000)
 end
 
 # Live performance overlay. Added last so it paints on top of the scene;
 # updates itself from render stats each frame (no `step` needed). Anchored
 # top-left here (default is bottom-left, where the sine scroller is).
-FPS.new \
+CW::FPS.new \
   parent: s, top: 0, left: 0,
   format: " FPS %s (avg %s)  render %s  draw %s  flush %s ",
-  args: [Widget::FPS::Metric::Fps, Widget::FPS::Metric::FpsAvg,
-         Widget::FPS::Metric::Render, Widget::FPS::Metric::Draw,
-         Widget::FPS::Metric::Flush],
-  style: Style.new(fg: "white", bg: "black")
+  args: [CW::FPS::Metric::Fps, CW::FPS::Metric::FpsAvg,
+         CW::FPS::Metric::Render, CW::FPS::Metric::Draw,
+         CW::FPS::Metric::Flush],
+  style: CT::Style.new(fg: "white", bg: "black")
 
 frame = 0
 s.every(0.07.seconds) do
@@ -170,12 +170,12 @@ s.every(0.07.seconds) do
       col = (cx + (destx - cx) * p).round.to_i
       row = (cy + (desty - cy) * p).round.to_i
       box.content = GROW[(p * GROW.size).to_i.clamp(0, GROW.size - 1)]
-      box.style.fg = Colors.hsv_i((i * 9 + frame * 9) % 360)
+      box.style.fg = CT::Colors.hsv_i((i * 9 + frame * 9) % 360)
     else
       col = destx
       row = desty
       box.content = fch.to_s
-      box.style.fg = Colors.hsv_i((i * 9 + frame * 6) % 360)
+      box.style.fg = CT::Colors.hsv_i((i * 9 + frame * 6) % 360)
     end
     box.left = col
     box.top = row

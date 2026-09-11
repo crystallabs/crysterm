@@ -15,6 +15,9 @@
 
 require "../../examples/games/minesweeper/game"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 class Minesweeper
   # The cell the "player" last acted on; each next move is picked nearest to
   # it, so the play walks the board like a pointer instead of teleporting.
@@ -94,7 +97,7 @@ class Minesweeper
           demo_click row, col, flag ? ::Tput::Mouse::Button::Right : ::Tput::Mouse::Button::Left
         end
       when 48 # after the seven moves, restart the way a player would — the cycle wraps on the fresh board
-        @window.emit Event::KeyPress, Event::KeyPress.new('n', nil)
+        @window.emit CT::Event::KeyPress, CT::Event::KeyPress.new('n', nil)
       end
     end
 

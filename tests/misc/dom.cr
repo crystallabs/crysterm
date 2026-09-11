@@ -12,9 +12,10 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Layout DOM"
+s = CT::Window.new title: "Layout DOM"
 
 s.load_layout <<-HTML
   <w-window>
@@ -73,8 +74,8 @@ s.every(0.25.seconds) do
   cpu = ((Math.sin(tick / 6.0) * 0.5 + 0.5) * 100).to_i
   mem = ((Math.cos(tick / 9.0) * 0.35 + 0.55) * 100).to_i
 
-  s.resolve_selector("#cpu").each { |w| w.as(Widget::ProgressBar).value = cpu }
-  s.resolve_selector("#mem").each { |w| w.as(Widget::ProgressBar).value = mem }
+  s.resolve_selector("#cpu").each { |w| w.as(CW::ProgressBar).value = cpu }
+  s.resolve_selector("#mem").each { |w| w.as(CW::ProgressBar).value = mem }
   s.resolve_selector("#readout").each do |w|
     w.content = "CPU {bold}#{cpu}%{/bold}  ·  Mem {bold}#{mem}%{/bold}"
   end

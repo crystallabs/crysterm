@@ -13,9 +13,10 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-d = Direct.new output: STDOUT
+d = CT::Direct.new output: STDOUT
 
 # Styled spans — each self-contained (SGR + reset), so following text is clean.
 d.print "hello, ", fg: "green", bold: true

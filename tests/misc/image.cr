@@ -6,29 +6,29 @@
 
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Media"
+s = CT::Window.new title: "Media"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Images decoded to TrueColor cells (static PNG + animated GIF){/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#203040")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#203040")
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 1, left: 2, width: 34, height: 2,
   content: "{center}static PNG{/center}", parse_tags: true,
-  style: Style.new(fg: "cyan")
-MediaAnsi.new \
+  style: CT::Style.new(fg: "cyan")
+CW::MediaAnsi.new \
   parent: s, top: 3, left: 2, width: 34, height: 12,
   file: "#{__DIR__}/../../data/image/matterhorn.png"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 1, left: 42, width: 34, height: 2,
   content: "{center}animated GIF{/center}", parse_tags: true,
-  style: Style.new(fg: "magenta")
-MediaAnsi.new \
+  style: CT::Style.new(fg: "magenta")
+CW::MediaAnsi.new \
   parent: s, top: 3, left: 42, width: 34, height: 12,
   file: "#{__DIR__}/../../data/image/netscape.gif"
 

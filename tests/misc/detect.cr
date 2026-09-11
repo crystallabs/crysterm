@@ -12,48 +12,48 @@
 
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Feature detection"
+s = CT::Window.new title: "Feature detection"
 
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Terminal feature auto-detection — one widget, best backend wins{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
 # The same radial gauge twice; only the pinned Media backend differs. Both
 # are driven in lockstep below (one shared value), so the two renderings can
 # be compared against each other at any instant. The kitty pin soft-falls
 # back to octant glyphs on terminals without the protocol (a hard pin there
 # would print the raw APC payload as text); captures always keep kitty.
-kitty_type = Widget::Media.type_or_fallback(Widget::Media::Type::Kitty, Widget::Media::Type::GlyphOctant)
-kitty = GraphDonut.new parent: s, top: 2, left: 4, width: 30, height: 13,
+kitty_type = CW::Media.type_or_fallback(CW::Media::Type::Kitty, CW::Media::Type::GlyphOctant)
+kitty = CW::GraphDonut.new parent: s, top: 2, left: 4, width: 30, height: 13,
   value: 60, label: kitty_type.kitty? ? "KITTY" : "OCTANT", fill_color: 0xE0A040, show_track: true, track_color: 0x2A3440,
   type: kitty_type,
-  style: Style.new(fg: "white", bg: "#101820", border: true)
+  style: CT::Style.new(fg: "white", bg: "#101820", border: true)
 
-braille = GraphDonut.new parent: s, top: 2, left: 46, width: 30, height: 13,
+braille = CW::GraphDonut.new parent: s, top: 2, left: 46, width: 30, height: 13,
   value: 60, label: "BRAILLE", fill_color: 0x40E0D0, show_track: true, track_color: 0x2A3440,
-  type: Widget::Media::Type::GlyphBraille,
-  style: Style.new(fg: "white", bg: "#101820", border: true)
+  type: CW::Media::Type::GlyphBraille,
+  style: CT::Style.new(fg: "white", bg: "#101820", border: true)
 
-Widget::Box.new parent: s, top: 15, left: 4, width: 30, height: 1, parse_tags: true,
+CW::Box.new parent: s, top: 15, left: 4, width: 30, height: 1, parse_tags: true,
   content: "{center}#{kitty_type.kitty? ? "Forced: kitty pixels" : "Kitty n/a → octant glyphs"}{/center}",
-  style: Style.new(fg: "#e0a040")
-Widget::Box.new parent: s, top: 15, left: 46, width: 30, height: 1, parse_tags: true,
-  content: "{center}Forced: glyph braille{/center}", style: Style.new(fg: "#40e0d0")
+  style: CT::Style.new(fg: "#e0a040")
+CW::Box.new parent: s, top: 15, left: 46, width: 30, height: 1, parse_tags: true,
+  content: "{center}Forced: glyph braille{/center}", style: CT::Style.new(fg: "#40e0d0")
 
 # What auto-detection actually found on the terminal running this demo.
 feat = s.tput.features
 emu = s.tput.emulator
-best = Widget::Media.resolve(Widget::Media::Content::Painter, s.tput)
+best = CW::Media.resolve(CW::Media::Content::Painter, s.tput)
 cellpx = s.screen.cell_pixel_width > 0 ? "#{s.screen.cell_pixel_width}×#{s.screen.cell_pixel_height}px" : "n/a"
 n_opts = 0
-Config.each { n_opts += 1 }
+CT::Config.each { n_opts += 1 }
 
-Widget::Box.new parent: s, top: 17, left: 2, width: 76, height: 7,
+CW::Box.new parent: s, top: 17, left: 2, width: 76, height: 7,
   label: " Auto-detected on this terminal ", parse_tags: true,
-  style: Style.new(border: true, fg: "#c0caf5", bg: "#10141c"),
+  style: CT::Style.new(border: true, fg: "#c0caf5", bg: "#10141c"),
   content: "\n Truecolor: {bold}#{feat.truecolor?}{/bold}      Unicode: {bold}#{feat.unicode?}{/bold}      " \
            "Colors: {bold}#{feat.number_of_colors}{/bold}      Cell: {bold}#{cellpx}{/bold}\n" \
            " Best graphics: {bold}#{emu.best_graphics}{/bold}      Auto-picked painter backend: {bold}#{best}{/bold}\n\n" \

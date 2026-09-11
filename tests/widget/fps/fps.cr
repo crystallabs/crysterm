@@ -4,10 +4,10 @@
 # Run it:     crystal run tests/widget/fps/fps.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "Fps" do |window|
   window.stylesheet = "Fps { border: solid; color: #9ece6a; }"
-  FPS.new parent: window, top: "center", left: "center", width: 30, height: 5
+  CW::FPS.new parent: window, top: "center", left: "center", width: 30, height: 5
 end

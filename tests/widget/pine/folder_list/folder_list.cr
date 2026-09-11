@@ -4,15 +4,15 @@
 # Run it:     crystal run tests/widget/pine/folder_list/folder_list.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "FolderList" do |window|
   window.stylesheet = "FolderList { border: solid; color: #c0caf5; }"
-  fl = PineFolderList.new parent: window, top: "center", left: "center", width: 34, height: 12, label: " Folders "
+  fl = CW::PineFolderList.new parent: window, top: "center", left: "center", width: 34, height: 12, label: " Folders "
   fl.folders = ([
-    PineFolderList::Folder.new("INBOX", 12), PineFolderList::Folder.new("Sent", 48),
-    PineFolderList::Folder.new("Drafts", 2), PineFolderList::Folder.new("Trash", 7),
+    CW::PineFolderList::Folder.new("INBOX", 12), CW::PineFolderList::Folder.new("Sent", 48),
+    CW::PineFolderList::Folder.new("Drafts", 2), CW::PineFolderList::Folder.new("Trash", 7),
   ])
   fl.focus
 end

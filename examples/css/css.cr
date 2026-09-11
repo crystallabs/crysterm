@@ -13,7 +13,7 @@ require "../../src/crysterm"
 # Run with:  crystal examples/css/css.cr
 
 alias CT = Crysterm
-alias CW = Crysterm::Widgets
+alias CW = CT::Widgets
 
 window = CT::Window.new title: "CSS demo"
 

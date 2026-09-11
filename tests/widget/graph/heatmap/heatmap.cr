@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/graph/heatmap/heatmap.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("HeatMap",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -16,7 +16,7 @@ Crysterm::WidgetExample.run("HeatMap",
     [0.0, 2.0, 4.0, 0.0].each do |phase|
       d.act(dwell: 0.6) do |s|
         s.children.each do |c|
-          next unless c.is_a?(GraphHeatMap)
+          next unless c.is_a?(CW::GraphHeatMap)
           c.values = (0...5).map do |r|
             (0...8).map { |col| Math.sin((r + col + phase) * 0.5) }
           end
@@ -24,7 +24,7 @@ Crysterm::WidgetExample.run("HeatMap",
       end
     end
   }) do |window|
-  GraphHeatMap.new \
+  CW::GraphHeatMap.new \
     parent: window, top: "center", left: "center", width: 34, height: 14,
     colormap: :viridis,
     col_labels: %w[a b c d e f g h],

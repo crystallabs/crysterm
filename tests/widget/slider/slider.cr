@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/slider/slider.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("Slider",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,6 +14,6 @@ Crysterm::WidgetExample.run("Slider",
     d.key :left, times: 5, dwell: 0.3
   }) do |window|
   window.stylesheet = "Slider { color: #bb9af7; }"
-  slider = Slider.new parent: window, top: "center", left: "center", width: 40, height: 1, value: 40
+  slider = CW::Slider.new parent: window, top: "center", left: "center", width: 40, height: 1, value: 40
   slider.focus
 end

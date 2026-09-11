@@ -1,22 +1,22 @@
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new propagate_keys: false, always_propagated_keys: [Tput::Key::CtrlQ]
+s = CT::Window.new propagate_keys: false, always_propagated_keys: [Tput::Key::CtrlQ]
 
-b = Widget::Box.new(
+b = CW::Box.new(
   top: "center",
   left: "center",
   width: "70%",
   shrink_to_fit: true,
-  style: Style.new(border: true),
+  style: CT::Style.new(border: true),
   content: "Press Ctrl+q to quit. It should work even though display's keys are locked."
 )
 
 s.append b
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   if e.key == Tput::Key::CtrlQ
     s.destroy
 

@@ -1,28 +1,28 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-table.js
 #
 # Demonstrates the static `Widget::Table`: aligned columns, styled line
 # borders/header/cell, tag-colored cells, CJK characters, and re-setting data after a delay.
 class X
-  include Crysterm
-  include Crysterm::Widgets
-
   DU   = "杜"
   JUAN = "鹃"
 
   def initialize
-    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
+    s = CT::Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
-    table = Table.new \
+    table = CW::Table.new \
       top: "center",
       left: "center",
       parse_tags: true,
       align: ::Tput::AlignFlag::Center,
-      style: Style.new(
-        border: Border.new(fg: "red"),
-        header: Style.new(fg: "blue", bold: true),
-        cell: Style.new(fg: "magenta"),
+      style: CT::Style.new(
+        border: CT::Border.new(fg: "red"),
+        header: CT::Style.new(fg: "blue", bold: true),
+        cell: CT::Style.new(fg: "magenta"),
       )
 
     data1 = [
@@ -51,7 +51,7 @@ class X
       s.update
     end
 
-    s.on(Crysterm::Event::KeyPress) do |e|
+    s.on(CT::Event::KeyPress) do |e|
       if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
         s.destroy
         exit

@@ -1,15 +1,16 @@
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 include Tput::Namespace
 
-s = Window.new(
+s = CT::Window.new(
   optimization: :smart_csr,
   always_propagated_keys: [Tput::Key::CtrlQ], title: "Crysterm Tech Demo"
 )
 
-box = ScrollableBox.new(
+box = CW::ScrollableBox.new(
   parent: s,
   name: "box",
   scrollable: true,
@@ -18,7 +19,7 @@ box = ScrollableBox.new(
   width: "80%",
   height: "80%",
   scrollbar_policy: :as_needed,
-  style: Style.new(
+  style: CT::Style.new(
     bg: "green",
     border: true,
   ),
@@ -32,11 +33,11 @@ box = ScrollableBox.new(
   # },
 )
 
-text = ScrollableBox.new(
+text = CW::ScrollableBox.new(
   parent: box,
   name: "text",
   content: "hello1\nhello2\nhello3\nhello4",
-  style: Style.new(
+  style: CT::Style.new(
     bg: "red",
     padding: 2,
   ),
@@ -46,11 +47,11 @@ text = ScrollableBox.new(
   height: 6,
 )
 
-text2 = ScrollableBox.new(
+text2 = CW::ScrollableBox.new(
   parent: box,
   name: "text2",
   content: "world",
-  style: Style.new(
+  style: CT::Style.new(
     bg: "red",
     padding: 1,
   ),
@@ -60,7 +61,7 @@ text2 = ScrollableBox.new(
   height: 3,
 )
 
-box2 = ScrollableBox.new(
+box2 = CW::ScrollableBox.new(
   parent: box,
   name: "box2",
   scrollable: true,
@@ -69,7 +70,7 @@ box2 = ScrollableBox.new(
   top: 20,
   width: "80%",
   height: 9,
-  style: Style.new(
+  style: CT::Style.new(
     bg: "magenta",
     # focus: {
     #	bg: "blue",
@@ -85,7 +86,7 @@ box2 = ScrollableBox.new(
   always_scroll: true,
 )
 
-box3 = ScrollableBox.new(
+box3 = CW::ScrollableBox.new(
   parent: box2,
   name: "box3",
   scrollable: true,
@@ -94,7 +95,7 @@ box3 = ScrollableBox.new(
   content: "foo",
   height: 4,
   width: 5,
-  style: Style.new(
+  style: CT::Style.new(
     bg: "yellow",
     # focus: {
     #	bg: "blue",
@@ -111,7 +112,7 @@ box3 = ScrollableBox.new(
 
 box.focus
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   # e.accept
   if e.key == ::Tput::Key::CtrlQ || e.char == 'q'
     s.destroy

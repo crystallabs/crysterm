@@ -4,13 +4,13 @@
 # Run it:     crystal run tests/widget/pine/list_select/list_select.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "ListSelect" do |window|
   window.stylesheet = "ListSelect { border: solid; color: #c0caf5; }"
   items = ["Apricot", "Banana", "Cherry", "Date", "Elderberry"]
-  ls = PineListSelect(String).new(
+  ls = CW::PineListSelect(String).new(
     items,
     label: ->(s : String) { s },
     multi: true,

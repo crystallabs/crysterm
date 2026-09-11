@@ -4,6 +4,9 @@
 
 require "./game"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Pick difficulty from the first CLI argument (name or 1/2/3); default Beginner.
 arg = ARGV[0]?.try(&.downcase)
 difficulty =

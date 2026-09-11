@@ -6,8 +6,8 @@
 # Run it:     crystal run tests/widget/markdown_viewer/markdown_viewer.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 PAGE = <<-MD
   # MarkdownViewer
@@ -67,9 +67,9 @@ Crysterm::WidgetExample.run("MarkdownViewer",
     .divider { background-color: #3b4261; }
     CSS
 
-  mv = Widget::MarkdownViewer.new parent: window,
+  mv = CW::MarkdownViewer.new parent: window,
     top: 0, left: 0, width: "100%", height: "100%",
-    document: TextDocument.from_markdown(PAGE)
+    document: CT::TextDocument.from_markdown(PAGE)
 
   window.on(Crysterm::Event::KeyPress) do |e|
     mv.show_toc = !mv.show_toc? if e.char == 't'

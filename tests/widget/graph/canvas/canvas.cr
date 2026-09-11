@@ -7,12 +7,12 @@
 # Run it:     crystal run tests/widget/graph/canvas/canvas.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "Canvas" do |window|
   window.stylesheet = "Canvas { border: solid; }"
-  cv = GraphCanvas.new parent: window, top: "center", left: "center",
+  cv = CW::GraphCanvas.new parent: window, top: "center", left: "center",
     width: 44, height: 14
   cv.on_paint do |p|
     p.set_window 0, -1.2, 6.28, 2.4 # logical: x in 0..2π, y in -1.2..1.2

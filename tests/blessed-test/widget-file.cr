@@ -1,5 +1,8 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-file.js
 #
 # Demonstrates `Widget::FileManager`: browse the filesystem with the keyboard
@@ -7,13 +10,10 @@ require "../../src/crysterm"
 # label shows the current path. Press `p` to `#pick` a file: the manager hides,
 # reappears, and on selection shows the chosen path in a box.
 class X
-  include Crysterm
-  include Crysterm::Widgets
-
   def initialize
-    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
+    s = CT::Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
-    fm = FileManager.new \
+    fm = CW::FileManager.new \
       parent: s,
       vi_keys: true,
       label: " Files ",
@@ -23,23 +23,23 @@ class X
       top: "center",
       left: "center",
       scrollbar_policy: :as_needed,
-      style: Style.new(border: true)
+      style: CT::Style.new(border: true)
 
-    box = Box.new \
+    box = CW::Box.new \
       parent: s,
       height: "50%",
       width: "50%",
       top: "center",
       left: "center",
-      style: Style.new(bg: "green", border: true)
+      style: CT::Style.new(bg: "green", border: true)
     box.hide
 
-    fm.on(Crysterm::Event::DirectoryChanged) do |e|
+    fm.on(CT::Event::DirectoryChanged) do |e|
       fm.set_label " #{e.path} "
       s.update
     end
 
-    fm.on(Crysterm::Event::FileSelected) do |e|
+    fm.on(CT::Event::FileSelected) do |e|
       box.content = "Selected: #{e.path}"
       box.show
       s.update
@@ -54,7 +54,7 @@ class X
     fm.focus
     s.update
 
-    s.on(Crysterm::Event::KeyPress) do |e|
+    s.on(CT::Event::KeyPress) do |e|
       case
       when e.char == 'q' || e.key == ::Tput::Key::CtrlQ
         s.destroy

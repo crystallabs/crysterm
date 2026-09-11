@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/spinbox/spinbox.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("SpinBox",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -14,6 +14,6 @@ Crysterm::WidgetExample.run("SpinBox",
     d.key :down, times: 4, dwell: 0.35
   }) do |window|
   window.stylesheet = "SpinBox { border: solid; color: #c0caf5; }"
-  sb = SpinBox.new parent: window, top: "center", left: "center", width: 14, height: 3, value: 42
+  sb = CW::SpinBox.new parent: window, top: "center", left: "center", width: 14, height: 3, value: 42
   sb.focus
 end

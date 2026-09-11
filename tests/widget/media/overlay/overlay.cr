@@ -11,16 +11,17 @@
 
 require "../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Overlay"
+s = CT::Window.new title: "Overlay"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Overlay  ·  w3mimgdisplay true-color overlay  ·  the Matterhorn{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
-Widget::Media::Overlay.new \
+CW::MediaOverlay.new \
   parent: s, top: 1, left: 0, width: "100%", height: "100%-1",
   fit: :stretch,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"

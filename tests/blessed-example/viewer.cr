@@ -26,9 +26,9 @@ require "../../src/crysterm"
 #
 # Keys:  arrows/j/k select   Right/Left expand/collapse   Tab switch pane   q quit
 
-include Crysterm
-include Crysterm::Widgets
-alias M = Widget::Media
+alias CT = Crysterm
+alias CW = CT::Widgets
+alias M = CW::Media
 
 IMAGE_DIR = File.join(__DIR__, "..", "..", "data", "image")
 
@@ -40,35 +40,35 @@ start_idx = files.index { |f| !f.ends_with?(".ans") } || 0
 # braille) render as real Unicode glyphs instead of Crysterm's ACS "?" fallback
 # on terminals not auto-detected as Unicode-capable. Octants are Unicode 16
 # (2024), so they still need an up-to-date terminal font.
-window = Window.new title: "viewer.cr", force_unicode: true
+window = CT::Window.new title: "viewer.cr", force_unicode: true
 window.enable_mouse
 
-root = Widget::Box.new parent: window, top: 0, left: 0, width: "100%", height: "100%",
-  layout: Layout::Dock.new
+root = CW::Box.new parent: window, top: 0, left: 0, width: "100%", height: "100%",
+  layout: CT::Layout::Dock.new
 
 # Left column: fixed 25 cells. Children are positioned by hand so the Fit row is
 # exactly one line, with the two lists taking the halves above and below it.
-sidebar = Widget::Box.new parent: root, width: 25,
-  layout_hint: Layout::Dock::Hint.new(:left)
+sidebar = CW::Box.new parent: root, width: 25,
+  layout_hint: CT::Layout::Dock::Hint.new(:left)
 
-chooser = List.new parent: sidebar, items: files, mouse: true, vi_keys: true,
+chooser = CW::List.new parent: sidebar, items: files, mouse: true, vi_keys: true,
   scrollbar_policy: :as_needed, top: 0, left: 0, width: "100%", height: "50%-1",
-  label: " Image ", style: Style.new(border: true)
+  label: " Image ", style: CT::Style.new(border: true)
 
 # The Fit selector: a single line — the label "Fit" followed by the four options
 # laid out in a row, the active one inverted. (A CommandBar pads each item too wide
 # to fit four options plus a label in 25 cells, so this is a compact custom row.)
 FITS = [{"1:1", M::Fit::None}, {"stretch", M::Fit::Stretch}, {"fit", M::Fit::Contain}, {"zoom", M::Fit::Cover}]
 fit_names = FITS.map { |(n, _)| n }
-fitrow = Widget::Box.new parent: sidebar, top: "50%-1", left: 0, width: "100%", height: 1,
+fitrow = CW::Box.new parent: sidebar, top: "50%-1", left: 0, width: "100%", height: 1,
   parse_tags: true, input: true
 
-backends = Tree.new parent: sidebar, mouse: true, vi_keys: true,
+backends = CW::Tree.new parent: sidebar, mouse: true, vi_keys: true,
   top: "50%", left: 0, width: "100%", height: "50%",
-  label: " Render Method ", style: Style.new(border: true)
+  label: " Render Method ", style: CT::Style.new(border: true)
 
-viewer_box = Widget::Box.new parent: root, layout_hint: Layout::Dock::Hint.new(:center),
-  style: Style.new(border: true)
+viewer_box = CW::Box.new parent: root, layout_hint: CT::Layout::Dock::Hint.new(:center),
+  style: CT::Style.new(border: true)
 
 # --- viewer state ----------------------------------------------------------
 current_path = paths[start_idx]? || ""
@@ -101,7 +101,7 @@ show = -> {
 }
 
 # --- Image chooser ---------------------------------------------------------
-chooser.on(Event::ItemSelected) do |e|
+chooser.on(CT::Event::ItemSelected) do |e|
   if p = paths[e.index]?
     current_path = p
     show.call
@@ -131,7 +131,7 @@ set_fit = ->(i : Int32) {
   show.call
 }
 
-fitrow.on(Event::Mouse) do |e|
+fitrow.on(CT::Event::Mouse) do |e|
   next unless e.action.up? # act on the click release
   rx = e.x - (fitrow.aleft || 0)
   if hit = fit_ranges.find { |(a, b, _)| a <= rx <= b }
@@ -139,7 +139,7 @@ fitrow.on(Event::Mouse) do |e|
   end
 end
 
-fitrow.on(Event::KeyPress) do |e|
+fitrow.on(CT::Event::KeyPress) do |e|
   case e.key
   when Tput::Key::Left  then set_fit.call(fit_idx - 1)
   when Tput::Key::Right then set_fit.call(fit_idx + 1)
@@ -176,7 +176,7 @@ end
 # Leave collapsed: top-level backends (with their "(n/a)" markers) stay visible;
 # expand Ansi/Glyph (Right/Enter) to reach their sub-modes.
 
-backends.on(Event::ItemSelected) do |_e|
+backends.on(CT::Event::ItemSelected) do |_e|
   node = backends.selected_node
   next unless node
   data = node.data
@@ -193,7 +193,7 @@ backends.on(Event::ItemSelected) do |_e|
 end
 
 # --- keys ------------------------------------------------------------------
-window.on(Event::KeyPress) do |e|
+window.on(CT::Event::KeyPress) do |e|
   if e.char == 'q'
     window.quit
   elsif e.key == Tput::Key::Tab

@@ -9,14 +9,15 @@
 
 require "../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Iterm"
+s = CT::Window.new title: "Iterm"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Iterm  ·  iTerm2 inline-images protocol (OSC 1337)  ·  the Matterhorn{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
 # Leave the title row and one row free at the bottom: the terminal advances the
 # cursor below an inline image, so one reaching the last row would scroll the
@@ -24,7 +25,7 @@ Widget::Box.new \
 iw = s.awidth
 ih = s.aheight - 2
 
-Widget::Media::Iterm.new \
+CW::MediaIterm.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 

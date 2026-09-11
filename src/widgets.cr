@@ -7,10 +7,14 @@ module Crysterm
   # lookup does not traverse a constant that merely holds a module):
   #
   #    alias CT = Crysterm
-  #    alias CW = Crysterm::Widgets
+  #    alias CW = CT::Widgets
   #
   #    w = CT::Window.new
   #    t = CW::Text.new parent: w
+  #
+  # Chaining further aliases off `CT` follows the same pattern, e.g.
+  # `alias CE = CT::Event`. This is the convention used throughout
+  # `examples/` and `tests/`.
   #
   # (`include Crysterm::Widgets` also works, but pulls every name into your
   # namespace, and the stdlib's `Box` then shadows `Widgets::Box`, forcing the
@@ -74,6 +78,8 @@ module Crysterm
     alias Marquee = Widget::Marquee
     alias LineEdit = Widget::LineEdit
     alias PlainTextEdit = Widget::PlainTextEdit
+    alias TextEdit = Widget::TextEdit
+    alias TextBrowser = Widget::TextBrowser
 
     alias BigText = Widget::BigText
 

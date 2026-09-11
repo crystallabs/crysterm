@@ -12,16 +12,17 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Reactive"
+s = CT::Window.new title: "Reactive"
 
 # The single piece of application state. (Starts mid-wave so even the very
 # first frame shows the widgets tracking a live value.)
-level = Reactive::Property.new 62
+level = CT::Reactive::Property.new 62
 
 # Signals derived from `level`, recomputed only when it changes.
-status = Reactive.computed do
+status = CT::Reactive.computed do
   case level.value
   when 0...25  then "{#e06c75-fg}▁ LOW — spinning up{/}"
   when 25...50 then "{#e5c07b-fg}▃ MEDIUM — warming{/}"
@@ -30,29 +31,29 @@ status = Reactive.computed do
   end
 end
 
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Reactive signals — assign the value, every bound widget updates{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
-panel = Widget::Box.new parent: s, top: 2, left: "center", width: 64, height: 19,
+panel = CW::Box.new parent: s, top: 2, left: "center", width: 64, height: 19,
   label: " One Signal, four subscribers ",
-  style: Style.new(border: true, fg: "#c0caf5", bg: "#10141c")
+  style: CT::Style.new(border: true, fg: "#c0caf5", bg: "#10141c")
 
-lcd = Widget::LCDNumber.new parent: panel, top: 1, left: "center", width: 16, height: 3,
-  digit_count: 3, style: Style.new(fg: "#40e0d0", bg: "#10141c")
+lcd = CW::LCDNumber.new parent: panel, top: 1, left: "center", width: 16, height: 3,
+  digit_count: 3, style: CT::Style.new(fg: "#40e0d0", bg: "#10141c")
 
-bar = Widget::ProgressBar.new parent: panel, top: 5, left: 2, width: 58, height: 3,
-  text_visible: true, style: Style.new(border: true, fg: "#c0caf5", bg: "#10141c",
-  indicator: Style.new(fg: "#2a6bd8", bg: "#10141c"))
+bar = CW::ProgressBar.new parent: panel, top: 5, left: 2, width: 58, height: 3,
+  text_visible: true, style: CT::Style.new(border: true, fg: "#c0caf5", bg: "#10141c",
+  indicator: CT::Style.new(fg: "#2a6bd8", bg: "#10141c"))
 
-meter = Widget::Box.new parent: panel, top: 8, left: 2, width: 58, height: 1,
-  parse_tags: true, style: Style.new(fg: "#e5c07b", bg: "#10141c")
+meter = CW::Box.new parent: panel, top: 8, left: 2, width: 58, height: 1,
+  parse_tags: true, style: CT::Style.new(fg: "#e5c07b", bg: "#10141c")
 
-status_box = Widget::Box.new parent: panel, top: 10, left: 2, width: 58, height: 1,
-  parse_tags: true, style: Style.new(bg: "#10141c")
+status_box = CW::Box.new parent: panel, top: 10, left: 2, width: 58, height: 1,
+  parse_tags: true, style: CT::Style.new(bg: "#10141c")
 
-Widget::Box.new parent: panel, top: 12, left: 2, width: 58, height: 5,
-  style: Style.new(fg: "#8a93a8", bg: "#10141c"),
+CW::Box.new parent: panel, top: 12, left: 2, width: 58, height: 5,
+  style: CT::Style.new(fg: "#8a93a8", bg: "#10141c"),
   content: "level = Reactive::Property.new 0\n" \
            "Reactive.bind(bar, level) { bar.value = level.value }\n" \
            "status = Reactive.computed { … level.value … }\n\n" \
@@ -61,15 +62,15 @@ Widget::Box.new parent: panel, top: 12, left: 2, width: 58, height: 5,
 # --- wiring: each widget subscribes once; assignments do the rest -----------
 
 # Explicit bindings: re-run whenever `level` changes, auto-disposed with the widget.
-Reactive.bind(bar, level) { bar.value = level.value }
-Reactive.bind(lcd, level) { lcd.display level.value }
+CT::Reactive.bind(bar, level) { bar.value = level.value }
+CT::Reactive.bind(lcd, level) { lcd.display level.value }
 
 # An effect auto-tracks what it reads — here the `status` computed.
-Reactive.effect(status_box) { status_box.content = "{center}#{status.value}{/center}" }
+CT::Reactive.effect(status_box) { status_box.content = "{center}#{status.value}{/center}" }
 
 # A second explicit binding drawing a tick meter from the same signal; its
 # color follows the value through the same thresholds as the status line.
-Reactive.bind(meter, level) do
+CT::Reactive.bind(meter, level) do
   n = level.value * 56 // 100
   color = case level.value
           when 0...25  then "#e06c75"

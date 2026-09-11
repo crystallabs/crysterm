@@ -13,10 +13,10 @@ w=80 h=24
 |                    │.cache/                              ░│                    |
 |                    │.claude/                             ░│                    |
 |                    │.config/                             ░│                    |
+|                    │.cups/                               ░│                    |
 |                    │.local/                              ░│                    |
 |                    │.npm/                                ░│                    |
 |                    │.rustup/                             ░│                    |
-|                    │.ssh/                                ░│                    |
 |                    └──────────────────────────────────────┘                    |
 |                                                                                |
 |                                                                                |
@@ -32,7 +32,7 @@ y9: 21-34:#5c5cff/def
 y10: 21-26:#5c5cff/def
 y11: 21-27:#5c5cff/def
 y12: 21-27:#5c5cff/def
-y13: 21-26:#5c5cff/def
-y14: 21-24:#5c5cff/def
-y15: 21-27:#5c5cff/def
-y16: 21-24:#5c5cff/def
+y13: 21-25:#5c5cff/def
+y14: 21-26:#5c5cff/def
+y15: 21-24:#5c5cff/def
+y16: 21-27:#5c5cff/def

@@ -4,7 +4,7 @@ require "crysterm"
 # namespace. Pick any names you like; CT/CW is the convention used in
 # Crysterm's docs and examples.
 alias CT = Crysterm
-alias CW = Crysterm::Widgets
+alias CW = CT::Widgets
 
 window = CT::Window.new title: "myapp"
 

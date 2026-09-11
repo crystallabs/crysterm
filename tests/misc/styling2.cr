@@ -24,9 +24,10 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Styling 2"
+s = CT::Window.new title: "Styling 2"
 
 # This demo showcases the sub-cell machinery, so it pins the Extended glyph
 # tier: exact eighth steps and the sextant corner pieces (Symbols for Legacy
@@ -34,7 +35,7 @@ s = Window.new title: "Styling 2"
 # Ghostty, iTerm2 get this for free), but the headless capture would fall to
 # the plain Unicode tier's coarser 1/8-4/8-8/8 steps. Comment this out on a
 # terminal whose font lacks the block.
-s.glyph_tier = Glyphs::Tier::Extended
+s.glyph_tier = CT::Glyphs::Tier::Extended
 # Octant corner pieces (Unicode 16) are likewise pinned on: normally
 # auto-detected per terminal (`Tput::Emulator::OCTANT_SUPPORT`; e.g.
 # kitty ≥ 0.40), and the capture font covers them. They make the `:half`
@@ -42,14 +43,14 @@ s.glyph_tier = Glyphs::Tier::Extended
 s.glyph_octants = true
 
 # Neutral backdrop so the frames don't sit black-on-black.
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  style: Style.new(bg: 0x3a4250)
+  style: CT::Style.new(bg: 0x3a4250)
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Outer block borders — ratio: 1/8 .. 8/8{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#403040")
+  style: CT::Style.new(fg: "white", bg: "#403040")
 
 # One {bg, border fg} pair per eighth, hue-stepped for telling them apart.
 COLORS = [
@@ -61,10 +62,10 @@ COLORS = [
 8.times do |i|
   ratio = (i + 1) / 8.0
   bg, fg = COLORS[i]
-  Widget::Box.new \
+  CW::Box.new \
     parent: s, top: 2 + (i // 4) * 7, left: 1 + (i % 4) * 20, width: 18, height: 5,
     content: "{center}type: :outer\nratio: #{ratio}\n(#{i + 1}/8 column){/center}", parse_tags: true,
-    style: Style.new(fg: "white", bg: bg, border: Border.new(type: :outer, fg: fg, ratio: ratio))
+    style: CT::Style.new(fg: "white", bg: bg, border: CT::Border.new(type: :outer, fg: fg, ratio: ratio))
 end
 
 s.exec

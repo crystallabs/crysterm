@@ -2,15 +2,17 @@ w=80 h=24
 +--------------------------------------------------------------------------------+
 |require "../../src/crysterm"                                                    |
 |                                                                                |
+|alias CT = Crysterm                                                             |
+|alias CW = CT::Widgets                                                          |
+|                                                                                |
 |# Port of Blessed's test/widget-nowrap.js                                       |
 |# Width-60 box with wrapping disabled and tags enabled, cont                    |
 |# file's own source; lines longer than the box are clipped i                    |
 |# Blessed's `wrap: false` maps to crysterm's `wrap_content:                     |
-|include Crysterm                                                                |
 |                                                                                |
-|s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]                     |
+|s = CT::Window.new always_propagated_keys: [::Tput::Key::Ctr                    |
 |                                                                                |
-|box = Widget::Box.new(                                                          |
+|box = CW::Box.new(                                                              |
 |  parent: s,                                                                    |
 |  width: 60,                                                                    |
 |  wrap_content: false,                                                          |
@@ -19,9 +21,7 @@ w=80 h=24
 |                                                                                |
 |box.focus                                                                       |
 |                                                                                |
-|s.on(Event::KeyPress) do |e|                                                    |
+|s.on(CT::Event::KeyPress) do |e|                                                |
 |  if e.char == 'q' || e.key == ::Tput::Key::CtrlQ                               |
 |    s.destroy                                                                   |
-|    exit                                                                        |
-|  end                                                                           |
 +--------------------------------------------------------------------------------+

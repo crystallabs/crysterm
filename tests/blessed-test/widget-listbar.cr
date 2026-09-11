@@ -1,5 +1,8 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-listbar.js
 #
 # Demonstrates the interactive `Widget::CommandBar`: a horizontal bar of
@@ -7,22 +10,19 @@ require "../../src/crysterm"
 # per-command hotkeys, and `auto_command_keys` (number keys select tabs).
 # Selecting a command updates the box in the top-right corner.
 class X
-  include Crysterm
-  include Crysterm::Widgets
-
   def initialize
-    s = Window.new always_propagated_keys: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
+    s = CT::Window.new always_propagated_keys: [::Tput::Key::Tab, ::Tput::Key::ShiftTab, ::Tput::Key::CtrlQ]
 
     # Blessed: borderless `width:'shrink', height:'shrink'` box pinned top-right.
     # `shrink_to_fit: true` is Crysterm's shrink.
-    box = Box.new \
+    box = CW::Box.new \
       parent: s,
       top: 0,
       right: 0,
       shrink_to_fit: true,
       content: "..."
 
-    bar = CommandBar.new \
+    bar = CW::CommandBar.new \
       bottom: 0,
       left: 3,
       right: 3,
@@ -31,13 +31,13 @@ class X
       keys: true,
       vi_keys: true,
       auto_command_keys: true,
-      styles: Styles.new(
-        normal: Style.new(
+      styles: CT::Styles.new(
+        normal: CT::Style.new(
           bg: "green",
           border: true,
-          item: Style.new(bg: "red"),
+          item: CT::Style.new(bg: "red"),
         ),
-        selected: Style.new(bg: "blue"),
+        selected: CT::Style.new(bg: "blue"),
       )
 
     # Each command updates the corner box and re-renders.
@@ -52,7 +52,7 @@ class X
     s.append bar
     bar.focus
 
-    s.on(Crysterm::Event::KeyPress) do |e|
+    s.on(CT::Event::KeyPress) do |e|
       if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
         s.destroy
         exit

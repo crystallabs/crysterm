@@ -1,5 +1,8 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-image.js
 #
 # Demonstrates `Widget::Media`, the image factory. With `type: Overlay` it
@@ -13,9 +16,6 @@ require "../../src/crysterm"
 # Pass an image path as the first argument, or it defaults to one of the repo's
 # bundled sample images.
 class X
-  include Crysterm
-  include Crysterm::Widgets
-
   # Same locations `W3MImageDisplay` searches (plus the override env var).
   W3M_PATHS = [
     "/usr/lib/w3m/w3mimgdisplay",
@@ -30,7 +30,7 @@ class X
   end
 
   def initialize
-    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
+    s = CT::Window.new always_propagated_keys: [::Tput::Key::CtrlQ]
 
     # Default to a bundled sample image: ../../data/image (running from
     # tests/blessed-test/), falling back to ./data/image (running from repo root).
@@ -42,21 +42,21 @@ class X
 
     # Factory returns `Media::Ansi | Media::Overlay` (normalized to `Box+`);
     # narrow to the overlay backend to use overlay-specific API like `#load`.
-    img = Media.new(
-      type: Media::Type::Overlay,
+    img = CW::Media.new(
+      type: CW::Media::Type::Overlay,
       parent: s,
       top: "center",
       left: "center",
       width: "50%",
       height: "50%",
       draggable: true,
-      style: Style.new(bg: "green", border: true),
-    ).as(Media::Overlay)
+      style: CT::Style.new(bg: "green", border: true),
+    ).as(CW::Media::Overlay)
 
     if w3m_available?
       img.load file
     else
-      Box.new \
+      CW::Box.new \
         parent: s,
         top: 0,
         left: 0,
@@ -66,7 +66,7 @@ class X
         content: "{yellow-fg}w3mimgdisplay not found.{/} Install w3m-img (or set " \
                  "W3MIMGDISPLAY_ENV) to render images. Showing a placeholder box.\n" \
                  "Press q to quit.",
-        style: Style.new(border: true)
+        style: CT::Style.new(border: true)
     end
 
     img.focus

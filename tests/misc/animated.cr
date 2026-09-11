@@ -9,9 +9,10 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Media: animation"
+s = CT::Window.new title: "Media: animation"
 
 img = "#{__DIR__}/../../data/image/netscape.gif"
 
@@ -22,12 +23,12 @@ img = "#{__DIR__}/../../data/image/netscape.gif"
 # The GIF's native 130 ms cadence would make a 4.42 s cycle — a visible
 # 0.58 s frame-jump at every loop seam.
 frame_count = PNGGIF::PNG.new(img).frames.try(&.size) || 1
-clock = Timer.new (5.0 / frame_count).seconds
+clock = CT::Timer.new (5.0 / frame_count).seconds
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Animated GIF · auto-picked (--media-backend=auto) · four backends in lockstep{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
 half = s.awidth // 2
 row_h = (s.aheight - 2) // 2
@@ -35,25 +36,25 @@ row_h = (s.aheight - 2) // 2
 # The kitty panel soft-falls back on terminals without the protocol (pinning
 # it there would print the raw APC payload as text); quadrant glyphs keep the
 # four panels distinct. Captures always keep kitty (composited in-process).
-kitty = Widget::Media.type_or_fallback(Widget::Media::Type::Kitty, Widget::Media::Type::GlyphQuadrant)
+kitty = CW::Media.type_or_fallback(CW::Media::Type::Kitty, CW::Media::Type::GlyphQuadrant)
 
 [
   {kitty, kitty.kitty? ? " --media-backend=kitty " : " glyph_quadrant · kitty n/a "},
-  {Widget::Media::Type::GlyphOctant, " --media-backend=glyph_octant "},
-  {Widget::Media::Type::GlyphSextant, " --media-backend=glyph_sextant "},
-  {Widget::Media::Type::GlyphBraille, " --media-backend=glyph_braille "},
+  {CW::Media::Type::GlyphOctant, " --media-backend=glyph_octant "},
+  {CW::Media::Type::GlyphSextant, " --media-backend=glyph_sextant "},
+  {CW::Media::Type::GlyphBraille, " --media-backend=glyph_braille "},
 ].each_with_index do |(type, label), i|
-  Widget::Media.new \
-    parent: s, type: type, file: img, fit: Widget::Media::Fit::Contain,
+  CW::Media.new \
+    parent: s, type: type, file: img, fit: CW::Media::Fit::Contain,
     animate: clock,
     top: 1 + (i // 2) * row_h, left: (i % 2) * half, width: half, height: row_h,
     label: label,
-    style: Style.new(border: true)
+    style: CT::Style.new(border: true)
 end
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: s.aheight - 1, left: 0, width: "100%", height: 1,
   content: "{center}netscape.gif · one shared frame clock keeps all four panels in sync{/center}",
-  parse_tags: true, style: Style.new(fg: "#8090a0")
+  parse_tags: true, style: CT::Style.new(fg: "#8090a0")
 
 s.exec

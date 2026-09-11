@@ -6,17 +6,18 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Unicode", force_unicode: true, full_unicode: true
+s = CT::Window.new title: "Unicode", force_unicode: true, full_unicode: true
 
-Widget::Box.new \
+CW::Box.new \
   parent: s,
   top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Unicode & grapheme-aware rendering{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#283018")
+  style: CT::Style.new(fg: "white", bg: "#283018")
 
-Widget::Box.new \
+CW::Box.new \
   parent: s,
   top: 2, left: 2, width: 36, height: 8,
   content: "Scripts:\n" \
@@ -25,15 +26,15 @@ Widget::Box.new \
            "  → ← ↑ ↓ ★ ☆ ♥ ♦ ♣ ♠ ✓ ✗ λ ∑ ∞\n" \
            "Combining:\n" \
            "  á ê õ ñ ü  (a´ e^ o~ n~ u¨)",
-  style: Style.new(fg: "yellow", bg: "#101010", border: true)
+  style: CT::Style.new(fg: "yellow", bg: "#101010", border: true)
 
 # Animated block-element bar graph: a `Widget::Graph::Bar` draws each value
 # as a vertical bar using the eighth-block glyphs (▁▂▃▄▅▆▇█) for sub-cell height.
-bars = Widget::Graph::Bar.new \
+bars = CW::GraphBar.new \
   parent: s,
   top: 2, left: 40, width: 36, height: 8,
   label: " Block elements ", minimum: 0.0, maximum: 1.0,
-  style: Style.new(fg: "cyan", bg: "#101010", border: true)
+  style: CT::Style.new(fg: "cyan", bg: "#101010", border: true)
 
 phase = 0.0
 s.every(0.08.seconds) do

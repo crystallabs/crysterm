@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/pine/progress_bar/progress_bar.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("ProgressBar",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -13,10 +13,10 @@ Crysterm::WidgetExample.run("ProgressBar",
     # Ramp the value up and back to its initial 45 (read-only widget, no keys —
     # reach it via the window and set #value, guarded by the concrete type).
     [45, 60, 75, 90, 100, 75, 45].each do |v|
-      d.act(dwell: 0.4) { |s| s.children.each { |c| c.value = v if c.is_a?(PineProgressBar) } }
+      d.act(dwell: 0.4) { |s| s.children.each { |c| c.value = v if c.is_a?(CW::PineProgressBar) } }
     end
   }) do |window|
   window.stylesheet = "ProgressBar { color: #7aa2f7; }"
-  bar = PineProgressBar.new parent: window, top: "center", left: "center", width: 40
+  bar = CW::PineProgressBar.new parent: window, top: "center", left: "center", width: 40
   bar.value = 45
 end

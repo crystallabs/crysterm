@@ -21,26 +21,27 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Styling 3"
+s = CT::Window.new title: "Styling 3"
 
 # Pinned for the same reason as styling2.cr: the capture (and any terminal
 # this runs on with a modern font) shows the exact eighth steps and sextant
 # corner pieces rather than the Unicode tier's coarser fallbacks.
-s.glyph_tier = Glyphs::Tier::Extended
+s.glyph_tier = CT::Glyphs::Tier::Extended
 # Octant corner pieces (Unicode 16) pinned on, as in styling2.cr.
 s.glyph_octants = true
 
 # Neutral backdrop — inner borders show it through the whole border band.
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  style: Style.new(bg: 0x3a4250)
+  style: CT::Style.new(bg: 0x3a4250)
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Inner block borders — ratio: 1/8 .. 8/8{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#403040")
+  style: CT::Style.new(fg: "white", bg: "#403040")
 
 # Same palette as styling2.cr, so the two ladders compare box-for-box.
 COLORS = [
@@ -52,10 +53,10 @@ COLORS = [
 8.times do |i|
   ratio = (i + 1) / 8.0
   bg, fg = COLORS[i]
-  Widget::Box.new \
+  CW::Box.new \
     parent: s, top: 2 + (i // 4) * 7, left: 1 + (i % 4) * 20, width: 18, height: 5,
     content: "{center}type: :inner\nratio: #{ratio}\n(#{i + 1}/8 column){/center}", parse_tags: true,
-    style: Style.new(fg: "white", bg: bg, border: Border.new(type: :inner, fg: fg, ratio: ratio))
+    style: CT::Style.new(fg: "white", bg: bg, border: CT::Border.new(type: :inner, fg: fg, ratio: ratio))
 end
 
 s.exec

@@ -8,23 +8,24 @@
 
 require "../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Ueberzug"
+s = CT::Window.new title: "Ueberzug"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Ueberzug  ·  überzug X11 overlay (w3m successor)  ·  the Matterhorn{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
-unless Widget::Media::Ueberzug.binary
-  Widget::Box.new \
+unless CW::MediaUeberzug.binary
+  CW::Box.new \
     parent: s, top: 3, left: 2, width: "100%-4", height: 3,
     content: "{center}ueberzug / ueberzugpp not found on PATH — overlay unavailable here.{/center}",
-    parse_tags: true, style: Style.new(fg: "yellow")
+    parse_tags: true, style: CT::Style.new(fg: "yellow")
 end
 
-Widget::Media::Ueberzug.new \
+CW::MediaUeberzug.new \
   parent: s, top: 1, left: 0, width: s.awidth, height: s.aheight - 1,
   scaler: :forced_cover,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"

@@ -1,5 +1,8 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-termswitch.js
 #
 # Blessed switches the live terminal type at runtime (`screen.terminal = 'vt100'`)
@@ -7,12 +10,10 @@ require "../../src/crysterm"
 # `Screen#switch_terminal`: builds a new screen on the requested terminal,
 # reparents existing widgets onto it, destroys the old screen, returns the new one.
 # This demo shows widgets on the default terminal for ~1s, then switches to `vt100`.
-include Crysterm
-include Crysterm::Widgets
 
 lorem = (1..40).map { |i| "Line #{i}: Lorem ipsum dolor sit amet, consectetur adipiscing elit." }.join("\n")
 
-quit = ->(scr : Window, e : Event::KeyPress) do
+quit = ->(scr : CT::Window, e : CT::Event::KeyPress) do
   if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
     scr.destroy
     exit
@@ -20,20 +21,20 @@ quit = ->(scr : Window, e : Event::KeyPress) do
 end
 
 # --- Initial screen, on the default terminal. ---
-s = Window.new optimization: OptimizationFlag::SmartCSR, always_propagated_keys: [::Tput::Key::CtrlQ]
+s = CT::Window.new optimization: CT::OptimizationFlag::SmartCSR, always_propagated_keys: [::Tput::Key::CtrlQ]
 
-btext = Widget::Box.new(
+btext = CW::Box.new(
   parent: s,
   left: "center", top: "center",
   width: "80%", height: "80%",
-  style: Style.new(bg: "green", border: BorderType::Solid),
+  style: CT::Style.new(bg: "green", border: CT::BorderType::Solid),
   content: "Terminal: default — switching to vt100 in 1s…",
 )
 
-text = ScrollableText.new(
+text = CW::ScrollableText.new(
   parent: s,
   content: lorem,
-  style: Style.new(border: BorderType::Solid),
+  style: CT::Style.new(border: CT::BorderType::Solid),
   left: "center", top: "center",
   draggable: true,
   width: "50%", height: "50%",
@@ -41,7 +42,7 @@ text = ScrollableText.new(
 )
 
 text.focus
-s.on(Event::KeyPress) { |e| quit.call s, e }
+s.on(CT::Event::KeyPress) { |e| quit.call s, e }
 s.update
 
 # Show the default terminal briefly, then switch — one call handles teardown,
@@ -51,6 +52,6 @@ s = s.switch_terminal "vt100"
 
 btext.content = "Terminal: vt100 (widgets reparented onto the new screen)"
 text.focus
-s.on(Event::KeyPress) { |e| quit.call s, e }
+s.on(CT::Event::KeyPress) { |e| quit.call s, e }
 s.update
 s.exec

@@ -4,14 +4,14 @@
 # Run it:     crystal run tests/widget/splash_screen/splash_screen.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "SplashScreen" do |window|
   window.stylesheet = "SplashScreen { border: solid; background-color: #11121a; color: #c0caf5; }"
   # `content` is the central widget here, not a string.
-  splash = SplashScreen.new parent: window, width: 50, height: 15, message_height: 1,
-    content: Widget::Box.new(
+  splash = CW::SplashScreen.new parent: window, width: 50, height: 15, message_height: 1,
+    content: CW::Box.new(
       top: "center", left: "center", width: 44, height: 8, parse_tags: true,
       content: "{center}{bold}C R Y S T E R M{/bold}\n\nTerminal UI toolkit for Crystal\n\nv1.0.0  •  90+ widgets  •  layouts  •  effects{/center}")
   splash.show_message "Loading modules…"

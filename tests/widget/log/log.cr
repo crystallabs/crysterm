@@ -4,11 +4,11 @@
 # Run it:     crystal run tests/widget/log/log.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "Log" do |window|
   window.stylesheet = "Log { border: solid; color: #9ece6a; }"
-  log = Widget::Log.new parent: window, top: "center", left: "center", width: 46, height: 9
+  log = CW::Log.new parent: window, top: "center", left: "center", width: 46, height: 9
   ["system started", "loading config", "ready", "request handled"].each { |l| log.add l }
 end

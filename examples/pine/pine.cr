@@ -1,5 +1,8 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Proof-of-concept Pine/Alpine-style TUI mail client built from the
 # `Crysterm::Widget::Pine` widget set. All content is mocked; nothing is read
 # from disk or sent over the network. Demonstrates navigating between the
@@ -32,14 +35,12 @@ require "../../src/crysterm"
 # coordinates.
 #
 # Run with:  crystal examples/pine.cr   (TERM=xterm-256color recommended)
-include Crysterm
-include Crysterm::Widgets
 include Tput::Namespace
 
 # The Pine widget pack's alias set (KeyMenu, MainMenu, MessageIndex, …).
-include Widget::Pine::DSL
+include CT::Widget::Pine::DSL
 
-s = Window.new(
+s = CT::Window.new(
   always_propagated_keys: [Tput::Key::CtrlQ],
   title: "Crysterm — Alpine-style demo",
 )
@@ -56,8 +57,8 @@ s = Window.new(
 # MENU). Without it those cells are left to the window's erase path; on a
 # transparent terminal profile they render slightly differently, making the
 # menu look like a distinct rectangle rather than part of the screen.
-frame = Widget::Box.new parent: s, width: "100%", height: "100%",
-  layout: Layout::Dock.new
+frame = CW::Box.new parent: s, width: "100%", height: "100%",
+  layout: CT::Layout::Dock.new
 
 # ----------------------------------------------------------------- mock data
 
@@ -173,7 +174,7 @@ HELP_TEXT = <<-HELP
 
 # ------------------------------------------------------------- shared chrome
 
-header = Widget::Pine::HeaderBar.new(
+header = CW::PineHeaderBar.new(
   parent: frame,
   layout_hint: :top,
   title_content: "ALPINE 2.26",
@@ -185,10 +186,10 @@ header = Widget::Pine::HeaderBar.new(
 # region is itself a `VBox`: the status line above the two-row command bar.
 # Only the footer declares a height (the extent it takes off the bottom edge);
 # everything inside it, and the body above it, follows from that.
-footer = Widget::Box.new parent: frame, height: 3, layout: Layout::VBox.new,
+footer = CW::Box.new parent: frame, height: 3, layout: CT::Layout::VBox.new,
   layout_hint: :bottom
 
-status = Widget::Pine::StatusBar.new(parent: footer, status_content: "")
+status = CW::PineStatusBar.new(parent: footer, status_content: "")
 
 # ---------------------------------------------------------- transient chrome
 #
@@ -201,12 +202,12 @@ status = Widget::Pine::StatusBar.new(parent: footer, status_content: "")
 # a `VBox` stacks children in the order they were added.
 
 confirm = KeyPrompt.new(parent: footer, width: "100%", height: 1, visible: false)
-progress = Widget::Pine::ProgressBar.new(parent: footer, width: "100%", height: 1, visible: false, value: 0)
+progress = CW::PineProgressBar.new(parent: footer, width: "100%", height: 1, visible: false, value: 0)
 
 key_menu = KeyMenu.new(parent: footer)
 
 # Hand the shared status row to exactly one of its three occupants.
-status_line = ->(w : Widget) do
+status_line = ->(w : CT::Widget) do
   {status, confirm, progress}.each { |x| x == w ? x.show : x.hide }
   nil
 end
@@ -216,7 +217,7 @@ end
 # floats over the body. Docking it under the header would push the body down a
 # row on every *other* screen too, where it is never shown — so it keeps its
 # coordinate, on the window's default `Layout::Manual`.
-banner = Widget::Box.new(
+banner = CW::Box.new(
   parent: s, top: 3, left: 0, width: "100%", height: 1,
   align: :hcenter, parse_tags: true, visible: false,
   content: "{#ffff00-fg}** VISUAL DEMO - ALL CONTENT IS IN MEMORY - THERE IS NO DISK OR EMAIL ACCESS **{/#ffff00-fg}",
@@ -235,8 +236,8 @@ end
 # Make the bottom command bar clickable: a click on a hint replays the hint's
 # key as the matching keypress (`KeyPress.parse` understands the same labels
 # the bar displays), so it flows through the same handlers as the physical key.
-key_menu.on(Event::Activated) do |e|
-  Event::KeyPress.parse(e.value.to_s).try { |kp| s.emit kp }
+key_menu.on(CT::Event::Activated) do |e|
+  CT::Event::KeyPress.parse(e.value.to_s).try { |kp| s.emit kp }
 end
 
 # ----------------------------------------------------------------- the views
@@ -270,8 +271,8 @@ main_menu = MainMenu.new(
 index = MessageIndex.new(**body_opts, messages: messages, visible: false)
 # Widen the status column so all of a message's flags show at once (up to 5: *DAFN).
 index.status_width = FLAG_CHARS.size + 1
-view = Widget::Pine::MessageView.new(**body_opts, visible: false)
-compose = Widget::Pine::Compose.new(**body_opts, visible: false)
+view = CW::PineMessageView.new(**body_opts, visible: false)
+compose = CW::PineCompose.new(**body_opts, visible: false)
 help = TextView.new(**body_opts, visible: false, content: HELP_TEXT)
 
 setup = Setup.new(**body_opts, visible: false, options: [
@@ -325,12 +326,12 @@ all_views = {main_menu, index, view, compose, help, setup, config,
 # ---------------------------------------------------- screen state & helpers
 
 current = :main
-active_view : Widget = main_menu
+active_view : CT::Widget = main_menu
 current_sort = "Arrival"
 prompt_active = false
 flag_target : MessageIndex::Message? = nil
 
-show_only = ->(w : Widget) do
+show_only = ->(w : CT::Widget) do
   status_line.call status
   banner.hide
   all_views.each { |v| v == w ? v.show : v.hide }
@@ -674,13 +675,13 @@ end
 
 # ATTACH FILE (FileBrowser): selecting a file fills the composer's Attchmnt
 # field and returns; navigating directories updates the info line.
-filebrowser.on(Event::FileSelected) do |e|
+filebrowser.on(CT::Event::FileSelected) do |e|
   compose.fields["attchmnt"]?.try &.value = File.basename(e.path)
   show_compose.call false, "attchmnt"
   show_status.call "[Attached: #{File.basename(e.path)}]"
 end
 
-filebrowser.on(Event::DirectoryChanged) do |e|
+filebrowser.on(CT::Event::DirectoryChanged) do |e|
   header.info.content = filebrowser.cwd
   show_status.call "[#{filebrowser.cwd}]"
 end
@@ -713,7 +714,7 @@ end
 # these global commands work even with a list or text field focused. Each
 # screen has its own command set, matching the bottom KeyMenu.
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   ch = e.char
   key = e.key
 

@@ -1,20 +1,20 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Port of Blessed's test/widget-listtable.js
 #
 # Demonstrates `Widget::ListTable`: selectable table with pinned header row,
 # line borders, styled header/cell, keyboard/vi_keys navigation, and re-setting data after a delay.
 class X
-  include Crysterm
-  include Crysterm::Widgets
-
   DU   = "杜"
   JUAN = "鹃"
 
   def initialize
-    s = Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
+    s = CT::Window.new always_propagated_keys: [::Tput::Key::CtrlQ], full_unicode: true
 
-    table = ListTable.new \
+    table = CW::ListTable.new \
       top: "center",
       left: "center",
       height: "70%",
@@ -22,13 +22,13 @@ class X
       vi_keys: true,
       parse_tags: true,
       align: ::Tput::AlignFlag::Center,
-      styles: Styles.new(
-        normal: Style.new(
-          border: Border.new(fg: "red"),
-          header: Style.new(fg: "blue", bold: true),
-          cell: Style.new(fg: "magenta"),
+      styles: CT::Styles.new(
+        normal: CT::Style.new(
+          border: CT::Border.new(fg: "red"),
+          header: CT::Style.new(fg: "blue", bold: true),
+          cell: CT::Style.new(fg: "magenta"),
         ),
-        selected: Style.new(bg: "blue"),
+        selected: CT::Style.new(bg: "blue"),
       )
 
     data1 = [
@@ -58,7 +58,7 @@ class X
       s.update
     end
 
-    s.on(Crysterm::Event::KeyPress) do |e|
+    s.on(CT::Event::KeyPress) do |e|
       if e.char == 'q' || e.key == ::Tput::Key::CtrlQ
         s.destroy
         exit

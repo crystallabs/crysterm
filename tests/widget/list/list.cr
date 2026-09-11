@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/list/list.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("List",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -16,7 +16,7 @@ Crysterm::WidgetExample.run("List",
     d.key :home, dwell: 0.6
   }) do |window|
   window.stylesheet = "List { border: solid; color: #c0caf5; }"
-  list = List.new \
+  list = CW::List.new \
     parent: window, top: "center", left: "center", width: 28, height: 9,
     items: %w[Alpha Beta Gamma Delta Epsilon]
   list.focus

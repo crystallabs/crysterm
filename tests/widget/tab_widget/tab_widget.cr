@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/tab_widget/tab_widget.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("TabWidget",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -15,8 +15,8 @@ Crysterm::WidgetExample.run("TabWidget",
     d.click 5, 0, dwell: 0.7
   }) do |window|
   window.stylesheet = "TabWidget { color: #c0caf5; }"
-  tw = TabWidget.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
-  tw.add_tab "Overview", Widget::Box.new(content: "{center}Overview page{/center}", parse_tags: true)
-  tw.add_tab "Details", Widget::Box.new(content: "{center}Details page{/center}", parse_tags: true)
-  tw.add_tab "Settings", Widget::Box.new(content: "{center}Settings page{/center}", parse_tags: true)
+  tw = CW::TabWidget.new parent: window, top: 0, left: 0, width: "100%", height: "100%"
+  tw.add_tab "Overview", CW::Box.new(content: "{center}Overview page{/center}", parse_tags: true)
+  tw.add_tab "Details", CW::Box.new(content: "{center}Details page{/center}", parse_tags: true)
+  tw.add_tab "Settings", CW::Box.new(content: "{center}Settings page{/center}", parse_tags: true)
 end

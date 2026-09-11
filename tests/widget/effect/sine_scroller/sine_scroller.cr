@@ -4,11 +4,11 @@
 # Run it:     crystal run tests/widget/effect/sine_scroller/sine_scroller.cr
 require "../../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "SineScroller" do |window|
-  fx = EffectSineScroller.new parent: window, top: "center", left: 0, width: "100%", height: 11,
+  fx = CW::EffectSineScroller.new parent: window, top: "center", left: 0, width: "100%", height: 11,
     text: "CRYSTERM * SINE SCROLLER * "
   Crysterm::WidgetExample.animate_with(fx.interval) { fx.step }
 end

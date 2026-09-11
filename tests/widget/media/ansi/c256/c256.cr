@@ -2,19 +2,20 @@
 # Fixed variant of Media::Ansi (see sibling dirs for the rest).
 require "../../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Media::Ascii::C256"
+s = CT::Window.new title: "Media::Ascii::C256"
 
-Widget::Media::Ascii::C256.new \
+CW::MediaAsciiC256.new \
   parent: s, top: 1, left: 0, width: s.awidth, height: s.aheight - 1,
   animate: false,
   file: "#{__DIR__}/../../../../../data/image/matterhorn.png"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Ascii::C256  ·  256-color · xterm palette{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#202830")
+  style: CT::Style.new(fg: "white", bg: "#202830")
 
 s.update
 s.exec

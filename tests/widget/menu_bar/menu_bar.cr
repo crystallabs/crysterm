@@ -4,18 +4,18 @@
 # Run it:     crystal run tests/widget/menu_bar/menu_bar.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run("MenuBar",
   script: ->(d : Crysterm::WidgetExample::Driver) {
     d.hold 0.6
     # Open File menu, then close it.
-    d.act(dwell: 1.2) { |s| s.children.each { |c| c.toggle_menu(0) if c.is_a?(MenuBar) } }
-    d.act(dwell: 0.8) { |s| s.children.each { |c| c.toggle_menu(0) if c.is_a?(MenuBar) } }
+    d.act(dwell: 1.2) { |s| s.children.each { |c| c.toggle_menu(0) if c.is_a?(CW::MenuBar) } }
+    d.act(dwell: 0.8) { |s| s.children.each { |c| c.toggle_menu(0) if c.is_a?(CW::MenuBar) } }
   }) do |window|
   window.stylesheet = "MenuBar { color: #c0caf5; } Menu { color: #c0caf5; }"
-  mb = MenuBar.new parent: window, top: 0, left: 0, width: "100%"
+  mb = CW::MenuBar.new parent: window, top: 0, left: 0, width: "100%"
   file = mb.add_menu "File"
   %w[New Open Save Quit].each { |t| file.add_action t }
   %w[Edit View Tools Help].each { |t| mb.add_menu t }

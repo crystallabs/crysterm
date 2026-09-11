@@ -14,7 +14,8 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 PROMPT = "Add a --verbose flag and run the test suite"
 
@@ -41,24 +42,24 @@ opts.on("-v", "--verbose", "Print each step") { config.verbose = true }
 > [CLI guide](https://example.org/cli) for the `--verbose` conventions. 🎉
 MD
 
-s = Window.new title: "Claude"
+s = CT::Window.new title: "Claude"
 
 # --- Chrome ------------------------------------------------------------------
 
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   parse_tags: true,
   content: " {#d77757-fg}✳{/} {bold}Claude{/bold}" \
            " {#8a94a6-fg}· TextBrowser rendering streamed GFM Markdown{/}"
 
-view = Widget::TextBrowser.new parent: s, top: 1, left: 0, width: "100%", height: "100%-5"
+view = CW::TextBrowser.new parent: s, top: 1, left: 0, width: "100%", height: "100%-5"
 
-input_frame = Widget::Box.new parent: s, bottom: 1, left: 0, width: "100%", height: 3,
-  style: Style.new(border: true)
-Widget::Box.new parent: input_frame, top: 0, left: 1, width: 2, height: 1,
+input_frame = CW::Box.new parent: s, bottom: 1, left: 0, width: "100%", height: 3,
+  style: CT::Style.new(border: true)
+CW::Box.new parent: input_frame, top: 0, left: 1, width: 2, height: 1,
   parse_tags: true, content: "{#d77757-fg}❯{/}"
-input = Widget::LineEdit.new parent: input_frame, top: 0, left: 3, width: "100%-5", height: 1
+input = CW::LineEdit.new parent: input_frame, top: 0, left: 3, width: "100%-5", height: 1
 
-Widget::Box.new parent: s, bottom: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, bottom: 0, left: 0, width: "100%", height: 1,
   parse_tags: true,
   content: " {#8a94a6-fg}GFM: tables · task lists · alerts · code · links — C-z undo · Ctrl-Q quit{/}"
 

@@ -1,5 +1,8 @@
 require "../../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # emulator — a minimal, real terminal emulator, the way xterm or kitty starts one.
 #
 # Opens a full-screen window, runs your shell (`$SHELL`, or a command given on
@@ -23,8 +26,6 @@ require "../../../src/crysterm"
 #   crystal run examples/terminal/emulator/emulator.cr            # runs $SHELL
 #   crystal run examples/terminal/emulator/emulator.cr -- htop    # runs a command
 #   crystal run examples/terminal/emulator/emulator.cr -- vim x   # ...with arguments
-include Crysterm
-include Crysterm::Widgets
 include Tput::Namespace
 
 # Anything after the program name is the command to run instead of the shell;
@@ -36,7 +37,7 @@ args = ARGV.size > 1 ? ARGV[1..] : [] of String
 # `default_quit_keys: false` hands `q`/Ctrl-Q to the focused terminal rather
 # than treating them as "quit the app" (see Application#route_input). The only
 # way out is the child exiting — exactly how a real terminal behaves.
-window = Window.new(
+window = CT::Window.new(
   title: "crysterm — terminal",
   default_quit_keys: false,
 )
@@ -49,18 +50,18 @@ window = Window.new(
 # and there's exactly one child here. Qt does the same — a widget with no
 # installed layout places its children by their own geometry (Layout::Manual),
 # which for a lone full-bleed child is precisely what's wanted.
-term = Terminal.new(
+term = CW::Terminal.new(
   parent: window,
   shell: shell, args: args,
 )
 
 # Mirror the child's title reports (OSC 0/2) onto the host window/terminal.
-term.on(Event::ContentSet) { window.title = term.title }
+term.on(CT::Event::ContentSet) { window.title = term.title }
 
 # The child ended: leave with its exit status. `at_exit` (in crysterm.cr)
 # restores the terminal — cooks the tty, leaves the alt-screen — on the way
 # out, so there's nothing to clean up here.
-term.on(Event::ProcessExited) do |e|
+term.on(CT::Event::ProcessExited) do |e|
   exit(e.code || 0)
 end
 

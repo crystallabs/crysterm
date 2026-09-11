@@ -1,5 +1,8 @@
 require "../../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Commando
 # ========
 #
@@ -49,9 +52,6 @@ end
 # Everything is drawn by hand into the window's cell buffer, rebuilt every frame
 # from world state (see `draw_scene`).
 class Commando
-  include Crysterm
-  include Crysterm::Widgets
-
   # ---- World / view geometry -------------------------------------------------
 
   # The play window is a fixed WORLD_W columns wide; the world is WORLD_H rows
@@ -216,7 +216,7 @@ class Commando
     # change without tracked setters — the play field, painted by its
     # `painter` proc — opts in via `repaints_every_frame`, so the rest of the
     # UI (status bar, overlays) keeps selective repaints.
-    @window = Window.new title: "commando.cr"
+    @window = CT::Window.new title: "commando.cr"
 
     # The cabinet: one frame holding the two stacked regions this game has — the
     # play field above, the status bar below. `Window` is not a `Widget`, so the
@@ -229,27 +229,27 @@ class Commando
     # horizontally for free; the field then takes no explicit height and flexes
     # into everything the status bar leaves. Qt would write this the same way:
     # a QVBoxLayout with the arena added under Qt::AlignHCenter.
-    frame = Box.new parent: @window, width: "100%", height: "100%",
-      layout: Layout::VBox.new(align: Layout::Box::Align::Center)
+    frame = CW::Box.new parent: @window, width: "100%", height: "100%",
+      layout: CT::Layout::VBox.new(align: CT::Layout::Box::Align::Center)
 
     @field = Field.new \
       parent: frame,
       width: WORLD_W + 2,
       repaints_every_frame: true,
-      style: Style.new(fg: "white", bg: "#101410",
-        border: Border.new(BorderType::Solid, fg: "#6a6a72"))
+      style: CT::Style.new(fg: "white", bg: "#101410",
+        border: CT::Border.new(CT::BorderType::Solid, fg: "#6a6a72"))
     @field.painter = ->(f : Field) { draw_scene f }
 
     # The one row the field doesn't get. Only the size along the stacking axis is
     # declared; the box supplies the row it lands on. (`width` stays explicit:
     # under `align: Center` the cross axis is *not* stretched, so the bar has to
     # ask for the full width it wants to span.)
-    @status = StatusBar.new \
+    @status = CW::StatusBar.new \
       parent: frame,
       width: "100%",
       height: 1,
       parse_tags: true,
-      style: Style.new(fg: "white", bg: "#20241c")
+      style: CT::Style.new(fg: "white", bg: "#20241c")
 
     # Overlays deliberately stay outside the layout: they are not regions of the
     # frame but cards that float ON TOP of the live scene, so they keep their own
@@ -257,7 +257,7 @@ class Commando
     # — created after `frame`, hence composited over it rather than overpainted.
     #
     # Centered card for the title / pause / game-over / victory screens.
-    @overlay = Box.new \
+    @overlay = CW::Box.new \
       parent: @window,
       top: "center",
       left: "center",
@@ -265,12 +265,12 @@ class Commando
       height: 11,
       parse_tags: true,
       align: "center",
-      style: Style.new(fg: "white", bg: "#14180f", bold: true,
-        border: Border.new(BorderType::Double, fg: "#c8b048"))
+      style: CT::Style.new(fg: "white", bg: "#14180f", bold: true,
+        border: CT::Border.new(CT::BorderType::Double, fg: "#c8b048"))
 
     # A slim top banner shown during the attract-mode demo, so the live
     # gameplay stays visible below it.
-    @banner = Box.new \
+    @banner = CW::Box.new \
       parent: @window,
       top: 1,
       left: "center",
@@ -278,12 +278,12 @@ class Commando
       height: 6,
       parse_tags: true,
       align: "center",
-      style: Style.new(fg: "white", bg: "#14180f", bold: true,
-        border: Border.new(BorderType::Double, fg: "#c8b048"))
+      style: CT::Style.new(fg: "white", bg: "#14180f", bold: true,
+        border: CT::Border.new(CT::BorderType::Double, fg: "#c8b048"))
     @banner.hide
 
-    @window.on(Event::KeyPress) { |e| on_key e }
-    @window.on(Event::Resize) { @window.update }
+    @window.on(CT::Event::KeyPress) { |e| on_key e }
+    @window.on(CT::Event::Resize) { @window.update }
   end
 
   def run
@@ -845,7 +845,7 @@ class Commando
   # Pack a foreground/background (`0xRRGGBB`, or -1 = terminal default) plus an
   # optional bold flag into a cell attr word for `fill_region`.
   private def cell(fg : Int32, bg : Int32, bold : Bool) : Int64
-    Attr.pack(bold ? Attr::BOLD : 0, Attr.pack_color(fg), Attr.pack_color(bg))
+    CT::Attr.pack(bold ? CT::Attr::BOLD : 0, CT::Attr.pack_color(fg), CT::Attr.pack_color(bg))
   end
 
   # Paint the whole scene by writing packed cells straight into the window

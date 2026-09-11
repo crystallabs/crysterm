@@ -12,9 +12,10 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Layout engines"
+s = CT::Window.new title: "Layout engines"
 
 # One color per child; every panel gets an identical set.
 CHILD_BG = {
@@ -23,57 +24,57 @@ CHILD_BG = {
 }
 
 def child(parent, name, **opts)
-  Widget::Box.new **opts, parent: parent, content: "{center}#{name}{/center}", parse_tags: true,
-    style: Style.new(fg: "black", bg: CHILD_BG[name])
+  CW::Box.new **opts, parent: parent, content: "{center}#{name}{/center}", parse_tags: true,
+    style: CT::Style.new(fg: "black", bg: CHILD_BG[name])
 end
 
 def panel(parent, title)
-  Widget::Box.new parent: parent, label: " #{title} ",
-    style: Style.new(border: true, fg: "#c0caf5", bg: "#10141c")
+  CW::Box.new parent: parent, label: " #{title} ",
+    style: CT::Style.new(border: true, fg: "#c0caf5", bg: "#10141c")
 end
 
-Widget::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
+CW::Box.new parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}One set of five children, six layout engines{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#202830")
+  style: CT::Style.new(fg: "white", bg: "#202830")
 
 # The six panels are themselves laid out by a Grid — no manual geometry anywhere.
-root = Widget::Box.new parent: s, top: 1, left: 0, width: "100%", height: "100%-1",
-  layout: Layout::Grid.new(columns: 3)
+root = CW::Box.new parent: s, top: 1, left: 0, width: "100%", height: "100%-1",
+  layout: CT::Layout::Grid.new(columns: 3)
 
 # HBox: children share the row equally, stretched to full height.
 p1 = panel root, "HBox"
-p1.layout = Layout::HBox.new
+p1.layout = CT::Layout::HBox.new
 %w[A B C D E].each { |n| child p1, n }
 
 # VBox: same, stacked vertically.
 p2 = panel root, "VBox"
-p2.layout = Layout::VBox.new
+p2.layout = CT::Layout::VBox.new
 %w[A B C D E].each { |n| child p2, n }
 
 # Grid: 3 columns; A takes a 2-column span, the rest auto-flow row-major.
 p3 = panel root, "Grid"
-p3.layout = Layout::Grid.new(columns: 3)
-child p3, "A", layout_hint: Layout::Grid::Hint.new(row: 0, column: 0, column_span: 2)
+p3.layout = CT::Layout::Grid.new(columns: 3)
+child p3, "A", layout_hint: CT::Layout::Grid::Hint.new(row: 0, column: 0, column_span: 2)
 %w[B C D E].each { |n| child p3, n }
 
 # Form: label/field pairs, one per row; the trailing unpaired child spans.
 p4 = panel root, "Form"
-p4.layout = Layout::Form.new(label_width: 8)
+p4.layout = CT::Layout::Form.new(label_width: 8)
 %w[A B C D].each { |n| child p4, n, height: 1 }
 child p4, "E", height: 1
 
 # Border: each child docked to an edge (or the center) by a Border::Hint.
 p5 = panel root, "Border"
-p5.layout = Layout::Dock.new
-child p5, "A", height: 1, layout_hint: Layout::Dock::Hint.new(:top)
-child p5, "B", height: 1, layout_hint: Layout::Dock::Hint.new(:bottom)
-child p5, "C", width: 6, layout_hint: Layout::Dock::Hint.new(:left)
-child p5, "D", width: 6, layout_hint: Layout::Dock::Hint.new(:right)
-child p5, "E", layout_hint: Layout::Dock::Hint.new(:center)
+p5.layout = CT::Layout::Dock.new
+child p5, "A", height: 1, layout_hint: CT::Layout::Dock::Hint.new(:top)
+child p5, "B", height: 1, layout_hint: CT::Layout::Dock::Hint.new(:bottom)
+child p5, "C", width: 6, layout_hint: CT::Layout::Dock::Hint.new(:left)
+child p5, "D", width: 6, layout_hint: CT::Layout::Dock::Hint.new(:right)
+child p5, "E", layout_hint: CT::Layout::Dock::Hint.new(:center)
 
 # Wrap: fixed-size children flow left-to-right and wrap onto new lines.
 p6 = panel root, "Wrap"
-p6.layout = Layout::Wrap.new
+p6.layout = CT::Layout::Wrap.new
 %w[A B C D E].each { |n| child p6, n, width: 7, height: 2 }
 
 s.exec

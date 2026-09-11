@@ -15,8 +15,8 @@ require "../../src/crysterm"
 #
 # Quit with q.
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 module Clock
   extend self
@@ -71,25 +71,25 @@ seconds = ARGV.includes?("-s")
 no_zero = ARGV.includes?("-n")
 show_date = ARGV.includes?("-d")
 
-window = Window.new title: "time.cr"
+window = CT::Window.new title: "time.cr"
 
-container = Widget::Box.new parent: window, top: "center", left: 0, width: "100%", height: 9
+container = CW::Box.new parent: window, top: "center", left: 0, width: "100%", height: 9
 
-date = Widget::Box.new parent: window, top: 1, left: 1, width: 26, height: 3,
-  style: Style.new(border: true)
+date = CW::Box.new parent: window, top: 1, left: 1, width: 26, height: 3,
+  style: CT::Style.new(border: true)
 date.hide
 
 # Built glyphs cached by (column index, char); the set currently visible.
-cache = {} of Tuple(Int32, Char) => Widget::Box
-shown = [] of Widget::Box
+cache = {} of Tuple(Int32, Char) => CW::Box
+shown = [] of CW::Box
 last_time = ""
 
 build_glyph = ->(c : Char) {
   m = Clock.meta(c).not_nil!
-  g = Widget::Box.new parent: container, top: m[:top], left: 0, width: m[:width], height: m[:height]
-  st = Style.new(bg: m[:color])
+  g = CW::Box.new parent: container, top: m[:top], left: 0, width: m[:width], height: m[:height]
+  st = CT::Style.new(bg: m[:color])
   Clock.segments(c).each do |s|
-    Widget::Box.new parent: g, style: st,
+    CW::Box.new parent: g, style: st,
       top: s[:top], left: s[:left], right: s[:right],
       bottom: s[:bottom], width: s[:width], height: s[:height]
   end
@@ -140,7 +140,7 @@ update = -> {
 
 # `update` early-returns when the time is unchanged, but a resize needs a
 # recompute of the horizontal position, so clear the cached time first.
-window.on(Event::Resize) do
+window.on(CT::Event::Resize) do
   last_time = ""
   update.call
 end

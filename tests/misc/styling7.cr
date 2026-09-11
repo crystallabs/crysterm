@@ -19,22 +19,23 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Styling 7"
+s = CT::Window.new title: "Styling 7"
 
 # Extended tier pinned for the exact thin-shadow eighths, as in styling2-6.cr.
-s.glyph_tier = Glyphs::Tier::Extended
+s.glyph_tier = CT::Glyphs::Tier::Extended
 
 # Neutral backdrop: shadows darken whatever is behind the widget.
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: "100%",
-  style: Style.new(bg: 0x3a4250)
+  style: CT::Style.new(bg: 0x3a4250)
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Shadow anatomy — sides, opacity, thin ratios, chars{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#403040")
+  style: CT::Style.new(fg: "white", bg: "#403040")
 
 COLORS = [
   {0x2050a0, "#9fc7ff"}, {0x146054, "#5fe0c0"}, {0x4a2060, "#d090ff"},
@@ -46,31 +47,31 @@ COLORS = [
 # Each entry: {shadow or full style, 1-3 label lines}.
 boxes = [
   # Row 1 — placement and tone.
-  {Shadow.new(right: 2, bottom: 1), # the classic explicit extents
+  {CT::Shadow.new(right: 2, bottom: 1), # the classic explicit extents
    "explicit sides\nright: 2\nbottom: 1"},
-  {Shadow.new, # no sides given: the light places it (NW -> same as classic)
+  {CT::Shadow.new, # no sides given: the light places it (NW -> same as classic)
    "shadow: true\n(auto sides)"},
-  {Shadow.new(right: 2, bottom: 1, opacity: 0.25), # a whisper of a shadow
+  {CT::Shadow.new(right: 2, bottom: 1, opacity: 0.25), # a whisper of a shadow
    "opacity: 0.25"},
-  {Shadow.new(right: 2, bottom: 1, opacity: 0.85), # near-black
+  {CT::Shadow.new(right: 2, bottom: 1, opacity: 0.85), # near-black
    "opacity: 0.85"},
   # Row 2 — the thin ratio ladder.
-  {Shadow.new(right: 1, bottom: 1, ratio: :thin), # hairline band
+  {CT::Shadow.new(right: 1, bottom: 1, ratio: :thin), # hairline band
    "ratio: :thin"},
-  {Shadow.new(right: 1, bottom: 1, ratio: :quarter),
+  {CT::Shadow.new(right: 1, bottom: 1, ratio: :quarter),
    "ratio: :quarter"},
-  {Shadow.new(right: 1, bottom: 1, ratio: :half), # the sweet spot
+  {CT::Shadow.new(right: 1, bottom: 1, ratio: :half), # the sweet spot
    "ratio: :half"},
-  {Shadow.new(right: 1, bottom: 1, ratio: :full), # side bands: whole-cell blend
+  {CT::Shadow.new(right: 1, bottom: 1, ratio: :full), # side bands: whole-cell blend
    "ratio: :full"},
   # Row 3 — chars, silhouettes, the bundled look.
-  {Shadow.new(right: 1, bottom: 1, horizontal_char: '▄'), # hand-picked band glyphs
+  {CT::Shadow.new(right: 1, bottom: 1, horizontal_char: '▄'), # hand-picked band glyphs
    "horizontal_char\n'▄' (manual)"},
-  {Style.new(border: true, shadow: true, light: :n), # exact silhouette below
+  {CT::Style.new(border: true, shadow: true, light: :n), # exact silhouette below
    "light: :n\n(directional)"},
-  {Style.new(border: true, shadow: true, light: Light.new(:n, :spot)), # spills 1 cell each side
+  {CT::Style.new(border: true, shadow: true, light: CT::Light.new(:n, :spot)), # spills 1 cell each side
    "light: n spot\n(cone spill)"},
-  {Style.new(border: Border.new(type: :rounded), look: :floating), # thin auto shadow, one keyword
+  {CT::Style.new(border: CT::Border.new(type: :rounded), look: :floating), # thin auto shadow, one keyword
    "look: :floating"},
 ]
 
@@ -78,13 +79,13 @@ boxes.each_with_index do |(deco, label), i|
   bg, fg = COLORS[i]
   style =
     case deco
-    in Shadow then Style.new(border: Border.new(fg: fg), shadow: deco)
-    in Style  then deco
+    in CT::Shadow then CT::Style.new(border: CT::Border.new(fg: fg), shadow: deco)
+    in CT::Style  then deco
     end
   style.fg = "white"
   style.bg = bg
   style.border.fg = fg if style.border.fg.nil?
-  Widget::Box.new \
+  CW::Box.new \
     parent: s, top: 2 + (i // 4) * 7, left: 2 + (i % 4) * 20, width: 17, height: 5,
     content: "{center}#{label}{/center}", parse_tags: true,
     style: style

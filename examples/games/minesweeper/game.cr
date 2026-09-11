@@ -26,9 +26,6 @@ require "../../../src/crysterm"
 #     opens into a blank area.
 #   * A live timer and a remaining-mine counter (mines minus flags).
 class Minesweeper
-  include Crysterm
-  include Crysterm::Widgets
-
   # Each cell is drawn this many columns wide and one row tall. Fixed width lets
   # a click's (x, y) be mapped straight back to a (row, col).
   CELL_W = 3
@@ -46,7 +43,7 @@ class Minesweeper
   record Theme,
     name : String,
     box_bg : String,               # board frame / border backdrop
-    border_type : BorderType,      # frame style (single line, double, …)
+    border_type : CT::BorderType,  # frame style (single line, double, …)
     border_fg : String,            # frame colour
     covered : {String, String},    # covered-tile checkerboard {light, dark}
     dug : {String, String},        # dug-cell checkerboard {light, dark}
@@ -69,7 +66,7 @@ class Minesweeper
     # Bright grass field that "digs" into sandy tan.
     Theme.new(
       name: "Grass",
-      box_bg: "#4e7a27", border_type: BorderType::Solid, border_fg: "#86a94e",
+      box_bg: "#4e7a27", border_type: CT::BorderType::Solid, border_fg: "#86a94e",
       covered: {"#aad751", "#a2d149"}, dug: {"#e5c29f", "#d7b899"},
       numbers: {1 => "#1976d2", 2 => "#388e3c", 3 => "#d32f2f", 4 => "#7b1fa2",
                 5 => "#ff8f00", 6 => "#0097a7", 7 => "#424242", 8 => "#757575"},
@@ -79,7 +76,7 @@ class Minesweeper
     # Slate tiles and bright glyphs, matching the dark menu/status bars.
     Theme.new(
       name: "Neon",
-      box_bg: "#0e0e16", border_type: BorderType::Double, border_fg: "#89b4fa",
+      box_bg: "#0e0e16", border_type: CT::BorderType::Double, border_fg: "#89b4fa",
       covered: {"#2a2a45", "#232338"}, dug: {"#14141f", "#0e0e16"},
       numbers: {1 => "#82aaff", 2 => "#c3e88d", 3 => "#ff5370", 4 => "#c792ea",
                 5 => "#ffcb6b", 6 => "#89ddff", 7 => "#eeffff", 8 => "#b2b2c0"},
@@ -89,7 +86,7 @@ class Minesweeper
     # Flat grey/beige Windows look with traditional numbers.
     Theme.new(
       name: "Classic",
-      box_bg: "#9e9e9e", border_type: BorderType::Double, border_fg: "#ffffff",
+      box_bg: "#9e9e9e", border_type: CT::BorderType::Double, border_fg: "#ffffff",
       covered: {"#c6c6c6", "#bdbdbd"}, dug: {"#d8d2c4", "#cfc8b8"},
       numbers: {1 => "#0000ff", 2 => "#008000", 3 => "#ff0000", 4 => "#000080",
                 5 => "#800000", 6 => "#008080", 7 => "#000000", 8 => "#808080"},
@@ -128,21 +125,21 @@ class Minesweeper
 
   # The checkable difficulty entries in the Game menu, kept so the current one
   # can be shown ticked (they behave like a radio group).
-  @diff_actions = {} of String => Action
+  @diff_actions = {} of String => CW::Action
 
   # Index into THEMES of the active visual theme; advanced by the `t` key.
   # Defaults to Neon (resolved by name so it survives reordering THEMES).
   @theme_index = THEMES.index { |t| t.name == "Neon" } || 0
 
   def initialize(@difficulty)
-    @window = Window.new title: "Minesweeper"
+    @window = CT::Window.new title: "Minesweeper"
 
     # A single Border layout carves the window into this game's three regions:
     # the menu bar on top, the status bar at the bottom, and the play area
     # filling whatever is left in between. Nothing below is placed at a
     # hand-computed coordinate, and no region has to reserve room for another.
-    frame = Box.new parent: @window, width: "100%", height: "100%",
-      layout: Layout::Dock.new
+    frame = CW::Box.new parent: @window, width: "100%", height: "100%",
+      layout: CT::Layout::Dock.new
 
     # The play area: whatever the two bars leave over. The board is the only
     # thing in it, so this box carries no engine of its own — the board sits in
@@ -152,27 +149,27 @@ class Minesweeper
     # spare column to the left (mid − half), the box engine floors
     # `(area − board) / 2` and rounds it to the right. Keeping `"center"` keeps
     # the board where it has always been drawn.
-    board_area = Box.new parent: frame, layout_hint: :center
+    board_area = CW::Box.new parent: frame, layout_hint: :center
 
     # The board declares its size and asks to be centred in the play area; that
     # area's position and extent come from the layout, so the board no longer
     # knows a menu bar or a status bar exists. Its top margin — not a `top:`
     # counted off the menu bar's height — is the row of breathing space above it.
-    @board = GroupBox.new \
+    @board = CW::GroupBox.new \
       parent: board_area,
       left: "center",
       width: @cols * CELL_W + 2, # +2 for the left/right border
       height: @rows + 2,
       title: " MINESWEEPER ",
       parse_tags: true,
-      style: Style.new(fg: "white", border: true, margin: Margin.top, shadow: true)
+      style: CT::Style.new(fg: "white", border: true, margin: CT::Margin.top, shadow: true)
 
-    @status = StatusBar.new \
+    @status = CW::StatusBar.new \
       parent: frame,
       height: 1, # the only size it declares: Border spans it across the window
       parse_tags: true,
       layout_hint: :bottom,
-      style: Style.new(fg: "white", bg: "#303050")
+      style: CT::Style.new(fg: "white", bg: "#303050")
 
     apply_theme
 
@@ -183,12 +180,12 @@ class Minesweeper
 
     # One handler covers the whole board; recover the clicked cell from event
     # coordinates. Acting on `down?` only means one action per press.
-    @board.on(Event::Mouse) do |e|
+    @board.on(CT::Event::Mouse) do |e|
       next unless e.action.down?
       handle_click e
     end
 
-    @window.on(Event::KeyPress) do |e|
+    @window.on(CT::Event::KeyPress) do |e|
       case
       when e.key == Tput::Key::CtrlQ, e.char == 'q'
         # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
@@ -219,13 +216,13 @@ class Minesweeper
   # Build the top menu bar: a "Game" menu mirroring every keyboard command, and
   # a "Help" menu. Difficulty entries are checkable and act as a radio group
   # (current one ticked), updated in `new_game`.
-  private def build_menu_bar(frame : Widget)
-    menubar = MenuBar.new \
+  private def build_menu_bar(frame : CT::Widget)
+    menubar = CW::MenuBar.new \
       parent: frame,
       height: 1,
       layout_hint: :top,
-      menu_style: Style.new(border: true, fg: "white", bg: "#202030"),
-      style: Style.new(fg: "white", bg: "#303050")
+      menu_style: CT::Style.new(border: true, fg: "white", bg: "#202030"),
+      style: CT::Style.new(fg: "white", bg: "#303050")
 
     game = menubar.add_menu "Game"
     game.add_action("New") { new_game @difficulty }
@@ -270,7 +267,7 @@ class Minesweeper
   # theme change only needs a repaint.
   private def apply_theme
     @board.style.bg = theme.box_bg
-    @board.style.border = Border.new(theme.border_type, fg: theme.border_fg)
+    @board.style.border = CT::Border.new(theme.border_type, fg: theme.border_fg)
   end
 
   # Advance to the next visual theme and repaint.

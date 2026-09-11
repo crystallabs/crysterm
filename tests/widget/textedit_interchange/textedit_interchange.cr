@@ -10,8 +10,8 @@
 # Run it:     crystal run tests/widget/textedit_interchange/textedit_interchange.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 SOURCE_MD = <<-MD
   # Interchange
@@ -25,9 +25,9 @@ SOURCE_MD = <<-MD
   > Copy left, paste right.
   MD
 
-left : Widget::TextEdit? = nil
-right : Widget::TextEdit? = nil
-export : Widget::Box? = nil
+left : CW::TextEdit? = nil
+right : CW::TextEdit? = nil
+export : CW::Box? = nil
 
 refresh_export = -> do
   export.try { |e| right.try { |r| e.content = r.to_markdown } }
@@ -35,7 +35,7 @@ end
 
 # The copy/paste chords aren't in the Driver's named-key table, so inject
 # them as KeyPress events on the widgets directly.
-ctl = ->(k : Tput::Key) { Event::KeyPress.new '\0', k }
+ctl = ->(k : Tput::Key) { CT::Event::KeyPress.new '\0', k }
 
 Crysterm::WidgetExample.run("TextEdit interchange",
   script: ->(d : Crysterm::WidgetExample::Driver) {
@@ -63,17 +63,17 @@ Crysterm::WidgetExample.run("TextEdit interchange",
   window.stylesheet = "TextEdit { border: solid; color: #c0caf5; background-color: #1f2335; } " \
                       "#export { border: solid; color: #9aa5ce; background-color: #16161e; }"
 
-  l = Widget::TextEdit.new parent: window, left: 1, top: 1, width: 38, height: 13
+  l = CW::TextEdit.new parent: window, left: 1, top: 1, width: 38, height: 13
   l.label = " set_markdown "
   l.set_markdown SOURCE_MD
   left = l
 
-  r = Widget::TextEdit.new parent: window, input_on_focus: true,
+  r = CW::TextEdit.new parent: window, input_on_focus: true,
     left: 41, top: 1, width: 38, height: 13
   r.label = " paste target "
   right = r
 
-  e = Widget::Box.new parent: window, left: 1, top: 14, width: 78, height: 8
+  e = CW::Box.new parent: window, left: 1, top: 14, width: 78, height: 8
   e.css_id = "export"
   e.label = " right.to_markdown "
   export = e
@@ -81,6 +81,6 @@ Crysterm::WidgetExample.run("TextEdit interchange",
   # Typed keys and C-c/C-v route to the focused right editor; the export box
   # refreshes after every keystroke.
   r.focus
-  r.on(Event::KeyPress) { refresh_export.call }
+  r.on(CT::Event::KeyPress) { refresh_export.call }
   refresh_export.call
 end

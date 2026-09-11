@@ -12,7 +12,8 @@
 
 require "../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 # Build (once) a small MP4 out of the bundled GIF, cached outside the repo so
 # reruns start instantly.
@@ -26,23 +27,23 @@ unless File.exists? mp4
   abort "video.cr: ffmpeg not on PATH or conversion failed" unless status.success?
 end
 
-s = Window.new title: "Video"
+s = CT::Window.new title: "Video"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Video playback · ffmpeg decodes, the best Media backend renders · looping{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
-Widget::Video.new \
-  parent: s, file: mp4.to_s, fit: Widget::Media::Fit::Contain,
+CW::Video.new \
+  parent: s, file: mp4.to_s, fit: CW::Media::Fit::Contain,
   top: 1, left: 0, width: "100%", height: s.aheight - 3,
   label: " netscape.mp4 · media.video_decode=auto ",
-  style: Style.new(border: true)
+  style: CT::Style.new(border: true)
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: s.aheight - 2, left: 0, width: "100%", height: 2,
   content: "{center}containers: mp4 m4v mkv webm mov avi wmv flv mpg mpeg ogv ts 3gp\n" \
            "decode tiers: eager (short clips, loop from RAM) · stream (constant memory){/center}",
-  parse_tags: true, style: Style.new(fg: "#8090a0")
+  parse_tags: true, style: CT::Style.new(fg: "#8090a0")
 
 s.exec

@@ -1,5 +1,8 @@
 require "../../src/crysterm"
 
+alias CT = Crysterm
+alias CW = CT::Widgets
+
 # Proof-of-concept Mutt-style TUI mail client built from the
 # `Crysterm::Widget::Mutt` widget set plus stock Crysterm widgets. All content
 # is mocked; nothing is read from disk or sent over the network. Where the Pine
@@ -19,14 +22,12 @@ require "../../src/crysterm"
 # Pine switches its body views by visibility, the center here is a `Stack`.
 #
 # Run with:  crystal examples/mutt/mutt.cr   (TERM=xterm-256color recommended)
-include Crysterm
-include Crysterm::Widgets
 include Tput::Namespace
 
 # The Mutt widget pack's alias set (Sidebar, MessageIndex, Compose, …).
-include Widget::Mutt::DSL
+include CT::Widget::Mutt::DSL
 
-s = Window.new(
+s = CT::Window.new(
   always_propagated_keys: [Tput::Key::CtrlQ],
   title: "Crysterm — Mutt-style demo",
   # Opt out of the app-global "q / Ctrl-Q hard-exits" default so `q` is ours
@@ -150,12 +151,12 @@ HELP_TEXT = <<-HELP
 # in the center, and a two-row footer (status line + command line) at the
 # bottom. No widget below is given a fixed position.
 
-frame = Widget::Box.new(parent: s, width: "100%", height: "100%", layout: Layout::Dock.new)
+frame = CW::Box.new(parent: s, width: "100%", height: "100%", layout: CT::Layout::Dock.new)
 
 # Top: Mutt's one-line command hint bar (updated per screen).
-helpline = Widget::Box.new(
+helpline = CW::Box.new(
   parent: frame, height: 1, parse_tags: true,
-  style: Style.new(reverse: true),
+  style: CT::Style.new(reverse: true),
   layout_hint: :top,
 )
 
@@ -163,7 +164,7 @@ helpline = Widget::Box.new(
 sidebar = Sidebar.new(parent: frame, width: 24, mailboxes: mailboxes,
   layout_hint: :left)
 sidebar.open_index = 0
-Widget::VLine.new(parent: frame, width: 1, layout_hint: :left)
+CW::VLine.new(parent: frame, width: 1, layout_hint: :left)
 
 # Center: the switchable main area, arranged by a `Stack` layout (Qt's
 # `QStackedLayout`) — all views fill the center; only `stack.current_index` renders,
@@ -171,34 +172,34 @@ Widget::VLine.new(parent: frame, width: 1, layout_hint: :left)
 # Mutt's `$editor` message pane) paint: unlike a StackedWidget, the Stack
 # layout lays a view out freshly when it becomes current, and it suppresses
 # the others cleanly (no stale cells bleeding through).
-stack = Layout::Stack.new
-center = Widget::Box.new(parent: frame, layout: stack, layout_hint: :center)
+stack = CT::Layout::Stack.new
+center = CW::Box.new(parent: frame, layout: stack, layout_hint: :center)
 index = MessageIndex.new(parent: center, messages: messages)
-pager = Widget::ScrollableText.new(parent: center, parse_tags: true, keys: true)
+pager = CW::ScrollableText.new(parent: center, parse_tags: true, keys: true)
 # `shrink_to_fit: false` so the editor fills the whole center area instead of
 # shrinking to the width/height of what's typed (a `PlainTextEdit` includes
 # `Mixin::Interactive`, which defaults `shrink_to_fit = true` — shrink-to-content).
 # Mutt's message editor occupies the entire body pane.
-editor = Widget::PlainTextEdit.new(parent: center, input_on_focus: true,
+editor = CW::PlainTextEdit.new(parent: center, input_on_focus: true,
   shrink_to_fit: false, width: "100%", height: "100%")
 compose = Compose.new(parent: center)
-help = Widget::ScrollableText.new(parent: center, parse_tags: true, keys: true, content: HELP_TEXT)
+help = CW::ScrollableText.new(parent: center, parse_tags: true, keys: true, content: HELP_TEXT)
 PAGE = {index: 0, pager: 1, editor: 2, compose: 3, help: 4}
 
 # Bottom: a two-row footer stacked by a VBox — status line above, command
 # line below. The command line is an HBox of a label zone (transient status,
 # or a prompt like "To:") and, during a text prompt, an inline editor to its
 # right — Mutt does all its prompting right here on the bottom line.
-footer = Widget::Box.new(parent: frame, height: 2, layout: Layout::VBox.new,
+footer = CW::Box.new(parent: frame, height: 2, layout: CT::Layout::VBox.new,
   layout_hint: :bottom)
 status = StatusBar.new
 footer.append status
-cmdline = Widget::Box.new(height: 1, width: "100%", layout: Layout::HBox.new)
+cmdline = CW::Box.new(height: 1, width: "100%", layout: CT::Layout::HBox.new)
 footer.append cmdline
 # `cmd_label` fills the line for plain messages; for a prompt it shrinks to the
 # label width and `cmd_input` (flex) fills the rest.
-cmd_label = Widget::Box.new(height: 1, parse_tags: true)
-cmd_input = Widget::LineEdit.new(height: 1, visible: false)
+cmd_label = CW::Box.new(height: 1, parse_tags: true)
+cmd_input = CW::LineEdit.new(height: 1, visible: false)
 cmdline.append cmd_label, cmd_input
 
 # ---------------------------------------------------- screen state & helpers
@@ -246,7 +247,7 @@ set_help = ->(text : String) { helpline.content = text; nil }
 # Raise one center view and focus it. Focus itself is safe against the
 # not-yet-arranged page: the render that follows re-asserts the focused
 # widget's visibility and caret against the freshly laid-out boxes.
-show_page = ->(name : Symbol, view : Widget) do
+show_page = ->(name : Symbol, view : CT::Widget) do
   current = name
   stack.current_index = PAGE[name]
   view.focus
@@ -262,7 +263,7 @@ end
 # *e* is the keypress that triggered the prompt. Accepting it marks the key
 # consumed, which is what stops `Application#route_input` from also treating a
 # command letter as the app-global quit key.
-open_prompt = ->(label : String, initial : String, e : Event::KeyPress?, on_done : Proc(String, Nil)) do
+open_prompt = ->(label : String, initial : String, e : CT::Event::KeyPress?, on_done : Proc(String, Nil)) do
   prompt_active = true
   prompt_done = on_done
   cmd_label.content = "{bold}#{label}{/bold}"
@@ -286,7 +287,7 @@ finish_prompt = -> do
   nil
 end
 
-cmd_input.on(Event::Submitted) do
+cmd_input.on(CT::Event::Submitted) do
   if prompt_active
     value = cmd_input.value
     done = prompt_done
@@ -383,7 +384,7 @@ end
 # Shared by the header command keys (t/c/s/b, which pass their triggering
 # keypress so it can be `accept`ed) and by Enter/click on a header row (which
 # pass `nil`). From is display-only here, so it has no prompt.
-edit_field = ->(field : String, e : Event::KeyPress?) do
+edit_field = ->(field : String, e : CT::Event::KeyPress?) do
   case field
   when "To"
     open_prompt.call "To: ", draft_to, e, ->(v : String) { draft_to = v; open_compose_menu.call; nil }
@@ -404,7 +405,7 @@ end
 # current draft. Arrow keys already move the highlight through every row
 # (`Compose` is one `List` whose `-- Attachments --` divider is non-selectable),
 # so this makes the menu fully usable by cursor as well as by command key.
-compose.menu.on(Event::ItemActivated) do
+compose.menu.on(CT::Event::ItemActivated) do
   kind, sub = compose.selected_row
   case kind
   when Compose::RowKind::Header
@@ -425,7 +426,7 @@ end
 # handing the answer to a callback, so the sequence stays flat. It must not run
 # on the fiber delivering input — which is the one this key handler is on —
 # hence the `spawn`.
-start_compose = ->(e : Event::KeyPress?) do
+start_compose = ->(e : CT::Event::KeyPress?) do
   e.try &.accept
   draft_to = ""
   draft_cc = ""
@@ -472,7 +473,7 @@ messages.each { |m| m.callback { open_message.call m } }
 sidebar.mailboxes.each { |mb| mb.callback { open_folder.call mb } }
 
 # Mailbox click / Enter in the sidebar hands focus back to the index.
-sidebar.on(Event::ItemActivated) { active_pane = :index }
+sidebar.on(CT::Event::ItemActivated) { active_pane = :index }
 
 # ----------------------------------------------------- Mutt key shortcuts
 #
@@ -482,7 +483,7 @@ sidebar.on(Event::ItemActivated) { active_pane = :index }
 # This handler runs afterwards on the same event, so the Mutt command letters
 # work whichever pane holds focus.
 
-s.on(Event::KeyPress) do |e|
+s.on(CT::Event::KeyPress) do |e|
   ch = e.char
   key = e.key
 

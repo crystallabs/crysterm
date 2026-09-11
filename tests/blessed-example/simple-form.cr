@@ -6,10 +6,10 @@ require "../../src/crysterm"
 # happened. Tab/Shift-Tab move focus, Enter or click activates, q quits.
 # Button colors and focus/hover state come from a CSS stylesheet.
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-window = Window.new title: "simple-form.cr"
+window = CT::Window.new title: "simple-form.cr"
 window.enable_mouse
 
 window.stylesheet = <<-CSS
@@ -18,7 +18,7 @@ window.stylesheet = <<-CSS
   Button:focus, Button:hover { background-color: red; }
 CSS
 
-form = Form.new(
+form = CW::Form.new(
   parent: window,
   left: 0,
   top: 0,
@@ -27,7 +27,7 @@ form = Form.new(
   content: "Submit or cancel?",
 )
 
-submit = Button.new(
+submit = CW::Button.new(
   parent: form,
   left: 10,
   top: 2,
@@ -38,7 +38,7 @@ submit = Button.new(
   parse_tags: true,
 )
 
-cancel = Button.new(
+cancel = CW::Button.new(
   parent: form,
   left: 20,
   top: 2,
@@ -52,11 +52,11 @@ cancel = Button.new(
 submit.on_click { form.submit }
 cancel.on_click { form.reset }
 
-form.on(Event::FormSubmitted) do
+form.on(CT::Event::FormSubmitted) do
   form.content = "Submitted."
 end
 
-form.on(Event::Reset) do
+form.on(CT::Event::Reset) do
   form.content = "Canceled."
 end
 

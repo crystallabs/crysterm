@@ -10,14 +10,15 @@
 
 require "../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Sixel"
+s = CT::Window.new title: "Sixel"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Sixel  ·  in-band DCS sixel raster graphics  ·  the Matterhorn{/center}",
-  parse_tags: true, style: Style.new(fg: "white", bg: "#202830")
+  parse_tags: true, style: CT::Style.new(fg: "white", bg: "#202830")
 
 # Leave a spare row at the bottom: sixel scrolling advances the cursor below
 # the image, so reaching the last screen row would scroll the title off top.
@@ -25,12 +26,12 @@ iw = s.awidth
 ih = s.aheight - 2
 
 fit = case ENV["FIT"]?
-      when "contain" then Widget::Media::Fit::Contain
-      when "cover"   then Widget::Media::Fit::Cover
-      else                Widget::Media::Fit::Stretch
+      when "contain" then CT::Widget::Media::Fit::Contain
+      when "cover"   then CT::Widget::Media::Fit::Cover
+      else                CT::Widget::Media::Fit::Stretch
       end
 
-Widget::Media::Sixel.new \
+CW::MediaSixel.new \
   parent: s, top: 1, left: 0, width: iw, height: ih,
   fit: fit,
   cell_pixel_width: (ENV["CELL_PW"]? || "0").to_i, # 0 = auto-detect (TIOCGWINSZ)

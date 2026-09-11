@@ -3,19 +3,20 @@
 # (truecolor / c256 / c16 / c8).
 require "../../../../src/crysterm"
 
-include Crysterm
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Media::Ansi"
+s = CT::Window.new title: "Media::Ansi"
 
-Widget::Media::Ansi.new \
+CW::MediaAnsi.new \
   parent: s, top: 1, left: 0, width: s.awidth, height: s.aheight - 1,
   animate: false,
   file: "#{__DIR__}/../../../../data/image/matterhorn.png"
 
-Widget::Box.new \
+CW::Box.new \
   parent: s, top: 0, left: 0, width: "100%", height: 1,
   content: "{center}Media::Ansi  ·  one cell per pixel · default colormode{/center}", parse_tags: true,
-  style: Style.new(fg: "white", bg: "#202830")
+  style: CT::Style.new(fg: "white", bg: "#202830")
 
 s.update
 s.exec

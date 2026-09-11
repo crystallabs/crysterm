@@ -46,27 +46,27 @@
 
 require "../../src/crysterm"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
-s = Window.new title: "Qt-like Widgets"
+s = CT::Window.new title: "Qt-like Widgets"
 # Join touching/overlapping borders into seamless junctions (├ ┬ ┼ …), e.g.
 # where a submenu's left border overlaps its parent's right border.
 s.border_junctions = true
 
 # --- Main window frame -------------------------------------------------------
 
-win = MainWindow.new parent: s
+win = CW::MainWindow.new parent: s
 
-status = StatusBar.new
+status = CW::StatusBar.new
 win.status_bar = status
 status.add_permanent "Tab: focus"
 status.add_permanent "q: quit"
 
 # Shared helper: an Action that reports to the status bar when triggered.
 mk = ->(text : String, msg : String) do
-  a = Action.new text
-  a.on(Event::Triggered) { status.show_message " #{msg}" }
+  a = CW::Action.new text
+  a.on(CT::Event::Triggered) { status.show_message " #{msg}" }
   a
 end
 
@@ -78,14 +78,14 @@ end
 # The `&` markers are Qt-style mnemonics: the letter renders underlined,
 # Alt+<letter> opens the menu from anywhere, and inside an open menu the bare
 # letter activates the marked entry.
-menubar = Widget::MenuBar.new
+menubar = CW::MenuBar.new
 win.menu_bar = menubar
 
 filemenu = menubar.add_menu "&File"
 filemenu.add_action("&New") { status.show_message " new file" }
 filemenu.add_action("&Open") { status.show_message " open file" }
 # Recent holds two files plus a nested "Bucket" submenu: File → Recent → Bucket → (entries).
-bucket = Action.new "&Bucket"
+bucket = CW::Action.new "&Bucket"
 bucket.menu = [mk.call("old-1.txt", "open old-1.txt"), mk.call("old-2.txt", "open old-2.txt")]
 filemenu.add_submenu "&Recent", [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md"), bucket]
 filemenu.add_separator
@@ -93,7 +93,7 @@ filemenu.add_action("&Quit") { s.quit }
 
 editmenu = menubar.add_menu "&Edit", [mk.call("Cu&t", "cut"), mk.call("&Copy", "copy"), mk.call("&Paste", "paste")]
 editmenu.add_separator
-ed_wrap = Action.new "&Word Wrap"
+ed_wrap = CW::Action.new "&Word Wrap"
 ed_wrap.checkable = true
 editmenu << ed_wrap
 
@@ -101,28 +101,28 @@ menubar.add_menu("&Help").add_action("&About") { status.show_message " Crysterm 
 
 # --- Tool bar (action buttons) -----------------------------------------------
 
-toolbar = Widget::ToolBar.new
+toolbar = CW::ToolBar.new
 win.add_tool_bar toolbar
 toolbar.add_button("New") { status.show_message " new file" }
 toolbar.add_button("Open") { status.show_message " open file" }
 toolbar.add_separator
-tb_bold = Action.new "Bold"
+tb_bold = CW::Action.new "Bold"
 tb_bold.checkable = true
 tb_bold.tool_tip = "Toggle bold"
-tb_bold.on(Event::Triggered) { status.show_message " bold = #{tb_bold.checked?}" }
+tb_bold.on(CT::Event::Triggered) { status.show_message " bold = #{tb_bold.checked?}" }
 toolbar.add_action tb_bold
 
 # --- Central tabbed area -----------------------------------------------------
 
-tabs = Widget::TabWidget.new tabs_closable: true
+tabs = CW::TabWidget.new tabs_closable: true
 win.central_widget = tabs
 
-controls = Widget::Box.new
-menupage = Widget::Box.new
-treepage = Widget::Box.new
-datespage = Widget::Box.new
-stackpage = Widget::Box.new
-extraspage = Widget::Box.new
+controls = CW::Box.new
+menupage = CW::Box.new
+treepage = CW::Box.new
+datespage = CW::Box.new
+stackpage = CW::Box.new
+extraspage = CW::Box.new
 tabs.add_tab "Controls", controls
 tabs.add_tab "Menu", menupage
 tabs.add_tab "Tree", treepage
@@ -131,52 +131,52 @@ tabs.add_tab "Stack", stackpage
 tabs.add_tab "Extras", extraspage
 
 # Controls tab: a checkable GroupBox holding the value widgets (with tooltips).
-gb = Widget::GroupBox.new \
+gb = CW::GroupBox.new \
   parent: controls, top: 1, left: 1, right: 1, bottom: 1,
   title: "Profile", checkable: true, checked: true
 
-Widget::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
-slider = Widget::Slider.new \
+CW::Box.new parent: gb, top: 1, left: 1, width: 8, height: 1, content: "Volume:"
+slider = CW::Slider.new \
   parent: gb, top: 1, left: 9, width: 16, height: 2,
   minimum: 0, maximum: 100, value: 40, text_visible: true,
-  tick_position: Widget::Slider::TickPosition::Below, tick_interval: 20
+  tick_position: CW::Slider::TickPosition::Below, tick_interval: 20
 slider.tool_tip = "Master volume (0–100)"
 
-Widget::Box.new parent: gb, top: 3, left: 1, width: 8, height: 1, content: "Count:"
-spin = Widget::SpinBox.new \
+CW::Box.new parent: gb, top: 3, left: 1, width: 8, height: 1, content: "Count:"
+spin = CW::SpinBox.new \
   parent: gb, top: 3, left: 9, width: 12, height: 1,
   minimum: 0, maximum: 10, value: 3, suffix: " items"
 spin.tool_tip = "Item count (type or step)"
 
-Widget::Box.new parent: gb, top: 5, left: 1, width: 8, height: 1, content: "Angle:"
-dial = Widget::Dial.new \
+CW::Box.new parent: gb, top: 5, left: 1, width: 8, height: 1, content: "Angle:"
+dial = CW::Dial.new \
   parent: gb, top: 5, left: 9, width: 7, height: 3,
   minimum: 0, maximum: 360, value: 90
 dial.tool_tip = "Angle in degrees"
 
 # Color combo placed last so its drop-down opens *below* the other controls.
-Widget::Box.new parent: gb, top: 9, left: 1, width: 8, height: 1, content: "Color:"
-combo = Widget::ComboBox.new \
+CW::Box.new parent: gb, top: 9, left: 1, width: 8, height: 1, content: "Color:"
+combo = CW::ComboBox.new \
   parent: gb, top: 9, left: 9, width: 16, height: 1, editable: true,
   options: ["Red", "Green", "Blue", "Cyan", "Magenta", "Maroon"]
 combo.tool_tip = "Pick or type a color"
 
 # A seven-segment LCD mirroring the volume slider, updated on its events.
-Widget::Box.new parent: gb, top: 11, left: 1, width: 8, height: 1, content: "Vol:"
-lcd = Widget::LCDNumber.new \
+CW::Box.new parent: gb, top: 11, left: 1, width: 8, height: 1, content: "Vol:"
+lcd = CW::LCDNumber.new \
   parent: gb, top: 11, left: 9, width: 16, height: 3, digit_count: 3
 lcd.display slider.value
 
 # Menu tab: an embedded menu with nested submenus + a checkable item.
 # `&` mnemonics work here too: the bare letter activates the marked entry.
-menu = Widget::Menu.new parent: menupage, top: 1, left: 1, width: 22, height: 10
+menu = CW::Menu.new parent: menupage, top: 1, left: 1, width: 22, height: 10
 
-recent = Action.new "&Recent"
+recent = CW::Action.new "&Recent"
 recent.menu = [mk.call("report.txt", "open report.txt"), mk.call("notes.md", "open notes.md")]
-file = Action.new "&File"
+file = CW::Action.new "&File"
 file.menu = [mk.call("New", "new file"), mk.call("Open", "open file"), recent]
 
-wrap = Action.new "&Word Wrap"
+wrap = CW::Action.new "&Word Wrap"
 wrap.checkable = true
 
 menu << file
@@ -184,11 +184,11 @@ menu.add_separator
 menu << wrap
 menu << mk.call("&About", "about")
 
-Widget::Box.new parent: menupage, bottom: 1, left: 1, width: 34, height: 2,
+CW::Box.new parent: menupage, bottom: 1, left: 1, width: 34, height: 2,
   content: "Right opens a submenu, Left closes it.\nSpace toggles Word Wrap in place."
 
 # Tree tab: a collapsible node hierarchy.
-tree = Widget::Tree.new parent: treepage, top: 1, left: 1, right: 1, bottom: 3
+tree = CW::Tree.new parent: treepage, top: 1, left: 1, right: 1, bottom: 3
 src = tree.add "src"
 wdir = src.add "widget"
 wdir.add "tree.cr"
@@ -199,52 +199,52 @@ docs.add "README.md"
 tree.add "shard.yml"
 tree.expand src
 
-tree.on(Event::ItemSelected) { status.show_message " tree: #{tree.selected_node.try(&.text)}" }
-tree.on(Event::Expanded) { status.show_message " tree: expanded #{tree.selected_node.try(&.text)}" }
-tree.on(Event::Collapsed) { status.show_message " tree: collapsed #{tree.selected_node.try(&.text)}" }
+tree.on(CT::Event::ItemSelected) { status.show_message " tree: #{tree.selected_node.try(&.text)}" }
+tree.on(CT::Event::Expanded) { status.show_message " tree: expanded #{tree.selected_node.try(&.text)}" }
+tree.on(CT::Event::Collapsed) { status.show_message " tree: collapsed #{tree.selected_node.try(&.text)}" }
 
-Widget::Box.new parent: treepage, bottom: 1, left: 1, width: 34, height: 2,
+CW::Box.new parent: treepage, bottom: 1, left: 1, width: 34, height: 2,
   content: "Right/Left or Space expand/collapse nodes."
 
 # Dates tab: DateEdit (calendar popup), TimeEdit, DateTimeEdit, DoubleSpinBox.
-Widget::Box.new parent: datespage, top: 1, left: 1, width: 8, height: 1, content: "Date:"
-dateedit = Widget::DateEdit.new \
+CW::Box.new parent: datespage, top: 1, left: 1, width: 8, height: 1, content: "Date:"
+dateedit = CW::DateEdit.new \
   parent: datespage, top: 1, left: 9, width: 12, height: 1
 
-Widget::Box.new parent: datespage, top: 3, left: 1, width: 8, height: 1, content: "Time:"
-timeedit = Widget::TimeEdit.new \
+CW::Box.new parent: datespage, top: 3, left: 1, width: 8, height: 1, content: "Time:"
+timeedit = CW::TimeEdit.new \
   parent: datespage, top: 3, left: 9, width: 10, height: 1
 
-Widget::Box.new parent: datespage, top: 5, left: 1, width: 8, height: 1, content: "Stamp:"
-dtedit = Widget::DateTimeEdit.new \
+CW::Box.new parent: datespage, top: 5, left: 1, width: 8, height: 1, content: "Stamp:"
+dtedit = CW::DateTimeEdit.new \
   parent: datespage, top: 5, left: 9, width: 21, height: 1
 
-Widget::Box.new parent: datespage, top: 7, left: 1, width: 8, height: 1, content: "Ratio:"
-dspin = Widget::DoubleSpinBox.new \
+CW::Box.new parent: datespage, top: 7, left: 1, width: 8, height: 1, content: "Ratio:"
+dspin = CW::DoubleSpinBox.new \
   parent: datespage, top: 7, left: 9, width: 10, height: 1,
   minimum: 0.0, maximum: 1.0, single_step: 0.05, value: 0.25
 
-dateedit.on(Event::DateChanged) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}" }
-timeedit.on(Event::DateChanged) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}" }
-dtedit.on(Event::DateChanged) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}" }
-dspin.on(Event::DoubleValueChanged) { |e| status.show_message " ratio: #{e.value}" }
+dateedit.on(CT::Event::DateChanged) { |e| status.show_message " date: #{e.date.to_s("%Y-%m-%d")}" }
+timeedit.on(CT::Event::DateChanged) { |e| status.show_message " time: #{e.date.to_s("%H:%M:%S")}" }
+dtedit.on(CT::Event::DateChanged) { |e| status.show_message " stamp: #{e.date.to_s("%Y-%m-%d %H:%M:%S")}" }
+dspin.on(CT::Event::DoubleValueChanged) { |e| status.show_message " ratio: #{e.value}" }
 
 # A standalone Calendar (QCalendarWidget): the nav bar pages months (‹/›),
 # pops up a month menu (click name) and year menu (click year), with ISO week
 # numbers down the left. Arrow keys move the selection.
-cal = Widget::Calendar.new \
+cal = CW::Calendar.new \
   parent: datespage, top: 1, left: 30, width: 25, height: 10
-cal.vertical_header_format = Widget::Calendar::VerticalHeaderFormat::ISOWeekNumbers
-cal.on(Event::DateChanged) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}" }
-cal.on(Event::CurrentPageChanged) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}" }
+cal.vertical_header_format = CW::Calendar::VerticalHeaderFormat::ISOWeekNumbers
+cal.on(CT::Event::DateChanged) { |e| status.show_message " calendar: #{e.date.to_s("%Y-%m-%d")}" }
+cal.on(CT::Event::CurrentPageChanged) { |e| status.show_message " page: #{e.year}-#{e.month.to_s.rjust(2, '0')}" }
 
-Widget::Box.new parent: datespage, bottom: 1, left: 1, width: 54, height: 2,
+CW::Box.new parent: datespage, bottom: 1, left: 1, width: 54, height: 2,
   content: "Click the date field for a calendar; click the calendar's month/year to pick. Wheel a section to step it."
 
 # Stack tab: a tab-less StackedWidget that auto-cycles its pages.
-stack = Widget::StackedWidget.new parent: stackpage, top: 1, left: 1, right: 1, bottom: 1
+stack = CW::StackedWidget.new parent: stackpage, top: 1, left: 1, right: 1, bottom: 1
 ["Page One", "Page Two", "Page Three"].each do |label|
-  stack.add_widget Widget::Box.new(
+  stack.add_widget CW::Box.new(
     content: "{center}#{label}\n\n(click to flip){/center}", parse_tags: true)
 end
 
@@ -254,20 +254,20 @@ end
 
 # Exclusive ButtonGroup: three checkable buttons of which only one stays "on".
 mode_labels = %w[Low Mid High]
-Widget::Box.new parent: extraspage, top: 1, left: 1, width: 9, height: 1, content: "Mode:"
-bgroup = ButtonGroup.new
+CW::Box.new parent: extraspage, top: 1, left: 1, width: 9, height: 1, content: "Mode:"
+bgroup = CW::ButtonGroup.new
 mode_labels.each_with_index do |label, i|
-  b = Widget::Button.new \
+  b = CW::Button.new \
     parent: extraspage, top: 1, left: 10 + i * 8, width: 7, height: 1,
     content: label, align: :center, checkable: true, focus_on_click: true
   bgroup.add_button b, i
 end
-bgroup.on(Event::ButtonClick) do
+bgroup.on(CT::Event::ButtonClick) do
   # Mark the checked button by bracketing its label: a plain Button has no
   # built-in checked glyph, and a direct `style.bg=` would be undone by the CSS
   # cascade on the next render, but content is outside the cascade.
   bgroup.buttons.each_with_index do |b, i|
-    btn = b.as(Widget::Button)
+    btn = b.as(CW::Button)
     btn.content = btn.checked? ? "[#{mode_labels[i]}]" : mode_labels[i]
   end
   status.show_message " mode = #{bgroup.checked_id}"
@@ -275,37 +275,37 @@ end
 
 # ToolButton with a default Action (Enter/Space applies it) and a popup Menu
 # (press Down to open it), like a Qt tool button with a drop-down.
-tb_menu = Widget::Menu.new parent: s, width: 16, height: 4
+tb_menu = CW::Menu.new parent: s, width: 16, height: 4
 tb_menu.add_action("Rename") { status.show_message " tool: rename" }
 tb_menu.add_action("Delete") { status.show_message " tool: delete" }
 tb_menu.hide # stays hidden until opened from the ToolButton (via Down)
 
-tool_action = Action.new "Apply"
-tool_action.on(Event::Triggered) { status.show_message " tool: apply" }
+tool_action = CW::Action.new "Apply"
+tool_action.on(CT::Event::Triggered) { status.show_message " tool: apply" }
 
-Widget::Box.new parent: extraspage, top: 3, left: 1, width: 9, height: 1, content: "Tool:"
-toolbtn = Widget::ToolButton.new \
+CW::Box.new parent: extraspage, top: 3, left: 1, width: 9, height: 1, content: "Tool:"
+toolbtn = CW::ToolButton.new \
   parent: extraspage, top: 3, left: 10, width: 12, height: 1,
   default_action: tool_action, menu: tb_menu, align: :center
 toolbtn.tool_tip = "Enter/Space applies; Down opens the menu"
 
 # Completer: type into the LineEdit to autocomplete from a fixed word list.
-Widget::Box.new parent: extraspage, top: 5, left: 1, width: 9, height: 1, content: "Lang:"
-langbox = Widget::LineEdit.new \
+CW::Box.new parent: extraspage, top: 5, left: 1, width: 9, height: 1, content: "Lang:"
+langbox = CW::LineEdit.new \
   parent: extraspage, top: 5, left: 10, width: 18, height: 1
 langbox.tool_tip = "Type to autocomplete (Down opens the list, Tab/Enter accepts)"
-completer = Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
+completer = CW::Completer.new %w[Crystal Ruby Rust Python Perl PHP Go Groovy Java JavaScript Kotlin Lua]
 completer.attach langbox
 
 # ColorDialog: a modal palette picker launched from a button. The picked color
 # is reported in the status bar; with no inline style on the swatch, the
 # theme's `Box` rule paints its surface (see the ButtonGroup note above).
-swatch = Widget::Box.new parent: extraspage, top: 7, left: 18, width: 6, height: 1
-colordlg = Widget::ColorDialog.new \
+swatch = CW::Box.new parent: extraspage, top: 7, left: 18, width: 6, height: 1
+colordlg = CW::ColorDialog.new \
   parent: s, top: "center", left: "center", width: 56, height: 20
 colordlg.hide
-Widget::Box.new parent: extraspage, top: 7, left: 1, width: 9, height: 1, content: "Color:"
-pickbtn = Widget::Button.new \
+CW::Box.new parent: extraspage, top: 7, left: 1, width: 9, height: 1, content: "Color:"
+pickbtn = CW::Button.new \
   parent: extraspage, top: 7, left: 10, width: 6, height: 1,
   content: "Pick", align: :center, focus_on_click: true
 open_picker = -> do
@@ -320,25 +320,25 @@ open_picker = -> do
 end
 # Both the "Pick" button and a click on the color swatch itself open the picker.
 pickbtn.on_click { open_picker.call }
-swatch.on(Event::Click) { open_picker.call }
+swatch.on(CT::Event::Click) { open_picker.call }
 
 # DialogButtonBox: standard buttons with the right roles wired to accept/reject.
-dbb = Widget::DialogButtonBox.new \
+dbb = CW::DialogButtonBox.new \
   parent: extraspage, bottom: 1, left: 1, height: 1,
-  buttons: Widget::DialogButtonBox::StandardButton::Ok |
-           Widget::DialogButtonBox::StandardButton::Apply |
-           Widget::DialogButtonBox::StandardButton::Cancel
-dbb.on(Event::Accepted) { status.show_message " dialog: accepted" }
-dbb.on(Event::Rejected) { status.show_message " dialog: rejected" }
-dbb.button(Widget::DialogButtonBox::StandardButton::Apply).try &.on(Event::Pressed) do
+  buttons: CW::DialogButtonBox::StandardButton::Ok |
+           CW::DialogButtonBox::StandardButton::Apply |
+           CW::DialogButtonBox::StandardButton::Cancel
+dbb.on(CT::Event::Accepted) { status.show_message " dialog: accepted" }
+dbb.on(CT::Event::Rejected) { status.show_message " dialog: rejected" }
+dbb.button(CW::DialogButtonBox::StandardButton::Apply).try &.on(CT::Event::Pressed) do
   status.show_message " dialog: apply"
 end
 
 # --- Floating dock: a Splitter inside a DockWidget ---------------------------
 
-split = Widget::Splitter.new
+split = CW::Splitter.new
 3.times do |i|
-  split.add_widget Widget::Box.new(
+  split.add_widget CW::Box.new(
     content: "{center}Pane #{i + 1}{/center}", parse_tags: true)
 end
 
@@ -346,7 +346,7 @@ end
 # float it as a compact, freely-draggable panel. Grab the "Panes" title bar to
 # move it, drag its ◢ corner grip to resize; its ⇕ title button docks it back
 # to the right, and dragging a docked dock's title bar floats it again.
-dock = Widget::DockWidget.new title: "Panes", area: Widget::DockWidget::Area::Right, dock_size: 30
+dock = CW::DockWidget.new title: "Panes", area: CW::DockWidget::Area::Right, dock_size: 30
 dock.widget = split
 win.add_dock dock
 dock.toggle_floating
@@ -354,7 +354,7 @@ dock.top = 4; dock.left = 40; dock.width = 34; dock.height = 15
 
 # A corner grip resizes the dock while it's floating (when docked, MainWindow
 # re-imposes the dock's size each frame).
-Widget::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min_drag_width: 12, min_drag_height: 4
+CW::SizeGrip.new parent: dock, bottom: 0, right: 0, width: 1, height: 1, min_drag_width: 12, min_drag_height: 4
 
 # --- Live status from widget events ------------------------------------------
 
@@ -363,14 +363,14 @@ update = -> do
     " color=#{combo.current_text}   volume=#{slider.value}   count=#{spin.value}   angle=#{dial.value}"
 end
 
-combo.on(Event::Activated) { update.call }
-slider.on(Event::ValueChanged) { lcd.display slider.value; update.call }
-spin.on(Event::ValueChanged) { update.call }
-dial.on(Event::ValueChanged) { update.call }
+combo.on(CT::Event::Activated) { update.call }
+slider.on(CT::Event::ValueChanged) { lcd.display slider.value; update.call }
+spin.on(CT::Event::ValueChanged) { update.call }
+dial.on(CT::Event::ValueChanged) { update.call }
 update.call
 
 stack.pages.each do |page|
-  page.on(Event::Click) { stack.next_page }
+  page.on(CT::Event::Click) { stack.next_page }
 end
 
 tabs.tab_bar.focus

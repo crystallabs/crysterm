@@ -4,8 +4,8 @@
 # Run it:     crystal run tests/widget/terminal/terminal.cr
 require "../example"
 
-include Crysterm
-include Crysterm::Widgets
+alias CT = Crysterm
+alias CW = CT::Widgets
 
 Crysterm::WidgetExample.run "Terminal" do |window|
   window.stylesheet = "Terminal { border: solid; }"
@@ -14,7 +14,7 @@ Crysterm::WidgetExample.run "Terminal" do |window|
   # `.focus` is what makes it usable: keystrokes are only forwarded to the child
   # while focused (and the cursor is only drawn then). Without it you'd see a
   # running-but-untypable shell.
-  term = Terminal.new \
+  term = CW::Terminal.new \
     parent: window, top: 0, left: 0, width: "100%", height: "100%"
   term.focus
 end
