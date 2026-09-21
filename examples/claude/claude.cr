@@ -63,7 +63,7 @@ CW::Box.new parent: s, bottom: 0, left: 0, width: "100%", height: 1,
   parse_tags: true,
   content: " {#8a94a6-fg}GFM: tables · task lists · alerts · code · links — C-z undo · Ctrl-Q quit{/}"
 
-# --- The session, replayed ---------------------------------------------------
+# --- Demo driver: scripted input for the capture; delete in a real app ------
 
 # The transcript so far, as Markdown. The reply streams in chunk by chunk and
 # the whole thing is re-imported each beat — `set_markdown` is cheap at this

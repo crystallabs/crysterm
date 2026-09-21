@@ -3,11 +3,19 @@ require "../../../src/crysterm"
 alias CT = Crysterm
 alias CW = CT::Widgets
 
+require "./ui"
+
 # Term Pong.
 #
 # Controls: up / down move both paddles; `a` / `z` move the left paddle and
 # `k` / `m` the right one. `+` / `-` change the ball speed and `1`-`9` set a
 # speed level (`0` stops it); q or Escape quits.
+#
+# The program is split in two files. `ui.cr` is the reusable part: `PongUI`
+# builds the frame, the play field with its sprites, the scoreboard, the miss
+# overlay and the status bar. This file is the game: physics, keys and the
+# per-tick sync of state onto the sprites. To build your own sprite game on
+# the same chrome, keep `ui.cr` and replace this file.
 class Pong
   PADDLE_H     = 6
   PADDLE_SPEED = 2
@@ -43,58 +51,16 @@ class Pong
   def initialize
     @window = CT::Window.new title: "pong.cr"
 
-    # A `Border` layout carves the terminal into the two regions the game needs:
-    # the play field takes the center, the status bar docks to the bottom edge.
-    # The bar declares only its `height: 1`; Border spans it across the width and
-    # gives the field whatever is left — no `"100%-1"` arithmetic to keep in sync
-    # with the bar, and nothing pinned to a fixed coordinate.
-    frame = CW::Box.new parent: @window, width: "100%", height: "100%",
-      layout: CT::Layout::Dock.new
-
-    # Play field. It keeps `Layout::Manual` (no engine installed): the paddles,
-    # net and ball are *sprites* whose coordinates are the game state, pushed
-    # onto them every tick by `sync`. That is what manual placement is for — a
-    # child-arranging layout here would fight the simulation for control of
-    # top/left every frame. Qt draws its game scenes the same way.
-    @table = CW::Box.new parent: frame, layout_hint: :center
-
-    @lpaddle = CW::Box.new parent: @table, width: 1, height: PADDLE_H, top: 0, left: 0,
-      style: CT::Style.new(bg: "yellow")
-
-    @rpaddle = CW::Box.new parent: @table, width: 1, height: PADDLE_H, top: 0, right: 0,
-      style: CT::Style.new(bg: "yellow")
-
-    CW::Box.new parent: @table, width: 1, height: "100%", top: 0, left: "center",
-      style: CT::Style.new(bg: "yellow")
-
-    # Created after the net so it renders over the center line instead of
-    # vanishing behind it; kept before the scoreboard/overlay so those still
-    # sit on top of the ball.
-    @ball = CW::Box.new parent: @table, width: 1, height: 1, top: 0, left: 0,
-      content: "●", style: CT::Style.new(fg: "white")
-
-    @score = CW::Box.new parent: @table, top: "center", left: "center", height: 3, width: 22,
-      align: "center", parse_tags: true, style: CT::Style.new(border: true, bold: true)
-
-    # A transient dialog floating over the field, so — like the scoreboard — it
-    # stays centered on the play field rather than occupying a layout slot.
-    # Inside it, though, a `VBox` owns the one text row: `justify: Center` puts
-    # it on the middle line and the default `align: Stretch` spans it across the
-    # interior, which is already inset by the border. That replaces the row's
-    # hand-computed `top: "center", left: 1, right: 1`.
-    @message = CW::Box.new parent: @table, width: "50%", height: 3,
-      top: "center", left: "center", style: CT::Style.new(border: true),
-      layout: CT::Layout::VBox.new(justify: CT::Layout::Box::Justify::Center)
+    @ui = PongUI.new(@window, paddle_height: PADDLE_H)
+    @table = @ui.table
+    @lpaddle = @ui.lpaddle
+    @rpaddle = @ui.rpaddle
+    @ball = @ui.ball
+    @score = @ui.score
     # Overlay shown briefly on a miss; `lose` fills in the text before each show.
-    @text = CW::Box.new parent: @message, height: 1, align: "center"
-    @message.hide
-
-    # Status bar along the very bottom: the controls on the left. Docked to the
-    # frame's bottom edge; it declares its height, Border does the rest.
-    statusbar = CW::StatusBar.new parent: frame, height: 1,
-      layout_hint: :bottom,
-      style: CT::Style.new(fg: "white", bg: "#303050")
-    statusbar.show_message " Keys: left: a/z, right: k/m, both: up/down"
+    @message = @ui.message
+    @text = @ui.text
+    @ui.statusbar.show_message " Keys: left: a/z, right: k/m, both: up/down"
 
     @window.on(CT::Event::KeyPress) do |e|
       case

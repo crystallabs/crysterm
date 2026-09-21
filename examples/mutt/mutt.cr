@@ -17,15 +17,20 @@ alias CW = CT::Widgets
 # threaded index with tree glyphs, the dashed status line, and a command line
 # that prompts at the bottom (edit a header, confirm quit, …).
 #
-# As in the Pine demo, every widget is positioned by a *layout* (a `Border`
-# frame with a nested `VBox` footer), never by fixed top/left/width/height. Where
-# Pine switches its body views by visibility, the center here is a `Stack`.
+# The program is split in two files. `ui.cr` is the reusable part: `MuttUI`
+# builds the frame (a `Border` layout with a `Stack` center and a nested `VBox`
+# footer) and offers the chrome helpers — show a page, set the help line, run a
+# command-line prompt. This file is the client: the mock mailbox, the screen
+# flows and the Mutt key bindings. To build your own Mutt-style app, keep
+# `ui.cr` and replace this file.
 #
 # Run with:  crystal examples/mutt/mutt.cr   (TERM=xterm-256color recommended)
 include Tput::Namespace
 
 # The Mutt widget pack's alias set (Sidebar, MessageIndex, Compose, …).
 include CT::Widget::Mutt::DSL
+
+require "./ui"
 
 s = CT::Window.new(
   always_propagated_keys: [Tput::Key::CtrlQ],
@@ -144,71 +149,16 @@ HELP_TEXT = <<-HELP
   Press 'i' or 'q' to return to the index.
   HELP
 
-# ------------------------------------------------------------- the frame
-#
-# A single Border layout carves the terminal into Mutt's regions: a help line
-# on top, the sidebar (plus a divider) on the left, the switchable main area
-# in the center, and a two-row footer (status line + command line) at the
-# bottom. No widget below is given a fixed position.
+# ------------------------------------------------------------------- the UI
 
-frame = CW::Box.new(parent: s, width: "100%", height: "100%", layout: CT::Layout::Dock.new)
-
-# Top: Mutt's one-line command hint bar (updated per screen).
-helpline = CW::Box.new(
-  parent: frame, height: 1, parse_tags: true,
-  style: CT::Style.new(reverse: true),
-  layout_hint: :top,
-)
-
-# Left: the sidebar, then a one-column divider (Mutt's sidebar_divider_char).
-sidebar = Sidebar.new(parent: frame, width: 24, mailboxes: mailboxes,
-  layout_hint: :left)
-sidebar.open_index = 0
-CW::VLine.new(parent: frame, width: 1, layout_hint: :left)
-
-# Center: the switchable main area, arranged by a `Stack` layout (Qt's
-# `QStackedLayout`) — all views fill the center; only `stack.current_index` renders,
-# the rest are suppressed. This is what lets the `editor` (a `PlainTextEdit`,
-# Mutt's `$editor` message pane) paint: unlike a StackedWidget, the Stack
-# layout lays a view out freshly when it becomes current, and it suppresses
-# the others cleanly (no stale cells bleeding through).
-stack = CT::Layout::Stack.new
-center = CW::Box.new(parent: frame, layout: stack, layout_hint: :center)
-index = MessageIndex.new(parent: center, messages: messages)
-pager = CW::ScrollableText.new(parent: center, parse_tags: true, keys: true)
-# `shrink_to_fit: false` so the editor fills the whole center area instead of
-# shrinking to the width/height of what's typed (a `PlainTextEdit` includes
-# `Mixin::Interactive`, which defaults `shrink_to_fit = true` — shrink-to-content).
-# Mutt's message editor occupies the entire body pane.
-editor = CW::PlainTextEdit.new(parent: center, input_on_focus: true,
-  shrink_to_fit: false, width: "100%", height: "100%")
-compose = Compose.new(parent: center)
-help = CW::ScrollableText.new(parent: center, parse_tags: true, keys: true, content: HELP_TEXT)
-PAGE = {index: 0, pager: 1, editor: 2, compose: 3, help: 4}
-
-# Bottom: a two-row footer stacked by a VBox — status line above, command
-# line below. The command line is an HBox of a label zone (transient status,
-# or a prompt like "To:") and, during a text prompt, an inline editor to its
-# right — Mutt does all its prompting right here on the bottom line.
-footer = CW::Box.new(parent: frame, height: 2, layout: CT::Layout::VBox.new,
-  layout_hint: :bottom)
-status = StatusBar.new
-footer.append status
-cmdline = CW::Box.new(height: 1, width: "100%", layout: CT::Layout::HBox.new)
-footer.append cmdline
-# `cmd_label` fills the line for plain messages; for a prompt it shrinks to the
-# label width and `cmd_input` (flex) fills the rest.
-cmd_label = CW::Box.new(height: 1, parse_tags: true)
-cmd_input = CW::LineEdit.new(height: 1, visible: false)
-cmdline.append cmd_label, cmd_input
+ui = MuttUI.new(s, mailboxes: mailboxes, messages: messages, help_text: HELP_TEXT)
+ui.sidebar.open_index = 0
 
 # ---------------------------------------------------- screen state & helpers
 
 current = :index
 active_pane = :index # :index or :sidebar, on the index screen
 current_folder = "INBOX"
-prompt_active = false
-prompt_done : Proc(String, Nil)? = nil
 quit_pending = false
 
 # The message being composed. These are the single source of truth; the
@@ -222,15 +172,6 @@ draft_subject = ""
 draft_body = ""
 draft_attachments = [] of Attachment
 
-# Show a transient status message on the command line: the label zone fills
-# the whole line, the inline editor stands down.
-show_message = ->(text : String) do
-  cmd_input.hide
-  cmd_label.content = text
-  cmd_label.width = nil
-  nil
-end
-
 # Left status text for the index screen: mailbox, message and new counts.
 index_status = -> do
   newc = messages.count(&.unread?)
@@ -239,61 +180,7 @@ index_status = -> do
   left += " New:#{newc}" if newc > 0
   left += " Del:#{delc}" if delc > 0
   left += "]"
-  status.set_text left, "-(threads/date)-(all)-"
-end
-
-set_help = ->(text : String) { helpline.content = text; nil }
-
-# Raise one center view and focus it. Focus itself is safe against the
-# not-yet-arranged page: the render that follows re-asserts the focused
-# widget's visibility and caret against the freshly laid-out boxes.
-show_page = ->(name : Symbol, view : CT::Widget) do
-  current = name
-  stack.current_index = PAGE[name]
-  view.focus
-  nil
-end
-
-# ----------------------------------------------------------- the command line
-
-# Open a command-line prompt (Mutt asks for To/Subject/headers this way): the
-# bold label shrinks to its width on the left, the inline editor fills the rest
-# of the line, and *on_done* runs with the submitted value.
-#
-# *e* is the keypress that triggered the prompt. Accepting it marks the key
-# consumed, which is what stops `Application#route_input` from also treating a
-# command letter as the app-global quit key.
-open_prompt = ->(label : String, initial : String, e : CT::Event::KeyPress?, on_done : Proc(String, Nil)) do
-  prompt_active = true
-  prompt_done = on_done
-  cmd_label.content = "{bold}#{label}{/bold}"
-  cmd_label.width = label.size
-  cmd_input.value = initial
-  cmd_input.show
-  # `cmd_input` was hidden, so the enclosing HBox has not yet given it a
-  # column or a width — those are assigned during the render that `focus`
-  # schedules, and the end of that render re-places the caret against the
-  # resolved geometry.
-  cmd_input.focus
-  e.try &.accept
-  nil
-end
-
-finish_prompt = -> do
-  prompt_active = false
-  prompt_done = nil
-  cmd_input.value = ""
-  cmd_input.hide
-  nil
-end
-
-cmd_input.on(CT::Event::Submitted) do
-  if prompt_active
-    value = cmd_input.value
-    done = prompt_done
-    finish_prompt.call
-    done.try &.call(value)
-  end
+  ui.status.set_text left, "-(threads/date)-(all)-"
 end
 
 # ----------------------------------------------------------- the screen flows
@@ -301,18 +188,18 @@ end
 goto_index = -> do
   current = :index
   active_pane = :index
-  show_page.call :index, index
-  set_help.call "{bold}q{/bold}:Quit {bold}?{/bold}:Help {bold}m{/bold}:Mail " \
-                "{bold}r{/bold}:Reply {bold}Enter{/bold}:Read {bold}d{/bold}:Del " \
-                "{bold}u{/bold}:Undel {bold}${/bold}:Sync {bold}Tab{/bold}:Sidebar"
+  ui.show_page :index, ui.index
+  ui.set_help "{bold}q{/bold}:Quit {bold}?{/bold}:Help {bold}m{/bold}:Mail " \
+              "{bold}r{/bold}:Reply {bold}Enter{/bold}:Read {bold}d{/bold}:Del " \
+              "{bold}u{/bold}:Undel {bold}${/bold}:Sync {bold}Tab{/bold}:Sidebar"
   index_status.call
-  show_message.call %(#{messages.size} messages, #{messages.count(&.unread?)} new)
+  ui.show_message %(#{messages.size} messages, #{messages.count(&.unread?)} new)
   nil
 end
 
 open_message = ->(m : Message) do
   i = messages.index(m) || 0
-  index.current_index = i
+  ui.index.current_index = i
   m.unread = false
   m.status = m.status.gsub('N', "")
   header = String.build do |b|
@@ -321,48 +208,48 @@ open_message = ->(m : Message) do
     b << "{bold}To:{/bold}      you@example.com\n"
     b << "{bold}Subject:{/bold} #{m.subject}\n\n"
   end
-  pager.content = header + (body_of[m]? || "")
-  show_page.call :pager, pager
-  set_help.call "{bold}i{/bold}:Back {bold}Up/Dn{/bold}:Scroll {bold}n{/bold}:Next " \
-                "{bold}p{/bold}:Prev {bold}r{/bold}:Reply {bold}d{/bold}:Del {bold}q{/bold}:Quit"
-  status.set_text "-*-Mutt: #{m.subject}", "-(#{i + 1}/#{messages.size})-"
-  show_message.call %(Reading message #{i + 1} of #{messages.size})
+  ui.pager.content = header + (body_of[m]? || "")
+  current = :pager
+  ui.show_page :pager, ui.pager
+  ui.set_help "{bold}i{/bold}:Back {bold}Up/Dn{/bold}:Scroll {bold}n{/bold}:Next " \
+              "{bold}p{/bold}:Prev {bold}r{/bold}:Reply {bold}d{/bold}:Del {bold}q{/bold}:Quit"
+  ui.status.set_text "-*-Mutt: #{m.subject}", "-(#{i + 1}/#{messages.size})-"
+  ui.show_message %(Reading message #{i + 1} of #{messages.size})
   nil
 end
 
 open_folder = ->(mb : Mailbox) do
-  idx = sidebar.mailboxes.index(mb) || 0
-  sidebar.open_index = idx
+  idx = ui.sidebar.mailboxes.index(mb) || 0
+  ui.sidebar.open_index = idx
   current_folder = mb.name
   if mb.name == "INBOX"
-    index.messages = messages
+    ui.index.messages = messages
   else
-    index.messages = [] of Message
+    ui.index.messages = [] of Message
   end
   active_pane = :index
-  index.focus
+  ui.index.focus
   index_status.call
-  show_message.call(mb.name == "INBOX" ? %(Opened "INBOX") : %(Mailbox "#{mb.name}" is empty in this demo))
+  ui.show_message(mb.name == "INBOX" ? %(Opened "INBOX") : %(Mailbox "#{mb.name}" is empty in this demo))
   nil
 end
 
 # Open the body editor; Ctrl-X (handled in the key loop) finishes and lands on
-# the compose menu. The editor is a `PlainTextEdit`: it only paints once it has
-# been laid out while visible, so make it visible and force a *synchronous*
-# render before giving it focus (doing this here, inside `exec`, means the
-# terminal size is known and the layout is real).
+# the compose menu.
 open_editor = ->(initial : String) do
-  editor.value = initial
-  show_page.call :editor, editor
-  set_help.call "{bold}^X{/bold}:Done (to compose menu)   write your message below"
-  status.set_text "-*-Mutt: Editing message", "-(body)-"
-  show_message.call "Type your message. Press Ctrl-X when you're done."
+  ui.editor.value = initial
+  current = :editor
+  ui.show_page :editor, ui.editor
+  ui.set_help "{bold}^X{/bold}:Done (to compose menu)   write your message below"
+  ui.status.set_text "-*-Mutt: Editing message", "-(body)-"
+  ui.show_message "Type your message. Press Ctrl-X when you're done."
   nil
 end
 
 # Show the compose menu, rebuilt from the draft so header/attachment edits and
 # re-editing the body all round-trip. The body is Mutt's first attachment.
 open_compose_menu = -> do
+  compose = ui.compose
   compose.reset
   compose.set_header "From", "you@example.com"
   compose.set_header "To", draft_to
@@ -371,12 +258,13 @@ open_compose_menu = -> do
   compose.set_header "Subject", draft_subject
   compose.add_attachment Attachment.new("(message body)", "text/plain", draft_body.bytesize, "inline")
   draft_attachments.each { |a| compose.add_attachment a }
-  show_page.call :compose, compose.menu
-  set_help.call "{bold}y{/bold}:Send {bold}q{/bold}:Abort {bold}t{/bold}:To " \
-                "{bold}c{/bold}:Cc {bold}s{/bold}:Subj {bold}b{/bold}:Bcc " \
-                "{bold}a{/bold}:Attach"
-  status.set_text "-*-Mutt: Compose", "-(#{compose.attachments.size} att)-"
-  show_message.call "y send, t/c/s/b edit headers, a attach, q abort"
+  current = :compose
+  ui.show_page :compose, compose.menu
+  ui.set_help "{bold}y{/bold}:Send {bold}q{/bold}:Abort {bold}t{/bold}:To " \
+              "{bold}c{/bold}:Cc {bold}s{/bold}:Subj {bold}b{/bold}:Bcc " \
+              "{bold}a{/bold}:Attach"
+  ui.status.set_text "-*-Mutt: Compose", "-(#{compose.attachments.size} att)-"
+  ui.show_message "y send, t/c/s/b edit headers, a attach, q abort"
   nil
 end
 
@@ -387,13 +275,13 @@ end
 edit_field = ->(field : String, e : CT::Event::KeyPress?) do
   case field
   when "To"
-    open_prompt.call "To: ", draft_to, e, ->(v : String) { draft_to = v; open_compose_menu.call; nil }
+    ui.open_prompt("To: ", draft_to, e) { |v| draft_to = v; open_compose_menu.call }
   when "Cc"
-    open_prompt.call "Cc: ", draft_cc, e, ->(v : String) { draft_cc = v; open_compose_menu.call; nil }
+    ui.open_prompt("Cc: ", draft_cc, e) { |v| draft_cc = v; open_compose_menu.call }
   when "Bcc"
-    open_prompt.call "Bcc: ", draft_bcc, e, ->(v : String) { draft_bcc = v; open_compose_menu.call; nil }
+    ui.open_prompt("Bcc: ", draft_bcc, e) { |v| draft_bcc = v; open_compose_menu.call }
   when "Subject"
-    open_prompt.call "Subject: ", draft_subject, e, ->(v : String) { draft_subject = v; open_compose_menu.call; nil }
+    ui.open_prompt("Subject: ", draft_subject, e) { |v| draft_subject = v; open_compose_menu.call }
   else
     e.try &.accept
   end
@@ -405,8 +293,8 @@ end
 # current draft. Arrow keys already move the highlight through every row
 # (`Compose` is one `List` whose `-- Attachments --` divider is non-selectable),
 # so this makes the menu fully usable by cursor as well as by command key.
-compose.menu.on(CT::Event::ItemActivated) do
-  kind, sub = compose.selected_row
+ui.compose.menu.on(CT::Event::ItemActivated) do
+  kind, sub = ui.compose.selected_row
   case kind
   when Compose::RowKind::Header
     edit_field.call Compose::FIELDS[sub], nil
@@ -414,7 +302,7 @@ compose.menu.on(CT::Event::ItemActivated) do
     if sub == 0
       open_editor.call draft_body
     else
-      show_message.call "Attachment: #{compose.attachments[sub].filename}"
+      ui.show_message "Attachment: #{ui.compose.attachments[sub].filename}"
     end
   end
 end
@@ -459,21 +347,22 @@ reply_to = ->(m : Message) do
 end
 
 goto_help = -> do
-  show_page.call :help, help
-  set_help.call "{bold}i{/bold}:Back {bold}q{/bold}:Back {bold}Up/Dn{/bold}:Scroll " \
-                "{bold}PgUp/PgDn{/bold}:Page"
-  status.set_text "-*-Mutt: Help", "-(help)-"
-  show_message.call "Help — press i or q to return to the index"
+  current = :help
+  ui.show_page :help, ui.help
+  ui.set_help "{bold}i{/bold}:Back {bold}q{/bold}:Back {bold}Up/Dn{/bold}:Scroll " \
+              "{bold}PgUp/PgDn{/bold}:Page"
+  ui.status.set_text "-*-Mutt: Help", "-(help)-"
+  ui.show_message "Help — press i or q to return to the index"
   nil
 end
 
 # ------------------------------------------------------------- wiring it up
 
 messages.each { |m| m.callback { open_message.call m } }
-sidebar.mailboxes.each { |mb| mb.callback { open_folder.call mb } }
+ui.sidebar.mailboxes.each { |mb| mb.callback { open_folder.call mb } }
 
 # Mailbox click / Enter in the sidebar hands focus back to the index.
-sidebar.on(CT::Event::ItemActivated) { active_pane = :index }
+ui.sidebar.on(CT::Event::ItemActivated) { active_pane = :index }
 
 # ----------------------------------------------------- Mutt key shortcuts
 #
@@ -503,19 +392,19 @@ s.on(CT::Event::KeyPress) do |e|
       s.quit
     end
     goto_index.call
-    show_message.call "Quit aborted"
+    ui.show_message "Quit aborted"
     e.accept
     next
   end
 
   # While the command-line prompt is up it owns the keyboard; only Escape
   # (cancel) is handled here — everything else flows to the LineEdit.
-  if prompt_active
+  if ui.prompt_active?
     if key == Tput::Key::Escape
-      finish_prompt.call
+      ui.finish_prompt
       goto_index.call if current == :index
-      (current == :compose) ? compose.menu.focus : nil
-      show_message.call "Cancelled"
+      (current == :compose) ? ui.compose.menu.focus : nil
+      ui.show_message "Cancelled"
     end
     next
   end
@@ -526,12 +415,12 @@ s.on(CT::Event::KeyPress) do |e|
     if key == Tput::Key::Tab
       if active_pane == :index
         active_pane = :sidebar
-        sidebar.focus
-        show_message.call "Sidebar: j/k to move, Enter to open a mailbox, Tab back"
+        ui.sidebar.focus
+        ui.show_message "Sidebar: j/k to move, Enter to open a mailbox, Tab back"
       else
         active_pane = :index
-        index.focus
-        show_message.call "Index"
+        ui.index.focus
+        ui.show_message "Index"
       end
       next
     end
@@ -541,37 +430,37 @@ s.on(CT::Event::KeyPress) do |e|
     when 'q', 'Q'
       # Mutt-style single-key confirmation on the bottom command line.
       quit_pending = true
-      show_message.call "Quit Mutt? ([yes]/no): "
+      ui.show_message "Quit Mutt? ([yes]/no): "
       e.accept
     when 'm' then start_compose.call e
     when 'c'
       # Change folder: hand focus to the sidebar to pick a mailbox.
       active_pane = :sidebar
-      sidebar.focus
-      show_message.call "Select a mailbox and press Enter"
-    when 'r', 'R' then (active_pane == :index) && index.selected_message.try { |m| reply_to.call m }
+      ui.sidebar.focus
+      ui.show_message "Select a mailbox and press Enter"
+    when 'r', 'R' then (active_pane == :index) && ui.index.selected_message.try { |m| reply_to.call m }
     when '$'
       before = messages.size
       messages.reject! { |m| is_deleted.call m }
-      index.messages = messages
+      ui.index.messages = messages
       index_status.call
-      show_message.call "Expunged #{before - messages.size} message(s)"
+      ui.show_message "Expunged #{before - messages.size} message(s)"
     when 'd', 'D'
       if active_pane == :index
-        index.selected_message.try do |m|
+        ui.index.selected_message.try do |m|
           m.status = "D" + m.status.gsub('D', "")
-          index.messages = messages
+          ui.index.messages = messages
           index_status.call
-          show_message.call "Message marked for deletion"
+          ui.show_message "Message marked for deletion"
         end
       end
     when 'u', 'U'
       if active_pane == :index
-        index.selected_message.try do |m|
+        ui.index.selected_message.try do |m|
           m.status = m.status.gsub('D', "")
-          index.messages = messages
+          ui.index.messages = messages
           index_status.call
-          show_message.call "Message undeleted"
+          ui.show_message "Message undeleted"
         end
       end
     end
@@ -579,17 +468,17 @@ s.on(CT::Event::KeyPress) do |e|
     case ch
     when 'i', 'q', 'Q' then goto_index.call
     when 'n'
-      ni = index.current_index + 1
+      ni = ui.index.current_index + 1
       messages[ni]?.try { |m| open_message.call m } if ni < messages.size
     when 'p'
-      pi = index.current_index - 1
+      pi = ui.index.current_index - 1
       messages[pi]?.try { |m| open_message.call m } if pi >= 0
-    when 'r', 'R' then messages[index.current_index]?.try { |m| reply_to.call m }
+    when 'r', 'R' then messages[ui.index.current_index]?.try { |m| reply_to.call m }
     when '?'      then goto_help.call
     when 'd', 'D'
-      messages[index.current_index]?.try do |m|
+      messages[ui.index.current_index]?.try do |m|
         m.status = "D" + m.status.gsub('D', "")
-        show_message.call "Message marked for deletion"
+        ui.show_message "Message marked for deletion"
       end
     end
   when :editor
@@ -598,12 +487,12 @@ s.on(CT::Event::KeyPress) do |e|
     # without the editor consuming them.
     case key
     when Tput::Key::CtrlX
-      draft_body = editor.value
+      draft_body = ui.editor.value
       open_compose_menu.call
       e.accept
     when Tput::Key::CtrlC
       goto_index.call
-      show_message.call "Compose aborted"
+      ui.show_message "Compose aborted"
       e.accept
     end
   when :compose
@@ -613,10 +502,10 @@ s.on(CT::Event::KeyPress) do |e|
     when 'y', 'Y'
       to = draft_to
       goto_index.call
-      show_message.call %(Message to "#{to.empty? ? "(nobody)" : to}" sent)
+      ui.show_message %(Message to "#{to.empty? ? "(nobody)" : to}" sent)
     when 'q', 'Q'
       goto_index.call
-      show_message.call "Compose aborted"
+      ui.show_message "Compose aborted"
     when 't' then edit_field.call "To", e
     when 'c' then edit_field.call "Cc", e
     when 'b' then edit_field.call "Bcc", e
@@ -624,7 +513,7 @@ s.on(CT::Event::KeyPress) do |e|
     when 'a'
       draft_attachments << Attachment.new("patch.diff", "text/x-diff", 4_096)
       open_compose_menu.call
-      show_message.call "Attached patch.diff"
+      ui.show_message "Attached patch.diff"
     when '?' then goto_help.call
     end
   when :help

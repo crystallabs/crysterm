@@ -65,7 +65,9 @@ def build_receiver(parent, volume)
     content: "{#8a94a6-fg}Reactive.bind(bar, volume) {\n  bar.value = volume.value }{/}"
 end
 
-# Demo driver: sweep the value so the propagation is visible hands-free.
+# --- Demo driver: scripted input for the capture; delete in a real app ------
+#
+# Sweeps the value so the propagation is visible hands-free.
 def drive(window, slider)
   t = 0.0
   window.every(0.1.seconds) do

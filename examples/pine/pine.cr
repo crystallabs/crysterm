@@ -27,38 +27,25 @@ alias CW = CT::Widgets
 #
 # Global keys mirror Alpine's bottom command bar; ^Q quits from anywhere.
 #
-# The chrome is arranged by *layout* engines, not by fixed top/left/width/height:
-# one `Border` frame docks the header on top and a `VBox` footer (status line +
-# the two-row command bar) at the bottom, and hands what is left — the body
-# rectangle — to every full-screen view. Only the two things that deliberately
-# *float* over the body, the MAIN MENU panel and the demo banner, carry
-# coordinates.
+# The program is split in two files. `ui.cr` is the reusable part: `PineUI`
+# builds the frame, the shared and transient chrome and the full-screen views,
+# and offers the helpers that switch between them (show a view, set the key
+# bar, ask yes/no, run the progress bar). This file is the client: the mock
+# mailbox and option data, the screen flows and the Alpine key bindings. To
+# build your own Alpine-style app, keep `ui.cr` and replace this file.
 #
-# Run with:  crystal examples/pine.cr   (TERM=xterm-256color recommended)
+# Run with:  crystal examples/pine/pine.cr   (TERM=xterm-256color recommended)
 include Tput::Namespace
 
 # The Pine widget pack's alias set (KeyMenu, MainMenu, MessageIndex, …).
 include CT::Widget::Pine::DSL
 
+require "./ui"
+
 s = CT::Window.new(
   always_propagated_keys: [Tput::Key::CtrlQ],
   title: "Crysterm — Alpine-style demo",
 )
-
-# ------------------------------------------------------------------ the frame
-#
-# A single `Border` layout carves the terminal into Alpine's regions: the
-# header on top, a three-row footer at the bottom, and the body — every
-# full-screen view — in the center. `Window` is not a `Widget`, so the frame is
-# a full-screen `Box` on the window that everything else hangs off.
-#
-# It doubles as the backdrop. Created first, it sits behind every other widget,
-# and it paints the cells its regions leave over (e.g. around the centered MAIN
-# MENU). Without it those cells are left to the window's erase path; on a
-# transparent terminal profile they render slightly differently, making the
-# menu look like a distinct rectangle rather than part of the screen.
-frame = CW::Box.new parent: s, width: "100%", height: "100%",
-  layout: CT::Layout::Dock.new
 
 # ----------------------------------------------------------------- mock data
 
@@ -172,110 +159,19 @@ HELP_TEXT = <<-HELP
   keys, PageUp/PageDown, and Home/End. Press '<' to return to the main menu.
   HELP
 
-# ------------------------------------------------------------- shared chrome
+# The content of the option screens.
 
-header = CW::PineHeaderBar.new(
-  parent: frame,
-  layout_hint: :top,
-  title_content: "ALPINE 2.26",
-  section_content: "MAIN MENU",
-  info_content: "Folder: INBOX",
-)
+menu_options = [
+  MainMenu::Option.new("?", "HELP", "Get help using Alpine"),
+  MainMenu::Option.new("C", "COMPOSE MESSAGE", "Compose and send a message"),
+  MainMenu::Option.new("I", "MESSAGE INDEX", "View messages in current folder"),
+  MainMenu::Option.new("L", "FOLDER LIST", "Select a folder to view"),
+  MainMenu::Option.new("A", "ADDRESS BOOK", "Update address book"),
+  MainMenu::Option.new("S", "SETUP", "Configure Alpine options"),
+  MainMenu::Option.new("Q", "QUIT", "Leave the Alpine program"),
+]
 
-# The footer is the one edge where several bars stack, so the `Border`'s bottom
-# region is itself a `VBox`: the status line above the two-row command bar.
-# Only the footer declares a height (the extent it takes off the bottom edge);
-# everything inside it, and the body above it, follows from that.
-footer = CW::Box.new parent: frame, height: 3, layout: CT::Layout::VBox.new,
-  layout_hint: :bottom
-
-status = CW::PineStatusBar.new(parent: footer, status_content: "")
-
-# ---------------------------------------------------------- transient chrome
-#
-# A yes/no prompt and a percent-done bar, which take over the status line while
-# active — just as Alpine asks and reports on its message line. They are
-# *siblings* of the status line in the footer rather than boxes floating over
-# it, so the row belongs to whichever of the three is standing: a hidden child
-# releases its slot back to the `VBox`, so showing one and hiding the other two
-# hands the row to the winner. Declared here, ahead of the command bar, because
-# a `VBox` stacks children in the order they were added.
-
-confirm = KeyPrompt.new(parent: footer, width: "100%", height: 1, visible: false)
-progress = CW::PineProgressBar.new(parent: footer, width: "100%", height: 1, visible: false, value: 0)
-
-key_menu = KeyMenu.new(parent: footer)
-
-# Hand the shared status row to exactly one of its three occupants.
-status_line = ->(w : CT::Widget) do
-  {status, confirm, progress}.each { |x| x == w ? x.show : x.hide }
-  nil
-end
-
-# A yellow "this is only a demo" banner, shown on MAIN MENU only. It is not a
-# region: it floats over the body's third row, the way the MAIN MENU itself
-# floats over the body. Docking it under the header would push the body down a
-# row on every *other* screen too, where it is never shown — so it keeps its
-# coordinate, on the window's default `Layout::Manual`.
-banner = CW::Box.new(
-  parent: s, top: 3, left: 0, width: "100%", height: 1,
-  align: :hcenter, parse_tags: true, visible: false,
-  content: "{#ffff00-fg}** VISUAL DEMO - ALL CONTENT IS IN MEMORY - THERE IS NO DISK OR EMAIL ACCESS **{/#ffff00-fg}",
-)
-
-show_status = ->(text : String) do
-  status.status.content = text
-  nil
-end
-
-set_keys = ->(entries : Array(KeyMenu::Entry)) do
-  key_menu.entries = entries
-  nil
-end
-
-# Make the bottom command bar clickable: a click on a hint replays the hint's
-# key as the matching keypress (`KeyPress.parse` understands the same labels
-# the bar displays), so it flows through the same handlers as the physical key.
-key_menu.on(CT::Event::Activated) do |e|
-  CT::Event::KeyPress.parse(e.value.to_s).try { |kp| s.emit kp }
-end
-
-# ----------------------------------------------------------------- the views
-#
-# Every list/text view is a `Border` *center* child. The five-region carve
-# leaves exactly one rectangle — whatever the header and footer did not take —
-# and the engine hands it to each of them; `show_only` (below) decides which
-# one paints, since only one screen is ever up. That is their entire geometry:
-# not one names a row, a column or a size, and none has to reserve room for the
-# chrome around it.
-
-body_opts = {parent: frame, layout_hint: :center}
-
-# MAIN MENU is the deliberate exception. Alpine centers it in the *terminal*,
-# floating over the body rather than filling it — and "centered on something
-# other than my own slot" is not something a layout region can say (centering
-# it in the body region would sit it a row off). So, like a modal panel, it
-# stays a free-floating child of the window on the default `Layout::Manual`.
-main_menu = MainMenu.new(
-  parent: s, top: "center", left: "center", width: 66, height: 13,
-  options: [
-    MainMenu::Option.new("?", "HELP", "Get help using Alpine"),
-    MainMenu::Option.new("C", "COMPOSE MESSAGE", "Compose and send a message"),
-    MainMenu::Option.new("I", "MESSAGE INDEX", "View messages in current folder"),
-    MainMenu::Option.new("L", "FOLDER LIST", "Select a folder to view"),
-    MainMenu::Option.new("A", "ADDRESS BOOK", "Update address book"),
-    MainMenu::Option.new("S", "SETUP", "Configure Alpine options"),
-    MainMenu::Option.new("Q", "QUIT", "Leave the Alpine program"),
-  ])
-
-index = MessageIndex.new(**body_opts, messages: messages, visible: false)
-# Widen the status column so all of a message's flags show at once (up to 5: *DAFN).
-index.status_width = FLAG_CHARS.size + 1
-view = CW::PineMessageView.new(**body_opts, visible: false)
-compose = CW::PineCompose.new(**body_opts, visible: false)
-help = TextView.new(**body_opts, visible: false, content: HELP_TEXT)
-
-setup = Setup.new(**body_opts, visible: false, options: [
+setup_options = [
   Setup::Option.new("enable-incoming-folders", "Show the incoming-folders collection", enabled: true),
   Setup::Option.new("enable-aggregate-commands", "Operate on several messages at once", enabled: true),
   Setup::Option.new("expanded-view-of-folders", "Always expand folder collections"),
@@ -283,9 +179,9 @@ setup = Setup.new(**body_opts, visible: false, options: [
   Setup::Option.new("quell-status-messages", "Suppress most status-line messages"),
   Setup::Option.new("enable-dot-files", "Show files beginning with a dot"),
   Setup::Option.new("strip-from-sigdashes", "Strip the '-- ' before signatures"),
-])
+]
 
-config = OptionList.new(**body_opts, visible: false, options: [
+config_options = [
   OptionList::Option.new("personal-name", OptionKind::Text, "Your full name", value: "Crystal User"),
   OptionList::Option.new("smtp-server", OptionKind::Text, "Outgoing mail server", value: "smtp.example.com"),
   OptionList::Option.new("composer-wrap-column", OptionKind::Number, "Wrap the composer at column", value: "74"),
@@ -295,104 +191,54 @@ config = OptionList.new(**body_opts, visible: false, options: [
   OptionList::Option.new("sort-key", OptionKind::Choice, "Default index sort", value: "Arrival", allowed: SORT_ORDERS),
   OptionList::Option.new("color-style", OptionKind::Choice, "Color theme", value: "dark", allowed: ["dark", "light", "none"]),
   OptionList::Option.new("enable-newmail-sound", OptionKind::Toggle, "Beep on new mail", value: "true"),
-])
+]
 
-folders = FolderList.new(**body_opts, visible: false, folders: [
+folders = [
   FolderList::Folder.new("INBOX", messages.size),
   FolderList::Folder.new("Sent", 12),
   FolderList::Folder.new("Drafts", 1),
   FolderList::Folder.new("Trash", 3),
   FolderList::Folder.new("Archive", 0),
-])
+]
 
-addrbook = AddressBook.new(**body_opts, visible: false, contacts: [
+contacts = [
   AddressBook::Contact.new("team", "Alpine Team", "alpine@example.com"),
   AddressBook::Contact.new("john", "John Smith", "john.smith@example.com"),
   AddressBook::Contact.new("jane", "Jane Doe", "jane@example.com"),
   AddressBook::Contact.new("github", "GitHub", "noreply@github.com"),
-])
+]
 
-sortpick = ListSelect(String).new(**body_opts, visible: false,
-  items: SORT_ORDERS, label: ->(o : String) { o }, multi: false)
+# ------------------------------------------------------------------- the UI
 
-flagpick = ListSelect(String).new(**body_opts, visible: false,
-  items: FLAG_NAMES, label: ->(f : String) { f }, multi: true)
+ui = PineUI.new(s,
+  menu_options: menu_options,
+  messages: messages,
+  help_text: HELP_TEXT,
+  setup_options: setup_options,
+  config_options: config_options,
+  folders: folders,
+  contacts: contacts,
+  sort_orders: SORT_ORDERS,
+  flag_names: FLAG_NAMES,
+)
+# Widen the status column so all of a message's flags show at once (up to 5: *DAFN).
+ui.index.status_width = FLAG_CHARS.size + 1
 
-filebrowser = FileBrowser.new(**body_opts, visible: false, cwd: Dir.current)
-
-all_views = {main_menu, index, view, compose, help, setup, config,
-             folders, addrbook, sortpick, flagpick, filebrowser}
-
-# ---------------------------------------------------- screen state & helpers
+# ------------------------------------------------------------- screen state
 
 current = :main
-active_view : CT::Widget = main_menu
 current_sort = "Arrival"
-prompt_active = false
 flag_target : MessageIndex::Message? = nil
-
-show_only = ->(w : CT::Widget) do
-  status_line.call status
-  banner.hide
-  all_views.each { |v| v == w ? v.show : v.hide }
-  active_view = w
-  w.focus
-  nil
-end
-
-# Refocus whatever full-screen view is current (after a transient prompt is dismissed).
-refocus = -> do
-  active_view.focus
-  nil
-end
-
-# Dismiss the status-line yes/no prompt and hand focus back to the view.
-dismiss_prompt = -> do
-  prompt_active = false
-  status_line.call status
-  refocus.call
-  nil
-end
-
-# Pop up a Pine-style yes/no prompt on the status line; *on_yes* runs if the
-# user presses Y. N or Escape just dismisses it.
-ask_yes_no = ->(question : String, on_yes : Proc(Nil)) do
-  confirm.question = question
-  confirm.choices = [
-    KeyPrompt::Choice.new("Y", "Yes") { dismiss_prompt.call; on_yes.call; nil },
-    KeyPrompt::Choice.new("N", "No") { dismiss_prompt.call; nil },
-  ]
-  status_line.call confirm
-  confirm.focus
-  prompt_active = true
-  nil
-end
-
-# Show the percent-done bar and animate it to 100% (mocking a background
-# task): a timer steps the bar without ever blocking the event loop.
-run_progress = ->(label : String) do
-  header.info.content = label
-  progress.value = 0
-  status_line.call progress
-  s.every(35.milliseconds) do |timer|
-    progress.value += 10
-    if progress.value >= 100
-      timer.stop
-      status_line.call status
-    end
-  end
-  nil
-end
 
 # ----------------------------------------------------------- the screen flows
 
 goto_main = -> do
   current = :main
-  header.section.content = "MAIN MENU"
-  header.info.content = "Folder: INBOX  #{messages.size} Messages"
-  show_only.call main_menu
-  banner.show
-  set_keys.call [
+  ui.header.section.content = "MAIN MENU"
+  ui.header.info.content = "Folder: INBOX  #{messages.size} Messages"
+  ui.show_only ui.main_menu
+  ui.banner.show
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("C", "Compose"),
     KeyMenu::Entry.new("I", "MsgIndex"),
@@ -400,16 +246,16 @@ goto_main = -> do
     KeyMenu::Entry.new("A", "AddrBook"),
     KeyMenu::Entry.new("Q", "Quit"),
   ]
-  show_status.call %([Folder "INBOX" opened with #{messages.size} messages])
+  ui.show_status %([Folder "INBOX" opened with #{messages.size} messages])
   nil
 end
 
 goto_index = -> do
   current = :index
-  header.section.content = "MESSAGE INDEX"
-  header.info.content = "Folder: INBOX  #{messages.size} Messages  (by #{current_sort})"
-  show_only.call index
-  set_keys.call [
+  ui.header.section.content = "MESSAGE INDEX"
+  ui.header.info.content = "Folder: INBOX  #{messages.size} Messages  (by #{current_sort})"
+  ui.show_only ui.index
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "MainMenu"),
     KeyMenu::Entry.new("V", "ViewMsg"),
@@ -422,19 +268,19 @@ goto_index = -> do
     KeyMenu::Entry.new("*", "Flag"),
     KeyMenu::Entry.new("Q", "Quit"),
   ]
-  show_status.call "[Arrows or click to move, Enter/V/dbl-click to read, C compose, ? help]"
+  ui.show_status "[Arrows or click to move, Enter/V/dbl-click to read, C compose, ? help]"
   nil
 end
 
 open_message = ->(m : MessageIndex::Message) do
   current = :view
   i = messages.index(m) || 0
-  index.current_index = i
-  header.section.content = "MESSAGE TEXT"
-  header.info.content = "Msg #{i + 1} of #{messages.size}"
-  view.set_message(from: m.from, to: "you@example.com", date: m.date, subject: m.subject, body: body_of[m]? || "")
-  show_only.call view
-  set_keys.call [
+  ui.index.current_index = i
+  ui.header.section.content = "MESSAGE TEXT"
+  ui.header.info.content = "Msg #{i + 1} of #{messages.size}"
+  ui.view.set_message(from: m.from, to: "you@example.com", date: m.date, subject: m.subject, body: body_of[m]? || "")
+  ui.show_only ui.view
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "Index"),
     KeyMenu::Entry.new("P", "PrevMsg"),
@@ -442,7 +288,7 @@ open_message = ->(m : MessageIndex::Message) do
     KeyMenu::Entry.new("D", "Delete"),
     KeyMenu::Entry.new("R", "Reply"),
   ]
-  show_status.call %([Reading message #{i + 1}: "#{m.subject}"])
+  ui.show_status %([Reading message #{i + 1}: "#{m.subject}"])
   nil
 end
 
@@ -451,16 +297,16 @@ end
 # to land on — a header field name (e.g. "to", "attchmnt") or "body".
 show_compose = ->(reset : Bool, focus : String) do
   current = :compose
-  header.section.content = "COMPOSE MESSAGE"
-  header.info.content = ""
-  compose.reset if reset
-  show_only.call compose
+  ui.header.section.content = "COMPOSE MESSAGE"
+  ui.header.info.content = ""
+  ui.compose.reset if reset
+  ui.show_only ui.compose
   if focus == "body"
-    compose.body.focus
+    ui.compose.body.focus
   else
-    compose.focus_field focus
+    ui.compose.focus_field focus
   end
-  set_keys.call [
+  ui.set_keys [
     KeyMenu::Entry.new("^X", "Send"),
     KeyMenu::Entry.new("^C", "Cancel"),
     KeyMenu::Entry.new("^T", "Attach"),
@@ -468,7 +314,7 @@ show_compose = ->(reset : Bool, focus : String) do
     KeyMenu::Entry.new("Tab", "NextField"),
     KeyMenu::Entry.new("^G", "Help"),
   ]
-  show_status.call "[Compose: Tab/Enter or click a field; ^X send, ^T attach, ^C cancel]"
+  ui.show_status "[Compose: Tab/Enter or click a field; ^X send, ^T attach, ^C cancel]"
   nil
 end
 
@@ -476,214 +322,214 @@ end
 # the cursor on *focus* ("to" for a fresh message, "body" for a reply).
 goto_compose = ->(to : String, subject : String, focus : String) do
   show_compose.call true, focus
-  compose.fields["to"]?.try &.value = to
-  compose.fields["subject"]?.try &.value = subject
+  ui.compose.fields["to"]?.try &.value = to
+  ui.compose.fields["subject"]?.try &.value = subject
   nil
 end
 
 goto_setup = -> do
   current = :setup
-  header.section.content = "SETUP"
-  header.info.content = "#{setup.options.count(&.enabled?)} of #{setup.options.size} enabled"
-  show_only.call setup
-  set_keys.call [
+  ui.header.section.content = "SETUP"
+  ui.header.info.content = "#{ui.setup.options.count(&.enabled?)} of #{ui.setup.options.size} enabled"
+  ui.show_only ui.setup
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("E", "Exit"),
     KeyMenu::Entry.new("Spc", "Toggle"),
     KeyMenu::Entry.new("C", "Config"),
     KeyMenu::Entry.new("<", "MainMenu"),
   ]
-  show_status.call "[Setup: arrows/click to move, Space/Enter/click toggle, C config, E exit]"
+  ui.show_status "[Setup: arrows/click to move, Space/Enter/click toggle, C config, E exit]"
   nil
 end
 
 goto_config = -> do
   current = :config
-  header.section.content = "SETUP CONFIGURATION"
-  header.info.content = ""
-  show_only.call config
-  set_keys.call [
+  ui.header.section.content = "SETUP CONFIGURATION"
+  ui.header.info.content = ""
+  ui.show_only ui.config
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "Setup"),
     KeyMenu::Entry.new("Enter", "Change"),
   ]
-  show_status.call "[Config: Enter or click a row toggles/cycles/edits its value, < to go back]"
+  ui.show_status "[Config: Enter or click a row toggles/cycles/edits its value, < to go back]"
   nil
 end
 
 goto_folders = -> do
   current = :folders
-  header.section.content = "FOLDER LIST"
-  header.info.content = "Collection <Mail>"
-  show_only.call folders
-  set_keys.call [
+  ui.header.section.content = "FOLDER LIST"
+  ui.header.info.content = "Collection <Mail>"
+  ui.show_only ui.folders
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "MainMenu"),
     KeyMenu::Entry.new("Enter", "OpenFldr"),
   ]
-  show_status.call "[Select a folder and press Enter — or click it — to open it]"
+  ui.show_status "[Select a folder and press Enter — or click it — to open it]"
   nil
 end
 
 goto_addrbook = -> do
   current = :addrbook
-  header.section.content = "ADDRESS BOOK"
-  header.info.content = "#{addrbook.contacts.size} contacts"
-  show_only.call addrbook
-  set_keys.call [
+  ui.header.section.content = "ADDRESS BOOK"
+  ui.header.info.content = "#{ui.addrbook.contacts.size} contacts"
+  ui.show_only ui.addrbook
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "MainMenu"),
     KeyMenu::Entry.new("Enter", "Compose"),
   ]
-  show_status.call "[Select a contact and press Enter — or click it — to write to them]"
+  ui.show_status "[Select a contact and press Enter — or click it — to write to them]"
   nil
 end
 
 goto_sort = -> do
   current = :sort
-  header.section.content = "SELECT SORT ORDER"
-  header.info.content = "Currently: #{current_sort}"
-  show_only.call sortpick
-  set_keys.call [
+  ui.header.section.content = "SELECT SORT ORDER"
+  ui.header.info.content = "Currently: #{current_sort}"
+  ui.show_only ui.sortpick
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "Index"),
     KeyMenu::Entry.new("Enter", "Select"),
   ]
-  show_status.call "[Choose how to sort the index, then press Enter (or click an order)]"
+  ui.show_status "[Choose how to sort the index, then press Enter (or click an order)]"
   nil
 end
 
 goto_flag = -> do
   current = :flag
-  m = index.selected_message
+  m = ui.index.selected_message
   flag_target = m
-  header.section.content = "FLAG MAINTENANCE"
-  header.info.content = m ? %(Msg: "#{m.subject}") : ""
+  ui.header.section.content = "FLAG MAINTENANCE"
+  ui.header.info.content = m ? %(Msg: "#{m.subject}") : ""
   # Preselect the message's current flags.
-  m ? (flagpick.checked = FLAG_NAMES.select { |f| flags_of[m].includes?(f) }) : flagpick.clear_selection
-  show_only.call flagpick
-  set_keys.call [
+  m ? (ui.flagpick.checked = FLAG_NAMES.select { |f| flags_of[m].includes?(f) }) : ui.flagpick.clear_selection
+  ui.show_only ui.flagpick
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "ApplyBack"),
     KeyMenu::Entry.new("Spc", "Toggle"),
     KeyMenu::Entry.new("Enter", "Toggle"),
   ]
-  show_status.call "[Space/Enter/click toggles a flag; < applies them and returns]"
+  ui.show_status "[Space/Enter/click toggles a flag; < applies them and returns]"
   nil
 end
 
 goto_attach = -> do
   current = :attach
-  header.section.content = "SELECT FILE TO ATTACH"
-  header.info.content = filebrowser.cwd
-  show_only.call filebrowser
-  filebrowser.refresh
-  set_keys.call [
+  ui.header.section.content = "SELECT FILE TO ATTACH"
+  ui.header.info.content = ui.filebrowser.cwd
+  ui.show_only ui.filebrowser
+  ui.filebrowser.refresh
+  ui.set_keys [
     KeyMenu::Entry.new("?", "Help"),
     KeyMenu::Entry.new("<", "Compose"),
     KeyMenu::Entry.new("Enter", "Select"),
   ]
-  show_status.call "[Enter or click opens a directory / attaches a file; < to cancel]"
+  ui.show_status "[Enter or click opens a directory / attaches a file; < to cancel]"
   nil
 end
 
 goto_help = -> do
   current = :help
-  header.section.content = "HELP TEXT"
-  header.info.content = ""
-  show_only.call help
-  set_keys.call [
+  ui.header.section.content = "HELP TEXT"
+  ui.header.info.content = ""
+  ui.show_only ui.help
+  ui.set_keys [
     KeyMenu::Entry.new("<", "Back"),
     KeyMenu::Entry.new("Up", "ScrollUp"),
     KeyMenu::Entry.new("Dn", "ScrollDn"),
     KeyMenu::Entry.new("PgDn", "PageDn"),
   ]
-  show_status.call "[Help: arrows / PageUp/Down / Home/End or mouse wheel to scroll, < to return]"
+  ui.show_status "[Help: arrows / PageUp/Down / Home/End or mouse wheel to scroll, < to return]"
   nil
 end
 
 # ------------------------------------------------------------- wiring it up
 
-main_menu.options[0].callback { goto_help.call }
-main_menu.options[1].callback { goto_compose.call("", "", "to") }
-main_menu.options[2].callback { goto_index.call }
-main_menu.options[3].callback { goto_folders.call }
-main_menu.options[4].callback { goto_addrbook.call }
-main_menu.options[5].callback { goto_setup.call }
-main_menu.options[6].callback { ask_yes_no.call("Really quit ALPINE? ", -> { s.quit }) }
+ui.main_menu.options[0].callback { goto_help.call }
+ui.main_menu.options[1].callback { goto_compose.call("", "", "to") }
+ui.main_menu.options[2].callback { goto_index.call }
+ui.main_menu.options[3].callback { goto_folders.call }
+ui.main_menu.options[4].callback { goto_addrbook.call }
+ui.main_menu.options[5].callback { goto_setup.call }
+ui.main_menu.options[6].callback { ui.ask_yes_no("Really quit ALPINE? ") { s.quit } }
 
 messages.each do |m|
   m.callback { open_message.call(m) }
 end
 
-folders.folders.each do |f|
+ui.folders.folders.each do |f|
   f.callback do
     if f.name == "INBOX"
       goto_index.call
     else
-      show_status.call %([Folder "#{f.name}" is empty or unavailable in this demo])
+      ui.show_status %([Folder "#{f.name}" is empty or unavailable in this demo])
     end
   end
 end
 
-addrbook.contacts.each do |c|
+ui.addrbook.contacts.each do |c|
   c.callback { goto_compose.call(c.recipient, "", "to") }
 end
 
-setup.options.each do |o|
+ui.setup.options.each do |o|
   o.callback do |on|
-    header.info.content = "#{setup.options.count(&.enabled?)} of #{setup.options.size} enabled"
-    show_status.call "[#{o.name} is now #{on ? "ON" : "OFF"}]"
+    ui.header.info.content = "#{ui.setup.options.count(&.enabled?)} of #{ui.setup.options.size} enabled"
+    ui.show_status "[#{o.name} is now #{on ? "ON" : "OFF"}]"
   end
 end
 
-config.options.each do |o|
+ui.config.options.each do |o|
   o.callback do |value|
-    show_status.call "[#{o.name} set to #{value.empty? ? "(empty)" : value}]"
+    ui.show_status "[#{o.name} set to #{value.empty? ? "(empty)" : value}]"
   end
 end
 
 # SORT ORDER picker (single-select `ListSelect`): Enter confirms the
 # highlighted order, reorders the index, and returns to it.
-sortpick.confirm_handler do |sel|
+ui.sortpick.confirm_handler do |sel|
   sel.first?.try do |o|
     current_sort = o
     case o
     when "Arrival" then messages.replace(arrival.select { |m| messages.includes?(m) })
     when "Date"    then messages.sort_by!(&.date)
     when "From"    then messages.sort_by!(&.from.downcase)
-    when "Subject" then messages.sort_by! { |m| m.subject.downcase.sub(/^re:\s*/, "") }
+    when "Subject" then messages.sort_by!(&.subject.downcase.sub(/^re:\s*/, ""))
     when "Size"    then messages.sort_by!(&.size)
     end
-    index.messages = messages
+    ui.index.messages = messages
   end
-  show_status.call "[Index sorted by #{current_sort}]"
+  ui.show_status "[Index sorted by #{current_sort}]"
   goto_index.call
 end
 
 # FLAG MAINTENANCE (multi-select `ListSelect`): leaving the screen ("<")
 # calls `flagpick.confirm`, which applies checked flags and returns to the index.
-flagpick.confirm_handler do |sel|
+ui.flagpick.confirm_handler do |sel|
   flag_target.try do |m|
     flags_of[m] = sel.to_set
     apply_flags.call m
-    index.messages = messages
+    ui.index.messages = messages
   end
-  show_status.call(sel.empty? ? "[Flags cleared]" : "[Flags set: #{sel.join(", ")}]")
+  ui.show_status(sel.empty? ? "[Flags cleared]" : "[Flags set: #{sel.join(", ")}]")
   goto_index.call
 end
 
 # ATTACH FILE (FileBrowser): selecting a file fills the composer's Attchmnt
 # field and returns; navigating directories updates the info line.
-filebrowser.on(CT::Event::FileSelected) do |e|
-  compose.fields["attchmnt"]?.try &.value = File.basename(e.path)
+ui.filebrowser.on(CT::Event::FileSelected) do |e|
+  ui.compose.fields["attchmnt"]?.try &.value = File.basename(e.path)
   show_compose.call false, "attchmnt"
-  show_status.call "[Attached: #{File.basename(e.path)}]"
+  ui.show_status "[Attached: #{File.basename(e.path)}]"
 end
 
-filebrowser.on(CT::Event::DirectoryChanged) do |e|
-  header.info.content = filebrowser.cwd
-  show_status.call "[#{filebrowser.cwd}]"
+ui.filebrowser.on(CT::Event::DirectoryChanged) do
+  ui.header.info.content = ui.filebrowser.cwd
+  ui.show_status "[#{ui.filebrowser.cwd}]"
 end
 
 reply_to = ->(m : MessageIndex::Message) do
@@ -695,15 +541,14 @@ end
 expunge = -> do
   deleted = messages.count { |m| flags_of[m].includes?("Deleted") }
   if deleted.zero?
-    show_status.call "[No deleted messages to expunge]"
+    ui.show_status "[No deleted messages to expunge]"
   else
-    ask_yes_no.call("Expunge the #{deleted} deleted message#{deleted == 1 ? "" : "s"}? ", -> do
+    ui.ask_yes_no("Expunge the #{deleted} deleted message#{deleted == 1 ? "" : "s"}? ") do
       messages.reject! { |m| flags_of[m].includes?("Deleted") }
-      index.messages = messages
-      header.info.content = "Folder: INBOX  #{messages.size} Messages  (by #{current_sort})"
-      show_status.call "[Expunged #{deleted} message#{deleted == 1 ? "" : "s"}]"
-      nil
-    end)
+      ui.index.messages = messages
+      ui.header.info.content = "Folder: INBOX  #{messages.size} Messages  (by #{current_sort})"
+      ui.show_status "[Expunged #{deleted} message#{deleted == 1 ? "" : "s"}]"
+    end
   end
   nil
 end
@@ -725,8 +570,8 @@ s.on(CT::Event::KeyPress) do |e|
 
   # While a yes/no prompt is up it owns the keyboard: its own handler
   # processes Y/N, swallow everything else here, Escape means "no".
-  if prompt_active
-    dismiss_prompt.call if key == Tput::Key::Escape
+  if ui.prompt_active?
+    ui.dismiss_prompt if key == Tput::Key::Escape
     next
   end
 
@@ -737,13 +582,13 @@ s.on(CT::Event::KeyPress) do |e|
     handled = true
     case current
     when :config
-      if config.editing?
+      if ui.config.editing?
         handled = false
       else
         goto_setup.call
       end
     when :sort                                      then goto_index.call
-    when :flag                                      then flagpick.confirm
+    when :flag                                      then ui.flagpick.confirm
     when :attach                                    then show_compose.call false, "attchmnt"
     when :view                                      then goto_index.call
     when :index, :setup, :folders, :addrbook, :help then goto_main.call
@@ -760,73 +605,73 @@ s.on(CT::Event::KeyPress) do |e|
     when 's', 'S' then goto_setup.call
     when 'l', 'L' then goto_folders.call
     when 'a', 'A' then goto_addrbook.call
-    when 'q', 'Q' then ask_yes_no.call("Really quit ALPINE? ", -> { s.quit })
+    when 'q', 'Q' then ui.ask_yes_no("Really quit ALPINE? ") { s.quit }
     when '?'      then goto_help.call
     end
   when :index
     case ch
     when '<', 'l', 'L' then goto_main.call
-    when 'v', 'V', '>' then index.selected_message.try { |m| open_message.call(m) }
+    when 'v', 'V', '>' then ui.index.selected_message.try { |m| open_message.call(m) }
     when 'c', 'C'      then goto_compose.call("", "", "to")
-    when 'n', 'N'      then index.down
-    when 'p', 'P'      then index.up
-    when 'r', 'R'      then index.selected_message.try { |m| reply_to.call(m) }
+    when 'n', 'N'      then ui.index.down
+    when 'p', 'P'      then ui.index.up
+    when 'r', 'R'      then ui.index.selected_message.try { |m| reply_to.call(m) }
     when '$'           then goto_sort.call
     when '*'           then goto_flag.call
     when 'x', 'X'      then expunge.call
     when 'd', 'D'
-      index.selected_message.try do |m|
+      ui.index.selected_message.try do |m|
         flags_of[m] << "Deleted"
         apply_flags.call m
-        index.messages = messages
-        show_status.call "[Message marked for deletion]"
+        ui.index.messages = messages
+        ui.show_status "[Message marked for deletion]"
       end
     when 'u', 'U'
-      index.selected_message.try do |m|
+      ui.index.selected_message.try do |m|
         flags_of[m].delete "Deleted"
         apply_flags.call m
-        index.messages = messages
-        show_status.call "[Message undeleted]"
+        ui.index.messages = messages
+        ui.show_status "[Message undeleted]"
       end
-    when 'q', 'Q' then ask_yes_no.call("Really quit ALPINE? ", -> { s.quit })
+    when 'q', 'Q' then ui.ask_yes_no("Really quit ALPINE? ") { s.quit }
     when '?'      then goto_help.call
     end
   when :view
     case ch
     when '<', 'i', 'I' then goto_index.call
     when 'n', 'N'
-      ni = index.current_index + 1
+      ni = ui.index.current_index + 1
       messages[ni]?.try { |m| open_message.call(m) } if ni < messages.size
     when 'p', 'P'
-      pi = index.current_index - 1
+      pi = ui.index.current_index - 1
       messages[pi]?.try { |m| open_message.call(m) } if pi >= 0
-    when 'r', 'R' then messages[index.current_index]?.try { |m| reply_to.call(m) }
+    when 'r', 'R' then messages[ui.index.current_index]?.try { |m| reply_to.call(m) }
     when 'd', 'D'
-      messages[index.current_index]?.try do |m|
+      messages[ui.index.current_index]?.try do |m|
         flags_of[m] << "Deleted"
         apply_flags.call m
-        index.messages = messages
-        show_status.call "[Message marked for deletion]"
+        ui.index.messages = messages
+        ui.show_status "[Message marked for deletion]"
       end
     when '?' then goto_help.call
     end
   when :compose
     case key
     when Tput::Key::CtrlX
-      vals = compose.values
-      run_progress.call "Sending message..."
+      vals = ui.compose.values
+      ui.run_progress "Sending message..."
       goto_main.call
-      show_status.call %([Message to "#{vals["to"].empty? ? "(nobody)" : vals["to"]}" sent])
+      ui.show_status %([Message to "#{vals["to"].empty? ? "(nobody)" : vals["to"]}" sent])
     when Tput::Key::CtrlT
       goto_attach.call
     when Tput::Key::CtrlG
       goto_help.call
     when Tput::Key::CtrlO
       goto_main.call
-      show_status.call "[Message postponed]"
+      ui.show_status "[Message postponed]"
     when Tput::Key::CtrlC, Tput::Key::Escape
       goto_main.call
-      show_status.call "[Compose cancelled]"
+      ui.show_status "[Compose cancelled]"
     end
   when :setup
     case ch
@@ -856,7 +701,7 @@ s.on(CT::Event::KeyPress) do |e|
     end
   when :flag
     case ch
-    when '<' then flagpick.confirm
+    when '<' then ui.flagpick.confirm
     when '?' then goto_help.call
     end
   when :attach

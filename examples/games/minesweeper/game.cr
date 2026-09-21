@@ -1,5 +1,7 @@
 require "../../../src/crysterm"
 
+require "./ui"
+
 # Minesweeper
 # ===========
 #
@@ -25,6 +27,12 @@ require "../../../src/crysterm"
 #   * First-click safety - the first cell you open is never a mine and always
 #     opens into a blank area.
 #   * A live timer and a remaining-mine counter (mines minus flags).
+#
+# The program is split in two files. `ui.cr` is the reusable part:
+# `MinesweeperUI` builds the frame, the board box, the status bar and the menu
+# bar. This file is the game: rules, themes, tile rendering, mouse and key
+# handling. To build your own board game on the same chrome, keep `ui.cr` and
+# replace this file.
 class Minesweeper
   # Each cell is drawn this many columns wide and one row tall. Fixed width lets
   # a click's (x, y) be mapped straight back to a (row, col).
@@ -123,10 +131,6 @@ class Minesweeper
   @started_at : Time::Instant? = nil # monotonic clock at the first click
   @elapsed = 0
 
-  # The checkable difficulty entries in the Game menu, kept so the current one
-  # can be shown ticked (they behave like a radio group).
-  @diff_actions = {} of String => CW::Action
-
   # Index into THEMES of the active visual theme; advanced by the `t` key.
   # Defaults to Neon (resolved by name so it survives reordering THEMES).
   @theme_index = THEMES.index { |t| t.name == "Neon" } || 0
@@ -134,49 +138,14 @@ class Minesweeper
   def initialize(@difficulty)
     @window = CT::Window.new title: "Minesweeper"
 
-    # A single Border layout carves the window into this game's three regions:
-    # the menu bar on top, the status bar at the bottom, and the play area
-    # filling whatever is left in between. Nothing below is placed at a
-    # hand-computed coordinate, and no region has to reserve room for another.
-    frame = CW::Box.new parent: @window, width: "100%", height: "100%",
-      layout: CT::Layout::Dock.new
-
-    # The play area: whatever the two bars leave over. The board is the only
-    # thing in it, so this box carries no engine of its own — the board sits in
-    # the default `Layout::Manual`, self-centring (below). A `VBox(align:
-    # Center)` would be the Qt idiom for centring a fixed-size panel, but the
-    # two disagree by a column on an odd leftover: `left: "center"` rounds the
-    # spare column to the left (mid − half), the box engine floors
-    # `(area − board) / 2` and rounds it to the right. Keeping `"center"` keeps
-    # the board where it has always been drawn.
-    board_area = CW::Box.new parent: frame, layout_hint: :center
-
-    # The board declares its size and asks to be centred in the play area; that
-    # area's position and extent come from the layout, so the board no longer
-    # knows a menu bar or a status bar exists. Its top margin — not a `top:`
-    # counted off the menu bar's height — is the row of breathing space above it.
-    @board = CW::GroupBox.new \
-      parent: board_area,
-      left: "center",
-      width: @cols * CELL_W + 2, # +2 for the left/right border
-      height: @rows + 2,
-      title: " MINESWEEPER ",
-      parse_tags: true,
-      style: CT::Style.new(fg: "white", border: true, margin: CT::Margin.top, shadow: true)
-
-    @status = CW::StatusBar.new \
-      parent: frame,
-      height: 1, # the only size it declares: Border spans it across the window
-      parse_tags: true,
-      layout_hint: :bottom,
-      style: CT::Style.new(fg: "white", bg: "#303050")
+    @ui = MinesweeperUI.new(@window,
+      board_width: @cols * CELL_W + 2, # +2 for the left/right border
+      board_height: @rows + 2,
+      difficulties: DIFFICULTIES.keys) { |command| menu_command command }
+    @board = @ui.board
+    @status = @ui.status
 
     apply_theme
-
-    # Built last so its drop-down menus append over the board, and after the
-    # widgets the menu actions reference exist. The pop-ups parent themselves to
-    # the window (not to `frame`), so they stay outside the layout and float.
-    build_menu_bar frame
 
     # One handler covers the whole board; recover the clicked cell from event
     # coordinates. Acting on `down?` only means one action per press.
@@ -213,40 +182,16 @@ class Minesweeper
     end
   end
 
-  # Build the top menu bar: a "Game" menu mirroring every keyboard command, and
-  # a "Help" menu. Difficulty entries are checkable and act as a radio group
-  # (current one ticked), updated in `new_game`.
-  private def build_menu_bar(frame : CT::Widget)
-    menubar = CW::MenuBar.new \
-      parent: frame,
-      height: 1,
-      layout_hint: :top,
-      menu_style: CT::Style.new(border: true, fg: "white", bg: "#202030"),
-      style: CT::Style.new(fg: "white", bg: "#303050")
-
-    game = menubar.add_menu "Game"
-    game.add_action("New") { new_game @difficulty }
-    game.add_separator
-    DIFFICULTIES.each_key do |name|
-      action = game.add_action(name.capitalize) { new_game name }
-      action.checkable = true
-      @diff_actions[name] = action
-    end
-    game.add_separator
-    game.add_action("Cycle theme") { cycle_theme }
-    game.add_separator
-    game.add_action("Quit") do
-      # Graceful app-level quit — see `Window#quit` (vs a bare `exit`).
-      @window.quit
-    end
-
-    help = menubar.add_menu "Help"
-    help.add_action("Controls") do
-      @status.show_message \
-        " Left-click: reveal · Right-click: flag · click a number to chord · t: theme"
-    end
-    help.add_action("About") do
-      @status.show_message " Minesweeper — a Crysterm example"
+  # A Game/Help menu entry was activated (see `MinesweeperUI`): the same
+  # commands the keyboard offers, plus the two help texts.
+  private def menu_command(command : String)
+    case command
+    when "new"      then new_game @difficulty
+    when "theme"    then cycle_theme
+    when "quit"     then @window.quit # graceful app-level quit, as for `q`
+    when "controls" then @status.show_message " Left-click: reveal · Right-click: flag · click a number to chord · t: theme"
+    when "about"    then @status.show_message " Minesweeper — a Crysterm example"
+    else                 new_game command if DIFFICULTIES.has_key?(command)
     end
   end
 
@@ -318,7 +263,7 @@ class Minesweeper
     @board.height = @rows + 2
 
     # Tick the active difficulty in the menu (radio-group behaviour).
-    @diff_actions.each { |key, action| action.checked = (key == name) }
+    @ui.diff_actions.each { |key, action| action.checked = (key == name) }
 
     render_status
     render_board

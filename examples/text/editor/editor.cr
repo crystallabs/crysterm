@@ -100,7 +100,7 @@ ed.on(CT::Event::TextChanged) do
 end
 update_pos.call
 
-# --- Self-driving script: typing, a mouse click on a menu, wheel scrolling ---
+# --- Demo driver: scripted input for the capture; delete in a real app ------
 
 type = ->(text : String) do
   text.each_char { |ch| ed.emit CT::Event::KeyPress, CT::Event::KeyPress.new(ch, nil) }

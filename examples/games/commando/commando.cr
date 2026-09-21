@@ -3,6 +3,8 @@ require "../../../src/crysterm"
 alias CT = Crysterm
 alias CW = CT::Widgets
 
+require "./ui"
+
 # Commando
 # ========
 #
@@ -36,18 +38,12 @@ alias CW = CT::Widgets
 # buffer (the fast `fill_region` path, as in `tests/misc/quicktro.cr`) — no
 # per-frame tag strings to parse. See `Commando#draw_scene`.
 #
-# `Field` is the play-window widget: a bordered box whose `#paint` runs during
-# the compositor's pass (after its buffer clear), then hands off to the game to
-# overpaint the scene. A `painter` proc is used so this can be defined before
-# `Commando`.
-class Field < Crysterm::Widget::Box
-  property painter : (Field ->)? = nil
-
-  def paint(*, with_children = true)
-    super
-    painter.try &.call(self)
-  end
-end
+# The program is split in two files. `ui.cr` is the reusable part: `Field`
+# (the play-window widget whose `#paint` hands off to a `painter` proc) and
+# `CommandoUI`, which builds the centered field, the status bar and the two
+# floating cards. This file is the game: the level, the simulation, the keys
+# and the scene painter. To build your own scrolling arcade game on the same
+# chrome, keep `ui.cr` and replace this file.
 
 # Everything is drawn by hand into the window's cell buffer, rebuilt every frame
 # from world state (see `draw_scene`).
@@ -212,75 +208,14 @@ class Commando
   @state : State = :title
 
   def initialize
-    # Damage tracking (the default) stays on: the one widget whose cells
-    # change without tracked setters — the play field, painted by its
-    # `painter` proc — opts in via `repaints_every_frame`, so the rest of the
-    # UI (status bar, overlays) keeps selective repaints.
     @window = CT::Window.new title: "commando.cr"
 
-    # The cabinet: one frame holding the two stacked regions this game has — the
-    # play field above, the status bar below. `Window` is not a `Widget`, so the
-    # layout hangs off a full-screen box.
-    #
-    # A `VBox` rather than a `Border` dock, because the vertical stack is only
-    # half the job: the play field is a *fixed* WORLD_W+2 columns wide (the world
-    # never scrolls sideways) and must sit centered in whatever terminal it finds
-    # itself in. `align: Center` is the box's cross axis, so the field is centered
-    # horizontally for free; the field then takes no explicit height and flexes
-    # into everything the status bar leaves. Qt would write this the same way:
-    # a QVBoxLayout with the arena added under Qt::AlignHCenter.
-    frame = CW::Box.new parent: @window, width: "100%", height: "100%",
-      layout: CT::Layout::VBox.new(align: CT::Layout::Box::Align::Center)
-
-    @field = Field.new \
-      parent: frame,
-      width: WORLD_W + 2,
-      repaints_every_frame: true,
-      style: CT::Style.new(fg: "white", bg: "#101410",
-        border: CT::Border.new(CT::BorderType::Solid, fg: "#6a6a72"))
+    @ui = CommandoUI.new(@window, field_width: WORLD_W + 2)
+    @field = @ui.field
     @field.painter = ->(f : Field) { draw_scene f }
-
-    # The one row the field doesn't get. Only the size along the stacking axis is
-    # declared; the box supplies the row it lands on. (`width` stays explicit:
-    # under `align: Center` the cross axis is *not* stretched, so the bar has to
-    # ask for the full width it wants to span.)
-    @status = CW::StatusBar.new \
-      parent: frame,
-      width: "100%",
-      height: 1,
-      parse_tags: true,
-      style: CT::Style.new(fg: "white", bg: "#20241c")
-
-    # Overlays deliberately stay outside the layout: they are not regions of the
-    # frame but cards that float ON TOP of the live scene, so they keep their own
-    # coordinates (as a Qt overlay child would) and remain children of the screen
-    # — created after `frame`, hence composited over it rather than overpainted.
-    #
-    # Centered card for the title / pause / game-over / victory screens.
-    @overlay = CW::Box.new \
-      parent: @window,
-      top: "center",
-      left: "center",
-      width: 46,
-      height: 11,
-      parse_tags: true,
-      align: "center",
-      style: CT::Style.new(fg: "white", bg: "#14180f", bold: true,
-        border: CT::Border.new(CT::BorderType::Double, fg: "#c8b048"))
-
-    # A slim top banner shown during the attract-mode demo, so the live
-    # gameplay stays visible below it.
-    @banner = CW::Box.new \
-      parent: @window,
-      top: 1,
-      left: "center",
-      width: 48,
-      height: 6,
-      parse_tags: true,
-      align: "center",
-      style: CT::Style.new(fg: "white", bg: "#14180f", bold: true,
-        border: CT::Border.new(CT::BorderType::Double, fg: "#c8b048"))
-    @banner.hide
+    @status = @ui.status
+    @overlay = @ui.overlay
+    @banner = @ui.banner
 
     @window.on(CT::Event::KeyPress) { |e| on_key e }
     @window.on(CT::Event::Resize) { @window.update }

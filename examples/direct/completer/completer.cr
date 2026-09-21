@@ -43,7 +43,7 @@ CW::Box.new parent: s, bottom: 0, left: 0, width: "100%", height: 1,
   parse_tags: true,
   content: "{#8a94a6-fg}type to filter · ↓ opens the list · Tab/Enter accepts · Ctrl-Q quits{/}"
 
-# --- Self-driving script (also fine to type over interactively) --------------
+# --- Demo driver: scripted input for the capture; delete in a real app ------
 
 # The 2.5 s cycle divides the 5 s capture exactly, and each cycle ends back in
 # the starting state, so the looping animation wraps seamlessly whatever the

@@ -16,4 +16,12 @@ copy as a base for your projects.
 - `terminal/` — `emulator/` (a minimal real terminal emulator) and `tid/` (terminal identification)
 - `text/` — a working Unicode text editor built on `TextEdit`
 
+The larger examples are split in two files: `ui.cr` holds the reusable TUI (a
+`<Name>UI` class that builds the frame and widgets and offers the chrome
+helpers), and the entry file holds the example itself — its data, flows, game
+rules and key handling. To build your own app on one of them, copy the
+directory, keep `ui.cr` and replace the entry file. The self-driving demos
+(`claude`, `direct/completer`, `text/editor`, `screen/multiple`) end in a
+section headed "Demo driver" that only exists for the capture; delete it.
+
 Minimal per-widget demos live in `tests/widget/` (see its README).
