@@ -195,12 +195,17 @@ module Crysterm
       end
 
       def initialize(date : Time? = nil, **box)
-        @date = clamp_date(date || Mixin::SectionedField.default_today)
-        @shown_year = @date.year
-        @shown_month = @date.month
+        d = (date || Mixin::SectionedField.default_today).at_beginning_of_day
+        @date = d
+        @shown_year = d.year
+        @shown_month = d.month
 
         super **box
         @parse_tags = true
+
+        @date = clamp_date(@date)
+        @shown_year = @date.year
+        @shown_month = @date.month
 
         handle Crysterm::Event::KeyPress
         setup_mouse
