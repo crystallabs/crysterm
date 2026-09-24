@@ -329,8 +329,8 @@ Coordination uses a single capacity-1 channel as a coalescing *doorbell*:
 > the reactive layer's state is documented single-fiber. Route cross-fiber
 > work through `post(&block)` below instead.
 
-If you ever compute something on another fiber (or a thread under
-`-Dpreview_mt`) and need to apply it to widgets, use `post(&block)`: it queues
+If you ever compute something on another fiber
+and need to apply it to widgets, use `post(&block)`: it queues
 the closure to run *on the render fiber* just before the next frame, keeping all
 widget mutation on that one fiber. `update` / `schedule_render` are themselves
 safe to call from any fiber.

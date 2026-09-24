@@ -192,7 +192,7 @@ module Crysterm
 
     # Queues `block` to run on the render fiber just before the next render,
     # then schedules that render. Use to apply results computed off the render
-    # fiber (a background fiber, or a thread under `-Dpreview_mt`) to widgets,
+    # fiber (a background fiber, or a thread) to widgets,
     # keeping all widget mutation on the single render fiber — no locks needed.
     def post(&block : Proc(Nil)) : Nil
       @ui_queue.send block
