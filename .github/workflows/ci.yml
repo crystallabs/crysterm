@@ -9,6 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # install-crystal installs packages without refreshing the package
+      # index, which fails when the runner image's index has gone stale.
+      - name: Update package index
+        run: sudo apt-get update -y
       - uses: crystal-lang/install-crystal@v1
       - name: Install packages
         run: sudo apt-get update -y && sudo apt-get install -y libunibilium-dev
