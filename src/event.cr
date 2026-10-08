@@ -182,6 +182,13 @@ module Crysterm
     # with `window.destroy`. `window` is the affected window.
     event WindowClosed, window : Crysterm::Window
 
+    # Emitted by a `Window` when writing a frame to its still-connected output
+    # fails. The render fiber emits it; when nothing handles it, the render
+    # fiber raises *error* instead. `Application#exec` and
+    # `Application.exec_all` handle it by tearing their windows down and
+    # re-raising *error* to their caller. `error` is the failed write's error.
+    event OutputFailed, error : IO::Error
+
     # Emitted by an `Application` when a new physical device (`Screen`) is added —
     # i.e. the first window on a tty is registered ↔ `QGuiApplication::screenAdded`.
     # `screen` is the device.

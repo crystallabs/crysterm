@@ -265,6 +265,10 @@ module Crysterm
     # `#quit` — `0` for a last-window-closed exit. The default quit keys route
     # through `#quit`, so a plain `q` makes `exec` return rather than
     # hard-exiting the process.
+    #
+    # When writing to the output fails, on the render fiber or during the
+    # initial render, `exec` quits (restoring the terminal best-effort) and
+    # raises that error instead of returning.
     def exec(window : Window) : Int32
       # Marked before the first yield point (render/start_input do IO), so a
       # `quit` from a concurrently-scheduled fiber lands in the channel — never
@@ -282,15 +286,46 @@ module Crysterm
         return 0
       end
 
-      window.update
-      window.start_input
+      # An output failure on the window's render fiber would otherwise end only
+      # that fiber, leaving this loop blocked on a terminal nobody restores.
+      failed = window.on(::Crysterm::Event::OutputFailed) { |e| fail_exec e.error }
+      begin
+        begin
+          window.update
+          window.start_input
+        rescue ex
+          # Same for a failure on this fiber: restore the terminal before the
+          # error leaves `exec`.
+          fail_exec ex
+        end
 
-      status = @quit_channel.receive
-      @exec_running = false
-      # Re-arm so a fresh window can be `exec`ed again after a quit (Qt allows
-      # re-entering the loop).
-      @quit_requested = false
+        status = @quit_channel.receive
+      ensure
+        failed.off
+        @exec_running = false
+        # Re-arm so a fresh window can be `exec`ed again after a quit (Qt allows
+        # re-entering the loop).
+        @quit_requested = false
+      end
+
+      if error = @exec_error
+        @exec_error = nil
+        raise error
+      end
       status
+    end
+
+    # The error that ended the running `#exec` loop, re-raised by `#exec` once
+    # `#fail_exec` has torn the windows down.
+    @exec_error : Exception? = nil
+
+    # Ends the running `#exec` loop with *error*: quits (emitting
+    # `Event::AboutToQuit` and tearing every window down, which restores the
+    # terminal best-effort) and has `#exec` raise *error* instead of returning
+    # a status. The first error wins.
+    private def fail_exec(error : Exception) : Nil
+      @exec_error ||= error
+      quit 1
     end
 
     # No-arg form: runs the windows already registered with this application
@@ -337,6 +372,9 @@ module Crysterm
     # *graceful* close, tearing every managed window down so `remaining`/`done`
     # reach zero and `exec_all` returns normally instead of the process
     # hard-exiting mid-loop.
+    #
+    # When writing to any window's output fails, `exec_all` tears every window
+    # down and raises that error once they are gone.
     def self.exec_all(windows : Array(Window)) : Nil
       return if windows.empty?
       remaining = windows.size
@@ -345,6 +383,13 @@ module Crysterm
       # most once, but count through a set so a re-emission could never
       # double-decrement `remaining`.
       counted = Set(Window).new
+      # The first output failure among the windows: it tears them all down and
+      # is re-raised once they are gone.
+      error : Exception? = nil
+      fail_all = ->(ex : Exception) do
+        error ||= ex
+        windows.each { |o| o.destroy unless o.destroyed? }
+      end
 
       windows.each do |w|
         # Take over quit from the app-global hotkey (see method doc).
@@ -367,14 +412,20 @@ module Crysterm
           windows.each { |o| o.destroy unless o.destroyed? } if quit_gesture?(w, e)
         end
         w.on(Crysterm::Event::WindowClosed) { w.destroy unless w.destroyed? }
+        w.on(Crysterm::Event::OutputFailed) { |e| fail_all.call e.error }
       end
 
-      windows.each do |w|
-        w.update
-        w.start_input
+      begin
+        windows.each do |w|
+          w.update
+          w.start_input
+        end
+      rescue ex
+        fail_all.call ex
       end
 
       done.receive
+      error.try { |ex| raise ex }
     end
   end
 end
