@@ -390,8 +390,13 @@ module Crysterm
           # closed (or `#disconnect` ran) in the gap after the `@connected`
           # check above. If no longer connected, expected: swallow it and keep
           # the loop alive for a later `#connect`/reattach. If still connected,
-          # it's a genuine output failure, so propagate it.
-          raise ex if @connected
+          # it's a genuine output failure. Raising here would only end this
+          # fiber, never reaching the code driving the window, so hand it to
+          # `Event::OutputFailed` handlers (an `exec` loop tears down and
+          # re-raises it). Raise only when nobody handles it.
+          next unless @connected
+          raise ex unless has_handlers? ::Crysterm::Event::OutputFailed
+          emit ::Crysterm::Event::OutputFailed, ex
         end
       end
     end
