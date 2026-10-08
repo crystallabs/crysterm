@@ -444,7 +444,7 @@ require "crysterm"
 
 # The two conventional short aliases — nothing is `include`d into your namespace.
 alias CT = Crysterm
-alias CW = Crysterm::Widgets
+alias CW = CT::Widgets
 
 # A `Window` is the surface your widgets live on.
 window = CT::Window.new title: "hello"

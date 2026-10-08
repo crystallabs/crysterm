@@ -3,8 +3,8 @@ require "./font"
 
 module Crysterm
   # Renders a rectangular region of a `Window`'s rendered content to an RGBA
-  # image and encodes it as a still PNG (or, via `Recorder`, an animated
-  # APNG/GIF).
+  # image and encodes it as a still PNG in-process; `Window#capture` streams
+  # the same frames to `ffmpeg` for every other format and for animations.
   #
   # Works on what the *terminal* shows: the flushed cell buffer (`Window#lines`)
   # plus the in-band terminal-graphics backends (`Media::Graphics`: sixel /

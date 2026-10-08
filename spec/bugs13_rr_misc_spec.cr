@@ -31,6 +31,5 @@ describe "BUGS13 R5 — Crysterm::VERSION matches shard.yml" do
     shard_version = File.read(File.join(__DIR__, "..", "shard.yml"))
       .lines.find!(&.starts_with?("version:")).split(':', 2)[1].strip
     Crysterm::VERSION.should eq shard_version
-    Crysterm::VERSION.should eq "1.0.0"
   end
 end

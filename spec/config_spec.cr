@@ -48,6 +48,10 @@ describe "Crysterm config integration" do
     # probe: false — emulator facts are set explicitly below; suppress the live
     # terminal probe, which would otherwise write query sequences into spec output.
     tput = Tput.new(terminfo: ti, input: STDIN, output: STDOUT, probe: false)
+    # Identity is also read from env (TERM_PROGRAM, ITERM_SESSION_ID, ...), so
+    # under iTerm2 the fresh emulator already offers inline images; clear it so
+    # the fallback below is decided by the flags set here alone.
+    tput.emulator.iterm2 = false
 
     # Picks Kitty when the terminal speaks the kitty graphics protocol...
     tput.emulator.kitty = true
