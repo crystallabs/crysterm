@@ -275,6 +275,9 @@ module Crysterm
       # in the no-loop-to-unwind-to `exit` branch — even when it runs during
       # this setup.
       @exec_running = true
+      # A stale error from a loop that ended some other way must never be
+      # raised at the end of this one.
+      @exec_error = nil
 
       add window
 
