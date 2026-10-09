@@ -57,9 +57,9 @@ module Crysterm
         # was used before it was initialized"); the inlined assignments do
         # not.
         private macro setup_text_buffer(content, max_length, read_only)
-          @max_length = {{max_length}}
-          @read_only = {{read_only}}
-          @value = {{content}}
+          @max_length = {{ max_length }}
+          @read_only = {{ read_only }}
+          @value = {{ content }}
           @cursor_pos = @value.size
         end
 
