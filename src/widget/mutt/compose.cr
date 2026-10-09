@@ -48,9 +48,29 @@ module Crysterm
       # (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]
       class Compose < Widget::Box
-        # The header fields shown, in order. All are display-only except as the
-        # host wires them; From is conventionally fixed.
+        # The default header fields, in order (see `#fields`). All are
+        # display-only except as the host wires them; From is conventionally
+        # fixed.
         FIELDS = ["From", "To", "Cc", "Bcc", "Subject"]
+
+        # The header fields this menu shows, in order; `FIELDS` unless the host
+        # composes something other than mail (a task, a ticket, …).
+        getter fields : Array(String)
+
+        def fields=(names : Array(String)) : Array(String)
+          @fields = names
+          refresh
+          names
+        end
+
+        # The word in the divider line: `-- Attachments (2) ----`.
+        getter separator_label : String = "Attachments"
+
+        def separator_label=(label : String) : String
+          @separator_label = label
+          refresh
+          label
+        end
 
         # What a menu row represents, returned alongside a sub-index (which header
         # field, or which attachment).
@@ -75,6 +95,7 @@ module Crysterm
 
           @headers = Hash(String, String).new { |_, _| "" }
           @attachments = [] of Attachment
+          @fields = FIELDS.dup
 
           @layout = Crysterm::Layout::VBox.new
 
@@ -120,11 +141,11 @@ module Crysterm
         # The menu index of the `-- Attachments --` divider (the row count of the
         # header block). Rows before it are headers; rows after are attachments.
         def separator_index : Int32
-          FIELDS.size
+          @fields.size
         end
 
         # What the menu row at *index* represents, plus its sub-index: a header
-        # field number (into `FIELDS`), the attachment number, or `-1` for the
+        # field number (into `#fields`), the attachment number, or `-1` for the
         # divider.
         def row_at(index : Int32) : {RowKind, Int32}
           sep = separator_index
@@ -149,7 +170,8 @@ module Crysterm
           # Mutt right-justifies the field labels so the colons line up, unlike
           # Pine's left-justified `To      :`. Header values are user-typed
           # text on a tag-parsing menu, so escape their braces.
-          FIELDS.each { |f| rows << "{bold}#{"#{f}:".rjust(9)}{/bold} #{Widget.escape_tags(@headers[f])}" }
+          width = (@fields.max_of?(&.size) || 0) + 2
+          @fields.each { |f| rows << "{bold}#{"#{f}:".rjust(width)}{/bold} #{Widget.escape_tags(@headers[f])}" }
           rows << separator
           @attachments.each_with_index { |a, i| rows << format_attachment(a, i) }
           @menu.items = rows
@@ -158,7 +180,7 @@ module Crysterm
 
         # The `-- Attachments --` divider line, dash-padded.
         private def separator : String
-          label = "-- Attachments (#{@attachments.size}) "
+          label = "-- #{@separator_label} (#{@attachments.size}) "
           label + "-" * Math.max(0, 62 - label.size)
         end
 

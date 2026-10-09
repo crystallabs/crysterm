@@ -427,10 +427,34 @@ module Crysterm
         end
       end
 
+      # Per-day decoration hook: called with the day and its two-character
+      # cell text, it returns what to draw instead (tags welcome: the widget
+      # parses them), so a host can color days by what they hold —
+      # appointments, due tasks, holidays:
+      #
+      # ```
+      # cal.day_decorator = ->(day : Time, cell : String) do
+      #   due.includes?(day) ? "{red-fg}#{cell}{/red-fg}" : cell
+      # end
+      # ```
+      #
+      # The selection and today highlights are applied around the result.
+      getter day_decorator : Proc(Time, String, String)?
+
+      def day_decorator=(decorator : Proc(Time, String, String)?) : Proc(Time, String, String)?
+        @day_decorator = decorator
+        update_content
+        update!
+        decorator
+      end
+
       # Renders a single day cell, highlighting the selection and today. *today*
       # is resolved once per render (nil when not highlighted).
       private def render_day(d : Int32, today : Time?) : String
         cell = DAY_CELLS[d - 1]
+        if decorator = @day_decorator
+          cell = decorator.call(local_date(@shown_year, @shown_month, d), cell)
+        end
         if selection_mode.single_selection? && @date.year == @shown_year && @date.month == @shown_month && @date.day == d
           "{reverse}#{cell}{/reverse}"
         elsif today && today.year == @shown_year && today.month == @shown_month && today.day == d

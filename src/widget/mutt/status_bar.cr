@@ -34,13 +34,15 @@ module Crysterm
             style: Style.new(reverse: true, fill_char: '-'),
             content: left
 
-          # Docks the right zone against the far edge; its dash fill continues the
-          # parent's, so the bar reads as one dashed line at any width.
+          # Docks the right zone against the far edge, as wide as its text, so
+          # the left zone keeps every column the right one does not need; its
+          # dash fill continues the parent's, so the bar reads as one dashed
+          # line at any width.
           @layout = Crysterm::Layout::Dock.new
 
           @right_zone = Widget::Box.new(
             height: h,
-            width: "60%",
+            width: zone_width(right),
             align: {:vcenter, :right},
             style: Style.new(reverse: true, fill_char: '-'),
             content: right,
@@ -53,6 +55,12 @@ module Crysterm
         def set_text(left : String, right : String = "")
           self.content = left
           @right_zone.content = right
+          @right_zone.width = zone_width(right)
+        end
+
+        # The right zone's width: its text, at least one dash wide.
+        private def zone_width(text : String) : Int32
+          Math.max(1, str_width(text))
         end
       end
     end
