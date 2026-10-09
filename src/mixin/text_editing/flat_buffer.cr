@@ -51,10 +51,15 @@ module Crysterm
         # Seeds the text buffer from the constructor args, parking the cursor at the
         # end. Call from `initialize` *before* `super` — value must exist before
         # the base lays out its content.
-        private def setup_text_buffer(content : String, max_length, read_only) : Nil
-          @max_length = max_length
-          @read_only = read_only
-          @value = content
+        # A macro, not a method, on purpose: `LineEdit#initialize` runs it
+        # before `super`, and a method call there makes a *subclass* of the
+        # including widget fail to compile ("instance variable '@value' ...
+        # was used before it was initialized"); the inlined assignments do
+        # not.
+        private macro setup_text_buffer(content, max_length, read_only)
+          @max_length = {{max_length}}
+          @read_only = {{read_only}}
+          @value = {{content}}
           @cursor_pos = @value.size
         end
 

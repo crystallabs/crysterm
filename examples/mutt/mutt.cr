@@ -293,7 +293,7 @@ end
 # current draft. Arrow keys already move the highlight through every row
 # (`Compose` is one `List` whose `-- Attachments --` divider is non-selectable),
 # so this makes the menu fully usable by cursor as well as by command key.
-ui.compose.menu.on(CT::Event::ItemActivated) do
+ui.compose.on(CT::Event::ItemActivated) do
   kind, sub = ui.compose.selected_row
   case kind
   when Compose::RowKind::Header

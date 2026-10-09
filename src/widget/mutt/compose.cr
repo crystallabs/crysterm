@@ -23,13 +23,8 @@ module Crysterm
       end
 
       # Mutt's **compose** screen: a block of editable headers above a
-      # `-- Attachments --` separator and the list of attachments (the message
-      # body itself is always the first attachment in Mutt). It is a single
-      # navigable **menu**: the arrow keys move the highlight through the header
-      # lines *and* the attachments alike, and Enter acts on the highlighted row.
-      # It is therefore a single `List` — headers, a non-selectable
-      # `-- Attachments --` divider the cursor steps over, then attachment rows —
-      # rather than a static header `Box` stacked over a separate list.
+      # `-- Attachments --` divider and the list of attachments (the message
+      # body itself is always the first attachment in Mutt).
       #
       # ```
       #     From: you@example.com
@@ -41,6 +36,16 @@ module Crysterm
       #   2 patch.diff               [text/x-diff, 4.0K]
       # ```
       #
+      # It is laid out as a `VBox`: the header row (`#header_box`, an `HBox`
+      # holding the header menu and whatever the host appends beside it: help
+      # for the highlighted field, a preview), the divider line, then the
+      # attachment menu filling the rest. To the user it is still one
+      # navigable **menu**: the arrow keys move the highlight through the
+      # header lines *and* the attachments alike, crossing the divider, and
+      # Enter acts on the highlighted row, which the compose reports as
+      # `Event::ItemActivated` on itself with the row's index over the whole
+      # menu (`#row_at`).
+      #
       # The widget edits nothing itself: the host inspects `#selected_row` to
       # route Enter/clicks to the right edit, and pops its own prompt for header
       # edits.
@@ -48,6 +53,8 @@ module Crysterm
       # (see `Crysterm::DOM::Skip`).
       @[::Crysterm::DOM::Skip]
       class Compose < Widget::Box
+        include Mixin::NavKeys
+
         # The default header fields, in order (see `#fields`). All are
         # display-only except as the host wires them; From is conventionally
         # fixed.
@@ -86,9 +93,21 @@ module Crysterm
         # The attachments (the body is conventionally the first one).
         getter attachments : Array(Attachment)
 
-        # The single navigable menu: header rows, the `-- Attachments --` divider,
-        # then attachment rows.
-        getter menu : Widget::List
+        # The header row: the header menu on the left and, appended here by the
+        # host, anything to show beside the headers. It is as tall as there are
+        # fields; an appended widget takes the width it asks for, the menu the
+        # rest.
+        getter header_box : Widget::Box
+
+        # The two halves of the menu: the header rows, and the attachment rows.
+        getter headers_menu : Widget::List
+        getter attachments_menu : Widget::List
+
+        # The `-- Attachments --` divider line between them.
+        getter divider : Widget::Box
+
+        # Whether `j`/`k`/`g`/`G` move the highlight as well.
+        property? vi_keys : Bool = false
 
         def initialize(**opts)
           super **opts
@@ -96,16 +115,36 @@ module Crysterm
           @headers = Hash(String, String).new { |_, _| "" }
           @attachments = [] of Attachment
           @fields = FIELDS.dup
+          @active = RowKind::Header
 
           @layout = Crysterm::Layout::VBox.new
 
-          @menu = Widget::List.new(width: "100%", height: "100%", parse_tags: true)
-          @menu.styles.selected = Style.new reverse: true
-          # A single click edits the highlighted row; the divider ignores clicks.
-          @menu.activate_on_click = true
+          @header_box = Widget::Box.new(window: window, height: FIELDS.size, layout: Crysterm::Layout::HBox.new)
+          @headers_menu = Widget::List.new(window: window, parse_tags: true, keys: false)
+          @divider = Widget::Box.new(window: window, height: 1)
+          @attachments_menu = Widget::List.new(window: window, parse_tags: true, keys: false)
+          @header_box.append @headers_menu
+          append @header_box
+          append @divider
+          append @attachments_menu
 
-          append @menu
+          {@headers_menu, @attachments_menu}.each do |menu|
+            menu.styles.selected = Style.new reverse: true
+            # A single click edits the highlighted row.
+            menu.activate_on_click = true
+            # Navigation is the compose's, not the lists' (`keys` is off), so the
+            # highlight can cross from one half to the other.
+            menu.on(::Crysterm::Event::KeyPress) { |e| navigate(menu, e) }
+            menu.on(::Crysterm::Event::FocusIn) { @active = menu == @headers_menu ? RowKind::Header : RowKind::Attachment }
+            menu.on(::Crysterm::Event::ItemActivated) { |e| emit ::Crysterm::Event::ItemActivated, e.item, index_of(menu, e.index) }
+          end
           refresh
+        end
+
+        # The half of the menu that holds the highlight: focus it to give the
+        # compose the keyboard.
+        def menu : Widget::List
+          @active.attachment? ? @attachments_menu : @headers_menu
         end
 
         # Sets a header field's value (creating it if the field name is custom).
@@ -160,22 +199,59 @@ module Crysterm
 
         # The role + sub-index of the currently highlighted menu row.
         def selected_row : {RowKind, Int32}
-          row_at @menu.current_index
+          @active.attachment? ? {RowKind::Attachment, @attachments_menu.current_index} : {RowKind::Header, @headers_menu.current_index}
         end
 
-        # Rebuilds the menu rows from the current state, re-marking the divider as
-        # non-selectable so the cursor steps over it.
+        # The index over the whole menu of the row at *index* of *menu*.
+        def index_of(menu : Widget::List, index : Int32) : Int32
+          menu == @attachments_menu ? separator_index + 1 + index : index
+        end
+
+        # Rebuilds the rows from the current state.
         def refresh
-          rows = [] of String
           # Mutt right-justifies the field labels so the colons line up, unlike
           # Pine's left-justified `To      :`. Header values are user-typed
           # text on a tag-parsing menu, so escape their braces.
           width = (@fields.max_of?(&.size) || 0) + 2
-          @fields.each { |f| rows << "{bold}#{"#{f}:".rjust(width)}{/bold} #{Widget.escape_tags(@headers[f])}" }
-          rows << separator
-          @attachments.each_with_index { |a, i| rows << format_attachment(a, i) }
-          @menu.items = rows
-          @menu.non_selectable_rows = [separator_index]
+          @headers_menu.items = @fields.map { |f| "{bold}#{"#{f}:".rjust(width)}{/bold} #{Widget.escape_tags(@headers[f])}" }
+          @header_box.height = @fields.size
+          @divider.content = separator
+          @attachments_menu.items = @attachments.map_with_index { |a, i| format_attachment(a, i) }
+          @active = RowKind::Header if @attachments.empty?
+        end
+
+        # Moves the highlight for a navigation key, crossing the divider at
+        # either end of a half; Enter activates the highlighted row.
+        private def navigate(menu : Widget::List, e : ::Crysterm::Event::KeyPress) : Nil
+          in_headers = menu == @headers_menu
+          last = (in_headers ? @fields.size : @attachments.size) - 1
+          case nav_intent(e)
+          when .backward?
+            !in_headers && menu.current_index <= 0 ? cross(@headers_menu, @fields.size - 1) : menu.up
+          when .forward?
+            in_headers && menu.current_index >= last ? cross(@attachments_menu, 0) : menu.down
+          when .first?
+            # Home and End span the whole menu; the paging keys stay in a half.
+            in_headers ? menu.current_index = 0 : cross(@headers_menu, 0)
+          when .last?
+            in_headers && !@attachments.empty? ? cross(@attachments_menu, @attachments.size - 1) : menu.current_index = last
+          when .page_backward?, .half_backward?
+            menu.current_index = 0
+          when .page_forward?, .half_forward?
+            menu.current_index = last
+          else
+            return unless e.key == ::Tput::Key::Enter
+            menu.activate_current
+          end
+          e.accept
+          update!
+        end
+
+        # Puts the highlight on row *index* of the other half, when it has rows.
+        private def cross(target : Widget::List, index : Int32) : Nil
+          return if (target == @attachments_menu ? @attachments.size : @fields.size) == 0
+          target.current_index = index
+          target.focus
         end
 
         # The `-- Attachments --` divider line, dash-padded.

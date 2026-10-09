@@ -31,7 +31,8 @@ describe "Mutt::Compose#fields" do
     compose.row_at(2).should eq({Crysterm::Widget::Mutt::Compose::RowKind::Header, 2})
     compose.row_at(3).should eq({Crysterm::Widget::Mutt::Compose::RowKind::Separator, -1})
     compose.row_at(4).should eq({Crysterm::Widget::Mutt::Compose::RowKind::Attachment, 0})
-    compose.menu.non_selectable_rows.should eq Set{3}
+    compose.headers_menu.current_index.should eq 0
+    compose.selected_row.should eq({Crysterm::Widget::Mutt::Compose::RowKind::Header, 0})
 
     s.repaint
     text = s.dump(0, 80, 0, 8) || ""
