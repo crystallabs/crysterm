@@ -853,6 +853,17 @@ module Crysterm
       # A hover tooltip is a window-level satellite, not a child; drop it here.
       Widget.destroy_satellite @_tool_tip
       @_tool_tip = nil
+      # A destroyed widget gives focus up rather than handing it on (Qt's
+      # `~QWidget` → `clearFocus`): a `FocusOut` with no successor, and no
+      # `FocusIn` anywhere — unlike a hide or a plain detach, where the
+      # window rewinds focus to the previously focused widget. Done before
+      # the detach, which would otherwise rewind; a raising `FocusOut`
+      # handler is a teardown error like the others.
+      begin
+        window?.try &.release_focus self
+      rescue ex
+        error ||= ex
+      end
       # Else it would remain in `window.children`: still painted, keyable,
       # possibly holding focus/hover/grab.
       begin

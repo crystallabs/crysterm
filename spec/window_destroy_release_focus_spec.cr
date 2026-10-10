@@ -56,3 +56,64 @@ describe "Window#destroy focus release" do
     s.try &.destroy
   end
 end
+
+# `Widget#destroy` gives focus up the way Qt's `~QWidget` does (`clearFocus`):
+# a `FocusOut` with no successor, nothing focused afterwards, no `FocusIn` to
+# the previously focused widget. A hide or a plain detach still rewinds.
+describe "Widget#destroy focus release" do
+  it "blurs the destroyed widget without handing focus on" do
+    s = headless_screen(20, 5)
+    a = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 2, input: true
+    b = Widget::Box.new parent: s, top: 2, left: 0, width: 10, height: 2, input: true
+    s.focus a
+    s.focus b
+    a_in = 0
+    a.on(Event::FocusIn) { a_in += 1 }
+    blurred = [] of Widget?
+    b.on(Event::FocusOut) { |e| blurred << e.next_focused }
+    b.destroy
+    blurred.should eq [nil]
+    a_in.should eq 0
+    s.focused.should be_nil
+    a.focused?.should be_false
+    # Focus can still be given explicitly afterwards.
+    s.focus a
+    s.focused.should eq a
+  ensure
+    s.try &.destroy
+  end
+
+  it "forgets a destroyed widget deeper in the history, so a later rewind skips it" do
+    s = headless_screen(20, 5)
+    a = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 1, input: true
+    b = Widget::Box.new parent: s, top: 1, left: 0, width: 10, height: 1, input: true
+    c = Widget::Box.new parent: s, top: 2, left: 0, width: 10, height: 1, input: true
+    s.focus a
+    s.focus b
+    s.focus c
+    b.destroy # not focused: nothing to blur, c keeps focus
+    s.focused.should eq c
+    c.hide # a hide still rewinds, past the destroyed b to a
+    s.focused.should eq a
+    a.destroy # focused: nothing is focused afterwards, as in Qt
+    s.focused.should be_nil
+  ensure
+    s.try &.destroy
+  end
+
+  it "still rewinds focus on a hide or a detach" do
+    s = headless_screen(20, 5)
+    a = Widget::Box.new parent: s, top: 0, left: 0, width: 10, height: 2, input: true
+    b = Widget::Box.new parent: s, top: 2, left: 0, width: 10, height: 2, input: true
+    s.focus a
+    s.focus b
+    b.hide
+    s.focused.should eq a
+    b.show
+    s.focus b
+    s.remove b
+    s.focused.should eq a
+  ensure
+    s.try &.destroy
+  end
+end

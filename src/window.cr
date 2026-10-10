@@ -852,12 +852,16 @@ module Crysterm
       # gone, so the caller (`Application#quit`, a spec's `ensure`) still
       # sees the bug. Later ones are logged.
       #
-      # Focus leaves first (`#release_focus`): detaching the focused widget
-      # would otherwise rewind focus to a sibling that is next in line to be
-      # destroyed, and its `FocusIn` handlers would run against a half-gone
-      # tree.
-      release_focus
+      # Focus leaves first (`#release_focus`), with a `FocusOut` and no
+      # successor, so no `FocusIn` handler runs against a half-gone tree. A
+      # `FocusOut` handler raising is a teardown error like any other: kept,
+      # and the teardown goes on.
       error = nil
+      begin
+        release_focus
+      rescue ex
+        error = ex
+      end
       @children.dup.each do |c|
         c.destroy
       rescue ex

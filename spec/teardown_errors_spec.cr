@@ -5,7 +5,7 @@ include Crysterm
 # Errors raised while an app quits, or by a handler on one of the toolkit's
 # fibers, used to wedge the process: `Application#quit` latched itself before
 # tearing the windows down, so a raise part-way (a widget's `Destroy` handler,
-# the focus rewind a focused widget's removal triggers) left every later
+# the focus change a focused widget's removal triggers) left every later
 # `quit` a no-op, the window latched as destroyed before its terminal was
 # restored (so even the `at_exit` net restored nothing), the render fiber
 # stopped and the input fiber alive — a deaf, frozen screen that an external
@@ -69,12 +69,14 @@ describe "Window#destroy when a widget's teardown raises" do
     s.destroy
   end
 
-  it "re-raises a focus-rewind error from detaching the focused widget" do
-    # The shape of the original bug: destroying the focused widget rewinds
-    # focus to a sibling, whose `FocusIn` handler asks the now-detached widget
-    # for its geometry. The error surfaces through the parent's teardown
-    # (`Widget#destroy`), which still detaches the parent and its other
-    # children.
+  it "re-raises a FocusOut error from the focused widget giving focus up, and rewinds to nobody" do
+    # The shape of the original bug was a focus rewind: destroying the
+    # focused widget handed focus to a sibling, whose `FocusIn` handler asked
+    # the now-detached widget for its geometry. A destroyed widget now gives
+    # focus up without a successor (Qt's `clearFocus`), so no `FocusIn` runs
+    # during teardown; the handler that can still raise is the focused
+    # widget's own `FocusOut`. The error surfaces once the window is fully
+    # gone, with every widget detached.
     s = teardown_window
     root = Widget::Box.new parent: s, top: 0, left: 0, width: 20, height: 8
     a = Widget::Box.new parent: root, top: 0, left: 0, width: 5, height: 2
@@ -84,13 +86,12 @@ describe "Window#destroy when a widget's teardown raises" do
     a.focus
     a.focused?.should be_true
     rewound = false
-    b.on(Event::FocusIn) do
-      rewound = true
-      a.window # the raising `not_nil!` of a layout query on a detached widget
-    end
+    b.on(Event::FocusIn) { rewound = true }
+    a.on(Event::FocusOut) { raise "blur boom" }
 
-    expect_raises(NilAssertionError) { s.destroy }
-    rewound.should be_true
+    expect_raises(Exception, "blur boom") { s.destroy }
+    rewound.should be_false
+    s.focused.should be_nil
     s.destroyed?.should be_true
     s.connected?.should be_false
     root.attached?.should be_false

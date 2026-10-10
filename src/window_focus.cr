@@ -202,6 +202,24 @@ module Crysterm
       old.emit Crysterm::Event::FocusOut, nil if blur_state_reset old
     end
 
+    # Takes keyboard focus off *el* the way Qt's `~QWidget` clears it: when
+    # *el* holds focus it is blurred (`Event::FocusOut` with no successor)
+    # and nothing is focused afterwards — focus is not handed on to the
+    # previously focused widget, as a `rewind_focus` would, and the focus
+    # history is emptied (`#focused` is its top, so an emptied history is
+    # the only "nothing focused"). A widget that does not hold focus is only
+    # forgotten by the history, so no later rewind lands on it. The
+    # saved-focus slot drops it either way. What `Widget#destroy` does
+    # before detaching, so the detach finds no focus to rewind.
+    def release_focus(el : Widget) : Nil
+      @saved_focus = nil if @saved_focus == el
+      if @history.last? == el
+        release_focus
+      else
+        @history.reject! &.same?(el)
+      end
+    end
+
     # Focuses element `el`. Equivalent to `@display.focused = el`.
     protected def focus_push(el)
       old = @history.last?
