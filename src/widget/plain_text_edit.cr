@@ -29,6 +29,8 @@ module Crysterm
       include Mixin::TextEditing::DocumentBuffer
 
       @scrollable = true
+      # A pure viewport (see `TextEdit`): percent against the viewport span.
+      @always_scroll = true
       # Plain text (Qt's `QPlainTextEdit`): the buffer is shown verbatim, so
       # braces the user types are literal, never markup.
       @parse_tags = false

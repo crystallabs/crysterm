@@ -140,6 +140,12 @@ module Crysterm
       end
 
       @scrollable = true
+      # A pure viewport: `Mixin::TextEditing#scroll` moves `@child_base` and
+      # keeps `@child_offset` at 0, so `#scroll_percent` (and its setter)
+      # must measure against the viewport span, `scroll_height - visible`,
+      # as `ScrollableText` does — not the cursor-row span `height - 1`,
+      # which this widget can never reach the end of.
+      @always_scroll = true
       # Same scroll model as `PlainTextEdit`: `@child_base` is the top visible
       # wrapped row, `@child_offset` stays 0, the `ScrollBar` drives the
       # viewport top and the caret (`@cursor_pos`) is tracked separately.
