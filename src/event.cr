@@ -471,6 +471,12 @@ module Crysterm
     # analog of Qt's `QTextBrowser::sourceChanged`).
     event SourceChanged, url : String
 
+    # Emitted by a `Widget::StatusBar` whenever its temporary message
+    # changes — set by `#show_message`, cleared by `#clear_message` or by a
+    # message's timeout running out (Qt's `QStatusBar::messageChanged`).
+    # `message` is the new text, `""` once cleared.
+    event MessageChanged, message : String
+
     # Emitted on value canceled (e.g. in text forms). `value` is the current
     # value when one applies (text editors), `nil` for a bare dismissal.
     event Cancelled, value : String? = nil

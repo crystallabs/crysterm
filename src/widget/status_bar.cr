@@ -28,6 +28,10 @@ module Crysterm
     # one sharing the rest. The painted message and text sections keep to the
     # cells left of the first field.
     #
+    # Every change of the message — shown, replaced, cleared by hand or by
+    # its timeout — is reported through `Event::MessageChanged` (Qt's
+    # `messageChanged`), carrying the new text or `""`.
+    #
     # A field that may give way to the message is added with `#add_widget`
     # (Qt's `addWidget`): such *normal* fields sit left of the permanent
     # ones whatever the add order, and are hidden while a temporary message
@@ -250,31 +254,37 @@ module Crysterm
       # the next `#show_message`/`#clear_message`. The normal fields
       # (`#add_widget`) stand down while the message shows.
       def show_message(text : String, timeout : Time::Span? = nil) : Nil
-        @message = text
+        # The timer is (re)armed either way; the same text again is otherwise
+        # no change (`QStatusBar::showMessage`): no repaint, no event.
         gen = bump_dismiss_gen
-        apply_message_to_fields
-        update!
-
         if timeout
           after timeout do
             # Marshal back onto the render fiber; only clear if still current.
             window?.try &.post do
-              if dismiss_current?(gen)
-                @message = ""
-                apply_message_to_fields
-                update!
-              end
+              message_changed "" if dismiss_current?(gen)
             end
           end
         end
+        message_changed text
       end
 
-      # Clears the temporary message immediately (Qt's `clearMessage`).
+      # Clears the temporary message immediately (Qt's `clearMessage`); a
+      # no-op when none is showing.
       def clear_message : Nil
-        @message = ""
+        return unless message_showing?
         bump_dismiss_gen
+        message_changed ""
+      end
+
+      # Puts *text* up as the message (or takes it down, with `""`): displaces
+      # or restores the normal fields, repaints and reports the change
+      # (`Event::MessageChanged`). Nothing happens for an unchanged text.
+      private def message_changed(text : String) : Nil
+        return if @message == text
+        @message = text
         apply_message_to_fields
         update!
+        emit Crysterm::Event::MessageChanged, text
       end
 
       # :ditto: assignment form.
