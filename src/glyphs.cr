@@ -25,6 +25,14 @@ module Crysterm
       # enabled by terminal-*identity* detection (`Glyphs.detected_tier`,
       # applied by `Screen` on a real tty when `screen.glyphs` wasn't set
       # explicitly) or by explicit opt-in.
+      #
+      # An emoji at this tier whose default presentation is *text* (🖱, 🗑,
+      # 🏷 — one column by the width tables, yet drawn two columns wide by
+      # the color emoji font a terminal falls back to for them) carries the
+      # VS16 selector (`"🖱\u{FE0F}"`): the terminal then both draws the
+      # color glyph and advances two columns, which is also what
+      # `Tput::Unicode` counts for the sequence. A bare one would have the
+      # next cell painted over the glyph's right half.
       Extended
     end
 
@@ -680,7 +688,7 @@ module Crysterm
       set_in t, Role::IconFolderOpen, Entry.new('/', nil, '📂')
       set_in t, Role::IconSave, Entry.new('s', nil, '💾')
       set_in t, Role::IconPrint, Entry.new('p', nil, '⎙')
-      set_in t, Role::IconTrash, Entry.new('x', nil, '🗑')
+      set_in t, Role::IconTrash, Entry.new('x', nil, "🗑\u{FE0F}")
 
       set_in t, Role::IconCut, Entry.new('x', nil, '✂')
       set_in t, Role::IconCopy, Entry.new('c', nil, '⧉')
@@ -706,7 +714,7 @@ module Crysterm
       set_in t, Role::IconBookmark, Entry.new('#', nil, '🔖')
       set_in t, Role::IconLink, Entry.new('&', nil, '🔗')
       set_in t, Role::IconAttachment, Entry.new('@', nil, '📎')
-      set_in t, Role::IconTag, Entry.new('#', nil, '🏷')
+      set_in t, Role::IconTag, Entry.new('#', nil, "🏷\u{FE0F}")
       set_in t, Role::IconLightning, Entry.new('!', '↯', '⚡')
       set_in t, Role::IconFire, Entry.new('~', nil, '🔥')
       set_in t, Role::IconBug, Entry.new('b', nil, '🐛')
@@ -719,7 +727,7 @@ module Crysterm
       set_in t, Role::IconChat, Entry.new('"', nil, '💬')
       set_in t, Role::IconUser, Entry.new('@', nil, '👤')
       set_in t, Role::IconUsers, Entry.new('%', nil, '👥')
-      set_in t, Role::IconMouse, Entry.new('M', nil, '🖱')
+      set_in t, Role::IconMouse, Entry.new('M', nil, "🖱\u{FE0F}")
 
       set_in t, Role::IconClock, Entry.new('t', nil, '🕐')
       set_in t, Role::IconCalendar, Entry.new('#', nil, '📅')
@@ -748,9 +756,9 @@ module Crysterm
       set_in t, Role::IconCloud, Entry.new('~', '☁')
       set_in t, Role::IconSun, Entry.new('*', '☼', '☀')
       set_in t, Role::IconMoon, Entry.new('(', '☾', '🌙')
-      set_in t, Role::IconEye, Entry.new('o', nil, '👁')
+      set_in t, Role::IconEye, Entry.new('o', nil, "👁\u{FE0F}")
       set_in t, Role::IconCamera, Entry.new('o', nil, '📷')
-      set_in t, Role::IconImage, Entry.new('#', '▣', '🖼')
+      set_in t, Role::IconImage, Entry.new('#', '▣', "🖼\u{FE0F}")
       set_in t, Role::IconChart, Entry.new('#', nil, '📊')
       set_in t, Role::IconGraphUp, Entry.new('/', nil, '📈')
       set_in t, Role::IconGraphDown, Entry.new('\\', nil, '📉')
@@ -804,13 +812,13 @@ module Crysterm
       set_in t, Role::IconMale, Entry.new('M', '♂')
       set_in t, Role::IconFemale, Entry.new('F', '♀')
 
-      set_in t, Role::IconRain, Entry.new('/', nil, '🌧')
+      set_in t, Role::IconRain, Entry.new('/', nil, "🌧\u{FE0F}")
       set_in t, Role::IconSnow, Entry.new('*', '❄')
       set_in t, Role::IconUmbrella, Entry.new('U', '☂')
-      set_in t, Role::IconThermometer, Entry.new('|', nil, '🌡')
+      set_in t, Role::IconThermometer, Entry.new('|', nil, "🌡\u{FE0F}")
 
       set_in t, Role::IconBan, Entry.new('0', '∅', '🚫')
-      set_in t, Role::IconShield, Entry.new('O', nil, '🛡')
+      set_in t, Role::IconShield, Entry.new('O', nil, "🛡\u{FE0F}")
       set_in t, Role::IconThumbsUp, Entry.new('+', nil, '👍')
       set_in t, Role::IconThumbsDown, Entry.new('-', nil, '👎')
       set_in t, Role::IconTrophy, Entry.new('Y', nil, '🏆')
@@ -822,10 +830,10 @@ module Crysterm
       set_in t, Role::IconCompass, Entry.new('+', nil, '🧭')
       set_in t, Role::IconLightbulb, Entry.new('!', nil, '💡')
       set_in t, Role::IconPuzzle, Entry.new('+', nil, '🧩')
-      set_in t, Role::IconDatabase, Entry.new('#', nil, '🗄')
+      set_in t, Role::IconDatabase, Entry.new('#', nil, "🗄\u{FE0F}")
       set_in t, Role::IconPackage, Entry.new('=', nil, '📦')
       set_in t, Role::IconPalette, Entry.new('P', nil, '🎨')
-      set_in t, Role::IconBrush, Entry.new('/', nil, '🖌')
+      set_in t, Role::IconBrush, Entry.new('/', nil, "🖌\u{FE0F}")
 
       set_in t, Role::IconInbox, Entry.new('[', nil, '📥')
       set_in t, Role::IconOutbox, Entry.new(']', nil, '📤')
