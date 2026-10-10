@@ -198,6 +198,35 @@ module Crysterm
     ::Log.setup :info, ::Log::IOBackend.new(io, dispatcher: ::Log::DispatchMode::Sync)
   end
 
+  # Gives the `log.file` option a default for the application *app*: its
+  # per-user cache file, `$XDG_CACHE_HOME/<app>/<app>.log` —
+  # `~/.cache/<app>/<app>.log` when `XDG_CACHE_HOME` is unset — created as
+  # needed. The default only fills an empty option: a file the user named
+  # (the config file, `CRYSTERM_LOG_FILE`, `--log-file`) is kept. Returns the
+  # path the option now holds, or `nil` when the directory could not be made,
+  # in which case the option stays empty and the standard log setup stands.
+  #
+  # For an application that wants no backtrace ever written over its screen
+  # without asking the user to configure anything; call it before the first
+  # `Window`, since `#install_log_file` applies the option when a `Screen`
+  # binds the terminal.
+  #
+  # ```
+  # Crysterm.default_log_file "md" # ~/.cache/md/md.log
+  # ```
+  def self.default_log_file(app : String) : String?
+    current = Config.log_file
+    return current unless current.empty?
+    base = ENV["XDG_CACHE_HOME"]?.presence || File.join(Path.home, ".cache")
+    dir = File.join(base, app)
+    Dir.mkdir_p dir
+    path = File.join(dir, "#{app}.log")
+    Config.set "log.file", path
+    path
+  rescue File::Error
+    nil
+  end
+
   # Builds a `Window`, yields it for UI construction, then runs the main loop —
   # the shortest complete program:
   #
