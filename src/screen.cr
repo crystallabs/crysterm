@@ -70,8 +70,51 @@ module Crysterm
     # explicit streams: the real std stream when interactive, else a fresh
     # per-call `IO::Memory` so a headless connection has its own buffer and
     # headless input reads never consume rendered output.
+    #
+    # Input has one more case: an interactive app whose `STDIN` is not a
+    # terminal because the *document* arrived on it (`cmd | app`, `app <
+    # file`), while the output is a terminal the user is typing at. Keys then
+    # come from the `#controlling_terminal`; `STDIN` stays the default only
+    # when no terminal can be opened.
     def self.default_input : IO
-      Crysterm.headless? ? IO::Memory.new : STDIN
+      return IO::Memory.new if Crysterm.headless?
+      return STDIN if STDIN.tty?
+      controlling_terminal || STDIN
+    end
+
+    # The process's controlling terminal opened read/write for keyboard input,
+    # or `nil` when there is none. Opened once and shared: the input default
+    # is evaluated on every `Screen.new`, and a descriptor per call would be
+    # one to leak, or (with `close_on_finalize`) to close under a sibling on
+    # GC — the same reason the default never `STDIN.dup`s.
+    #
+    # The device is reached by name through the first standard stream that is
+    # a terminal (see `.terminal_path`), falling back to the `/dev/tty` alias,
+    # which macOS's kqueue refuses (`kevent: Invalid argument`) and so is not
+    # tried first. Opened the way the standard library opens a terminal
+    # stdin: its own descriptor, unbuffered.
+    def self.controlling_terminal : IO::FileDescriptor?
+      @@controlling_terminal ||= open_controlling_terminal
+    end
+
+    @@controlling_terminal : IO::FileDescriptor?
+
+    private def self.open_controlling_terminal : IO::FileDescriptor?
+      path = terminal_path(STDOUT) || terminal_path(STDERR) || "/dev/tty"
+      fd = LibC.open(path, LibC::O_RDWR | LibC::O_CLOEXEC)
+      return if fd == -1
+      io = IO::FileDescriptor.new(fd)
+      io.sync = true
+      io
+    end
+
+    # The device path of the terminal behind *io* (`/dev/ttys003`,
+    # `/dev/pts/0`), or `nil` when *io* is not a terminal.
+    def self.terminal_path(io : IO) : String?
+      return unless io.is_a?(IO::FileDescriptor) && io.tty?
+      buffer = uninitialized UInt8[256]
+      return unless LibC.ttyname_r(io.fd, buffer, buffer.size) == 0
+      String.new(buffer.to_unsafe)
     end
 
     # :ditto:
