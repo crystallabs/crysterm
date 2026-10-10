@@ -9,7 +9,7 @@ module Crysterm
     #   1. Strip the `Q` prefix from every Qt *type selector* (`QPushButton` ->
     #      `PushButton`); Crysterm's widget classes carry no `Q`.
     #   2. Rename names Crysterm spells differently via `RENAMES`
-    #      (`PushButton` -> `Button`, `TextEdit` -> `PlainTextEdit`, ...).
+    #      (`PushButton` -> `Button`, `TreeView` -> `Tree`, ...).
     #
     # The rewrites are plain text substitutions over the *whole* source, not
     # just the selector portions; the patterns don't occur in real Qt property
@@ -35,9 +35,10 @@ module Crysterm
         "GraphicsView"      => "Canvas",
         "HeaderView"        => "Header",
         "ListView"          => "List",
-        # Qt's rich `TextEdit` folds onto the plain editor (no rich-text widget).
-        "TextEdit"    => "PlainTextEdit",
-        "TextBrowser" => "ScrollableText",
+        # `QTextEdit`/`QTextBrowser` need no entry: Crysterm's rich-text
+        # `TextEdit` (and its `TextBrowser` subclass) carry the same names, so
+        # a Qt theme's `QTextEdit { … }` styles the rich viewer directly. As in
+        # Qt, `QPlainTextEdit` is a separate type a theme styles on its own.
         "TabBar"      => "TabWidget",
         "TableView"   => "Table",
         "TableWidget" => "Table",

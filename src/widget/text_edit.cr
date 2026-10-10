@@ -122,12 +122,68 @@ module Crysterm
       # built document looks like an imported one. Stamped onto the document
       # (`TextDocument#theme`) on assignment and adoption, so
       # `doc.markdown = x` colors the same as this widget's `markdown=`.
+      #
+      # By default the theme is *derived* from the widget's own resolved
+      # colors (`#auto_theme?`): `TextTheme.for_colors` picks the dark or the
+      # light palette for the background the CSS theme/stylesheet gave the
+      # widget, re-checked each frame, so a `--colors-theme`/stylesheet change
+      # — or a widget restyled at runtime — recolors the document to match
+      # (`TextDocument#theme=`). Assigning a theme turns the derivation off and
+      # keeps the assigned one until `auto_theme = true`.
       getter theme : TextTheme = TextTheme.default
 
       def theme=(value : TextTheme) : TextTheme
+        @auto_theme = false
+        apply_theme value
+      end
+
+      # Whether `#theme` follows the widget's resolved colors (the default) or
+      # is one assigned through `#theme=`. Turning it back on re-derives on the
+      # next frame.
+      getter? auto_theme : Bool = true
+
+      def auto_theme=(value : Bool) : Bool
+        @auto_theme = value
+        if value
+          @theme_attr = nil
+          update
+          update! if window?
+        end
+        value
+      end
+
+      # The packed base attr `#theme` was last derived from, so the derivation
+      # (and the document recolor it may trigger) only runs when the widget's
+      # colors actually changed.
+      @theme_attr : Int64? = nil
+
+      # Sets `#theme` and stamps it on the document (recoloring the content),
+      # without touching `#auto_theme?`. Repaints when the theme changed.
+      private def apply_theme(value : TextTheme) : TextTheme
+        changed = value != @theme
         @theme = value
         document.theme = value
+        if changed
+          update
+          update! if window?
+        end
         value
+      end
+
+      # Re-derives `#theme` from the current style when `#auto_theme?` and the
+      # resolved colors changed since the last derivation. Run per frame from
+      # `#process_content`, before the base attr is used for painting.
+      private def sync_theme : Nil
+        return unless auto_theme?
+        attr = @attr_memo.fetch(style)
+        return if attr == @theme_attr
+        @theme_attr = attr
+        bg = Attr.unpack_color(Attr.bg(attr))
+        # A terminal-default background has no color to measure; fall back to
+        # what the terminal reported about itself (dark unless known light).
+        dark = bg < 0 ? (window?.try(&.terminal_theme.dark?) != false) : true
+        derived = TextTheme.for_colors(bg < 0 ? nil : bg, dark)
+        apply_theme derived if derived != @theme
       end
 
       getter extra_selections = [] of ExtraSelection
@@ -338,6 +394,7 @@ module Crysterm
       # relayout happened (base contract).
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         return false unless window?
+        sync_theme
         colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
         if key == @layout_key && @layout_revision == @doc_revision && !@wrapped_lines.empty?

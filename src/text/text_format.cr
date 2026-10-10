@@ -114,6 +114,12 @@ module Crysterm
       )
     end
 
+    # A copy with the colors replaced outright — `nil` clears, which `#merge`
+    # cannot express. Attributes and the anchor are kept.
+    def with_colors(fg : Int32?, bg : Int32?) : TextCharFormat
+      TextCharFormat.new(@attributes, @attr_mask, fg, bg, @anchor_href)
+    end
+
     # Visual identity — what fragment normalization merges on. Unlike `==`,
     # ignores `attr_mask`, which is patch bookkeeping.
     def same_appearance?(other : TextCharFormat) : Bool
@@ -330,13 +336,19 @@ module Crysterm
     # A full-field copy overriding exactly the given nil-able properties. Every
     # field is forwarded from the `@`-ivars, so adding a block property means
     # editing this once.
-    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats, top_margin = @top_margin, bottom_margin = @bottom_margin) : TextBlockFormat
+    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats, top_margin = @top_margin, bottom_margin = @bottom_margin, bg = @bg) : TextBlockFormat
       TextBlockFormat.new(
         alignment: @alignment, indent: @indent, top_margin: top_margin,
-        bottom_margin: bottom_margin, bg: @bg, heading_level: @heading_level,
+        bottom_margin: bottom_margin, bg: bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
         horizontal_rule: @horizontal_rule, checked: checked, list_format: list_format,
         table_format: @table_format, frame_formats: frame_formats, alert_kind: @alert_kind)
+    end
+
+    # A copy with the background replaced, or cleared with `nil` — which
+    # `#merge` cannot express, since nil there means "unspecified".
+    def with_bg(bg : Int32?) : TextBlockFormat
+      copy_with(bg: bg)
     end
 
     # A copy with the list reference replaced, or cleared with `nil` — which
