@@ -109,7 +109,9 @@ module Crysterm
       end
 
       # Scrolls to the heading whose outline anchor is *name* (a leading `#` is
-      # accepted and ignored), returning whether one was found.
+      # accepted and ignored), returning whether one was found. The heading
+      # lands on the viewport's top row, as a browser lands a fragment link
+      # (clamped by the scroll at the document's end), not merely in view.
       #
       # Anchors come from `TextDocument#outline`, which derives and stores them
       # once per revision — so a jump is a lookup, not a re-slug of the whole
@@ -124,7 +126,9 @@ module Crysterm
         return false unless entry
         @cursor_pos = document.block_position(entry.block)
         clear_selection
-        ensure_cursor_visible
+        process_content # the row map is rebuilt at paint time; measure now
+        scroll_to cursor_row
+        emit_caret_events
         true
       end
 
@@ -138,7 +142,14 @@ module Crysterm
       # and the document is not replaced.
       def source=(url : String?) : String?
         return @source = nil if url.nil?
-        return url if url == @source
+        if url == @source
+          # Re-following the current location (the same outline entry twice,
+          # after reading on) jumps back to its anchor — no history step, the
+          # location did not change.
+          anchor = TextBrowser.sanitize_location(url)[1]
+          goto_anchor(anchor) unless anchor.empty?
+          return url
+        end
         prev = @source
         prev_pos = @cursor_pos
         if navigate(url, nil)
@@ -200,6 +211,7 @@ module Crysterm
         clear_selection
         ensure_cursor_visible
         update_link_highlight
+        emit_caret_events
         true
       end
 
@@ -314,6 +326,7 @@ module Crysterm
           @cursor_pos = restore.clamp(0, document.size)
           clear_selection
           ensure_cursor_visible
+          emit_caret_events
         elsif !anchor.empty?
           goto_anchor(anchor)
         end
