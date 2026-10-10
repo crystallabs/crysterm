@@ -166,13 +166,6 @@ module Crysterm
           return
         end
 
-        # `#activate` flips a checkable action's state before firing (emitting
-        # `Event::Toggled`/`Event::Changed`, turned by `watch_action` into a
-        # marker redraw) and carries the new state on `Event::Triggered` —
-        # except re-selecting the checked member of an exclusive `ActionGroup`,
-        # which `#activate` keeps checked (Qt semantics).
-        action.trigger
-
         # A leaf fired from within a submenu closes the whole chain back to the
         # top-level menu; fired directly on a top-level popup dismisses it.
         if parent_menu
@@ -187,6 +180,17 @@ module Crysterm
         # after the closes above, so the owner sees the final state (and any
         # focus already rewound out of the hidden menus).
         root_menu.chain_activated_handler.try &.call
+
+        # The action fires *last*, once the menus are gone and focus is back
+        # where it belongs — Qt's `QMenu` likewise hides before triggering —
+        # so an action that takes focus itself (opening a prompt line or a
+        # dialog) is not undone by the owner's focus restore a moment later.
+        # `#activate` flips a checkable action's state before firing (emitting
+        # `Event::Toggled`/`Event::Changed`, turned by `watch_action` into a
+        # marker redraw) and carries the new state on `Event::Triggered` —
+        # except re-selecting the checked member of an exclusive `ActionGroup`,
+        # which `#activate` keeps checked (Qt semantics).
+        action.trigger
       end
 
       # When this menu is a submenu, closes it via its parent and accepts *e*,
