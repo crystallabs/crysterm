@@ -385,6 +385,16 @@ module Crysterm
         rl
       end
 
+      # The caret's display row: its index among the wrapped content rows,
+      # the same row space `#scroll_position` counts in — so
+      # `cursor_row - scroll_position` is where on the viewport the caret
+      # sits, and `scroll_to(cursor_row - n)` puts it on the viewport's n-th
+      # row. Measured against the layout last painted (or refreshed by
+      # `TextEdit#text_cursor=`).
+      def cursor_row : Int32
+        cursor_rowcol[0]
+      end
+
       # Maps `@cursor_pos` (a buffer position) to `{real_line, column}` in
       # the wrapped/displayed content (`@wrapped_lines`), using the fake->real line map
       # (`ftor`). Exact for the default (unaligned) text area; best-effort with
@@ -670,11 +680,13 @@ module Crysterm
       end
 
       # Scroll the *viewport* (only `@child_base`) so the caret's real (wrapped)
-      # row stays on window. `@child_offset` is left at 0 — the caret is
-      # `@cursor_pos`, not a scroll offset — for a single scroll model shared with
-      # the attached `ScrollBar`. Returns whether the view moved, so the caller can
-      # re-render; this doesn't render itself.
-      private def ensure_cursor_visible(rl : Int32? = nil) : Bool
+      # row stays on window (Qt `ensureCursorVisible`). `@child_offset` is left
+      # at 0 — the caret is `@cursor_pos`, not a scroll offset — for a single
+      # scroll model shared with the attached `ScrollBar`. Returns whether the
+      # view moved, so the caller can re-render; this doesn't render itself
+      # (an outside caller follows with `#update`, or moves the caret through
+      # `#text_cursor=`, which does both).
+      def ensure_cursor_visible(rl : Int32? = nil) : Bool
         # Callers pass the row they already mapped so a movement keystroke doesn't
         # map `@cursor_pos` twice (here and again in `_update_cursor`).
         rl ||= cursor_rowcol[0]

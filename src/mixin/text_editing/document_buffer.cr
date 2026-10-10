@@ -405,6 +405,78 @@ module Crysterm
         # `TextDocument::ChangeKind`. The including widget calls this from its
         # `Event::ContentsChanged` handler. Own edits (`#as_self_edit`) are
         # skipped: the mixin logic moves the caret itself.
+        # Render-time format overlays (Qt `QTextEdit::ExtraSelection`, which
+        # `QPlainTextEdit` shares): each `Widget::TextEdit::ExtraSelection`
+        # paints its cursor's selected range with its format merged over the
+        # text's own, or — with no selection and `full_width` — the whole
+        # display row(s) holding the cursor's position: the current-line
+        # highlight idiom, re-set on every `Event::CursorPositionChanged` as
+        # in Qt's code editor example. Held here, as Qt holds them in the
+        # `QWidgetTextControl` both edits delegate to (so do `#text_cursor`
+        # and `#text_cursor=`). `TextEdit` paints them in its own painter,
+        # `PlainTextEdit` through `Widget#extra_selections_for_row`.
+        getter extra_selections = [] of Widget::TextEdit::ExtraSelection
+
+        def extra_selections=(list : Array(Widget::TextEdit::ExtraSelection))
+          @extra_selections = list
+          update
+          update! if window?
+          list
+        end
+
+        # Extra selections overlapping the row `[row_start, row_end]`:
+        # `{ranges of viewport columns + format}` for ranged ones, and the
+        # merged format of full-width ones touching the row (painted across the
+        # whole region width).
+        protected def row_extra_selections(row_start : Int32, row_end : Int32, offset : Int32 = 0) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
+          return {nil, nil} if @extra_selections.empty?
+          ranged = nil
+          full_fmt = nil
+          @extra_selections.each do |xs|
+            c = xs.cursor
+            if c.selection?
+              s = Math.max(c.selection_start, row_start)
+              e = Math.min(c.selection_end, row_end)
+              next if s >= e
+              if xs.full_width
+                full_fmt = full_fmt ? full_fmt.merge(xs.format) : xs.format
+              else
+                cols = (offset + rendered_column(row_start, s) - @child_base_x)...(offset + rendered_column(row_start, e) - @child_base_x)
+                ranged ||= [] of Tuple(Range(Int32, Int32), TextCharFormat)
+                ranged << {cols, xs.format}
+              end
+            elsif xs.full_width && c.position >= row_start && c.position <= row_end
+              full_fmt = full_fmt ? full_fmt.merge(xs.format) : xs.format
+            end
+          end
+          {ranged, full_fmt}
+        end
+
+        # A `TextCursor` materializing this view's caret and selection (Qt
+        # `textCursor`). A *snapshot*: mutating it edits the document but does
+        # not move the widget's caret — assign it back via `#text_cursor=`.
+        def text_cursor : TextCursor
+          c = TextCursor.new(document, @selection_anchor || @cursor_pos)
+          c.set_position(@cursor_pos, :keep_anchor)
+          c
+        end
+
+        # Adopts *c*'s position/anchor as the widget caret/selection (Qt
+        # `setTextCursor`): the view scrolls to keep the caret on window
+        # (`#ensure_cursor_visible`) and `Event::CursorPositionChanged` /
+        # `Event::SelectionChanged` report the move, as for a keystroke — the
+        # way another widget (a preview following an editor, a search box)
+        # places this view's caret.
+        def text_cursor=(c : TextCursor)
+          @cursor_pos = c.position.clamp(0, buf_size)
+          @selection_anchor = c.selection? ? c.anchor.clamp(0, buf_size) : nil
+          @goal_col = nil
+          ensure_cursor_visible
+          emit_caret_events
+          update
+          update! if window?
+        end
+
         def follow_document_change(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil
           return if @self_edit
           case kind

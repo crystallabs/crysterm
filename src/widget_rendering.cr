@@ -144,6 +144,28 @@ module Crysterm
       nil
     end
 
+    # Format overlays on real (post-wrap) line *rl* — a widget's
+    # `Widget::TextEdit::ExtraSelection`s: the ranged ones as `{columns,
+    # format}` (`x - xi` units, half-open) and the merged format of the
+    # full-width ones touching the row, painted over the row's own attrs
+    # (after the selection highlight) by `#overlaid_attr`. `{nil, nil}` for
+    # none. Overridden by widgets that honor extra selections and paint
+    # through this renderer (`PlainTextEdit`; `TextEdit` has its own painter).
+    protected def extra_selections_for_row(rl : Int32) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
+      {nil, nil}
+    end
+
+    # *attr* with the row's extra-selection overlays applied: the full-width
+    # format (*xfull*) over every column, then each ranged one (*xsels*)
+    # whose columns include *col*.
+    @[AlwaysInline]
+    private def overlaid_attr(attr : Int64, xsels : Array(Tuple(Range(Int32, Int32), TextCharFormat))?, xfull : TextCharFormat?, col : Int32) : Int64
+      return attr if xsels.nil? && xfull.nil?
+      attr = xfull.apply_to_attr(attr) if xfull
+      xsels.try &.each { |(cols, fmt)| attr = fmt.apply_to_attr(attr) if cols.includes?(col) }
+      attr
+    end
+
     # *attr* with the selection highlight applied (reverse video) when *col*
     # falls inside *sel_cols*, else *attr* unchanged.
     @[AlwaysInline]
@@ -506,13 +528,14 @@ module Crysterm
 
         # `y - yi` assumes top alignment.
         sel_cols = selection_columns_for_row(coords.base + (y - yi))
+        xsels, xfull = extra_selections_for_row(coords.base + (y - yi))
 
         # Content exhausted: every remaining cell of this row is the constant
         # `{attr, bch}` fill — no SGR can arrive, the single-column `bch` never
         # clusters, and with no selection `highlighted_attr` is `attr` itself.
         # `ci` intentionally stays put: every later read is `content[>= size]` →
         # nil regardless.
-        if bulk_fill_ok && ci >= content.size && sel_cols.nil?
+        if bulk_fill_ok && ci >= content.size && sel_cols.nil? && xfull.nil?
           if fill && !bg_cells && draw_row
             scr.fill_region(attr, bch, xi, xl, y, y + 1)
           end
@@ -596,7 +619,7 @@ module Crysterm
             # row.
             if bg_cells || !fill
               x = xl
-            elsif sel_cols.nil? && style_opacity.nil?
+            elsif sel_cols.nil? && xfull.nil? && style_opacity.nil?
               # Plain row tail: with no selection `highlighted_attr` is `attr`
               # itself and with no opacity every remaining cell is written the
               # same constant `{attr, ch}` (`ch` is `bch` here) — exactly
@@ -615,7 +638,7 @@ module Crysterm
                 fcell = x >= 0 ? line[x]? : nil
                 break if x >= 0 && fcell.nil?
                 if draw_row && (fc = fcell)
-                  paint_attr = highlighted_attr(attr, sel_cols, x - xi)
+                  paint_attr = overlaid_attr(highlighted_attr(attr, sel_cols, x - xi), xsels, xfull, x - xi)
                   if opacity = style_opacity
                     fc.attr = Colors.blend(paint_attr, fc.attr, alpha: opacity)
                     if content[ci - 1]?
@@ -702,7 +725,7 @@ module Crysterm
           end
 
           if t = target
-            paint_attr = highlighted_attr(attr, sel_cols, x - xi)
+            paint_attr = overlaid_attr(highlighted_attr(attr, sel_cols, x - xi), xsels, xfull, x - xi)
             if opacity = style_opacity
               t.attr = Colors.blend(paint_attr, t.attr, alpha: opacity)
               if has_content
@@ -726,7 +749,7 @@ module Crysterm
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
             if draw_row && x + 1 >= 0
               if x >= 0
-                nxt.attr = highlighted_attr(attr, sel_cols, x + 1 - xi)
+                nxt.attr = overlaid_attr(highlighted_attr(attr, sel_cols, x + 1 - xi), xsels, xfull, x + 1 - xi)
                 nxt.continuation!
               else
                 # Lead cell fell at x == -1 (clipped by the left screen edge) and
@@ -734,7 +757,7 @@ module Crysterm
                 # lead anywhere would leave it never repainted and shift the whole
                 # row left. Write a plain blank instead, mirroring the
                 # end-of-line blanking above.
-                nxt.set_if_changed(highlighted_attr(attr, sel_cols, x + 1 - xi), ' ')
+                nxt.set_if_changed(overlaid_attr(highlighted_attr(attr, sel_cols, x + 1 - xi), xsels, xfull, x + 1 - xi), ' ')
               end
               line.mark_dirty(x + 1)
             end

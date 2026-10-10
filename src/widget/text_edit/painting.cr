@@ -526,34 +526,6 @@ module Crysterm
         end
       end
 
-      # Extra selections overlapping the row `[row_start, row_end]`:
-      # `{ranges of viewport columns + format}` for ranged ones, and the
-      # merged format of full-width ones touching the row (painted across the
-      # whole region width).
-      private def row_extra_selections(row_start : Int32, row_end : Int32, offset : Int32 = 0) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
-        return {nil, nil} if @extra_selections.empty?
-        ranged = nil
-        full_fmt = nil
-        @extra_selections.each do |xs|
-          c = xs.cursor
-          if c.selection?
-            s = Math.max(c.selection_start, row_start)
-            e = Math.min(c.selection_end, row_end)
-            next if s >= e
-            if xs.full_width
-              full_fmt = full_fmt ? full_fmt.merge(xs.format) : xs.format
-            else
-              cols = (offset + rendered_column(row_start, s) - @child_base_x)...(offset + rendered_column(row_start, e) - @child_base_x)
-              ranged ||= [] of Tuple(Range(Int32, Int32), TextCharFormat)
-              ranged << {cols, xs.format}
-            end
-          elsif xs.full_width && c.position >= row_start && c.position <= row_end
-            full_fmt = full_fmt ? full_fmt.merge(xs.format) : xs.format
-          end
-        end
-        {ranged, full_fmt}
-      end
-
       # The packed attr of one char: widget base attr + block background/
       # heading + the char format's SGR set (via
       # `TextCharFormat#apply_to_attr`). Anchors render underlined and carry

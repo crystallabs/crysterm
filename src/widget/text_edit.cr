@@ -186,14 +186,9 @@ module Crysterm
         apply_theme derived if derived != @theme
       end
 
-      getter extra_selections = [] of ExtraSelection
-
-      def extra_selections=(list : Array(ExtraSelection))
-        @extra_selections = list
-        update
-        update! if window?
-        list
-      end
+      # `#extra_selections` / `#extra_selections=` live in
+      # `Mixin::TextEditing::DocumentBuffer` (shared with `PlainTextEdit`, as
+      # Qt shares `QTextEdit::ExtraSelection` with `QPlainTextEdit`).
 
       @scrollable = true
 
@@ -632,23 +627,16 @@ module Crysterm
 
       # === Cursor / format API (Qt counterparts) ===
 
-      # A `TextCursor` materializing this view's caret and selection (Qt
-      # `textCursor`). A *snapshot*: mutating it edits the document but does
-      # not move the widget's caret — assign it back via `#text_cursor=`.
-      def text_cursor : TextCursor
-        c = TextCursor.new(document, @selection_anchor || @cursor_pos)
-        c.set_position(@cursor_pos, :keep_anchor)
-        c
-      end
-
-      # Adopts *c*'s position/anchor as the widget caret/selection (Qt
-      # `setTextCursor`).
+      # `#text_cursor`/`#text_cursor=` live in `Mixin::TextEditing::DocumentBuffer`
+      # (shared with `PlainTextEdit`). The row map the caret is scrolled by
+      # (`@wrapped_lines`) is rebuilt at paint time, so a caret set right
+      # after a document swap (`#set_markdown`, `#document=`) would be
+      # measured against the old document's rows: bring the layout up to
+      # date first. Steady state is a key compare, so this costs nothing
+      # when nothing changed.
       def text_cursor=(c : TextCursor)
-        @cursor_pos = c.position.clamp(0, buf_size)
-        @selection_anchor = c.selection? ? c.anchor.clamp(0, buf_size) : nil
-        @goal_col = nil
-        update
-        update! if window?
+        process_content
+        super
       end
 
       # Format typing at the caret would get: the pending typing format, else
