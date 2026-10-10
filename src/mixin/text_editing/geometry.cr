@@ -629,6 +629,47 @@ module Crysterm
         Math.max(1, visible_content_rows - 1)
       end
 
+      # Page Up/Down, as in vi and less: the *viewport* turns by a page and the
+      # caret lands on the first row of the new page (Page Down) or its last row
+      # (Page Up), so the first press already turns the page and every further
+      # press reads on. (Moving the caret by a page and letting the view follow,
+      # as Qt's text edit does, parks the caret at the viewport's edge on the
+      # first press without scrolling, and only scrolls from the second.) When
+      # the view cannot move because it is already at that end, the caret goes
+      # to the last/first row instead, so the key still makes progress through
+      # the buffer. *dir* is `1` (down) or `-1` (up). Returns whether the view
+      # scrolled, so the caller can repaint.
+      #
+      # The caret may be off-screen (a scroll bar drag moves the view, not the
+      # caret). Paging is relative to the caret, as the user reads it: the view
+      # is first brought back to the caret, then turns the page from there.
+      private def page_cursor(dir : Int32) : Bool
+        rl, col = cursor_rowcol
+        goal = (@goal_col ||= col)
+        last = Math.max(0, @wrapped_lines.size - 1)
+
+        jumped = ensure_cursor_visible rl
+        before = @child_base
+        scroll dir * page_rows
+        moved = @child_base != before
+
+        target = if !moved
+                   dir > 0 ? last : 0
+                 elsif dir > 0
+                   @child_base
+                 else
+                   @child_base + visible_content_rows - 1
+                 end
+        # Landing on a positionless row (a block margin) would bounce the caret
+        # back — step over it in the direction of travel, as `move_cursor_vertically`.
+        target = nearest_text_row(target.clamp(0, last), dir)
+        return jumped || moved if target == rl
+
+        width = line_display_width(target)
+        @cursor_pos = pos_from_rowcol(target, goal.clamp(0, width))
+        jumped || moved
+      end
+
       # Scroll the *viewport* (only `@child_base`) so the caret's real (wrapped)
       # row stays on window. `@child_offset` is left at 0 — the caret is
       # `@cursor_pos`, not a scroll offset — for a single scroll model shared with

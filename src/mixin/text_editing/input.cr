@@ -111,10 +111,12 @@ module Crysterm
 
           # Cursor movement. Left/Right step over a whole grapheme cluster under
           # `full_unicode?` (a single codepoint otherwise). Home/End jump to the
-          # start/end of the current line. Up/Down move one visual row and Page
-          # Up/Down a viewport's worth, both remembering the goal column
-          # (`@goal_col`) so a detour across shorter lines keeps the column.
+          # start/end of the current line. Up/Down move one visual row,
+          # remembering the goal column (`@goal_col`) so a detour across shorter
+          # lines keeps the column. Page Up/Down turn the viewport by a page and
+          # put the caret on the new page's first/last row (`page_cursor`).
           moved = true
+          paged = false # Page Up/Down scrolled the viewport (see `page_cursor`)
           if k == Tput::Key::Left
             @goal_col = nil
             @cursor_pos = collapse_sel ? collapse_sel.begin : @cursor_pos - cursor_prev_width
@@ -126,9 +128,9 @@ module Crysterm
           elsif k == Tput::Key::Down
             move_cursor_vertically 1
           elsif k == Tput::Key::PageUp
-            move_cursor_vertically -page_rows
+            paged = page_cursor -1
           elsif k == Tput::Key::PageDown
-            move_cursor_vertically page_rows
+            paged = page_cursor 1
           elsif k == Tput::Key::Home
             @goal_col = nil
             @cursor_pos = line_start_pos
@@ -182,7 +184,7 @@ module Crysterm
             # Collapsing a selection (`had_sel` cleared just above) must repaint
             # too — otherwise the previously highlighted cells stay painted, since
             # `_update_cursor` only moves the terminal caret.
-            update! if scrolled || extend_sel || had_sel
+            update! if scrolled || paged || extend_sel || had_sel
             @_pending_rowcol = rc
             _update_cursor
             @_pending_rowcol = nil
