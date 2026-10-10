@@ -1406,7 +1406,7 @@ module Crysterm
 
     # Heuristic tier suggestion: `Extended` when the environment identifies a
     # terminal that ships with (or is overwhelmingly configured with) a
-    # modern, well-covered font — kitty, WezTerm, Ghostty, iTerm2 — else
+    # modern, well-covered font — kitty, WezTerm, Ghostty, iTerm2, Apple Terminal — else
     # `Unicode`. The identity knowledge itself lives in tput
     # (`Tput::Emulator.modern_font_env?`), so this can't drift from the
     # emulator detection; the `Tput` overload below is the sharper form
@@ -1419,7 +1419,7 @@ module Crysterm
     # `Extended` when the terminal both renders Unicode
     # (`Tput::Features#unicode?`) and is identified as one shipping a modern,
     # well-covered font (`Tput::Emulator#modern_font?` — kitty, WezTerm,
-    # Ghostty, iTerm2); else `Unicode`. Sharper than the env overload: the
+    # Ghostty, iTerm2, Apple Terminal); else `Unicode`. Sharper than the env overload: the
     # emulator identity is hardened by `Tput#probe!` (XTVERSION), which both
     # confirms an env-detected identity and revokes a wrong one. Consulted
     # automatically by `Screen` (at construction and after `Screen#probe!`)

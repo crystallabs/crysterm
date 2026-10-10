@@ -132,6 +132,7 @@ describe "Glyphs.detected_tier" do
     Glyphs.detected_tier({} of String => String).should eq Glyphs::Tier::Unicode
     Glyphs.detected_tier({"TERM" => "xterm-256color"}).should eq Glyphs::Tier::Unicode
     Glyphs.detected_tier({"KITTY_WINDOW_ID" => "1"}).should eq Glyphs::Tier::Extended
+    Glyphs.detected_tier({"TERM_PROGRAM" => "Apple_Terminal"}).should eq Glyphs::Tier::Extended
     Glyphs.detected_tier({"TERM_PROGRAM" => "WezTerm"}).should eq Glyphs::Tier::Extended
     Glyphs.detected_tier({"TERM_PROGRAM" => "ghostty"}).should eq Glyphs::Tier::Extended
     Glyphs.detected_tier({"TERM_PROGRAM" => "iTerm.app"}).should eq Glyphs::Tier::Extended

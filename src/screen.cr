@@ -417,7 +417,7 @@ module Crysterm
     end
 
     # Applies `Glyphs.detected_tier` (upgrade to `extended` on a
-    # Unicode-capable kitty/WezTerm/Ghostty/iTerm2, else the `unicode` default)
+    # Unicode-capable kitty/WezTerm/Ghostty/iTerm2/Apple Terminal, else the `unicode` default)
     # while no tier was pinned explicitly. Only on a real tty: a
     # headless/redirected device isn't rendered by the emulator the environment
     # describes, and its output must not depend on where the process was
