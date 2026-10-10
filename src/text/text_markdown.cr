@@ -85,6 +85,13 @@ module Crysterm
       # `source_pos` records each block's source line/column so the importer
       # can tell a real `[x]` task marker from an escaped `\[x\]` one — markd
       # resolves the escape before the AST, so the text nodes are identical.
+      #
+      # markd's `gfm` option stays off on purpose: the importer detects
+      # tables, task lists, alerts and `~~` strike itself. With `gfm: true`,
+      # markd (0.6.0) lets any paragraph line that merely contains a `|`
+      # (`a|b`, `{|}`) open a table block that then degrades to a separate
+      # paragraph, splitting ordinary prose in two — which github.com does
+      # not do. Its checkbox rule also accepts only lowercase `[x]`.
       doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
       fold_tocs(Importer.new(theme, text).import(doc))
     end
@@ -574,9 +581,17 @@ module Crysterm
           url = node.data["destination"]?.try(&.as(String))
           with_patch(TextCharFormat.new(fg: @theme.link_color, anchor_href: url)) { walk_children(node) }
         when .image?
-          # No inline images on a cell grid: degrade to alt text.
+          # No inline images on a cell grid: degrade to a picture-frame glyph
+          # and the alt text. The glyph comes from the registry (so
+          # `Glyphs.set` retheming and an ASCII-fied table apply) at the
+          # `extended` tier — `🖼`, a text-presentation emoji of exactly one
+          # column — rather than the `unicode` tier the rules and quote bars
+          # above use: those must stay box-drawing to join borders, while the
+          # placeholder is content, and the picture is what the emoji-capable
+          # terminals this is read on draw. An importer has no screen to ask
+          # for the effective tier.
           with_patch(TextCharFormat.new(fg: @theme.muted_color)) do
-            push_frag "🖼 "
+            push_frag "#{image_placeholder} "
             walk_children(node)
           end
         when .soft_break?
@@ -601,9 +616,11 @@ module Crysterm
         # table path there would detach it from the list and shift ordered
         # numbering (the exporter's lead escape keeps the `|` roundtrip
         # stable). Since the table path requires an empty list stack, check that
-        # first and skip the full recursive `node_text` build entirely for the
-        # (common) list-nested paragraph, which can never be a table.
-        if @list_stack.empty? && (txt = node_text(node)) && TextTable.gfm_table?(txt)
+        # first, then screen on the raw source lines (`table_candidate?`), and
+        # only build the full recursive `table_probe_text` for the rare
+        # paragraph that passes both — never for the (common) list-nested or
+        # ordinary prose paragraph.
+        if @list_stack.empty? && table_candidate?(node) && (txt = table_probe_text(node)) && TextTable.gfm_table?(txt)
           import_table(txt)
           return
         end
@@ -825,9 +842,80 @@ module Crysterm
         String.build { |io| collect_text node, io }
       end
 
+      # The tail of a GFM delimiter row (`|---|`, `:--:`, `--- | ---:`): the
+      # `TextTable.gfm_table?` row shape, unanchored at the start so a
+      # container prefix (`> `, indentation) before it doesn't matter.
+      DELIMITER_TAIL = /\|?[\s:|-]*-[\s:|-]*\|?\s*\z/
+
+      # Cheap screen before the table probe, on the paragraph's raw source
+      # lines (`source_pos`) — no node serialization, no allocation. A GFM
+      # table is a `|` header line followed by a delimiter row, and both are
+      # judged on the raw lines by github.com too, so a paragraph whose first
+      # source line has no pipe or whose second doesn't end in a delimiter
+      # row can't be one. Almost every paragraph fails here, which is the
+      # point: `#table_probe_text` serializes the whole inline subtree and
+      # rescans the source for escapes, work worth doing only for a genuine
+      # candidate. False positives (prose ending in ` -|`) just fall through
+      # to the exact check.
+      private def table_candidate?(node : Markd::Node) : Bool
+        first, last = node.source_pos
+        return false unless last[0] > first[0]
+        return false unless (l0 = @source[first[0] - 1]?) && l0.includes?('|')
+        return false unless (l1 = @source[first[0]]?) && l1.includes?('-')
+        DELIMITER_TAIL.matches?(l1)
+      end
+
+      # `#node_text` of a paragraph with every backslash-escaped `\|` of the
+      # source restored, for the GFM table probe and cell splitter — which
+      # must read `\|` as cell content and a bare `|` as a boundary.
+      #
+      # markd resolves the escape before the AST, so a `\|` surfaces as a
+      # plain `|` text node, indistinguishable there from an unescaped pipe
+      # that markd split off alone because a neighbor is an inline special
+      # (`|:---:|` — the `:` of an alignment delimiter — `|*a*|`, `|:tada:|`).
+      # Guessing from node shape read every centered/right-aligned delimiter
+      # row as escaped and demoted the whole table to a paragraph. So consult
+      # the source instead: the paragraph's lines (`source_pos`, kept by
+      # `#parse`) hold its pipes in the order `#collect_text` emits them, with
+      # the escapes still visible. Container prefixes (`>`, list markers,
+      # indentation) carry no pipes, so they don't shift the count.
+      private def table_probe_text(node : Markd::Node) : String
+        txt = node_text(node)
+        esc = escaped_pipes(node)
+        return txt unless esc.any?
+        k = -1
+        String.build do |io|
+          txt.each_char do |ch|
+            io << '\\' if ch == '|' && esc[k += 1]?
+            io << ch
+          end
+        end
+      end
+
+      # For each `|` of *node*'s source lines, in order, whether it is
+      # backslash-escaped (preceded by an odd run of backslashes — `\\|` is
+      # an escaped backslash before a bare pipe).
+      private def escaped_pipes(node : Markd::Node) : Array(Bool)
+        first, last = node.source_pos
+        flags = [] of Bool
+        (first[0]..last[0]).each do |ln|
+          next unless l = @source[ln - 1]?
+          run = 0
+          l.each_char do |ch|
+            if ch == '\\'
+              run += 1
+              next
+            end
+            flags << run.odd? if ch == '|'
+            run = 0
+          end
+        end
+        flags
+      end
+
       # The first *limit* **codepoints** of what `#collect_text` would produce
-      # for *node* — same traversal, same emission order, same `|` → `\|` remap
-      # — stopping as soon as that many are accumulated. For a caller that only
+      # for *node* — same traversal, same emission order — stopping as soon as
+      # that many are accumulated. For a caller that only
       # inspects a fixed-length prefix this avoids serializing the whole
       # subtree. The result may be shorter than *limit* (short subtree), never
       # longer, and is always a prefix of `#node_text`'s output.
@@ -842,9 +930,7 @@ module Crysterm
         while child && n < limit
           case child.type
           when .text?
-            t = child.text
-            t = "\\|" if t == "|"
-            n = append_bounded io, t, limit, n
+            n = append_bounded io, child.text, limit, n
           when .code?
             n = append_bounded io, child.text, limit, n
           when .soft_break?, .line_break?
@@ -871,19 +957,28 @@ module Crysterm
         child = node.first_child?
         while child
           case child.type
-          when .text?
-            # A backslash-escaped `\|` surfaces as its own single-char text
-            # node (markd already resolved the escape; an unescaped pipe
-            # never splits off alone). Restore the backslash so the GFM
-            # cell splitter doesn't read it as a cell boundary.
-            t = child.text
-            io << (t == "|" ? "\\|" : t)
+          when .text?                     then io << child.text
           when .code?                     then io << child.text
           when .soft_break?, .line_break? then io << '\n'
-          else                                 collect_text child, io
+          when .image?
+            # The same degrade as the rich path (`walk_children`): the
+            # picture-frame glyph, then the alt text — so a table cell holding
+            # only an image shows the glyph rather than nothing.
+            io << image_placeholder
+            unless child.first_child?.nil?
+              io << ' '
+              collect_text child, io
+            end
+          else collect_text child, io
           end
           child = child.next?
         end
+      end
+
+      # What stands in for an inline image on the cell grid — see the
+      # `image?` branch of `walk_children` for the choice of tier.
+      private def image_placeholder : String
+        Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)
       end
 
       # Hook (`TextImport::Builder#format_extra_merge`): folds the open `~~`

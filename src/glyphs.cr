@@ -750,7 +750,7 @@ module Crysterm
       set_in t, Role::IconMoon, Entry.new('(', '☾', '🌙')
       set_in t, Role::IconEye, Entry.new('o', nil, '👁')
       set_in t, Role::IconCamera, Entry.new('o', nil, '📷')
-      set_in t, Role::IconImage, Entry.new('#', nil, '🖼')
+      set_in t, Role::IconImage, Entry.new('#', '▣', '🖼')
       set_in t, Role::IconChart, Entry.new('#', nil, '📊')
       set_in t, Role::IconGraphUp, Entry.new('/', nil, '📈')
       set_in t, Role::IconGraphDown, Entry.new('\\', nil, '📉')
