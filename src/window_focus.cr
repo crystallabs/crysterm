@@ -183,6 +183,25 @@ module Crysterm
       el
     end
 
+    # Takes keyboard focus off the window altogether: the focused widget is
+    # blurred (`Event::FocusOut` with no successor) and the focus history
+    # emptied, so no widget is focused afterwards and a later `rewind_focus`
+    # finds nothing to hand focus to. The saved-focus slot is dropped too.
+    #
+    # What `Window#destroy` does before tearing its widgets down. Each
+    # detached focused widget would otherwise rewind focus to the next
+    # survivor, delivering `Event::FocusIn` to a widget whose siblings are
+    # half gone — and a handler there that reads another widget's geometry
+    # (a status bar refresh asking a pane for its size) fails on the one just
+    # detached. A window on its way out has no focus to hand on.
+    def release_focus : Nil
+      @saved_focus = nil
+      old = @history.last?
+      @history.clear
+      return unless old
+      old.emit Crysterm::Event::FocusOut, nil if blur_state_reset old
+    end
+
     # Focuses element `el`. Equivalent to `@display.focused = el`.
     protected def focus_push(el)
       old = @history.last?

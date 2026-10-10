@@ -851,6 +851,12 @@ module Crysterm
       # on its own; the first error is re-raised once the window is fully
       # gone, so the caller (`Application#quit`, a spec's `ensure`) still
       # sees the bug. Later ones are logged.
+      #
+      # Focus leaves first (`#release_focus`): detaching the focused widget
+      # would otherwise rewind focus to a sibling that is next in line to be
+      # destroyed, and its `FocusIn` handlers would run against a half-gone
+      # tree.
+      release_focus
       error = nil
       @children.dup.each do |c|
         c.destroy
