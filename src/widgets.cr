@@ -155,6 +155,7 @@ module Crysterm
 
     alias ToolTip = Widget::ToolTip
     alias StatusBar = Widget::StatusBar
+    alias LinePrompt = Widget::LinePrompt
     alias MainWindow = Widget::MainWindow
     alias DockWidget = Widget::DockWidget
     alias ToolBar = Widget::ToolBar
