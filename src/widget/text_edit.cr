@@ -244,9 +244,16 @@ module Crysterm
       # `QTextEdit#setMarkdown`). Same reset semantics as
       # `TextDocument#set_markdown`: not undoable, cursors rewind. Views
       # sharing the document all update.
-      def set_markdown(text : String) : Nil
-        document.set_markdown text
-        interchange_reset_caret
+      #
+      # With *keep_view*, this view's caret and scroll position stay where
+      # they were (clamped to the new content) instead of rewinding to the
+      # top — for a preview re-rendered from its source on every edit, where
+      # a reader in the middle of the document must not be thrown back to
+      # the start. The content is still replaced wholesale: a caret kept at
+      # the same offset sits on whatever is there now, so a caller that can
+      # map positions (by `TextBlock#source_line`, say) re-places it after.
+      def set_markdown(text : String, *, keep_view : Bool = false) : Nil
+        interchange_replace(keep_view) { document.set_markdown text }
       end
 
       # `=`-setter spelling of `#set_markdown`.
@@ -291,9 +298,8 @@ module Crysterm
 
       # Replaces the document's whole content from HTML (Qt
       # `QTextEdit#setHtml`); otherwise like `#set_markdown`.
-      def set_html(html : String) : Nil
-        document.set_html html
-        interchange_reset_caret
+      def set_html(html : String, *, keep_view : Bool = false) : Nil
+        interchange_replace(keep_view) { document.set_html html }
       end
 
       # `=`-setter spelling of `#set_html`.
@@ -650,11 +656,43 @@ module Crysterm
         end
       {% end %}
 
+      # Rewinds the caret to the start after a whole-content replacement, and
+      # reports the move (`Event::CursorPositionChanged`, and
+      # `SelectionChanged` for a selection dropped) as Qt's text control does
+      # at the end of `setContent` — a caret readout must not keep showing
+      # the position in the text that was replaced. Change-guarded, like
+      # every caret report here: a caret already at the start reports
+      # nothing.
       private def interchange_reset_caret : Nil
         @cursor_pos = 0
         clear_selection
         @goal_col = nil
         @typing_format = nil
+        emit_caret_events
+      end
+
+      # Runs a whole-content replacement (the block) and settles this view's
+      # caret and scroll after it: rewound to the top by default, or — with
+      # *keep_view* — put back where they were, clamped to the new content.
+      # The document's own replace already rewound the caret (see
+      # `#follow_document_change`), so the restore comes after the block.
+      # Either way a caret that ended up elsewhere reports through
+      # `Event::CursorPositionChanged`.
+      private def interchange_replace(keep_view : Bool, &) : Nil
+        unless keep_view
+          yield
+          interchange_reset_caret
+          return
+        end
+        pos = @cursor_pos
+        offset = scroll_position
+        yield
+        @cursor_pos = pos.clamp(0, buf_size)
+        clear_selection
+        @goal_col = nil
+        @typing_format = nil
+        scroll_to offset if offset > 0
+        emit_caret_events
       end
     end
   end
