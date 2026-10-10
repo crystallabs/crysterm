@@ -298,6 +298,11 @@ module Crysterm
       ncolors = color_count
       # Whether non-ASCII glyphs must be reduced to a 1-column ASCII fallback.
       ascii_reduce = !term_unicode && (u8 != 1)
+      # A VS16-widened cluster (narrow base made emoji-presentation) is counted
+      # two columns, but a terminal that ignores VS16 for width (Apple
+      # Terminal) advances only one for it: pad it with a space there, so the
+      # terminal cursor stays in step with the cell index (see the claim below).
+      vs16_pad = !@screen.vs16_widens?
       # Whether the per-row scan may be bounded to the dirty-column range. BCE's
       # clear look-ahead (and its `el` + mirror writes) reaches past the changed
       # span, so it forces a full-width scan. full_unicode does NOT: a wide
@@ -742,8 +747,17 @@ module Crysterm
                 skip_next = true
                 # An ASCII-reduced 2-column glyph printed only ONE column, but
                 # `skip_next` advances the cell index by two. Pad so the terminal
-                # cursor advances two columns and stays in step.
-                @outbuf.print ' ' if ascii_reduce
+                # cursor advances two columns and stays in step. Likewise a
+                # VS16-widened cluster — a 2-column cluster on a 1-column base
+                # (a flag's regional indicator excluded: wide by itself) — on a
+                # terminal that advances one column for it; the color glyph
+                # overflows into the pad instead of under the next cell.
+                if ascii_reduce
+                  @outbuf.print ' '
+                elsif vs16_pad && g && ::Crysterm::Unicode.codepoint_width(base_char) < 2 &&
+                      !::Crysterm::Unicode.regional_indicator?(base_char)
+                  @outbuf.print ' '
+                end
               end
             end
           else

@@ -130,6 +130,24 @@ module Crysterm
     # Force Unicode (UTF-8) even if terminfo auto-detection did not find support for it?
     property? force_unicode : Bool = Config.screen_force_unicode
 
+    # Whether the terminal advances two columns for a VS16 emoji-presentation
+    # cluster (`❤️`, `🖼️`), as the width tables count it: the device's
+    # emulator identity decides (`Tput::Emulator#vs16_widens?` — every
+    # terminal measured does, Apple Terminal does not), with no identity
+    # (headless, unknown) assumed to widen. On a terminal that does not, the
+    # drawer pads such a cluster with a space to keep the cursor in step.
+    # Settable, for an app or a spec that knows better than the identity.
+    property vs16_widens : Bool? = nil
+
+    # :ditto: — resolved.
+    def vs16_widens? : Bool
+      if (v = @vs16_widens).nil?
+        @tput.emulator?.try(&.vs16_widens?) != false
+      else
+        v
+      end
+    end
+
     # Which set of chrome glyphs widgets pick from the `Glyphs` registry
     # (`ascii` / `unicode` / `extended`). A proactive *choice* of characters —
     # the reactive draw-time ACS/`ascii_fallback` reduction still applies on
@@ -399,6 +417,17 @@ module Crysterm
     # SGR readback. `@draw_caps` snapshots the color depth, so it MUST be
     # recomputed afterward or rendering keeps downsampling to the stale
     # pre-probe depth.
+    # Repeats the probe's VS16 width measurement (`Tput#probe_vs16_width!`)
+    # — a window calls it from `#enter`, once it is in the buffer it draws
+    # in (the alternate screen, or the normal buffer for an inline window),
+    # since the answer can differ between the two (iTerm2 widens on the
+    # normal buffer only). Only after a probe ran on this device, and the
+    # caller guarantees no input reader is live.
+    def measure_vs16_width : Nil
+      return unless ::Superconf.tput_probe && @probed
+      @tput.probe_vs16_width!
+    end
+
     def probe : Nil
       return unless ::Superconf.tput_probe
       @tput.probe!

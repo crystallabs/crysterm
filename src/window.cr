@@ -128,7 +128,7 @@ module Crysterm
     delegate input, output, error,
       tput, draw_caps, color_count, truecolor?,
       force_unicode?, full_unicode?, full_unicode_effective?,
-      glyph_tier, glyph_octants?,
+      glyph_tier, glyph_octants?, vs16_widens?,
       width, height,
       cell_pixel_width, cell_pixel_height, to: @screen
 
@@ -712,6 +712,15 @@ module Crysterm
       # owns the whole screen; inline mode stays in the normal buffer and only
       # reserves/anchors its own `height`-row region.
       tput.alternate_buffer if @alternate
+      # The VS16 width is measured again here, in whichever buffer the window
+      # draws in — the alternate screen just entered, or the normal buffer an
+      # inline window stays in: the answer can differ between the two (iTerm2
+      # advances two columns for a VS16 cluster on the normal buffer, one on
+      # the alternate screen), and the device probe ran before the choice. A
+      # synchronous read, so only while no input fiber could race it. (A
+      # `Direct` session draws in the normal buffer right after its own
+      # probe, which already measured there.)
+      @screen.measure_vs16_width unless @screen.listening?
       tput.enable_keypad
       tput.set_scroll_region(0, aheight - 1) if @alternate
       # Hide the terminal's own cursor for the setup/first paint (the per-frame
