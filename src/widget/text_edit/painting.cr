@@ -139,7 +139,10 @@ module Crysterm
             runs = blk.render_runs
           end
           bfmt = blk.block_format
-          block_bg = bfmt.bg
+          code_block = bfmt.code_block?
+          # A fenced-code line sits on the code background unless the block
+          # set its own.
+          block_bg = bfmt.bg || (code_block ? @palette.code_bg : nil)
           heading = bfmt.heading?
 
           bp = document.block_position(bi)
@@ -179,7 +182,7 @@ module Crysterm
           offset = meta.try(&.offset) || 0
           row_xsels, full_fmt = row_extra_selections(row_start, row_end, offset)
 
-          paint_decorations(line, xi, region_w, meta, bfmt, base_attr, full_fmt, bch) if meta && offset > 0
+          paint_decorations(line, xi, region_w, meta, bfmt, block_bg, base_attr, full_fmt, bch) if meta && offset > 0
 
           # Right-side frame bars sit at fixed columns from the region's
           # right edge; the wrap width already keeps text (and the bounded
@@ -191,7 +194,7 @@ module Crysterm
           if bfmt.horizontal_rule?
             # The whole row (past any decorations) is a rule glyph fill; the
             # block's own text is conventionally empty and not painted.
-            rattr = deco_attr(theme.rule_color, base_attr, block_bg, full_fmt)
+            rattr = deco_attr(@palette.rule, base_attr, block_bg, full_fmt)
             rc = glyph(Glyphs::Role::LineHorizontal)
             c2 = Math.max(offset - @child_base_x, min_col)
             while c2 < inner_r
@@ -229,13 +232,13 @@ module Crysterm
               end
               if ri < runs.size && lp >= runs[ri][0]
                 run_hi = runs[ri][1]
-                run_attr = pack_char_attr(runs[ri][2], base_attr, block_bg, heading)
+                run_attr = pack_char_attr(runs[ri][2], base_attr, block_bg, heading, code_block)
                 # Anchor runs also carry their target as a cell hyperlink, so
                 # the draw loop emits OSC 8 around them (0 when links are off).
                 run_link = (href = runs[ri][2].anchor_href) ? scr.link_id(href) : 0_u16
               else
                 run_hi = Int32::MAX
-                run_attr = pack_char_attr(nil, base_attr, block_bg, heading)
+                run_attr = pack_char_attr(nil, base_attr, block_bg, heading, code_block)
                 run_link = 0_u16
               end
             end
@@ -320,7 +323,7 @@ module Crysterm
           # selection (current-line highlight) must extend to the region edge
           # (up to any frame's right inset).
           if block_bg || full_fmt
-            trail = pack_char_attr(nil, base_attr, block_bg, heading)
+            trail = pack_char_attr(nil, base_attr, block_bg, heading, code_block)
             c2 = Math.max(col, min_col)
             while c2 < inner_r
               if cell = line[xi + c2]?
@@ -338,32 +341,21 @@ module Crysterm
       # only), and — when the block carries a background or a full-width
       # overlay — the fill between them. Gap cells without either are left
       # to the base fill.
-      # `TextTheme` (allowed for import/export theming, not for this widget's
-      # own painting) carries no per-alert-kind colors, so the GFM alert
-      # accents are a small local table instead — chosen to echo github.com's
-      # own alert border colors (blue/green/purple/yellow/red).
-      ALERT_COLORS = {
-        TextBlockFormat::AlertKind::Note      => 0x58A6FF,
-        TextBlockFormat::AlertKind::Tip       => 0x3FB950,
-        TextBlockFormat::AlertKind::Important => 0xA371F7,
-        TextBlockFormat::AlertKind::Warning   => 0xD29922,
-        TextBlockFormat::AlertKind::Caution   => 0xF85149,
-      }
-
-      private def paint_decorations(line, xi : Int32, region_w : Int32, meta : RowMeta, bfmt : TextBlockFormat, base_attr : Int64, full_fmt : TextCharFormat?, bch : Char) : Nil
+      private def paint_decorations(line, xi : Int32, region_w : Int32, meta : RowMeta, bfmt : TextBlockFormat, block_bg : Int32?, base_attr : Int64, full_fmt : TextCharFormat?, bch : Char) : Nil
         off = meta.offset
-        block_bg = bfmt.bg
         marker = meta.marker
         mw = marker ? str_width(marker) : 0
         qcols = bfmt.quote_level * 2
         bar = glyph(Glyphs::Role::LineVertical)
         # An alert block's bar and title chip both take the kind's accent
-        # color in place of the ordinary quote/marker colors — the "distinct
-        # color per kind" GitHub's alert admonitions use.
-        alert_color = (k = bfmt.alert_kind) ? ALERT_COLORS[k] : nil
-        bar_attr = deco_attr(alert_color || theme.quote_color, base_attr, block_bg, full_fmt)
-        marker_attr = deco_attr(alert_color || theme.heading_color, base_attr, block_bg, full_fmt)
-        if alert_color
+        # (its `::note`/`::tip`/… slot, else the quote color) in place of the
+        # ordinary quote/marker colors — the "distinct color per kind"
+        # GitHub's alert admonitions use.
+        alert_kind = bfmt.alert_kind
+        alert_color = alert_kind ? (@palette.alert(alert_kind) || @palette.quote) : nil
+        bar_attr = deco_attr(alert_color || @palette.quote, base_attr, block_bg, full_fmt)
+        marker_attr = deco_attr(alert_kind ? alert_color : @palette.heading, base_attr, block_bg, full_fmt)
+        if alert_kind
           marker_attr = Attr.pack(Attr.flags(marker_attr) | Attr::BOLD, Attr.fg(marker_attr), Attr.bg(marker_attr))
         end
         gap_attr = full_fmt ? full_fmt.merge_onto(pack_char_attr(nil, base_attr, block_bg, false)) : pack_char_attr(nil, base_attr, block_bg, false)
@@ -377,7 +369,7 @@ module Crysterm
         # background).
         foff = 0
         if path = bfmt.frame_formats
-          fattr = deco_attr(theme.rule_color, base_attr, nil, full_fmt)
+          fattr = deco_attr(@palette.rule, base_attr, nil, full_fmt)
           path.each do |f|
             if f.border?
               vc = foff - @child_base_x
@@ -411,7 +403,7 @@ module Crysterm
       private def paint_frame_right_bars(line, xi : Int32, region_w : Int32, path : Array(TextFrameFormat)?, base_attr : Int64) : Nil
         return unless path
         bar = glyph(Glyphs::Role::LineVertical)
-        fattr = deco_attr(theme.rule_color, base_attr, nil, nil)
+        fattr = deco_attr(@palette.rule, base_attr, nil, nil)
         # See `#paint_document`'s `min_col`: never index left of the screen.
         min_col = Math.max(0, -xi)
         off = 0
@@ -433,7 +425,7 @@ module Crysterm
       # it running their bars through.
       private def paint_frame_margin_row(line, xi : Int32, region_w : Int32, meta : RowMeta, path : Array(TextFrameFormat)?, base_attr : Int64) : Nil
         return unless path && !path.empty?
-        fattr = deco_attr(theme.rule_color, base_attr, nil, nil)
+        fattr = deco_attr(@palette.rule, base_attr, nil, nil)
         bar = glyph(Glyphs::Role::LineVertical)
         # See `#paint_document`'s `min_col`: never index left of the screen.
         min_col = Math.max(0, -xi)
@@ -478,12 +470,13 @@ module Crysterm
         end
       end
 
-      # Packed attr of a decoration glyph: *color* over the widget base (or
-      # the block background), with any full-width overlay merged so a
-      # current-line highlight spans the decorations too.
-      private def deco_attr(color : Int32, base_attr : Int64, block_bg : Int32?, full_fmt : TextCharFormat?) : Int64
+      # Packed attr of a decoration glyph: *color* (a palette part; `nil` =
+      # the widget foreground) over the widget base (or the block
+      # background), with any full-width overlay merged so a current-line
+      # highlight spans the decorations too.
+      private def deco_attr(color : Int32?, base_attr : Int64, block_bg : Int32?, full_fmt : TextCharFormat?) : Int64
         bg = (b = block_bg) ? Attr.pack_color(b) : Attr.bg(base_attr)
-        a = Attr.pack(Attr.flags(base_attr), Attr.pack_color(color), bg)
+        a = Attr.pack(Attr.flags(base_attr), color ? Attr.pack_color(color) : Attr.fg(base_attr), bg)
         full_fmt ? full_fmt.merge_onto(a) : a
       end
 
@@ -526,17 +519,38 @@ module Crysterm
         end
       end
 
-      # The packed attr of one char: widget base attr + block background/
-      # heading + the char format's SGR set (via
-      # `TextCharFormat#apply_to_attr`). Anchors render underlined and carry
-      # their target as a cell hyperlink (`run_link` above), which the draw
-      # loop wraps in OSC 8 on supporting terminals — click *activation*
-      # inside the TUI stays `TextBrowser` behavior.
-      private def pack_char_attr(fmt : TextCharFormat?, base_attr : Int64, block_bg : Int32?, heading : Bool) : Int64
+      # Packed attr of a run: the widget base (or the block background),
+      # BOLD for a heading, then the semantic parts colored from `#palette`,
+      # least to most specific — `dim` (muted), `rule`, `code`, the heading
+      # (a code span in a heading keeps the heading's color, as on
+      # github.com, over its own code background), and an anchor over all —
+      # and finally the format's own explicit colors and SGR flags on top
+      # (`TextCharFormat#apply_to_attr`), so a stored color always beats a
+      # palette one. An inline code span also takes the code background
+      # (none when the palette has none); a fenced-code line already sits
+      # on it.
+      private def pack_char_attr(fmt : TextCharFormat?, base_attr : Int64, block_bg : Int32?, heading : Bool, code_block : Bool = false) : Int64
+        pal = @palette
         flags = Attr.flags(base_attr)
         fg = Attr.fg(base_attr)
         bg = (bbg = block_bg) ? Attr.pack_color(bbg) : Attr.bg(base_attr)
         flags |= Attr::BOLD if heading
+        if fmt
+          pal.muted.try { |c| fg = Attr.pack_color(c) } if fmt.dim?
+          pal.rule.try { |c| fg = Attr.pack_color(c) } if fmt.rule?
+          if fmt.code?
+            pal.code.try { |c| fg = Attr.pack_color(c) }
+            if !code_block && (cbg = pal.code_bg)
+              bg = Attr.pack_color(cbg)
+            end
+          end
+        end
+        if heading
+          pal.heading.try { |c| fg = Attr.pack_color(c) }
+        end
+        if fmt && fmt.anchor?
+          pal.link.try { |c| fg = Attr.pack_color(c) }
+        end
         attr = Attr.pack(flags, fg, bg)
         fmt ? fmt.apply_to_attr(attr) : attr
       end

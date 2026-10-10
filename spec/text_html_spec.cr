@@ -88,11 +88,12 @@ describe Crysterm::TextHtml do
       doc.blocks[2].text.should eq ""
     end
 
-    it "imports pre as code-bg blocks preserving whitespace" do
+    it "imports pre as code blocks preserving whitespace" do
       doc = html_doc "<pre>def x\n  y = 1</pre>"
       doc.blocks[0].text.should eq "def x"
       doc.blocks[1].text.should eq "  y = 1"
-      doc.blocks[0].block_format.bg.should eq TextTheme.default.code_bg
+      doc.blocks[0].block_format.code_block?.should be_true
+      doc.blocks[0].block_format.bg.should be_nil
       doc.blocks[0].fragments[0].format.code?.should be_true
     end
 
@@ -140,8 +141,7 @@ describe Crysterm::TextHtml do
       doc = TextDocument.new("hello world\nsecond")
       doc.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true, fg: 0xFF0000))
       doc.cursor(6, 11).set_char_format(TextCharFormat.new(italic: true, underline: true))
-      # Explicit color: an *unstyled* anchor adopts the theme link color on
-      # import (deliberate theming, same as markdown import).
+      # An explicit color on an anchor is stored and must survive.
       doc.cursor(12, 18).set_char_format(TextCharFormat.new(anchor_href: "https://x.io", fg: 0x123456))
       doc.cursor(0, 0).set_block_format(TextBlockFormat.new(alignment: Tput::AlignFlag::HCenter, bg: 0x334455))
 

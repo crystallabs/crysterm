@@ -13,7 +13,8 @@ module Crysterm
   # - `{!block;prop;…}` — block-format prefix, conventionally at the start of
   #   its line. Props: `h1`..`h6` (heading level), `align-left|center|right`,
   #   `indent-N`, `mt-N`/`mb-N` (top/bottom margin), `bg-<color>`, `nobreak`,
-  #   `q-N` (quote level), `hr` (horizontal rule), and lists:
+  #   `q-N` (quote level), `hr` (horizontal rule), `code`/`code-<lang>` (a
+  #   fenced-code line, with its info string), and lists:
   #   `list-<style>` (disc|circle|square|decimal|loweralpha|upperalpha|
   #   lowerroman|upperroman) with optional `li-N` (nesting level) and `ls-N`
   #   (numbering start). *Consecutive* blocks with identical list props join
@@ -26,8 +27,9 @@ module Crysterm
   # - `{link=URL}…{/link}` — anchors, with `{`/`}` in the URL percent-encoded.
   #   A plain widget has no anchor rendering and drops the tags, keeping the
   #   link text (both parsers ride `.each_token`, which recognizes the form).
-  # - `{dim}`/`{code}` — flags with no widget/SGR rendering; parsed and stored
-  #   (`code` is the semantic verbatim marker).
+  # - `{dim}`/`{code}`/`{rule}` — flags with no widget/SGR rendering; parsed
+  #   and stored (`code` is the semantic verbatim marker, `rule` marks
+  #   structural line drawing such as table borders).
   #
   # Unknown tags and stray braces are dropped, matching the widget's
   # drop-malformed policy; `{open}`/`{close}` emit literal braces;
@@ -57,6 +59,7 @@ module Crysterm
       "dim"           => TextCharFormat::Attr::Dim,
       "blink"         => TextCharFormat::Attr::Blink,
       "code"          => TextCharFormat::Attr::Code,
+      "rule"          => TextCharFormat::Attr::Rule,
     }
 
     # Canonical open-tag name per attribute, in emission order.
@@ -69,6 +72,7 @@ module Crysterm
       {TextCharFormat::Attr::Dim, "dim"},
       {TextCharFormat::Attr::Blink, "blink"},
       {TextCharFormat::Attr::Code, "code"},
+      {TextCharFormat::Attr::Rule, "rule"},
     ]
 
     # What `.each_token` yields.
@@ -200,7 +204,14 @@ module Crysterm
 
     # Serializes *blocks* to tag markup; `parse(generate(b))` restores the
     # same appearance.
-    def self.generate(blocks : Array(TextBlock)) : String
+    # With a *palette*, the document's semantic parts — heading text, `code`
+    # (with the code background), `rule`, `dim` (muted) and anchors — are
+    # written with that palette's colors as explicit `{#rrggbb-fg}`/`-bg`
+    # tags, the way a `TextEdit` would paint them: for a consumer that
+    # renders the tags through a plain widget's tag parser (see
+    # `Widget::Chat::Transcript`), which has no content slots of its own.
+    # Without one, only colors the formats actually store are written.
+    def self.generate(blocks : Array(TextBlock), palette : ContentPalette? = nil) : String
       String.build do |io|
         blocks.each_with_index do |b, i|
           io << '\n' if i > 0
@@ -208,10 +219,37 @@ module Crysterm
           write_block_prefix(io, bf)
           wrap = TextAlign.align_name(bf.alignment)
           io << '{' << wrap << '}' if wrap
-          b.fragments.each { |f| write_fragment(io, f) }
+          b.fragments.each { |f| write_fragment(io, f, palette, bf) }
           io << "{/" << wrap << '}' if wrap
         end
       end
+    end
+
+    # The `{fg, bg}` *f* is written with: its own colors, else — under a
+    # *palette* — the color of the semantic part it belongs to, mirroring
+    # `TextEdit`'s paint order (least to most specific: `dim`, `rule`,
+    # `code`, the block's heading, an anchor). `nil` = none.
+    private def self.fragment_colors(f : TextFragment, palette : ContentPalette?, bf : TextBlockFormat) : {Int32?, Int32?}
+      fmt = f.format
+      fg = fmt.fg
+      bg = fmt.bg
+      return {fg, bg} unless palette
+      fg ||=
+        if fmt.anchor?
+          palette.link
+        elsif bf.heading?
+          palette.heading
+        elsif fmt.code?
+          palette.code
+        elsif fmt.rule?
+          palette.rule
+        elsif fmt.dim?
+          palette.muted
+        end
+      if fmt.code? && !bf.code_block? && (cbg = palette.code_bg)
+        bg ||= cbg
+      end
+      {fg, bg}
     end
 
     private def self.write_block_prefix(io : IO, bf : TextBlockFormat) : Nil
@@ -226,6 +264,12 @@ module Crysterm
       props << "nobreak" if bf.non_breakable?
       props << "q-#{bf.quote_level}" if bf.quote_level > 0
       props << "hr" if bf.horizontal_rule?
+      # A fenced-code line: `code`, or `code-<lang>` with the fence info
+      # string (`;` and `}` would break the prop list, so such a string is
+      # dropped to a bare `code`).
+      if lang = bf.code_language
+        props << (lang.empty? || lang.matches?(/[;}\s]/) ? "code" : "code-#{lang}")
+      end
       if lf = bf.list_format
         props << "list-#{lf.style.to_s.downcase}"
         props << "li-#{lf.indent}" if lf.indent != 1
@@ -236,9 +280,10 @@ module Crysterm
       io << "{!block;" << props.join(';') << '}' unless props.empty?
     end
 
-    private def self.write_fragment(io : IO, f : TextFragment) : Nil
+    private def self.write_fragment(io : IO, f : TextFragment, palette : ContentPalette? = nil, bf : TextBlockFormat = TextBlockFormat.default) : Nil
       fmt = f.format
       attrs = fmt.attributes
+      fg, bg = fragment_colors(f, palette, bf)
       # Openers, outermost first; closers are known literals emitted in
       # reverse below — no per-fragment `closers` array.
       if url = fmt.anchor_href
@@ -246,10 +291,10 @@ module Crysterm
       end
       # An explicit `-1` ("terminal default") is visually the unset base
       # attr — emit nothing, so it degrades to `nil` on re-parse.
-      if (c = fmt.fg) && c >= 0
+      if (c = fg) && c >= 0
         io << '{' << Colors.hex(c) << "-fg}"
       end
-      if (c = fmt.bg) && c >= 0
+      if (c = bg) && c >= 0
         io << '{' << Colors.hex(c) << "-bg}"
       end
       FLAG_ORDER.each do |(attr, name)|
@@ -264,10 +309,10 @@ module Crysterm
       FLAG_ORDER.reverse_each do |(attr, name)|
         io << "{/" << name << '}' if attrs.includes?(attr)
       end
-      if (c = fmt.bg) && c >= 0
+      if (c = bg) && c >= 0
         io << "{/" << Colors.hex(c) << "-bg}"
       end
-      if (c = fmt.fg) && c >= 0
+      if (c = fg) && c >= 0
         io << "{/" << Colors.hex(c) << "-fg}"
       end
       io << "{/link}" if fmt.anchor_href
@@ -387,6 +432,7 @@ module Crysterm
         heading = indent = mt = mb = bg = quote = nil
         align = nil
         nobreak = hr = checked = nil
+        code_language = nil
         list_style = nil
         list_indent = 1
         list_start = 1
@@ -407,6 +453,8 @@ module Crysterm
           when "nobreak"          then nobreak = true
           when /\Aq-(\d+)\z/      then quote = $1.to_i?
           when "hr"               then hr = true
+          when "code"             then code_language = ""
+          when /\Acode-(.+)\z/    then code_language = $1
           when /\Alist-(\w+)\z/   then list_style = TextListFormat::Style.parse?($1)
           when /\Ali-(\d+)\z/     then list_indent = $1.to_i? || list_indent
           when /\Als-(\d+)\z/     then list_start = TextListFormat.sanitize_start($1.to_i? || list_start)
@@ -418,7 +466,7 @@ module Crysterm
           alignment: align, indent: indent, top_margin: mt, bottom_margin: mb,
           bg: bg, heading_level: heading, non_breakable: nobreak,
           quote_level: quote, horizontal_rule: hr, checked: checked,
-          list_format: lf))
+          list_format: lf, code_language: code_language))
       end
 
       # Consecutive blocks with identical list props share one
@@ -497,9 +545,10 @@ module Crysterm
       set_tags(text)
     end
 
-    # The content as tag markup (see `TextTags`).
-    def to_tags : String
-      TextTags.generate(blocks_mut)
+    # The content as tag markup (see `TextTags`). With a *palette*, the
+    # semantic parts are written in its colors (`TextTags.generate`).
+    def to_tags(palette : ContentPalette? = nil) : String
+      TextTags.generate(blocks_mut, palette)
     end
   end
 
@@ -509,9 +558,10 @@ module Crysterm
       new(TextTags.parse(text))
     end
 
-    # The fragment as tag markup (see `TextTags`).
-    def to_tags : String
-      TextTags.generate(@blocks)
+    # The fragment as tag markup (see `TextTags`). With a *palette*, the
+    # semantic parts are written in its colors (`TextTags.generate`).
+    def to_tags(palette : ContentPalette? = nil) : String
+      TextTags.generate(@blocks, palette)
     end
 
     # Alias for `#to_tags` — the bare-reader spelling the document also has.

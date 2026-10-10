@@ -80,7 +80,8 @@ and other numbered styling files in [tests/misc/](tests/misc/)*
 `TextEdit`/`TextBrowser` render it: headings, bold/italic/strikethrough,
 inline code and links, fenced code blocks, blockquotes, GFM tables laid out
 as real box-drawing tables, GFM task lists, and GFM alert admonitions —
-themable via `TextTheme`, editable with full undo, navigable links.
+colored through the stylesheet (`TextEdit::heading { color: … }`), editable
+with full undo, navigable links.
 
 Below is an example of a Claude-style session that is streaming a reply in
 Markdown (note: this is not Claude, it is Crysterm's Claude-like example):

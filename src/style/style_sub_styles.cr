@@ -32,6 +32,39 @@ module Crysterm
 
     sub_style_accessor cell
 
+    # The semantic parts of a rich-text view's *content* (`Widget::TextEdit`
+    # and its subclasses): headings, code (spans and blocks; `bg` is the code
+    # background, `transparent` for none), links, quote bars, rules
+    # (horizontal rules, table borders, frame borders), muted text, and the
+    # five GFM alert kinds (`[!NOTE]` … `[!CAUTION]`: the accent of the bar
+    # and title chip). Qt has no analog — a `QTextEdit` stylesheet never
+    # reaches into the document — so these are Crysterm's own
+    # `TextEdit::heading { color: … }` family, which the default theme fills
+    # from its palette roles. Each defaults to `self`, i.e. the part is
+    # drawn in the widget's own colors when no rule styles it (an alert
+    # without its slot styled falls back to `quote`). See `ContentPalette`.
+    sub_style_accessor heading
+
+    sub_style_accessor code
+
+    sub_style_accessor link
+
+    sub_style_accessor quote
+
+    sub_style_accessor rule
+
+    sub_style_accessor muted
+
+    sub_style_accessor note
+
+    sub_style_accessor tip
+
+    sub_style_accessor important
+
+    sub_style_accessor warning
+
+    sub_style_accessor caution
+
     sub_style_accessor header
 
     sub_style_accessor indicator
@@ -191,6 +224,17 @@ module Crysterm
            "left-arrow"    => "left_arrow",
            "right-arrow"   => "right_arrow",
            "cell"          => "cell",
+           "heading"       => "heading",
+           "code"          => "code",
+           "link"          => "link",
+           "quote"         => "quote",
+           "rule"          => "rule",
+           "muted"         => "muted",
+           "note"          => "note",
+           "tip"           => "tip",
+           "important"     => "important",
+           "warning"       => "warning",
+           "caution"       => "caution",
            "header"        => "header",
            "item"          => "item",
            "indicator"     => "indicator",

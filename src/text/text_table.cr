@@ -263,10 +263,10 @@ module Crysterm
     end
 
     # The char format of the borders, recovered from *first_block* — the
-    # table's first block, i.e. its top border row — so a rebuild keeps the
-    # theme the table was imported with. The block is a parameter because the
-    # only caller has already located it; deriving it here would re-scan the
-    # whole document.
+    # table's first block, i.e. its top border row — so a rebuild keeps
+    # whatever format the borders carry (the `rule` flag, or a hand-built
+    # table's own). The block is a parameter because the only caller has
+    # already located it; deriving it here would re-scan the whole document.
     private def border_char_format(first_block : TextBlock) : TextCharFormat
       first_block.fragments.first?.try(&.format) || TextCharFormat.default
     end
@@ -393,23 +393,26 @@ module Crysterm
 
     # Builds the pre-rendered blocks for a GFM table text. Returns nil when
     # *text* isn't one.
-    def self.build_from_gfm(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)?
+    def self.build_from_gfm(text : String) : Array(TextBlock)?
       return unless gfm_table?(text)
       rows = text.lines.map(&.strip).reject(&.empty?)
       header = split_gfm_row(rows[0])
       alignments = split_gfm_row(rows[1]).map { |c| gfm_align(c) }
       body = rows[2..]?.try(&.map { |r| split_gfm_row(r) }) || [] of Array(String)
       return if header.empty?
-      build(header, body, alignments, theme)
+      build(header, body, alignments)
     end
 
     # Builds the pre-rendered blocks for a cell grid: top border, bold
     # *header* row, separator, *body* rows, bottom border — columns padded
     # to content width under the per-column *alignments*.
-    def self.build(header : Array(String), body : Array(Array(String)), alignments : Array(Tput::AlignFlag)? = nil, theme : TextTheme = TextTheme.default) : Array(TextBlock)
+    def self.build(header : Array(String), body : Array(Array(String)), alignments : Array(Tput::AlignFlag)? = nil) : Array(TextBlock)
       tf = TextTableFormat.new(columns: header.size, alignments: alignments)
       bf = TextBlockFormat.new(table_format: tf, non_breakable: true)
-      build_blocks(header, body, alignments, header.size, bf, TextCharFormat.new(fg: theme.rule_color))
+      # Borders are `rule`-flagged: structural line drawing a view colors from
+      # its `rule` slot, and a distinct appearance from the cell text so the
+      # two never merge into one fragment.
+      build_blocks(header, body, alignments, header.size, bf, TextCharFormat.new(rule: true))
     end
 
     # `#build`'s core with the format objects supplied. The editing ops pass the
@@ -527,17 +530,17 @@ module Crysterm
     # `TextTable`). One undo step; mirrors `#insert_list`/`#insert_toc`.
     # Fill cells afterwards through the view (`TextTable#set_cell_text`), or
     # use the content overload below.
-    def insert_table(rows : Int32, columns : Int32, theme : TextTheme = @document.theme) : TextTable
+    def insert_table(rows : Int32, columns : Int32) : TextTable
       rows = Math.max(rows, 1)
       columns = Math.max(columns, 1)
       empty_row = Array.new(columns, "")
-      insert_table(empty_row.dup, Array.new(rows - 1) { empty_row.dup }, theme: theme)
+      insert_table(empty_row.dup, Array.new(rows - 1) { empty_row.dup })
     end
 
     # :ditto: — with content: *header* cells (their count fixes the column
     # count) and *body* rows.
-    def insert_table(header : Array(String), body : Array(Array(String)) = [] of Array(String), theme : TextTheme = @document.theme) : TextTable
-      built = TextTable.build(header, body, theme: theme)
+    def insert_table(header : Array(String), body : Array(Array(String)) = [] of Array(String)) : TextTable
+      built = TextTable.build(header, body)
       tf = built.first.block_format.table_format ||
            raise "TextTable.build produced blocks without a table format"
 

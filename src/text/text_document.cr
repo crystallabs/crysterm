@@ -81,34 +81,6 @@ module Crysterm
     @undo_available = false
     @redo_available = false
 
-    # Theme the interchange *importers* on this document color semantic
-    # elements with (`#set_markdown`/`#markdown=`, `#set_html`/`#html=` and
-    # the cursor's insert forms default to it), so `doc.markdown = x` and a
-    # themed widget's `markdown=` agree once the widget stamps its theme here
-    # (`Widget::TextEdit#document=` does). Exporters never read it — see
-    # `TextTheme`.
-    getter theme : TextTheme = TextTheme.default
-
-    # Changes the theme and *recolors the content to match*: every color the
-    # old theme stamped into the formats (heading, code, link, quote, rule and
-    # muted foregrounds; code backgrounds) is swapped for the new theme's, so
-    # a document imported under one theme reads correctly under another
-    # without a re-import — the retheme a widget performs when its own colors
-    # change (`Widget::TextEdit#theme`). Colors the old theme does not own are
-    # untouched. A recolor is presentation, not an edit: positions do not
-    # move and nothing is recorded for undo (an undone edit restores the
-    # formats as they were recorded), but views are told to repaint through a
-    # zero-length `Format` change.
-    def theme=(value : TextTheme) : TextTheme
-      old = @theme
-      @theme = value
-      return value if value == old
-      changed = false
-      blocks_mut.each { |b| changed = true if b.retheme(old, value) }
-      note_overlay_change if changed
-      value
-    end
-
     # Whether edits are recorded for undo (Qt `setUndoRedoEnabled`). Setting
     # it false clears the existing undo stack — commands recorded against a
     # content that later unrecorded edits rewrote could not replay safely —

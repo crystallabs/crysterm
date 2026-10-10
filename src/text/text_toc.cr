@@ -19,7 +19,7 @@ module Crysterm
     #
     # Semantically "entries link to their headings", which the two renderers
     # read differently: an inline `TextToc` puts `anchor_href` on the fragments,
-    # so they render in the theme link color and take part in link focus and
+    # so they render in the view's link color and take part in link focus and
     # click activation, and exports them as real markdown links. A
     # `Widget::TocView` navigates on selection regardless, so there this only
     # decides whether entries are *styled* as links.
@@ -126,12 +126,12 @@ module Crysterm
     # The blocks this TOC's current entries render as, detached. *base* supplies
     # the surrounding context (frame path, quote level) every generated block
     # inherits.
-    def build_blocks(base : TextBlockFormat, theme : TextTheme = TextTheme.default) : Array(TextBlock)
+    def build_blocks(base : TextBlockFormat) : Array(TextBlock)
       opts = options
       res = [] of TextBlock
 
       if title = opts.title
-        res << TextBlock.new(title, TextCharFormat.new(fg: theme.heading_color),
+        res << TextBlock.new(title, TextCharFormat.default,
           base.merge(TextBlockFormat.new(heading_level: opts.min_level)))
       end
 
@@ -151,7 +151,7 @@ module Crysterm
 
         fmt =
           if opts.links?
-            TextCharFormat.new(fg: theme.link_color, anchor_href: "##{e.anchor}")
+            TextCharFormat.new(anchor_href: "##{e.anchor}")
           else
             TextCharFormat.default
           end
@@ -168,10 +168,10 @@ module Crysterm
     # undo command**. Returns whether anything changed — an unchanged outline
     # performs no mutation at all, so `TextDocument#revision` is untouched and
     # views do not repaint.
-    def refresh(theme : TextTheme = TextTheme.default) : Bool
+    def refresh : Bool
       first, last = block_range || return false
       bs = document.blocks
-      built = build_blocks(TextToc.context_format(bs[first].block_format), theme)
+      built = build_blocks(TextToc.context_format(bs[first].block_format))
       return false if same_blocks?(bs[first..last], built)
       document.raw_replace_block_run(first, last, built)
       true
@@ -255,9 +255,9 @@ module Crysterm
     # This is the explicit refresh the whole design turns on: call it after a
     # load, after `#set_markdown`, and from whatever action the application
     # gives the reader. Nothing calls it on its own.
-    def refresh_tocs(theme : TextTheme = @theme) : Bool
+    def refresh_tocs : Bool
       changed = false
-      tocs.each { |toc| changed = true if toc.refresh(theme) }
+      tocs.each { |toc| changed = true if toc.refresh }
       changed
     end
 
@@ -290,12 +290,12 @@ module Crysterm
     # One undo step — unlike later `TextToc#refresh` calls, which are derived
     # data and record nothing. The TOC takes the current block when it is empty,
     # otherwise it starts a new one.
-    def insert_toc(options : TocOptions = TocOptions.new, theme : TextTheme = @document.theme) : TextToc
+    def insert_toc(options : TocOptions = TocOptions.new) : TextToc
       fmt = TextTocFormat.new(options)
       base = block.block_format
       path = (base.frame_formats || [] of TextFrameFormat) + [fmt]
       toc = TextToc.new(@document, fmt)
-      built = toc.build_blocks(TextToc.context_format(base).with_frame_formats(path), theme)
+      built = toc.build_blocks(TextToc.context_format(base).with_frame_formats(path))
 
       @document.edit do
         # Mid-block, break first so the TOC starts on a row of its own; the

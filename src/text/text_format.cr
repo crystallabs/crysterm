@@ -21,11 +21,15 @@ module Crysterm
   # unspecified attributes alone. The mask is meaningless for stored/rendered
   # formats; visual identity is `#same_appearance?`, which ignores it.
   class TextCharFormat < TextFormat
-    # Boolean attributes. All but `Code` are SGR-expressible; `Code` is a
-    # *semantic* marker (Qt `fontFixedPitch`) for verbatim/monospace text that
-    # the interchange formats (markdown backticks, HTML `<code>`) round-trip.
-    # It renders only through whatever colors the importer paired it with, like
-    # `anchor_href` — the other non-SGR semantic property.
+    # Boolean attributes. All but `Code` and `Rule` are SGR-expressible.
+    # `Code` is a *semantic* marker (Qt `fontFixedPitch`) for verbatim/
+    # monospace text that the interchange formats (markdown backticks, HTML
+    # `<code>`) round-trip; `Rule` marks structural line-drawing text (table
+    # borders) that is content, not prose. Neither has a cell flag: a view
+    # colors them — like `anchor_href`, `dim` and a heading block — from its
+    # own style's content slots (`Style#code`, `#rule`, `#link`, `#muted`,
+    # `#heading`), so the document carries meaning and the stylesheet decides
+    # the look.
     @[Flags]
     enum Attr
       Bold
@@ -36,6 +40,7 @@ module Crysterm
       Dim
       Blink
       Code
+      Rule
     end
 
     # Attribute values (only bits within `attr_mask` are meaningful as a patch;
@@ -67,13 +72,14 @@ module Crysterm
       dim : Bool? = nil,
       blink : Bool? = nil,
       code : Bool? = nil,
+      rule : Bool? = nil,
       fg : Int32 | String? = nil,
       bg : Int32 | String? = nil,
       anchor_href : String? = nil,
     )
       attrs = Attr::None
       mask = Attr::None
-      {% for a in %w[bold italic underline strike inverse dim blink code] %}
+      {% for a in %w[bold italic underline strike inverse dim blink code rule] %}
         unless {{ a.id }}.nil?
           mask |= Attr::{{ a.camelcase.id }}
           attrs |= Attr::{{ a.camelcase.id }} if {{ a.id }}
@@ -89,7 +95,7 @@ module Crysterm
     protected def initialize(@attributes, @attr_mask, @fg, @bg, @anchor_href)
     end
 
-    {% for a in %w[bold italic underline strike inverse dim blink code] %}
+    {% for a in %w[bold italic underline strike inverse dim blink code rule] %}
       def {{ a.id }}? : Bool
         @attributes.{{ a.id }}?
       end
@@ -114,12 +120,6 @@ module Crysterm
       )
     end
 
-    # A copy with the colors replaced outright — `nil` clears, which `#merge`
-    # cannot express. Attributes and the anchor are kept.
-    def with_colors(fg : Int32?, bg : Int32?) : TextCharFormat
-      TextCharFormat.new(@attributes, @attr_mask, fg, bg, @anchor_href)
-    end
-
     # Visual identity — what fragment normalization merges on. Unlike `==`,
     # ignores `attr_mask`, which is patch bookkeeping.
     def same_appearance?(other : TextCharFormat) : Bool
@@ -131,8 +131,9 @@ module Crysterm
     # the enum above shadows that name here) with unconditional *set*
     # semantics: every true boolean turns its flag on (anchors render
     # underlined); colors apply when set (`-1` maps to the terminal default).
-    # `dim` has no packed flag in the cell model and `code` is semantic-only;
-    # neither is rendered. The mask is ignored — for mask-aware Qt patch
+    # `dim` has no packed flag in the cell model and `code`/`rule` are
+    # semantic-only; none of the three is rendered here (a `TextEdit` colors
+    # them from its style). The mask is ignored — for mask-aware Qt patch
     # semantics use `#merge_onto`. Protected: the packed cell-attr word is
     # the render pipeline's private encoding, not user API.
     protected def apply_to_attr(attr : Int64) : Int64
@@ -217,6 +218,12 @@ module Crysterm
     # block/quote. See `AlertKind`.
     getter alert_kind : AlertKind?
 
+    # The info string of the fenced code block this block is a line of (Qt
+    # `BlockCodeLanguage`): `""` for a fence without one, `nil` for a block
+    # that is not code. Presence is what makes a code block (`#code_block?`);
+    # a view paints it on its code background, and the exporters fence it.
+    getter code_language : String?
+
     # Shared all-defaults instance.
     class_getter default : TextBlockFormat { new }
 
@@ -248,6 +255,7 @@ module Crysterm
       table_format : TextTableFormat? = nil,
       frame_formats : Array(TextFrameFormat)? = nil,
       @alert_kind : AlertKind? = nil,
+      @code_language : String? = nil,
     )
       @indent = indent
       @top_margin = top_margin
@@ -311,6 +319,12 @@ module Crysterm
       @checked || false
     end
 
+    # Whether this block is a line of a fenced code block (`#code_language`
+    # set).
+    def code_block? : Bool
+      !@code_language.nil?
+    end
+
     # Returns this format overridden by `patch`: properties `patch` specifies
     # (non-nil) win, the rest are kept. The frame path replaces wholesale (a
     # patch with `frame_formats` moves the block to that exact nesting).
@@ -328,6 +342,7 @@ module Crysterm
         checked: patch.@checked || @checked,
         list_format: patch.list_format || @list_format,
         table_format: patch.table_format || @table_format,
+        code_language: patch.code_language || @code_language,
         frame_formats: patch.frame_formats || @frame_formats,
         alert_kind: patch.alert_kind || @alert_kind,
       )
@@ -336,19 +351,14 @@ module Crysterm
     # A full-field copy overriding exactly the given nil-able properties. Every
     # field is forwarded from the `@`-ivars, so adding a block property means
     # editing this once.
-    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats, top_margin = @top_margin, bottom_margin = @bottom_margin, bg = @bg) : TextBlockFormat
+    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats, top_margin = @top_margin, bottom_margin = @bottom_margin) : TextBlockFormat
       TextBlockFormat.new(
         alignment: @alignment, indent: @indent, top_margin: top_margin,
-        bottom_margin: bottom_margin, bg: bg, heading_level: @heading_level,
+        bottom_margin: bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
         horizontal_rule: @horizontal_rule, checked: checked, list_format: list_format,
-        table_format: @table_format, frame_formats: frame_formats, alert_kind: @alert_kind)
-    end
-
-    # A copy with the background replaced, or cleared with `nil` — which
-    # `#merge` cannot express, since nil there means "unspecified".
-    def with_bg(bg : Int32?) : TextBlockFormat
-      copy_with(bg: bg)
+        table_format: @table_format, frame_formats: frame_formats, alert_kind: @alert_kind,
+        code_language: @code_language)
     end
 
     # A copy with the list reference replaced, or cleared with `nil` — which
@@ -382,7 +392,7 @@ module Crysterm
       copy_with(bottom_margin: margin)
     end
 
-    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats, @alert_kind
+    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats, @alert_kind, @code_language
   end
 
   # List format (Qt `QTextListFormat`): marker style, nesting depth, numbering

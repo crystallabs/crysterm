@@ -5,14 +5,15 @@ module Crysterm
   # `QTextDocument::setMarkdown`/`toMarkdown` counterpart. Import walks the
   # `markd` CommonMark AST straight into blocks/fragments (no tag-string
   # intermediate); export walks blocks back to markdown, keying on *semantic*
-  # properties (`heading_level`, `TextCharFormat#code?`, `anchor_href`), so
-  # the `TextTheme` colors the importer applies never affect round-trips.
+  # properties (`heading_level`, `code_language`, `TextCharFormat#code?`,
+  # `anchor_href`) — the importer stores no colors; a view supplies them from
+  # its style (`ContentPalette`).
   #
   # Mapping:
   #
-  # - Headings → `TextBlockFormat#heading_level` + theme heading color.
-  # - `**`/`*`/`~~`/backticks/links → char formats (`code` spans also get the
-  #   theme code colors); images degrade to their alt text.
+  # - Headings → `TextBlockFormat#heading_level` (the view colors them).
+  # - `**`/`*`/`~~`/backticks/links → char formats (`code` spans, anchors);
+  #   images degrade to a `dim` placeholder glyph plus their alt text.
   # - Paragraph spacing → `TextBlockFormat#top_margin` on the block that
   #   follows (the margins re-base; exporters read the margins back as blank
   #   lines, and HTML carries them as `margin-*` styles, so the formats stay
@@ -28,9 +29,9 @@ module Crysterm
   #   (`TextBlockFormat#checked?`), and the marker renders as `[x]`/`[ ]`.
   # - Blockquotes → `TextBlockFormat#quote_level`; thematic breaks → an
   #   empty `horizontal_rule` block.
-  # - Fenced code → one block per line, `code`-flagged fragments over a
-  #   theme-code-bg block (the exporter's fence detector); the fence info
-  #   string is not kept.
+  # - Fenced code → one block per line, `code`-flagged fragments on a
+  #   `code_language` block (the exporter's fence detector; the info string
+  #   is kept and re-emitted).
   module TextMarkdown
     # Thematic-break rule the importer emits (and the exporter detects, along
     # with plain `-` runs).
@@ -81,7 +82,7 @@ module Crysterm
     end
 
     # Parses markdown into detached blocks.
-    def self.parse(text : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)
+    def self.parse(text : String) : Array(TextBlock)
       # `source_pos` records each block's source line/column so the importer
       # can tell a real `[x]` task marker from an escaped `\[x\]` one — markd
       # resolves the escape before the AST, so the text nodes are identical.
@@ -93,7 +94,7 @@ module Crysterm
       # paragraph, splitting ordinary prose in two — which github.com does
       # not do. Its checkbox rule also accepts only lowercase `[x]`.
       doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
-      fold_tocs(Importer.new(theme, text).import(doc))
+      fold_tocs(Importer.new(text).import(doc))
     end
 
     # Serializes *blocks* to markdown.
@@ -509,7 +510,7 @@ module Crysterm
       # reject escaped `\[x\]` markers.
       @source : Array(String)
 
-      def initialize(@theme : TextTheme, source : String = "")
+      def initialize(source : String = "")
         @source = source.split('\n')
       end
 
@@ -533,7 +534,7 @@ module Crysterm
         when .heading?
           structure_separator
           start_block TextBlockFormat.new(heading_level: node.data["level"].as(Int32))
-          with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
+          walk_children(node)
           end_block
         when .block_quote?
           structure_separator
@@ -570,16 +571,14 @@ module Crysterm
         when .text?
           append_text node.text
         when .code?
-          with_patch(TextCharFormat.new(code: true, fg: @theme.code_color, bg: @theme.code_bg)) do
-            push_frag node.text
-          end
+          with_patch(TextCharFormat.new(code: true)) { push_frag node.text }
         when .strong?
           with_patch(TextCharFormat.new(bold: true)) { walk_children(node) }
         when .emphasis?
           with_patch(TextCharFormat.new(italic: true)) { walk_children(node) }
         when .link?
           url = node.data["destination"]?.try(&.as(String))
-          with_patch(TextCharFormat.new(fg: @theme.link_color, anchor_href: url)) { walk_children(node) }
+          with_patch(TextCharFormat.new(anchor_href: url)) { walk_children(node) }
         when .image?
           # No inline images on a cell grid: degrade to a picture-frame glyph
           # and the alt text. The glyph comes from the registry (so
@@ -589,8 +588,8 @@ module Crysterm
           # above use: those must stay box-drawing to join borders, while the
           # placeholder is content, and the picture is what the emoji-capable
           # terminals this is read on draw. An importer has no screen to ask
-          # for the effective tier.
-          with_patch(TextCharFormat.new(fg: @theme.muted_color)) do
+          # for the effective tier. `dim` marks it muted for the view.
+          with_patch(TextCharFormat.new(dim: true)) do
             push_frag "#{image_placeholder} "
             walk_children(node)
           end
@@ -659,8 +658,8 @@ module Crysterm
       # A fenced/indented code block: one code-bg block per line.
       private def import_code_block(node : Markd::Node) : Nil
         structure_separator
-        fmt = TextCharFormat.new(code: true, fg: @theme.code_color)
-        bf = TextBlockFormat.new(bg: @theme.code_bg)
+        fmt = TextCharFormat.new(code: true)
+        bf = TextBlockFormat.new(code_language: node.fence_language)
         node.text.chomp.split('\n').each do |line|
           start_block bf
           @frags << TextFragment.new(line, fmt) unless line.empty?
@@ -746,7 +745,7 @@ module Crysterm
       # level. Cell inline markup degrades to its plain text (markd never parsed
       # it).
       private def import_table(txt : String) : Nil
-        bs = TextTable.build_from_gfm(txt, @theme) || return
+        bs = TextTable.build_from_gfm(txt) || return
         adopt_table_blocks(bs)
         if kind = @alert_stack.last?
           q = TextBlockFormat.new(alert_kind: kind)
@@ -1040,7 +1039,7 @@ module Crysterm
     end
 
     # Blocks → markdown. Works purely off block/char structure: heading
-    # levels, `code`-flagged runs over code-bg blocks (fences), the
+    # levels, `code`-flagged runs on `code_language` blocks (fences), the
     # quote-level/list/rule block properties, checkbox items (`[x]`/`[ ]`
     # from the list style + block `checked?`), and inline flags/anchors.
     private class Exporter
@@ -1179,7 +1178,7 @@ module Crysterm
                   0
                 end
               ticks = fence_ticks(blocks, first, ql)
-              io << ticks << '\n'
+              io << ticks << (fbf.code_language || "") << '\n'
               # The fence run ends at a margin or quote-level boundary —
               # two fences separated by a blank line stay two fences.
               while fence_member?(blocks, i, first, ql)
@@ -1221,12 +1220,12 @@ module Crysterm
         end
       end
 
-      # A fenced-code row: block background set (the importer's code-bg
-      # marker) and nothing but `code`-flagged fragments (or blank). A
-      # blank styled block can only *continue* a fence, never open one
-      # (*first*) — the fragment test is vacuous on an empty block.
+      # A fenced-code row: a `code_language` block (the importer's marker)
+      # holding nothing but `code`-flagged fragments (or blank). A blank code
+      # block can only *continue* a fence, never open one (*first*) — the
+      # fragment test is vacuous on an empty block.
       private def code_line?(b : TextBlock, first : Bool = false) : Bool
-        return false unless b.block_format.bg
+        return false unless b.block_format.code_block?
         return false if first && b.fragments.empty?
         b.fragments.all?(&.format.code?)
       end
@@ -1260,13 +1259,13 @@ module Crysterm
         "`" * Math.max(3, run + 1)
       end
 
-      # Does the contiguous same-`bg`/quote-level run starting at *i* form a
+      # Does the contiguous code-block/quote-level run starting at *i* form a
       # fenced code block? A run opens a fence when it holds a real code line
       # (non-empty code fragments) or spans more than one line — so a code
       # block whose leading (or every) line is blank still fences at its first
       # block, while a lone empty styled block does not.
       private def opens_fence?(blocks : Array(TextBlock), i : Int32) : Bool
-        return false unless blocks[i].block_format.bg
+        return false unless blocks[i].block_format.code_block?
         ql = blocks[i].block_format.quote_level
         j = i
         count = 0
@@ -1542,28 +1541,26 @@ module Crysterm
 
   class TextDocument
     # Builds a document from markdown.
-    def self.from_markdown(text : String, theme : TextTheme = TextTheme.default) : TextDocument
+    def self.from_markdown(text : String) : TextDocument
       doc = TextDocument.new
-      doc.set_markdown(text, theme)
+      doc.set_markdown(text)
       doc
     end
 
     # Replaces the whole content from markdown (Qt `setMarkdown`). Same reset
-    # semantics as `set_plain_text` (not undoable, cursors rewind). *theme*
-    # defaults to the document's own `#theme`, so `doc.markdown = x` and a
-    # themed widget's `markdown=` agree (the widget stamps its theme on the
-    # document). Returns the assigned text.
+    # semantics as `set_plain_text` (not undoable, cursors rewind). Returns
+    # the assigned text.
     #
     # Any `<!-- toc -->` region the source carried is regenerated from the
     # freshly imported outline — a load is the one moment there is no reader
     # position to disturb, so it is safe to refresh without being asked.
-    def set_markdown(text : String, theme : TextTheme = @theme) : String
-      replace_content(TextMarkdown.parse(text, theme))
-      refresh_tocs(theme)
+    def set_markdown(text : String) : String
+      replace_content(TextMarkdown.parse(text))
+      refresh_tocs
       text
     end
 
-    # `=`-setter spelling of `#set_markdown` (document theme; use
+    # `=`-setter spelling of `#set_markdown` (use
     # `#set_markdown` for an explicit one).
     def markdown=(text : String) : String
       set_markdown(text)
@@ -1603,21 +1600,21 @@ module Crysterm
     # The first piece released into an empty document adopts `#set_markdown`'s
     # reset semantics; every later piece is an ordinary undoable insertion
     # (one undo step per released piece).
-    def append_markdown(chunk : String, theme : TextTheme = @theme) : Nil
+    def append_markdown(chunk : String) : Nil
       stream = (@markdown_stream ||= TextMarkdown::Stream.new)
-      stream.append(chunk).try { |piece| append_markdown_piece(piece, theme) }
+      stream.append(chunk).try { |piece| append_markdown_piece(piece) }
     end
 
     # Parses and appends whatever `#append_markdown` still holds pending — the
     # end-of-stream signal. A pure-whitespace tail parses to nothing and is
     # dropped. No-op when nothing is pending.
-    def flush_markdown(theme : TextTheme = @theme) : Nil
-      @markdown_stream.try(&.flush).try { |piece| append_markdown_piece(piece, theme) }
+    def flush_markdown : Nil
+      @markdown_stream.try(&.flush).try { |piece| append_markdown_piece(piece) }
     end
 
     # Parses one released piece and appends its blocks at the document end.
-    private def append_markdown_piece(text : String, theme : TextTheme) : Nil
-      parsed = TextMarkdown.parse(text, theme)
+    private def append_markdown_piece(text : String) : Nil
+      parsed = TextMarkdown.parse(text)
       # An empty document adopts the piece wholesale — `#set_markdown`'s reset
       # semantics, minus the TOC refresh (manual for appends).
       if size == 0
@@ -1645,8 +1642,8 @@ module Crysterm
 
   class TextDocumentFragment
     # Builds a detached fragment from markdown.
-    def self.from_markdown(text : String, theme : TextTheme = TextTheme.default) : TextDocumentFragment
-      new(TextMarkdown.parse(text, theme))
+    def self.from_markdown(text : String) : TextDocumentFragment
+      new(TextMarkdown.parse(text))
     end
 
     # The fragment as markdown.

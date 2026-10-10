@@ -39,7 +39,7 @@ describe "BUGS14 text round-trip fixes" do
       back = TextDocument.from_markdown(exported)
       # The leading blank line stays a code-bg block inside the fence, so the
       # code block still holds both lines ("" then "x").
-      code = back.blocks.select(&.block_format.bg)
+      code = back.blocks.select(&.block_format.code_block?)
       code.map(&.text).should eq ["", "x"]
     end
 
@@ -49,7 +49,7 @@ describe "BUGS14 text round-trip fixes" do
       exported = doc.to_markdown
       exported.should contain "```"
       back = TextDocument.from_markdown(exported)
-      back.blocks.any?(&.block_format.bg).should be_true
+      back.blocks.any?(&.block_format.code_block?).should be_true
       back.to_plain_text.should contain "text"
       back.to_plain_text.should contain "more"
     end
@@ -57,7 +57,7 @@ describe "BUGS14 text round-trip fixes" do
     it "still does not fence a lone empty styled block (T19 preserved)" do
       blocks = [
         TextBlock.new([TextFragment.new("x", TextCharFormat.default)]),
-        TextBlock.new([] of TextFragment, TextBlockFormat.new(bg: TextTheme.default.code_bg)),
+        TextBlock.new([] of TextFragment, TextBlockFormat.new(bg: 0x202833)),
         TextBlock.new([TextFragment.new("y", TextCharFormat.default)]),
       ]
       TextMarkdown.generate(blocks).should_not contain "```"

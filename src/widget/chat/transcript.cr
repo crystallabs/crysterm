@@ -44,8 +44,10 @@ module Crysterm
       #
       # The bookkeeping around the cache is incremental too: each entry
       # caches its parsed body lines (markdown import / line split) on
-      # itself, invalidated by `Entry#text=`, so re-renders, fold-marker
-      # line counts and theme changes never re-import an unchanged body;
+      # itself, invalidated by `Entry#text=` (and, for markdown, by a change
+      # of the content palette it was colored with), so re-renders,
+      # fold-marker line counts and class-color changes never re-import an
+      # unchanged body;
       # entry start offsets are running prefix sums of `@rendered` sizes
       # patched with the known delta at each splice; and entry→index lookup
       # is an identity hash. No mutation path rescans the transcript.
@@ -84,6 +86,10 @@ module Crysterm
       # styles only widget nodes — is what a `.tool-call { … }`-style theme
       # keys into.
       class Transcript < ScrollableText
+        # Memo of the content palette markdown prose is colored with (see
+        # `#body_lines`); re-resolved only when the style changes.
+        @palette_memo = ::Crysterm::ContentPalette::Memo.new
+
         # What an entry is — the transcript's only coupling to chat concepts.
         enum Kind
           Prose
@@ -126,12 +132,14 @@ module Crysterm
           getter children = [] of Entry
 
           # Renderable body lines (`Transcript#body_lines` output), keyed by
-          # whether the markdown importer produced them; `nil` until first
+          # whether the markdown importer produced them and, when it did, by
+          # the content palette they were colored with; `nil` until first
           # computed and after every body change. Caching here — rather than
           # in the widget — ties the cache's life to the text it was built
           # from.
           @body_cache : Array(String)?
           @body_cache_markdown = false
+          @body_cache_palette : ::Crysterm::ContentPalette?
 
           def initialize(@kind : Kind, @text : String = "", *,
                          @state : State? = nil, @depth : Int32 = 0,
@@ -149,19 +157,21 @@ module Crysterm
 
           # :nodoc:
           # The cached body lines, provided they were built with the same
-          # *markdown* setting — a mismatch (kind or `#prose_markdown?`
-          # changed) reads as a miss.
-          def cached_body(markdown : Bool) : Array(String)?
+          # *markdown* setting and (for markdown) the same *palette* — a
+          # mismatch (kind or `#prose_markdown?` changed, the widget restyled)
+          # reads as a miss.
+          def cached_body(markdown : Bool, palette : ::Crysterm::ContentPalette? = nil) : Array(String)?
             cache = @body_cache
-            cache if cache && @body_cache_markdown == markdown
+            cache if cache && @body_cache_markdown == markdown && (!markdown || @body_cache_palette == palette)
           end
 
           # :nodoc:
           # Stores freshly computed body lines (see `#cached_body`). The
           # array is shared, never mutated by rendering.
-          def cache_body(lines : Array(String), markdown : Bool) : Array(String)
+          def cache_body(lines : Array(String), markdown : Bool, palette : ::Crysterm::ContentPalette? = nil) : Array(String)
             @body_cache = lines
             @body_cache_markdown = markdown
+            @body_cache_palette = palette
             lines
           end
 
@@ -540,21 +550,25 @@ module Crysterm
         end
 
         # The body of *entry* as renderable lines: markdown-imported tag text
-        # for prose (see `#prose_markdown?`), the raw text split into lines
+        # for prose (see `#prose_markdown?`), colored from this widget's
+        # content slots (`Transcript::heading`/`::code`/`::link`/…, filled by
+        # the theme — see `ContentPalette`); the raw text split into lines
         # otherwise. Cached on the entry (invalidated by `Entry#text=`, keyed
-        # by the markdown decision), so re-renders, marker line counts and
-        # theme changes never re-import an unchanged body. Callers must not
-        # mutate the returned array.
+        # by the markdown decision and the palette), so re-renders and
+        # marker line counts never re-import an unchanged body; a restyled
+        # palette recolors an entry when it is next re-rendered. Callers must
+        # not mutate the returned array.
         private def body_lines(entry : Entry) : Array(String)
           markdown = prose_body?(entry)
-          entry.cached_body(markdown) || begin
+          palette = markdown ? @palette_memo.fetch(style, style.bg) : nil
+          entry.cached_body(markdown, palette) || begin
             lines =
               if markdown
-                ::Crysterm::TextDocumentFragment.from_markdown(entry.text).to_tags.split('\n')
+                ::Crysterm::TextDocumentFragment.from_markdown(entry.text).to_tags(palette).split('\n')
               else
                 entry.text.split('\n')
               end
-            entry.cache_body(lines, markdown)
+            entry.cache_body(lines, markdown, palette)
           end
         end
 

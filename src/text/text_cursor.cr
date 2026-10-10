@@ -245,19 +245,17 @@ module Crysterm
 
     # Inserts *html* at the cursor as a formatted fragment, replacing any
     # selection — one undo step (Qt `insertHtml`). Wraps `#insert_fragment`
-    # over `TextDocumentFragment.from_html`; *theme* defaults to the
-    # document's own `TextDocument#theme`, like `#set_html`.
-    def insert_html(html : String, theme : TextTheme = @document.theme) : Nil
-      insert_fragment(TextDocumentFragment.from_html(html, theme))
+    # over `TextDocumentFragment.from_html`.
+    def insert_html(html : String) : Nil
+      insert_fragment(TextDocumentFragment.from_html(html))
     end
 
     # Inserts *markdown* at the cursor as a formatted fragment, replacing any
     # selection — one undo step (Qt has no direct analogue; mirrors
     # `#insert_html`). Wraps `#insert_fragment` over
-    # `TextDocumentFragment.from_markdown`; *theme* defaults to the
-    # document's own `TextDocument#theme`, like `#set_markdown`.
-    def insert_markdown(markdown : String, theme : TextTheme = @document.theme) : Nil
-      insert_fragment(TextDocumentFragment.from_markdown(markdown, theme))
+    # `TextDocumentFragment.from_markdown`.
+    def insert_markdown(markdown : String) : Nil
+      insert_fragment(TextDocumentFragment.from_markdown(markdown))
     end
 
     # Inserts *tags* markup (the toolkit's home interchange format — see

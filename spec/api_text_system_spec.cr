@@ -132,17 +132,12 @@ describe "TextDocument#undo_redo_enabled" do
   end
 end
 
-describe "TextDocument#theme" do
-  it "markdown= imports with the document's own theme" do
-    themed = TextDocument.new
-    themed.theme = TextTheme.new(heading_color: 0x123456)
-    plain = TextDocument.new
-    themed.markdown = "# Title"
-    plain.markdown = "# Title"
-    themed_fg = themed.char_format_of(0).try(&.fg)
-    plain_fg = plain.char_format_of(0).try(&.fg)
-    themed_fg.should_not eq plain_fg
-    themed_fg.should eq 0x123456
+describe "markdown import stores semantics, not colors" do
+  it "records the heading level and leaves the text uncolored" do
+    doc = TextDocument.new
+    doc.markdown = "# Title"
+    doc.blocks[0].block_format.heading_level.should eq 1
+    doc.char_format_of(0).try(&.fg).should be_nil
   end
 end
 

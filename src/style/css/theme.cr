@@ -208,6 +208,25 @@ module Crysterm
         /* Tables */
         Header { background-color: var(--muted-dark); color: var(--text); font-weight: bold; }
 
+        /* Rich text content (TextEdit/TextBrowser, and the chat transcript's
+           markdown prose): the document's semantic parts take palette roles.
+           No code background here on purpose: the view derives it from its
+           own actual surface, so code blocks sit on whatever background a
+           stylesheet gave the widget. */
+        TextEdit::heading, Transcript::heading { color: var(--accent); }
+        TextEdit::code, Transcript::code { color: var(--warning); }
+        TextEdit::link, Transcript::link { color: var(--info); }
+        TextEdit::quote, Transcript::quote { color: var(--success); }
+        TextEdit::rule, Transcript::rule { color: var(--muted); }
+        TextEdit::muted, Transcript::muted { color: var(--muted-light); }
+        /* GFM alert accents, in github.com's order of hue: blue, green,
+           (purple →) info, yellow, red. */
+        TextEdit::note { color: var(--accent); }
+        TextEdit::tip { color: var(--success); }
+        TextEdit::important { color: var(--info); }
+        TextEdit::warning { color: var(--warning); }
+        TextEdit::caution { color: var(--danger); }
+
         /* Bars and chrome */
         MenuBar, ToolBar { background-color: var(--muted-dark); color: var(--text); }
         StatusBar { background-color: var(--muted-dark); color: var(--text); }

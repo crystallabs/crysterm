@@ -352,36 +352,6 @@ module Crysterm
       fi + 1
     end
 
-    # Swaps every color of *from* found in this block's formats for *to*'s
-    # counterpart — the fragments' `fg`/`bg` and the block background — and
-    # returns whether anything changed. The recoloring half of
-    # `TextDocument#theme=`: an importer stamps a theme's colors into the
-    # formats it builds, so a retheme is a color-for-color rewrite of what it
-    # stamped. Only colors the *from* theme owns are touched; any other color
-    # (a user's explicit span color) is left alone. Fragments are
-    # re-normalized afterwards, since two runs that differed only by a now-
-    # unified color merge.
-    protected def retheme(from : TextTheme, to : TextTheme) : Bool
-      map = {} of Int32 => Int32
-      from.colors.zip(to.colors) { |a, b| map[a] = b unless a == b }
-      return false if map.empty?
-      changed = false
-      @fragments.map! do |frag|
-        fmt = frag.format
-        fg = fmt.fg.try { |c| map[c]? }
-        bg = fmt.bg.try { |c| map[c]? }
-        next frag unless fg || bg
-        changed = true
-        TextFragment.new(frag.text, fmt.with_colors(fg || fmt.fg, bg || fmt.bg))
-      end
-      if (bbg = @block_format.bg) && (nbg = map[bbg]?)
-        @block_format = @block_format.with_bg(nbg)
-        changed = true
-      end
-      normalize! if changed
-      changed
-    end
-
     private def normalize! : Nil
       invalidate!
       @fragments.reject!(&.text.empty?)

@@ -33,8 +33,8 @@ module Crysterm
     WS_RUN = /[ \t\r\n\f]+/
 
     # Parses an HTML document or fragment into detached blocks.
-    def self.parse(html : String, theme : TextTheme = TextTheme.default) : Array(TextBlock)
-      Importer.new(theme).import(html)
+    def self.parse(html : String) : Array(TextBlock)
+      Importer.new.import(html)
     end
 
     # Serializes *blocks* to HTML (a body fragment, one element per block,
@@ -160,11 +160,14 @@ module Crysterm
         tag = "li"
       else
         lvl = bf.heading_level
-        tag = lvl > 0 ? "h#{lvl.clamp(1, 6)}" : "p"
+        # A fenced-code line exports as `<pre>` — the importer's code-block
+        # element — so the fence survives an HTML round-trip.
+        tag = lvl > 0 ? "h#{lvl.clamp(1, 6)}" : (bf.code_block? ? "pre" : "p")
       end
       style = block_style(bf, b)
       io << '<' << tag
       io << " style=\"" << style << '"' unless style.empty?
+      write_language_class(io, bf) if tag == "pre"
       io << '>'
       # A checkbox item leads with a disabled `<input>`, the shape GitHub
       # emits and `html_task_list?`/`checkbox_checked?` read back.
@@ -176,9 +179,26 @@ module Crysterm
       # branch merges list membership back on the way in.
       inner_heading = lf && (hl = bf.heading_level) > 0 ? "h#{hl.clamp(1, 6)}" : nil
       io << '<' << inner_heading << '>' if inner_heading
+      # Likewise a fenced-code line that is itself a list item: `<pre>` inside
+      # the `<li>`, so the fence and the bullet both survive.
+      inner_pre = lf && inner_heading.nil? && bf.code_block?
+      if inner_pre
+        io << "<pre"
+        write_language_class(io, bf)
+        io << '>'
+      end
       b.fragments.each { |f| write_fragment(io, f) }
+      io << "</pre>" if inner_pre
       io << "</" << inner_heading << '>' if inner_heading
       io << "</" << tag << '>'
+    end
+
+    # The ` class="language-<lang>"` attribute carrying a fence's info string
+    # (nothing for an unnamed fence).
+    private def self.write_language_class(io : IO, bf : TextBlockFormat) : Nil
+      lang = bf.code_language
+      return if lang.nil? || lang.empty?
+      io << " class=\"language-" << escape_attr(lang) << '"'
     end
 
     private def self.block_style(bf : TextBlockFormat, b : TextBlock) : String
@@ -229,10 +249,9 @@ module Crysterm
       {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s", code: "code"} %}
         io << "<{{ tag.id }}>" if fmt.{{ a.id }}?
       {% end %}
-      # Color <span> is emitted innermost (after the flag tags) so that on
-      # re-import its explicit fg/bg patch folds after the code element's
-      # theme-fallback patch and wins — otherwise a recolored code fragment
-      # comes back with the theme's code colors.
+      # Color <span> is emitted innermost (after the flag tags), so on
+      # re-import its explicit fg/bg patch folds after the flag elements'
+      # patches.
       if has_color
         io << "<span style=\""
         wrote = false
@@ -324,9 +343,6 @@ module Crysterm
       # and trailing `end_block`s emit unconditionally.
       @block_virgin = false
 
-      def initialize(@theme : TextTheme)
-      end
-
       # Node traversal / attribute access (`each_child`, `find_element`,
       # `attr_val`, ...) shared with the layout-DOM loader.
       include ::Crysterm::HtmlNodeUtil
@@ -378,7 +394,7 @@ module Crysterm
           bf, collapse = block_format_from(node, heading: lvl)
           end_block(discard_virgin: true)
           start_block(bf, collapse)
-          with_patch(TextCharFormat.new(fg: @theme.heading_color)) { walk_children(node) }
+          walk_children(node)
           end_block
         when "br"
           # A hard break splits one paragraph into interior lines. The
@@ -402,8 +418,13 @@ module Crysterm
           end_block
         when "pre"
           end_block(discard_virgin: true)
-          bf = TextBlockFormat.new(bg: @theme.code_bg)
-          fmt = TextCharFormat.new(code: true, fg: @theme.code_color)
+          # The block's own style (indent, margins) is kept, so a fence that
+          # was list continuation content stays at its column; the fence info
+          # string rides on a `language-<lang>` class, on the `<pre>` itself
+          # or on its `<code>` child (the GitHub/highlight.js convention).
+          bf, _ = block_format_from(node)
+          bf = bf.merge(TextBlockFormat.new(code_language: code_language_of(node)))
+          fmt = TextCharFormat.new(code: true)
           plain_text_of(node).lchop('\n').chomp.split('\n').each do |line|
             start_block(bf, collapse: false)
             @frags << TextFragment.new(line, fmt) unless line.empty?
@@ -485,12 +506,10 @@ module Crysterm
         when "s", "strike", "del"
           with_patch(TextCharFormat.new(strike: true)) { walk_children(node) }
         when "code", "tt", "kbd", "samp"
-          with_patch(TextCharFormat.new(code: true, fg: @theme.code_color, bg: @theme.code_bg)) do
-            walk_children(node)
-          end
+          with_patch(TextCharFormat.new(code: true)) { walk_children(node) }
         when "a"
           url = attr_val(node, "href")
-          with_patch(TextCharFormat.new(fg: @theme.link_color, anchor_href: url)) { walk_children(node) }
+          with_patch(TextCharFormat.new(anchor_href: url)) { walk_children(node) }
         when "span"
           if patch = style_patch(attr_val(node, "style"))
             with_patch(patch) { walk_children(node) }
@@ -546,7 +565,7 @@ module Crysterm
         header ||= body.shift?
         return unless header
         alignments = aligns.any? ? aligns.map { |a| a || Tput::AlignFlag::Left } : nil
-        bs = TextTable.build(header, body, alignments, @theme)
+        bs = TextTable.build(header, body, alignments)
         adopt_table_blocks(bs)
       end
 
@@ -738,6 +757,18 @@ module Crysterm
       end
 
       # {block format, collapse?} from a block element's `style`/`align`.
+      # The fence info string of a `<pre>`: the `language-<lang>` class on it
+      # or on its first `<code>` child; `""` when neither names one.
+      private def code_language_of(node : HTML5::Node) : String
+        [node, find_element(node, "code")].each do |el|
+          next unless el
+          attr_val(el, "class").try do |cls|
+            cls.split { |c| return c.lchop("language-") if c.starts_with?("language-") }
+          end
+        end
+        ""
+      end
+
       private def block_format_from(node : HTML5::Node, heading : Int32 = 0) : {TextBlockFormat, Bool}
         align = nil
         bg = nil
@@ -872,23 +903,21 @@ module Crysterm
 
   class TextDocument
     # Builds a document from the HTML subset (see `TextHtml`).
-    def self.from_html(html : String, theme : TextTheme = TextTheme.default) : TextDocument
+    def self.from_html(html : String) : TextDocument
       doc = TextDocument.new
-      doc.set_html(html, theme)
+      doc.set_html(html)
       doc
     end
 
     # Replaces the whole content from HTML (Qt `setHtml`). Same reset
-    # semantics as `set_plain_text` (not undoable, cursors rewind). *theme*
-    # defaults to the document's own `#theme` (see `#set_markdown`). Returns
+    # semantics as `set_plain_text` (not undoable, cursors rewind). Returns
     # the assigned text.
-    def set_html(html : String, theme : TextTheme = @theme) : String
-      replace_content(TextHtml.parse(html, theme))
+    def set_html(html : String) : String
+      replace_content(TextHtml.parse(html))
       html
     end
 
-    # `=`-setter spelling of `#set_html` (document theme; use `#set_html` for
-    # an explicit one).
+    # `=`-setter spelling of `#set_html`.
     def html=(html : String) : String
       set_html(html)
     end
@@ -901,8 +930,8 @@ module Crysterm
 
   class TextDocumentFragment
     # Builds a detached fragment from the HTML subset (see `TextHtml`).
-    def self.from_html(html : String, theme : TextTheme = TextTheme.default) : TextDocumentFragment
-      new(TextHtml.parse(html, theme))
+    def self.from_html(html : String) : TextDocumentFragment
+      new(TextHtml.parse(html))
     end
 
     # The fragment as HTML (see `TextHtml`).

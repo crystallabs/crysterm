@@ -36,12 +36,13 @@ describe Crysterm::TextMarkdown do
       f[5].text.should eq "gone"
     end
 
-    it "marks inline code semantically and visually" do
+    it "marks inline code semantically, storing no colors" do
       doc = md_doc "run `crystal spec` now"
       code = doc.blocks[0].fragments[1]
       code.text.should eq "crystal spec"
       code.format.code?.should be_true
-      code.format.bg.should eq TextTheme.default.code_bg
+      code.format.fg.should be_nil
+      code.format.bg.should be_nil
     end
 
     it "maps links to anchors" do
@@ -101,11 +102,14 @@ describe Crysterm::TextMarkdown do
       doc.blocks[3].text.should eq ""
     end
 
-    it "imports fenced code as code-bg blocks, one per line" do
+    it "imports fenced code as code blocks, one per line, keeping the info string" do
       doc = md_doc "```\nline1\n\nline3\n```"
       (0..2).each do |i|
-        doc.blocks[i].block_format.bg.should eq TextTheme.default.code_bg
+        doc.blocks[i].block_format.code_block?.should be_true
+        doc.blocks[i].block_format.code_language.should eq ""
+        doc.blocks[i].block_format.bg.should be_nil
       end
+      md_doc("```crystal\nx\n```").blocks[0].block_format.code_language.should eq "crystal"
       doc.blocks[0].text.should eq "line1"
       doc.blocks[1].text.should eq ""
       doc.blocks[2].text.should eq "line3"

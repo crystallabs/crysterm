@@ -12,7 +12,7 @@ include Crysterm
 # Pure model (TextMarkdown).
 
 private def code_block?(b)
-  !b.block_format.bg.nil?
+  b.block_format.code_block?
 end
 
 describe "BUGS17 B17-28 fenced code block inside a list item round-trips" do
@@ -20,9 +20,9 @@ describe "BUGS17 B17-28 fenced code block inside a list item round-trips" do
     md = "- item\n\n  ```\n  code\n  ```"
     doc = Crysterm::TextDocument.from_markdown(md)
 
-    # Sanity: import produced [item(list), code(bg, indent 2)].
+    # Sanity: import produced [item(list), code(indent 2)].
     doc.blocks[0].block_format.list_format.should_not be_nil
-    doc.blocks[1].block_format.bg.should_not be_nil
+    code_block?(doc.blocks[1]).should be_true
     doc.blocks[1].block_format.indent.should eq 2
 
     round = Crysterm::TextDocument.from_markdown(doc.to_markdown)
@@ -46,7 +46,7 @@ describe "BUGS17 B17-28 fenced code block inside a list item round-trips" do
     # Import: the single code block carries the item's list_format.
     doc.blocks.size.should eq 1
     doc.blocks[0].block_format.list_format.should_not be_nil
-    doc.blocks[0].block_format.bg.should_not be_nil
+    code_block?(doc.blocks[0]).should be_true
 
     round = Crysterm::TextDocument.from_markdown(doc.to_markdown)
     round.blocks.size.should eq 1
@@ -64,7 +64,7 @@ describe "BUGS17 B17-28 fenced code block inside a list item round-trips" do
 
     doc.blocks.size.should eq 2
     doc.blocks[0].block_format.list_format.try(&.style.decimal?).should be_true
-    doc.blocks[0].block_format.bg.should_not be_nil
+    code_block?(doc.blocks[0]).should be_true
     doc.blocks[1].block_format.list_format.try(&.style.decimal?).should be_true
 
     exported = doc.to_markdown

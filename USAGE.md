@@ -1254,10 +1254,14 @@ manual tagging needed. Every interchange setter returns the value it assigned,
 and the bare `markdown`/`html`/`tags` readers export, on the document and on a
 single `TextFragment` alike.
 
-Which colors the conversions use comes from `TextDocument#theme`, a
-`TextTheme` the markdown, html and table-of-contents paths all default to; a
-`TextEdit` stamps its widget theme onto the document it owns, so
-`doc.markdown = x` and `edit.markdown = x` produce the same result.
+The conversions store no colors for the document's semantic parts — a
+heading is a `heading_level`, a code span a `code` flag, a fenced line a
+`code_language`, a link an `anchor_href`. The *view* colors them: a `TextEdit`
+resolves a `ContentPalette` from its style's content slots
+(`TextEdit::heading`, `::code`, `::link`, `::quote`, `::rule`, `::muted`),
+which the default theme fills from its palette roles and any stylesheet may
+override, so the same document paints in each view's colors and a restyle
+recolors it on the next frame.
 
 The document is a sequence of **blocks** (paragraphs), each a sequence of
 formatted fragments:

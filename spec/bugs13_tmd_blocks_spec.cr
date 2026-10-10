@@ -41,7 +41,7 @@ describe "BUGS13 markdown block structure" do
       doc.block_count.should eq 2
       doc.blocks.each do |b|
         b.block_format.quote_level.should eq 1
-        b.block_format.bg.should eq TextTheme.default.code_bg
+        b.block_format.code_block?.should be_true
       end
       doc.blocks.map(&.text).should eq ["a", "b"]
     end
@@ -108,7 +108,7 @@ describe "BUGS13 markdown block structure" do
     it "does not classify an empty non-code block as a fence row" do
       blocks = [
         TextBlock.new([TextFragment.new("x", TextCharFormat.default)]),
-        TextBlock.new([] of TextFragment, TextBlockFormat.new(bg: TextTheme.default.code_bg)),
+        TextBlock.new([] of TextFragment, TextBlockFormat.new(bg: 0x202833)),
         TextBlock.new([TextFragment.new("y", TextCharFormat.default)]),
       ]
       TextMarkdown.generate(blocks).should_not contain "```"

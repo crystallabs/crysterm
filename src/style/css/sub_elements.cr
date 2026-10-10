@@ -28,6 +28,24 @@ module Crysterm
       end
     end
 
+    # The rich-text view's document parts (`TextEdit::heading { color: … }`
+    # and so on — see `Style#heading`), including the GFM alert kinds;
+    # `TextBrowser` and the Markdown viewer inherit them.
+    class TextEdit
+      def build_css_sub_elements : Array(String)
+        super + ["heading", "code", "link", "quote", "rule", "muted",
+                 "note", "tip", "important", "warning", "caution"]
+      end
+    end
+
+    # The chat transcript renders its markdown prose through the tags
+    # exporter, colored from the same content slots (`Transcript::code { … }`).
+    class Chat::Transcript
+      def build_css_sub_elements : Array(String)
+        super + ["heading", "code", "link", "quote", "rule", "muted"]
+      end
+    end
+
     class Menu
       # `indicator` is the submenu arrow (`Menu::indicator { glyph: "▶" }`);
       # the check-column marks of checkable rows follow the registry directly.

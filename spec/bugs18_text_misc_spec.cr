@@ -19,7 +19,7 @@ include Crysterm
 describe "B18-73 <br> inside <pre> and table cells" do
   it "splits a <pre> block into two lines instead of merging them" do
     doc = TextDocument.from_html("<pre>a<br>b</pre>")
-    code_blocks = doc.blocks.select(&.block_format.bg)
+    code_blocks = doc.blocks.select(&.block_format.code_block?)
     code_blocks.map(&.text).should eq ["a", "b"]
   end
 

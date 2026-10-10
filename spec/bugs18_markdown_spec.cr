@@ -152,7 +152,7 @@ describe "BUGS18 B18-71 fence sized past the longest backtick run in content" do
     exported.should start_with "````"
     round = Crysterm::TextDocument.from_markdown(exported)
     round.to_plain_text.should eq "```\ncode\n```"
-    round.blocks.all?(&.block_format.bg).should be_true
+    round.blocks.all?(&.block_format.code_block?).should be_true
     round.to_markdown.should eq exported
   end
 

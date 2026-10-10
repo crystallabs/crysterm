@@ -116,74 +116,29 @@ module Crysterm
         rdeco : Int32,
         lines : CLines
 
-      # Colors for the structural decorations this widget paints itself
-      # (list markers, quote bars, horizontal rules) — the same palette the
-      # interchange importers use for text-level coloring, so a structurally
-      # built document looks like an imported one. Stamped onto the document
-      # (`TextDocument#theme`) on assignment and adoption, so
-      # `doc.markdown = x` colors the same as this widget's `markdown=`.
-      #
-      # By default the theme is *derived* from the widget's own resolved
-      # colors (`#auto_theme?`): `TextTheme.for_colors` picks the dark or the
-      # light palette for the background the CSS theme/stylesheet gave the
-      # widget, re-checked each frame, so a `--colors-theme`/stylesheet change
-      # — or a widget restyled at runtime — recolors the document to match
-      # (`TextDocument#theme=`). Assigning a theme turns the derivation off and
-      # keeps the assigned one until `auto_theme = true`.
-      getter theme : TextTheme = TextTheme.default
+      # The colors this view paints the document's semantic parts in —
+      # headings, code, links, quote bars, rules, muted text — resolved each
+      # frame from this widget's style (`ContentPalette.from_style`): the
+      # `TextEdit::heading`/`::code`/`::link`/`::quote`/`::rule`/`::muted`
+      # content slots, filled by the default theme and overridable by any
+      # stylesheet. The document stores no colors for these parts (the
+      # importers record only `heading_level`, `code_language`, `code?`,
+      # `anchor_href`, …), so a restyle recolors on the next frame, and a
+      # document shared between views paints in each view's colors.
+      getter palette : ContentPalette = ContentPalette.new
 
-      def theme=(value : TextTheme) : TextTheme
-        @auto_theme = false
-        apply_theme value
-      end
+      # Memo behind `#palette` (`ContentPalette::Memo`): the resolution — a
+      # handful of lookups and one shade derivation — reruns only when a
+      # cascade, an in-place style edit, the resolved background or the
+      # active theme changed.
+      @palette_memo = ContentPalette::Memo.new
 
-      # Whether `#theme` follows the widget's resolved colors (the default) or
-      # is one assigned through `#theme=`. Turning it back on re-derives on the
-      # next frame.
-      getter? auto_theme : Bool = true
-
-      def auto_theme=(value : Bool) : Bool
-        @auto_theme = value
-        if value
-          @theme_attr = nil
-          update
-          update! if window?
-        end
-        value
-      end
-
-      # The packed base attr `#theme` was last derived from, so the derivation
-      # (and the document recolor it may trigger) only runs when the widget's
-      # colors actually changed.
-      @theme_attr : Int64? = nil
-
-      # Sets `#theme` and stamps it on the document (recoloring the content),
-      # without touching `#auto_theme?`. Repaints when the theme changed.
-      private def apply_theme(value : TextTheme) : TextTheme
-        changed = value != @theme
-        @theme = value
-        document.theme = value
-        if changed
-          update
-          update! if window?
-        end
-        value
-      end
-
-      # Re-derives `#theme` from the current style when `#auto_theme?` and the
-      # resolved colors changed since the last derivation. Run per frame from
-      # `#process_content`, before the base attr is used for painting.
-      private def sync_theme : Nil
-        return unless auto_theme?
-        attr = @attr_memo.fetch(style)
-        return if attr == @theme_attr
-        @theme_attr = attr
-        bg = Attr.unpack_color(Attr.bg(attr))
-        # A terminal-default background has no color to measure; fall back to
-        # what the terminal reported about itself (dark unless known light).
-        dark = bg < 0 ? (window?.try(&.terminal_theme.dark?) != false) : true
-        derived = TextTheme.for_colors(bg < 0 ? nil : bg, dark)
-        apply_theme derived if derived != @theme
+      # Re-resolves `#palette` from the current style when its inputs
+      # changed. Run per frame from `#process_content`, before painting.
+      private def sync_palette : Nil
+        st = style
+        bg = Attr.unpack_color(Attr.bg(@attr_memo.fetch(st)))
+        @palette = @palette_memo.fetch(st, bg < 0 ? nil : bg)
       end
 
       # `#extra_selections` / `#extra_selections=` live in
@@ -286,16 +241,15 @@ module Crysterm
       end
 
       # Replaces the document's whole content from Markdown (Qt
-      # `QTextEdit#setMarkdown`), colored by *theme* (this widget's `#theme`
-      # by default). Same reset semantics as `TextDocument#set_markdown`:
-      # not undoable, cursors rewind. Views sharing the document all update.
-      def set_markdown(text : String, theme : TextTheme = @theme) : Nil
-        document.set_markdown text, theme
+      # `QTextEdit#setMarkdown`). Same reset semantics as
+      # `TextDocument#set_markdown`: not undoable, cursors rewind. Views
+      # sharing the document all update.
+      def set_markdown(text : String) : Nil
+        document.set_markdown text
         interchange_reset_caret
       end
 
-      # `=`-setter spelling of `#set_markdown` (widget theme; use
-      # `#set_markdown` for an explicit one).
+      # `=`-setter spelling of `#set_markdown`.
       def markdown=(text : String) : String
         set_markdown text
         text
@@ -313,18 +267,18 @@ module Crysterm
       # is exactly the mid-stream shift `#refresh_tocs`'s manual policy
       # avoids); call `#refresh_tocs` when the stream ends. A `TocView`
       # sidebar tracks the document on its own either way.
-      def append_markdown(chunk : String, theme : TextTheme = @theme) : Nil
-        document.append_markdown chunk, theme
+      def append_markdown(chunk : String) : Nil
+        document.append_markdown chunk
       end
 
       # Parses and appends whatever `#append_markdown` still holds buffered —
       # the end-of-stream signal.
-      def flush_markdown(theme : TextTheme = @theme) : Nil
-        document.flush_markdown theme
+      def flush_markdown : Nil
+        document.flush_markdown
       end
 
       # Regenerates every inline table of contents from the current headings,
-      # in this widget's `#theme`, returning whether any changed.
+      # returning whether any changed.
       #
       # Deliberately manual: a TOC that grew while the reader was below it would
       # shift every row under them mid-read, so this is what an application
@@ -332,18 +286,17 @@ module Crysterm
       # a load is the one moment with no reading position to disturb. The
       # `TocView` sidebar needs none of this and tracks the document on its own.
       def refresh_tocs : Bool
-        document.refresh_tocs @theme
+        document.refresh_tocs
       end
 
       # Replaces the document's whole content from HTML (Qt
       # `QTextEdit#setHtml`); otherwise like `#set_markdown`.
-      def set_html(html : String, theme : TextTheme = @theme) : Nil
-        document.set_html html, theme
+      def set_html(html : String) : Nil
+        document.set_html html
         interchange_reset_caret
       end
 
-      # `=`-setter spelling of `#set_html` (widget theme; use `#set_html` for
-      # an explicit one).
+      # `=`-setter spelling of `#set_html`.
       def html=(html : String) : String
         set_html html
         html
@@ -353,8 +306,6 @@ module Crysterm
         @block_layouts.clear
         @layout_key = nil
         @doc_revision += 1
-        # An adopted document inherits this widget's palette (see `#theme`).
-        document.theme = @theme
       end
 
       private def wire_document : Nil
@@ -395,7 +346,7 @@ module Crysterm
       # relayout happened (base contract).
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         return false unless window?
-        sync_theme
+        sync_palette
         colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
         if key == @layout_key && @layout_revision == @doc_revision && !@wrapped_lines.empty?
@@ -677,12 +628,10 @@ module Crysterm
         {% if f == "tags" %}
           # Replaces the content from {{ f.id }} markup.
           #
-          # markdown/html deliberately have NO setters here: their themed
-          # overloads (`#set_markdown`/`#set_html` near the top of the class,
-          # defaulting to this widget's `#theme`) are the single definitions —
-          # a 1-arg def generated here would REPLACE the defaulted-arg def
-          # entirely (not overload it), dropping both the 2-arg themed call
-          # and the widget-theme default.
+          # markdown/html deliberately have NO setters here: `#set_markdown`/
+          # `#set_html` near the top of the class are the single definitions
+          # (they document the reset semantics); a def generated here would
+          # REPLACE them.
           def set_{{ f.id }}(str : String) : Nil
             document.set_{{ f.id }}(str)
             interchange_reset_caret

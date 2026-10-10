@@ -4,7 +4,7 @@
 # Crysterm's native tags; `TextEdit`/`TextBrowser` render it with headings,
 # bold/italic/strikethrough, inline code and links, fenced code blocks,
 # blockquotes, GFM tables (real box-drawing tables), GFM task lists and GFM
-# alert admonitions — all themable via `TextTheme`, all editable with full
+# alert admonitions — all colored through the stylesheet, all editable with full
 # undo, and round-trippable back to Markdown/HTML.
 #
 # The demo plays a Claude session: the "user" types a prompt into the input

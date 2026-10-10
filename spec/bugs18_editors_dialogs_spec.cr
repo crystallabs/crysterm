@@ -4,11 +4,11 @@ include Crysterm
 
 # Regressions for BUGS18 B18-41..B18-44 (editors & dialogs):
 #
-# B18-41: TextEdit's interchange macro generated 1-arg `set_markdown`/`set_html`
-#         defs that REPLACED (not overloaded) the earlier themed defaulted-arg
-#         defs — the documented `set_markdown(md, theme)` call did not compile,
-#         and the surviving 1-arg path imported with `TextTheme.default`
-#         instead of the widget's `#theme`.
+# B18-41: TextEdit's interchange macro generated `set_markdown`/`set_html`
+#         defs that REPLACED (not overloaded) the hand-written ones, so the
+#         documented setters near the top of the class were dead code.
+#         (Colors are no longer part of this: the importers store semantics
+#         only and the view colors them from its style.)
 # B18-42: Bracketed paste (`Event::Paste`) routed through `insert_text`, which
 #         never consulted `max_length` — the same text pasted with Ctrl-V was
 #         truncated while a terminal paste landed whole.
@@ -33,37 +33,29 @@ end
 private class B18edDialog < Crysterm::Widget::Dialog
 end
 
-describe "BUGS18 B18-41: TextEdit interchange setters keep the widget theme" do
-  it "compiles and honors the explicit 2-arg themed set_markdown" do
+describe "BUGS18 B18-41: TextEdit interchange setters are the documented ones" do
+  it "set_markdown imports semantics, uncolored" do
     s = headless_screen(60, 24)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
-    explicit = TextTheme.new(code_color: 0x654321)
-    te.set_markdown "`c`", explicit
-    te.document.typing_format_at(1).fg.should eq 0x654321
-  end
-
-  it "1-arg set_markdown imports with the widget's #theme, not the default" do
-    s = headless_screen(60, 24)
-    te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
-    te.theme = TextTheme.new(code_color: 0x123456)
     te.set_markdown "`c`"
-    te.document.typing_format_at(1).fg.should eq 0x123456
+    fmt = te.document.typing_format_at(1)
+    fmt.code?.should be_true
+    fmt.fg.should be_nil
+    fmt.bg.should be_nil
   end
 
-  it "set_html and the =-spellings use the widget's #theme too" do
+  it "set_html and the =-spellings do too" do
     s = headless_screen(60, 24)
     te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 8
-    te.theme = TextTheme.new(link_color: 0xABCDEF)
     te.set_html %(<a href="x">l</a>)
-    te.document.typing_format_at(1).fg.should eq 0xABCDEF
+    te.document.typing_format_at(1).anchor_href.should eq "x"
+    te.document.typing_format_at(1).fg.should be_nil
 
-    te.theme = TextTheme.new(code_color: 0x0F0F0F)
     te.markdown = "`c`"
-    te.document.typing_format_at(1).fg.should eq 0x0F0F0F
+    te.document.typing_format_at(1).code?.should be_true
 
-    te.theme = TextTheme.new(link_color: 0x00FF77)
     te.html = %(<a href="y">l</a>)
-    te.document.typing_format_at(1).fg.should eq 0x00FF77
+    te.document.typing_format_at(1).anchor_href.should eq "y"
   end
 
   it "a wholesale markdown/html replace rewinds the caret" do
