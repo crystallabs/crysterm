@@ -28,6 +28,14 @@ module Crysterm
     # one sharing the rest. The painted message and text sections keep to the
     # cells left of the first field.
     #
+    # A field that may give way to the message is added with `#add_widget`
+    # (Qt's `addWidget`): such *normal* fields sit left of the permanent
+    # ones whatever the add order, and are hidden while a temporary message
+    # shows, which takes their room — so a bar whose fields fill it (a
+    # document name taking the rest of the width) can still flash "Saved".
+    # Fields size themselves by their `width` specs here, where Qt's take a
+    # stretch factor.
+    #
     # The bar can also ask a question in place of itself, the way vi's
     # command line replaces the status line: `#prompt` shows a `LinePrompt`
     # over the whole bar until the user answers (Enter) or gives up (Escape,
@@ -42,9 +50,10 @@ module Crysterm
     # pos = Widget::Label.new width: "15%", content: "Ln 1, Col 1"
     # ovr = Widget::ToolButton.new width: 5, text: "INS"
     # ovr.on_clicked { editor.overwrite_mode = !editor.overwrite_mode? }
-    # bar.add_permanent_widget name
+    # bar.add_widget name # gives way to a message
     # bar.add_permanent_widget pos
     # bar.add_permanent_widget ovr
+    # bar.show_message "Saved notes.md", 3.seconds
     # ```
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
@@ -121,7 +130,7 @@ module Crysterm
         update!
       end
 
-      # The fields, in add order. A copy — add and remove through
+      # The permanent fields, in add order. A copy — add and remove through
       # `#add_permanent_widget`/`#remove_permanent_widget`, which also do the
       # parenting.
       def permanent_widgets : Array(Widget)
@@ -129,6 +138,78 @@ module Crysterm
       end
 
       @permanent_widgets = [] of Widget
+
+      # Adds *widget* as a normal field of the bar (Qt's `addWidget`): placed
+      # after the normal fields added before it and before every permanent
+      # one, and hidden while a temporary message shows (`#show_message`),
+      # which paints in its place — a permanent field keeps its cells. Adding
+      # the same widget twice is a no-op. Returns *widget*.
+      #
+      # Only a field the bar hid comes back when the message clears
+      # (`QStatusBar::hideOrShow`): one the application hid itself stays
+      # hidden until the application shows it.
+      def add_widget(widget : Widget) : Widget
+        return widget if @normal_widgets.includes? widget
+        @normal_widgets << widget
+        if (first = @permanent_widgets.first?) && (index = @children.index(first))
+          insert widget, index
+        else
+          append widget
+        end
+        displace widget if message_showing?
+        update!
+        widget
+      end
+
+      # Removes a normal field, detaching (not destroying) it (Qt's
+      # `removeWidget`); a no-op when it is not one here. A field the bar
+      # hid for a message is shown again first, so it leaves in the state
+      # the application last gave it. (Qt hides a removed widget instead,
+      # because there it stays a child of the bar; here it is detached.)
+      def remove_widget(widget : Widget) : Nil
+        return unless @normal_widgets.delete widget
+        widget.show if @displaced.delete widget
+        remove widget
+        update!
+      end
+
+      # The normal fields, in add order. A copy — add and remove through
+      # `#add_widget`/`#remove_widget`.
+      def normal_widgets : Array(Widget)
+        @normal_widgets.dup
+      end
+
+      @normal_widgets = [] of Widget
+
+      # The normal fields the bar hid for the current message — the ones to
+      # show again when it clears. A field hidden by the application before
+      # the message is not among them and stays hidden.
+      @displaced = [] of Widget
+
+      # Whether a temporary message is up, displacing the normal fields.
+      private def message_showing? : Bool
+        !@message.empty?
+      end
+
+      # Hides the visible normal fields while a message shows, and brings
+      # back the ones it hid when the message clears; the message paints
+      # across the cells they free.
+      private def apply_message_to_fields : Nil
+        if message_showing?
+          @normal_widgets.each { |w| displace w }
+        else
+          @displaced.each &.show
+          @displaced.clear
+        end
+      end
+
+      # Hides *widget* for the message, remembering to show it again, unless
+      # it is hidden already (by the application, or by this message).
+      private def displace(widget : Widget) : Nil
+        return unless widget.visible?
+        widget.hide
+        @displaced << widget
+      end
 
       # The bar's prompt line, built on first use: a row of chrome over the
       # whole bar (not a field), hidden until `#prompt`.
@@ -156,7 +237,7 @@ module Crysterm
       # and text sections must stop. Read after the children rendered.
       private def fields_left : Int32?
         left = nil.as(Int32?)
-        @permanent_widgets.each do |w|
+        {@normal_widgets, @permanent_widgets}.each &.each do |w|
           next unless w.visible?
           next unless pos = w.lpos
           left = pos.xi if left.nil? || pos.xi < left
@@ -166,10 +247,12 @@ module Crysterm
 
       # Shows *text* as the temporary message. With *timeout*, the message clears
       # itself after that span (unless replaced first); without, it stays until
-      # the next `#show_message`/`#clear_message`.
+      # the next `#show_message`/`#clear_message`. The normal fields
+      # (`#add_widget`) stand down while the message shows.
       def show_message(text : String, timeout : Time::Span? = nil) : Nil
         @message = text
         gen = bump_dismiss_gen
+        apply_message_to_fields
         update!
 
         if timeout
@@ -178,6 +261,7 @@ module Crysterm
             window?.try &.post do
               if dismiss_current?(gen)
                 @message = ""
+                apply_message_to_fields
                 update!
               end
             end
@@ -189,6 +273,7 @@ module Crysterm
       def clear_message : Nil
         @message = ""
         bump_dismiss_gen
+        apply_message_to_fields
         update!
       end
 
