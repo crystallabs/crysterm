@@ -207,11 +207,13 @@ module Crysterm
         when job = @ui_queue.receive
           begin
             job.call
-          rescue
+          rescue ex
             # A posted job must never kill the render fiber: that would freeze
             # the whole UI and drain no further jobs. A cross-fiber caller
             # needing the failure captures it inside its own job and re-raises
-            # on the requesting fiber.
+            # on the requesting fiber; anything else is an escaped error the
+            # application's policy handles (`Application#handler_raised`).
+            (application || Application.global).handler_raised ex
           end
         else
           break
@@ -397,6 +399,12 @@ module Crysterm
           next unless @connected
           raise ex unless has_handlers? ::Crysterm::Event::OutputFailed
           emit ::Crysterm::Event::OutputFailed, ex
+        rescue ex
+          # Any other error while painting (a widget's paint raising) used to
+          # end this fiber alone: a frozen screen with live input, no message.
+          # Hand it to the application, which quits and raises it from `exec`.
+          next unless @connected
+          (application || Application.global).render_raised ex
         end
       end
     end

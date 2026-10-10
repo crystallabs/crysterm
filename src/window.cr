@@ -841,7 +841,26 @@ module Crysterm
       # reason `Widget#destroy` dups its own children. The teardown is
       # bottom-up: `Widget#destroy` recurses into its children first, then
       # detaches.
-      @children.dup.each &.destroy
+      #
+      # A widget's teardown can itself raise — a handler on its `Destroy`, or
+      # on the focus rewind its removal triggers. One raising widget must not
+      # leave its siblings attached, and above all must not skip the terminal
+      # restore below: the `@destroyed` latch above makes every later
+      # `#destroy` (the `at_exit` net's, a signal's) a no-op, so the terminal
+      # would stay raw, in the alt buffer, for good. Each child is torn down
+      # on its own; the first error is re-raised once the window is fully
+      # gone, so the caller (`Application#quit`, a spec's `ensure`) still
+      # sees the bug. Later ones are logged.
+      error = nil
+      @children.dup.each do |c|
+        c.destroy
+      rescue ex
+        if error
+          ::Log.error(exception: ex) { "Crysterm: another widget teardown raised during Window#destroy" }
+        else
+          error = ex
+        end
+      end
 
       # Tear down the terminal connection (restores the terminal, stops the
       # input fiber, closes owned IO and any spawned window). For the
@@ -874,6 +893,7 @@ module Crysterm
       #  this._destroy();
 
       super
+      raise error if error
     end
 
     # For compatibility with widgets; as a side-effect, screens can have

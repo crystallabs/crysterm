@@ -833,19 +833,38 @@ module Crysterm
 
       # Iterate a snapshot: each child's `destroy` calls `remove_from_parent`,
       # mutating `@children` mid-iteration, which would skip every other child.
+      #
+      # A child's teardown can raise — its `Destroy` handler, or a handler on
+      # the focus rewind its removal triggers — and one raising child must not
+      # leave its siblings attached nor this widget in the tree (where the
+      # window's own teardown would find it, skipping the terminal restore).
+      # Each step is isolated; the first error is re-raised once this widget
+      # is gone, so the caller still sees it. Later ones are logged.
+      error = nil
       @children.dup.each do |c|
         c.destroy
+      rescue ex
+        if error
+          ::Log.error(exception: ex) { "Crysterm: another widget teardown raised during Widget#destroy" }
+        else
+          error = ex
+        end
       end
       # A hover tooltip is a window-level satellite, not a child; drop it here.
       Widget.destroy_satellite @_tool_tip
       @_tool_tip = nil
       # Else it would remain in `window.children`: still painted, keyable,
       # possibly holding focus/hover/grab.
-      detach_from_tree
+      begin
+        detach_from_tree
+      rescue ex
+        error ||= ex
+      end
       emit Crysterm::Event::Destroy
       # After the last emit: `Destroy` listeners are the auto-dispose hooks, so
       # they must run before their own subscriptions are dropped.
       remove_all_handlers
+      raise error if error
     end
 
     # Returns the `Window` a stand-alone (parent-less) widget should attach to:

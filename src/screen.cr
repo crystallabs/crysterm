@@ -372,6 +372,8 @@ module Crysterm
       # Control sequences must reach the terminal promptly. A caller-supplied
       # output (e.g. a second terminal via `File.open`) is fully buffered by
       # default, leaving the screen blank; force sync however it was obtained.
+      # Standard error is about to become this screen: see `Crysterm.install_log_file`.
+      Crysterm.install_log_file if @output.tty?
       if (output = @output).responds_to?(:sync=)
         output.sync = true
       end

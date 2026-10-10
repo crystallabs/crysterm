@@ -175,7 +175,8 @@ module Crysterm
             (application || Application.global).route_input self,
               ::Tput::InputEvent.new('\0', mouse: gpm_to_event(e))
           rescue ex
-            ::Log.error(exception: ex) { "Crysterm: mouse handler raised; continuing gpm reader" }
+            # As in `#start_input`: the application decides whether to go on.
+            (application || Application.global).handler_raised ex
           end
         end
       end

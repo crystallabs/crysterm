@@ -189,6 +189,17 @@ module Crysterm
     # re-raising *error* to their caller. `error` is the failed write's error.
     event OutputFailed, error : IO::Error
 
+    # Emitted by an `Application` when an event handler raised on one of the
+    # toolkit's fibers (the input reader, the gpm reader, a `post`ed job)
+    # while the app is running, i.e. not quitting. Subscribing opts the app
+    # into continuing past such errors: `error` is the exception, and the
+    # handler decides what to show (a status-line notice, a dialog) and where
+    # to log it. With no handler the error is logged and the app goes on; the
+    # default log writes to standard error, which is the screen while a
+    # terminal is connected (see the `log.file` option). See
+    # `Application#handler_raised`.
+    event HandlerError, error : Exception
+
     # Emitted by an `Application` when a new physical device (`Screen`) is added —
     # i.e. the first window on a tty is registered ↔ `QGuiApplication::screenAdded`.
     # `screen` is the device.

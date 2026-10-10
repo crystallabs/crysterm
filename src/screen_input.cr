@@ -76,7 +76,9 @@ module Crysterm
           begin
             (application || Application.global).route_input self, e
           rescue ex
-            ::Log.error(exception: ex) { "Crysterm: input handler raised; continuing input loop" }
+            # The application decides: continue (an `Event::HandlerError`
+            # handler), or quit cleanly and raise from `exec`.
+            (application || Application.global).handler_raised ex
           end
         end
       rescue IO::Error

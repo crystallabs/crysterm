@@ -189,12 +189,34 @@ module Crysterm
     def quit(status : Int32 = 0) : Nil
       return if @quit_requested
       @quit_requested = true
-      emit ::Crysterm::Event::AboutToQuit
+      # Neither a save-state handler nor a window's teardown may abort the
+      # quit. With the latch above set, a quit that raised part-way used to
+      # leave an app that could never quit again (every later `quit` a
+      # no-op), its terminal still raw with no render fiber to repaint it,
+      # and its windows already latched as destroyed so even the `at_exit`
+      # net restored nothing. Each step is isolated instead; the first error
+      # is kept and, like `#fail_exec`'s, ends `#exec` by raising — after the
+      # terminal is back.
+      begin
+        emit ::Crysterm::Event::AboutToQuit
+      rescue ex
+        @exec_error ||= ex
+      end
       # Iterate a copy: `Window#destroy` calls `#remove`, which mutates
       # `@windows` under an in-place iterator.
-      @windows.dup.each { |w| w.destroy unless w.destroyed? }
+      @windows.dup.each do |w|
+        w.destroy unless w.destroyed?
+      rescue ex
+        @exec_error ||= ex
+      end
+      status = 1 if @exec_error
       if @exec_running
         @quit_channel.send status
+      elsif error = @exec_error
+        # No loop to raise from: report on the (now restored) terminal.
+        @exec_error = nil
+        STDERR.puts "Crysterm: error while quitting: #{error.inspect_with_backtrace}"
+        exit status
       else
         exit status
       end
@@ -335,6 +357,51 @@ module Crysterm
     private def fail_exec(error : Exception) : Nil
       @exec_error ||= error
       quit 1
+    end
+
+    # Decides what becomes of *error*, raised by an event handler on one of
+    # the toolkit's own fibers (the input reader, the gpm reader, a `post`ed
+    # job). Those fibers rescue per event, so one raising handler never kills
+    # the fiber; what happens next is the application's call:
+    #
+    # - While a quit is in progress the error belongs to that quit: there is
+    #   nothing to continue into, so it is kept for `#exec` to raise.
+    # - With an `Event::HandlerError` handler, the app has opted into
+    #   continuing: the handler gets *error* and decides what to show.
+    # - Otherwise the error is logged and the app goes on: the next event is
+    #   dispatched as if nothing happened. The default log writes to standard
+    #   error, which *is* the screen while a terminal is connected, so an app
+    #   that wants this either points the log elsewhere (the `log.file`
+    #   option) or handles `HandlerError` and shows the error itself.
+    #
+    # A `HandlerError` handler that raises in turn is fatal: the app quits
+    # through `#fail_exec`, the terminal is restored, and `#exec` raises.
+    #
+    # :nodoc: called by the toolkit's fibers.
+    def handler_raised(error : Exception) : Nil
+      if @quit_requested
+        @exec_error ||= error
+      elsif has_handlers? ::Crysterm::Event::HandlerError
+        begin
+          emit ::Crysterm::Event::HandlerError, error
+        rescue ex
+          fail_exec ex
+        end
+      else
+        ::Log.error(exception: error) { "Crysterm: event handler raised; continuing (handle Event::HandlerError to decide otherwise)" }
+      end
+    end
+
+    # Ends the app over *error*, raised while painting a frame. A paint error
+    # recurs every frame, so there is nothing to continue into; without this
+    # the render fiber died silently, leaving a frozen screen with live input.
+    # Ignored while a quit is already under way (a frame racing the teardown
+    # is not a bug to report).
+    #
+    # :nodoc: called by the render fiber.
+    def render_raised(error : Exception) : Nil
+      return if @quit_requested
+      fail_exec error
     end
 
     # No-arg form: runs the windows already registered with this application

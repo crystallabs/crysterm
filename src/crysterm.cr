@@ -178,6 +178,26 @@ module Crysterm
     end
   end
 
+  # Whether the `log.file` option has been applied to `::Log` (once per process).
+  @@log_file_installed = false
+
+  # Points `::Log` at the file the `log.file` option names, once, when it is
+  # set. Called when a `Screen` binds a real terminal: from then on standard
+  # error *is* the application's screen, so a log line written there (the
+  # default backend's) lands over the UI in raw mode — the staircased
+  # backtrace a user sees when a handler raises. With the option unset nothing
+  # changes; an app wanting another sink sets `::Log` up itself. The backend
+  # dispatches synchronously so the last lines before an exit are not lost.
+  def self.install_log_file : Nil
+    return if @@log_file_installed
+    path = Config.log_file
+    return if path.empty?
+    @@log_file_installed = true
+    io = File.open(path, "a")
+    io.sync = true
+    ::Log.setup :info, ::Log::IOBackend.new(io, dispatcher: ::Log::DispatchMode::Sync)
+  end
+
   # Builds a `Window`, yields it for UI construction, then runs the main loop —
   # the shortest complete program:
   #

@@ -74,6 +74,8 @@ module Superconf
     description: "Route all keypresses to a single grabbing widget"
   option "window.border_junctions", false,
     description: "Join adjacent widget borders instead of overlapping them"
+  option "log.file", "",
+    description: "Append Crysterm's log (handler errors, warnings) to this file instead of standard error, which is the application's own screen while a terminal is connected; empty leaves the standard log setup alone"
   option "screen.headless", Crysterm::Headless::Auto,
     description: "Default a Screen built without explicit IO to a headless (in-memory) connection instead of the real terminal (auto|always|never): 'auto' decides from whether the app runs interactively (output is a TTY), 'always' forces headless, 'never' forces a real terminal"
   option "screen.force_unicode", false,
