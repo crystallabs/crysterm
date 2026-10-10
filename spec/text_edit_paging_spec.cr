@@ -11,13 +11,13 @@ private def press(te, key : Tput::Key)
   te._listener Crysterm::Event::KeyPress.new('\0', key)
 end
 
-# Page Up/Down turn the *viewport* by a page and put the caret on the first
-# (Page Down) / last (Page Up) row of the new page, as in vi and less. The
-# previous behavior moved the caret by a page and let the view follow, so the
-# first press parked the caret at the bottom row without scrolling.
+# Page Up/Down turn the *viewport* by a page and move the caret with it,
+# keeping its row within the viewport, as Qt's text edits do. Moving only the
+# caret and letting the view follow would park it at the bottom row on the
+# first press without scrolling.
 {% for klass in [Widget::PlainTextEdit, Widget::TextEdit] %}
   describe "{{ klass }} Page Up/Down" do
-    it "scrolls a page on the first press and puts the caret on the new page's first/last row" do
+    it "scrolls a page on the first press and keeps the caret on its viewport row" do
       s = headless_screen(30, 10)
       te = {{ klass }}.new parent: s, left: 0, top: 0, width: 30, height: 10
       te.value = TEXT
@@ -29,8 +29,8 @@ end
       page = 9 # 10 visible rows, one of overlap
 
       press te, Tput::Key::PageDown
-      te.scroll_position.should eq page       # the view turned a page at once
-      te.cursor_pos.should eq page * ROW      # caret on the first row of it
+      te.scroll_position.should eq page  # the view turned a page at once
+      te.cursor_pos.should eq page * ROW # caret still on the top row
 
       press te, Tput::Key::PageDown
       te.scroll_position.should eq 2 * page
@@ -38,11 +38,20 @@ end
 
       press te, Tput::Key::PageUp
       te.scroll_position.should eq page
-      te.cursor_pos.should eq (page + 10 - 1) * ROW # caret on the last visible row
+      te.cursor_pos.should eq page * ROW
 
       press te, Tput::Key::PageUp
       te.scroll_position.should eq 0
-      te.cursor_pos.should eq (10 - 1) * ROW
+      te.cursor_pos.should eq 0
+
+      # From the middle of the viewport the caret keeps that row.
+      te.cursor_pos = 4 * ROW
+      press te, Tput::Key::PageDown
+      te.scroll_position.should eq page
+      te.cursor_pos.should eq (page + 4) * ROW
+      press te, Tput::Key::PageUp
+      te.scroll_position.should eq 0
+      te.cursor_pos.should eq 4 * ROW
     end
 
     it "moves the caret to the first/last row when the view is already at that end" do
@@ -79,7 +88,7 @@ end
       press te, Tput::Key::PageDown
       te.cursor_pos.should eq 9 * ROW + 3
       press te, Tput::Key::PageUp
-      te.cursor_pos.should eq 9 * ROW + 3
+      te.cursor_pos.should eq 3
     end
   end
 {% end %}

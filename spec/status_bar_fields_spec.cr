@@ -32,10 +32,9 @@ describe "StatusBar fields" do
     line.should contain "INS"
   end
 
-  it "keeps the painted sections left of the fields" do
+  it "packs sized fields at the right and keeps the painted sections left of them" do
     s = headless_screen(40, 3)
     bar = Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: "100%", height: 1
-    bar.layout = Layout::HBox.new justify: Layout::Box::Justify::End
     bar.add_permanent "Ln 1"
     bar.add_permanent_widget Widget::ToolButton.new(width: 5, text: "INS")
     s.repaint

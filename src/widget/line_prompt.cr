@@ -30,8 +30,9 @@ module Crysterm
     # (see `Crysterm::DOM::Skip`).
     @[::Crysterm::DOM::Skip]
     class LinePrompt < Box
-      # The label at the left, sized to its text.
-      getter label : Box
+      # The label at the left, sized to its text. (`#label` is the border
+      # label every widget has.)
+      getter label_box : Box
 
       # The inline field.
       getter field : LineEdit
@@ -50,13 +51,13 @@ module Crysterm
       @completing = false
 
       def initialize(**box)
-        @label = Box.new height: 1, width: 0
+        @label_box = Box.new height: 1, width: 0
         # Reading starts from `#prompt`, not from focus, so a stray focus
         # (Tab navigation) never opens a read with no question behind it.
         @field = LineEdit.new height: 1, input_on_focus: false
         super(**{height: 1, width: "100%"}.merge(box))
         self.layout = Layout::HBox.new
-        append @label
+        append @label_box
         append @field
         hide
         @field.on(Crysterm::Event::KeyPress) { |e| field_key e }
@@ -69,8 +70,8 @@ module Crysterm
         cancel
         @active = true
         @callback = callback
-        @label.set_content label
-        @label.width = str_width label
+        @label_box.set_content label
+        @label_box.width = str_width label
         @field.value = value
         end_completion
         show

@@ -892,14 +892,22 @@ module Crysterm
         end
       end
 
-      # For each `|` of *node*'s source lines, in order, whether it is
-      # backslash-escaped (preceded by an odd run of backslashes — `\\|` is
-      # an escaped backslash before a bare pipe).
+      # Source whose pipes never reach `#collect_text`'s output and so must
+      # not be counted against it: a link or image destination with its
+      # title (`](url "title")`) and an inline HTML tag. An autolink keeps
+      # its pipes — markd emits its URL as text. (Inline code is not set
+      # apart: a `](` inside a code span is rare enough to leave.)
+      SOURCE_ONLY_PIPES = /\]\([^)]*\)|<\/?[a-zA-Z][^>]*>/
+
+      # For each `|` of *node*'s source lines that `#collect_text` emits, in
+      # order, whether it is backslash-escaped (preceded by an odd run of
+      # backslashes — `\\|` is an escaped backslash before a bare pipe).
       private def escaped_pipes(node : Markd::Node) : Array(Bool)
         first, last = node.source_pos
         flags = [] of Bool
         (first[0]..last[0]).each do |ln|
           next unless l = @source[ln - 1]?
+          l = l.gsub(SOURCE_ONLY_PIPES, "") if l.includes?('(') || l.includes?('<')
           run = 0
           l.each_char do |ch|
             if ch == '\\'

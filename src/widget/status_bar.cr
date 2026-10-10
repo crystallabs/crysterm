@@ -21,12 +21,12 @@ module Crysterm
     # A bar can also be built from *widgets* — Qt's `addPermanentWidget`,
     # here `#add_permanent_widget` — for fields that do more than show text:
     # a live `Label`, a `ToolButton` that toggles a mode on click. The bar's
-    # layout is a `Layout::HBox`, so the fields sit in one row in add order,
-    # each as wide as its `width` spec (a percentage divides the bar
-    # proportionally at any terminal width) and those without one sharing
-    # the rest, like a `QStatusBar`'s own box layout. The painted message and
-    # text sections keep to the cells left of the first field, so a bar of
-    # fields only shows the fields.
+    # layout is a `Layout::HBox` packed against the right edge, so the fields
+    # sit in one row in add order at the bar's right, as a `QStatusBar`'s
+    # permanent widgets do, each as wide as its `width` spec (a percentage
+    # divides the bar proportionally at any terminal width) and those without
+    # one sharing the rest. The painted message and text sections keep to the
+    # cells left of the first field.
     #
     # The bar can also ask a question in place of itself, the way vi's
     # command line replaces the status line: `#prompt` shows a `LinePrompt`
@@ -96,9 +96,10 @@ module Crysterm
         # `window_region_focus.cr`) only actually stops here once the bar hosts
         # a focusable child widget. Turn off via `region_focusable = false`.
         @region_focusable = true
-        # Fields (`#add_permanent_widget`) form one row; an app that wants
-        # another arrangement assigns its own engine.
-        self.layout = Layout::HBox.new
+        # Fields (`#add_permanent_widget`) form one row at the right, the
+        # message to their left (`QStatusBar`); an app that wants another
+        # arrangement assigns its own engine.
+        self.layout = Layout::HBox.new justify: Layout::Box::Justify::End
       end
 
       # Adds *widget* as a field of the bar (Qt's `addPermanentWidget`):

@@ -29,6 +29,12 @@ module Crysterm
       include Mixin::TextEditing::DocumentBuffer
 
       @scrollable = true
+
+      # Space pages a read-only edit (`Mixin::TextEditing#effective_key`).
+      protected def space_pages? : Bool
+        true
+      end
+
       # A pure viewport (see `TextEdit`): percent against the viewport span.
       @always_scroll = true
       # Plain text (Qt's `QPlainTextEdit`): the buffer is shown verbatim, so

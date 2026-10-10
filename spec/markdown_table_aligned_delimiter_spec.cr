@@ -26,6 +26,12 @@ describe "Markdown table with aligned delimiter row" do
     d.to_plain_text.should contain "x | y"
   end
 
+  it "ignores a pipe inside a link destination when restoring escapes" do
+    d = TextDocument.from_markdown("| A | B |\n|---|---|\n| [t](http://x/a|b) | c \\| d |")
+    table_format_of(d).columns.should eq 2
+    d.to_plain_text.should contain "c | d"
+  end
+
   it "reads an unescaped pipe beside inline markup as a cell boundary" do
     d = TextDocument.from_markdown("|A|B|\n|:-:|:-:|\n|*s*|t|")
     table_format_of(d).columns.should eq 2

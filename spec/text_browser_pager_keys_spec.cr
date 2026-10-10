@@ -20,8 +20,8 @@ describe "TextBrowser pager keys" do
     by_space.cursor_pos = 0
     by_space.focus
     s.repaint
-    # The first page moves the caret to the bottom of the view, the second
-    # scrolls — the PageDown contract the key maps onto.
+    # Each press turns the view a page, as PageDown does — the contract the
+    # key maps onto.
     2.times { by_space._listener press(' ') }
     s.repaint
     by_space.scroll_position.should be > 0

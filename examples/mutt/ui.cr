@@ -88,7 +88,7 @@ class MuttUI
     cmdline.append @cmd_label
     @prompt = CW::LinePrompt.new(left: 0, top: 0, width: "100%", height: 1)
     @prompt.layout_chrome = true
-    @prompt.label.style = CT::Style.new(bold: true)
+    @prompt.label_box.style = CT::Style.new(bold: true)
     cmdline.append @prompt
   end
 

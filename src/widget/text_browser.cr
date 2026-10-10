@@ -216,15 +216,10 @@ module Crysterm
       end
 
       # Browser keys: `Tab`/`Shift-Tab` cycle links, `Enter` activates the
-      # focused one, `Backspace` goes back, and — while read-only, where
-      # there is nothing to type — the pager keys of `less` and `man`:
-      # `Space` reads on by a page and `Enter` (with no link focused) by a
-      # line, each riding the matching cursor key's own path.
+      # focused one, `Backspace` goes back. While read-only, `Space` pages
+      # forward as in every read-only edit, and `Enter` with no link focused
+      # moves down a line, as in `less` and `man` (`#effective_key`).
       def _listener(e)
-        if read_only? && e.key.nil? && e.char == ' '
-          e.char = '\0'
-          e.key = Tput::Key::PageDown
-        end
         if k = e.key
           case k
           when Tput::Key::Tab
@@ -238,16 +233,19 @@ module Crysterm
               e.accept
               return activate_link(l.url)
             end
-            if read_only?
-              e.char = '\0'
-              e.key = Tput::Key::Down
-            end
           when Tput::Key::Backspace, Tput::Key::CtrlH
             e.accept
             return backward
           end
         end
         super
+      end
+
+      # Enter rides the Down key's own path while read-only (`_listener`
+      # already followed a focused link); otherwise the shared mapping.
+      protected def effective_key(e : Crysterm::Event::KeyPress) : Tput::Key?
+        k = super
+        (k == Tput::Key::Enter && read_only?) ? Tput::Key::Down : k
       end
 
       def document=(doc : TextDocument)

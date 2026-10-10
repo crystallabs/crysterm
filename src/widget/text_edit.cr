@@ -196,6 +196,12 @@ module Crysterm
       end
 
       @scrollable = true
+
+      # Space pages a read-only edit (`Mixin::TextEditing#effective_key`).
+      protected def space_pages? : Bool
+        true
+      end
+
       # A pure viewport: `Mixin::TextEditing#scroll` moves `@child_base` and
       # keeps `@child_offset` at 0, so `#scroll_percent` (and its setter)
       # must measure against the viewport span, `scroll_height - visible`,

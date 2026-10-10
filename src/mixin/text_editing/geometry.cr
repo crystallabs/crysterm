@@ -635,16 +635,14 @@ module Crysterm
         Math.max(1, visible_content_rows - 1)
       end
 
-      # Page Up/Down, as in vi and less: the *viewport* turns by a page and the
-      # caret lands on the first row of the new page (Page Down) or its last row
-      # (Page Up), so the first press already turns the page and every further
-      # press reads on. (Moving the caret by a page and letting the view follow,
-      # as Qt's text edit does, parks the caret at the viewport's edge on the
-      # first press without scrolling, and only scrolls from the second.) When
-      # the view cannot move because it is already at that end, the caret goes
-      # to the last/first row instead, so the key still makes progress through
-      # the buffer. *dir* is `1` (down) or `-1` (up). Returns whether the view
-      # scrolled, so the caller can repaint.
+      # Page Up/Down as Qt's text edits do (`QPlainTextEdit#pageUpDown`): the
+      # *viewport* turns by a page and the caret moves with it by the same
+      # number of rows, keeping its row within the viewport — so the first
+      # press already turns the page and the caret stays where the eye left
+      # it. When the view cannot move because it is already at that end, the
+      # caret goes to the last/first row instead, so the key still makes
+      # progress through the buffer. *dir* is `1` (down) or `-1` (up).
+      # Returns whether the view scrolled, so the caller can repaint.
       #
       # The caret may be off-screen (a scroll bar drag moves the view, not the
       # caret). Paging is relative to the caret, as the user reads it: the view
@@ -656,16 +654,11 @@ module Crysterm
 
         jumped = ensure_cursor_visible rl
         before = @child_base
+        viewport_row = rl - before
         scroll dir * page_rows
         moved = @child_base != before
 
-        target = if !moved
-                   dir > 0 ? last : 0
-                 elsif dir > 0
-                   @child_base
-                 else
-                   @child_base + visible_content_rows - 1
-                 end
+        target = moved ? @child_base + viewport_row : (dir > 0 ? last : 0)
         # Landing on a positionless row (a block margin) would bounce the caret
         # back — step over it in the direction of travel, as `move_cursor_vertically`.
         target = nearest_text_row(target.clamp(0, last), dir)

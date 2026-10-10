@@ -77,32 +77,6 @@ module Crysterm
         end
       end
 
-      # Page Up/Down, as in vi, less and mutt: the *viewport* turns by a page and
-      # the selection lands on the first item of the new page (Page Down) or its
-      # last item (Page Up), so the first press already turns the page and every
-      # further press reads on. (Moving the selection by a page and letting the
-      # view follow parks it at the viewport's edge on the first press without
-      # scrolling, and only scrolls from the second.) When the view cannot move
-      # because it is already at that end, the selection goes to the last/first
-      # item instead, so the key still makes progress. *dir* is `1` (down) or
-      # `-1` (up). Mirrors `Mixin::TextEditing#page_cursor` for the caret.
-      def page_selection(dir : Int32) : Nil
-        return if dir == 0 || @item_boxes.empty?
-        visible = visible_content_rows
-        visible = 1 if visible < 1
-        # Content *rows* (`scroll_height` includes inter-item gaps), as in
-        # `#scroll_view_under_pointer`.
-        max_base = Math.max(0, scroll_height - visible)
-        nb = (@child_base + dir * visible).clamp(0, max_base)
-        if nb != @child_base
-          @child_base = nb
-          row = dir > 0 ? nb : nb + visible - 1
-          self.current_index = item_at_row(row).clamp(0, @item_boxes.size - 1)
-        else
-          self.current_index = dir > 0 ? @item_boxes.size - 1 : 0
-        end
-      end
-
       # Moves the selection up *offset* rows (thin wrapper over `#move_selection`).
       def up(offset : Int32 = 1)
         move_selection -offset
@@ -196,10 +170,12 @@ module Crysterm
 
       def handle_key_press(e)
         visible = visible_content_rows
-        # Half-page navigation steps by *items*, not rows: with `item_spacing > 0`
+        # Half/page navigation steps by *items*, not rows: with `item_spacing > 0`
         # a page of `visible` rows holds only `items_per_page` items, so moving by
-        # `visible` jumps ~two pages. (Full pages turn the viewport instead; see
-        # `#page_selection`.)
+        # `visible` jumps ~two pages. A page is one item short of the viewport,
+        # as `QListView`'s: from the top row the first Page Down lands on the
+        # last visible item, and the view follows the selection from there.
+        per_page = Math.max items_per_page - 1, 1
         half = Math.max items_per_page // 2, 1
 
         # Vertical navigation (Up/Down/paging/Home-End + vi_keys k/j/g/G) is classified
@@ -212,8 +188,8 @@ module Crysterm
         when .last?          then self.current_index = @item_boxes.size - 1
         when .half_backward? then move_selection -half
         when .half_forward?  then move_selection half
-        when .page_backward? then page_selection -1
-        when .page_forward?  then page_selection 1
+        when .page_backward? then move_selection -per_page
+        when .page_forward?  then move_selection per_page
         else
           case
           # vi_keys H/M/L target the item at the top/middle/bottom *row* of the

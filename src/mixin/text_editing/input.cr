@@ -78,7 +78,7 @@ module Crysterm
         # editor ignores stay un-accepted so those accelerators still fire.
         handled = false
 
-        if k = e.key
+        if k = effective_key(e)
           if k == Tput::Key::Enter
             e.char = '\n'
             also_check_char = true
@@ -114,7 +114,7 @@ module Crysterm
           # start/end of the current line. Up/Down move one visual row,
           # remembering the goal column (`@goal_col`) so a detour across shorter
           # lines keeps the column. Page Up/Down turn the viewport by a page and
-          # put the caret on the new page's first/last row (`page_cursor`).
+          # move the caret with it, keeping its viewport row (`page_cursor`).
           moved = true
           paged = false # Page Up/Down scrolled the viewport (see `page_cursor`)
           if k == Tput::Key::Left
@@ -321,6 +321,23 @@ module Crysterm
         # Consume the event so window-level accelerators don't double-act on a
         # key this reading field already handled.
         e.accept if handled
+      end
+
+      # The key this keystroke stands for: `e.key`, or `PageDown` for Space in
+      # a read-only editor that `#space_pages?` — a read-only `QTextEdit` pages
+      # on Space, since there is nothing to type. The event is left as it
+      # arrived, so a listener after this one still sees the Space. Subclasses
+      # extend the mapping (`TextBrowser`).
+      protected def effective_key(e : Crysterm::Event::KeyPress) : Tput::Key?
+        return Tput::Key::PageDown if e.key.nil? && e.char == ' ' && read_only? && space_pages?
+        e.key
+      end
+
+      # Whether Space pages the view while read-only (`#effective_key`): the
+      # multi-line editors, as Qt's `QTextEdit`; not a one-row field (Qt's
+      # `QLineEdit` has no page to turn).
+      protected def space_pages? : Bool
+        false
       end
 
       # Whether *c* is a control character that should never be typed into the
