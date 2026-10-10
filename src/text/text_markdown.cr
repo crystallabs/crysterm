@@ -32,6 +32,12 @@ module Crysterm
   # - Fenced code → one block per line, `code`-flagged fragments on a
   #   `code_language` block (the exporter's fence detector; the info string
   #   is kept and re-emitted).
+  # - Every block built from a source line records it (`TextBlock#source_line`,
+  #   1-based): a paragraph's or heading's first line, each line of a code or
+  #   HTML block, each hard-broken line, each table row. Generated blocks
+  #   (separators, table borders, TOC entries) carry none. A streamed
+  #   document (`TextDocument#append_markdown`) numbers lines over the whole
+  #   stream, not per chunk.
   module TextMarkdown
     # Thematic-break rule the importer emits (and the exporter detects, along
     # with plain `-` runs).
@@ -318,6 +324,14 @@ module Crysterm
       # continues scanning from.
       getter pending : String = ""
 
+      # The 1-based line, counted over everything released so far, that the
+      # piece `#append` or `#flush` last returned starts on: what a consumer
+      # adds (minus one) to the piece-relative `TextBlock#source_line`s the
+      # parser stamps, so a streamed document's lines are the whole stream's.
+      getter piece_line = 1
+      # Lines (`'\n'`s) released so far.
+      @released_lines = 0
+
       # Byte offset into `@pending` of the first unscanned byte; only whole
       # `'\n'`-terminated lines are ever classified.
       @scan_pos = 0
@@ -359,6 +373,8 @@ module Crysterm
       def flush : String?
         rest = @pending
         reset
+        @piece_line = @released_lines + 1
+        @released_lines += rest.count('\n')
         rest.each_char.any? { |c| !c.in?(' ', '\t', '\r', '\n') } ? rest : nil
       end
 
@@ -394,6 +410,8 @@ module Crysterm
         @scan_pos -= b
         @boundary = nil
         @last_content_end = Math.max(@last_content_end - b, 0)
+        @piece_line = @released_lines + 1
+        @released_lines += piece.count('\n')
         piece
       end
 
@@ -509,6 +527,15 @@ module Crysterm
       # Raw source lines, kept so `task_marker` can consult `source_pos` to
       # reject escaped `\[x\]` markers.
       @source : Array(String)
+      # The source line (1-based, from `source_pos`) the text being imported
+      # comes from: set when a block-level node is entered and advanced by
+      # the line breaks inside a paragraph. `start_block` captures it as the
+      # block's first line (`@block_line`), which `end_block` stamps onto the
+      # block as `TextBlock#source_line` — so a soft-wrapped paragraph gets
+      # its first line, a hard-broken continuation and a code block's n-th
+      # line each their own.
+      @line : Int32?
+      @block_line : Int32?
 
       def initialize(source : String = "")
         @source = source.split('\n')
@@ -533,6 +560,7 @@ module Crysterm
           import_paragraph(node)
         when .heading?
           structure_separator
+          @line = source_line_of(node)
           start_block TextBlockFormat.new(heading_level: node.data["level"].as(Int32))
           walk_children(node)
           end_block
@@ -559,11 +587,14 @@ module Crysterm
           import_code_block(node)
         when .thematic_break?
           structure_separator
+          @line = source_line_of(node)
           start_block TextBlockFormat.new(horizontal_rule: true)
           end_block
         when .html_block?
           structure_separator
-          node.text.chomp.split('\n').each do |line|
+          first = source_line_of(node)
+          node.text.chomp.split('\n').each_with_index do |line, i|
+            @line = first + i
             start_block
             append_text line
             end_block
@@ -595,9 +626,11 @@ module Crysterm
           end
         when .soft_break?
           append_text " "
+          next_source_line
         when .line_break?
           # Hard break: new block in the same paragraph flow (no separator).
           end_block
+          next_source_line
           start_block
         when .html_inline?
           append_text node.text
@@ -610,6 +643,7 @@ module Crysterm
       # markd hands tables through as a plain paragraph of `|` rows.
       private def import_paragraph(node : Markd::Node) : Nil
         structure_separator
+        @line = source_line_of(node)
         # A table-shaped paragraph inside a list item stays ordinary item
         # content: import_table stamps no list membership, so taking the
         # table path there would detach it from the list and shift ordered
@@ -660,7 +694,11 @@ module Crysterm
         structure_separator
         fmt = TextCharFormat.new(code: true)
         bf = TextBlockFormat.new(code_language: node.fence_language)
-        node.text.chomp.split('\n').each do |line|
+        # A fence's content starts on the line after the opening fence;
+        # indented code starts on its own first line.
+        first = source_line_of(node) + (node.fenced? ? 1 : 0)
+        node.text.chomp.split('\n').each_with_index do |line, i|
+          @line = first + i
           start_block bf
           @frags << TextFragment.new(line, fmt) unless line.empty?
           end_block
@@ -734,6 +772,7 @@ module Crysterm
         # stray count on `@strip_alert`.
         @strip_alert = 0
         commit_block
+        @blocks.last.source_line = @block_line
         if @strike # unbalanced `~~`: the strike span ends with its block
           @strike = false
           @fmt = nil
@@ -746,12 +785,45 @@ module Crysterm
       # it).
       private def import_table(txt : String) : Nil
         bs = TextTable.build_from_gfm(txt) || return
+        stamp_table_lines(bs)
         adopt_table_blocks(bs)
         if kind = @alert_stack.last?
           q = TextBlockFormat.new(alert_kind: kind)
           bs.each { |b| b.block_format = b.block_format.merge(q) }
         end
         @emitted = true
+      end
+
+      # Hook (`TextImport::Builder#after_start_block`): the block under
+      # construction starts on the current source line.
+      private def after_start_block(collapse : Bool) : Nil
+        @block_line = @line
+      end
+
+      # The 1-based source line *node* starts on (`source_pos`; markd records
+      # it for block-level nodes when parsing with `source_pos: true`).
+      private def source_line_of(node : Markd::Node) : Int32
+        node.source_pos[0][0]
+      end
+
+      # A line break inside a paragraph: the text that follows comes from the
+      # next source line.
+      private def next_source_line : Nil
+        @line = @line.try &.+(1)
+      end
+
+      # Stamps a table's data rows with their source lines: the header on
+      # the paragraph's first line, the body rows from the third on (the
+      # delimiter row sits between and renders as no block). Border rows are
+      # generated and get none.
+      private def stamp_table_lines(bs : Array(TextBlock)) : Nil
+        first = @line || return
+        row = 0
+        bs.each do |b|
+          next unless TextTable.data_row?(b.text)
+          b.source_line = first + row + (row > 0 ? 1 : 0)
+          row += 1
+        end
       end
 
       # Marks the next block as this item's first block; a GFM task item
@@ -1602,19 +1674,24 @@ module Crysterm
     # (one undo step per released piece).
     def append_markdown(chunk : String) : Nil
       stream = (@markdown_stream ||= TextMarkdown::Stream.new)
-      stream.append(chunk).try { |piece| append_markdown_piece(piece) }
+      stream.append(chunk).try { |piece| append_markdown_piece(piece, stream.piece_line) }
     end
 
     # Parses and appends whatever `#append_markdown` still holds pending — the
     # end-of-stream signal. A pure-whitespace tail parses to nothing and is
     # dropped. No-op when nothing is pending.
     def flush_markdown : Nil
-      @markdown_stream.try(&.flush).try { |piece| append_markdown_piece(piece) }
+      stream = @markdown_stream || return
+      stream.flush.try { |piece| append_markdown_piece(piece, stream.piece_line) }
     end
 
     # Parses one released piece and appends its blocks at the document end.
-    private def append_markdown_piece(text : String) : Nil
+    # *line* is the piece's first line within the whole stream: the parser
+    # numbers `TextBlock#source_line` from 1 per piece, so the blocks are
+    # rebased onto it.
+    private def append_markdown_piece(text : String, line : Int32 = 1) : Nil
       parsed = TextMarkdown.parse(text)
+      parsed.each { |b| b.source_line = b.source_line.try &.+(line - 1) } if line > 1
       # An empty document adopts the piece wholesale — `#set_markdown`'s reset
       # semantics, minus the TOC refresh (manual for appends).
       if size == 0

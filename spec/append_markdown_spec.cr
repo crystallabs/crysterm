@@ -80,6 +80,33 @@ private def assert_split_property(md : String, label : String, file = __FILE__, 
   end
 end
 
+describe "streamed source lines" do
+  it "numbers TextBlock#source_line over the whole stream, not per piece" do
+    doc = Crysterm::TextDocument.new
+    doc.append_markdown "# A\n\npara one\n\n"
+    doc.append_markdown "## B\n\n"
+    doc.append_markdown "- x\n- y\n"
+    doc.flush_markdown
+    doc.blocks.map { |b| {b.text, b.source_line} }.should eq [
+      {"A", 1}, {"para one", 3}, {"B", 5}, {"x", 7}, {"y", 8},
+    ]
+    # The same text in one shot numbers identically.
+    one = Crysterm::TextDocument.from_markdown("# A\n\npara one\n\n## B\n\n- x\n- y\n")
+    one.blocks.map(&.source_line).should eq doc.blocks.map(&.source_line)
+  end
+
+  it "reports the line each released piece starts on" do
+    s = Crysterm::TextMarkdown::Stream.new
+    s.append("a\n\nb\n\nc").should eq "a\n\nb\n\n"
+    s.piece_line.should eq 1
+    s.append("\n\n").should eq "c\n\n"
+    s.piece_line.should eq 5
+    s.append("d\n").should be_nil
+    s.flush.should eq "d\n"
+    s.piece_line.should eq 7
+  end
+end
+
 describe Crysterm::TextMarkdown::Stream do
   it "releases a blank-terminated paragraph and keeps the unterminated tail pending" do
     s = Crysterm::TextMarkdown::Stream.new

@@ -740,7 +740,10 @@ module Crysterm
         # its block format (list/table/frame membership) must ride along or a
         # pasted list/table corrupts. Mid-block, the head half keeps the
         # surrounding block's format.
-        block.block_format = fblocks[0].block_format if off == 0
+        if off == 0
+          block.block_format = fblocks[0].block_format
+          block.source_line = fblocks[0].source_line
+        end
         fblocks[0].fragments.each { |f| block.insert(block.size, f.text, f.format) }
         new_blocks = Array(TextBlock).new(fblocks.size - 1)
         (1...fblocks.size - 1).each { |i| new_blocks << fblocks[i].clone }
@@ -750,6 +753,7 @@ module Crysterm
           acc += f.size
         end
         tail.block_format = fblocks.last.block_format
+        tail.source_line = fblocks.last.source_line
         new_blocks << tail
         adopt(new_blocks)
         blocks_mut[bi + 1, 0] = new_blocks

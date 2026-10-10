@@ -48,6 +48,21 @@ module Crysterm
       value
     end
 
+    # The 1-based line of the source text this block was imported from, when
+    # the importer recorded one, else `nil`. The Markdown importer stamps
+    # every block it builds from a source line: a paragraph's or heading's
+    # first line, each line of a code block, each hard-broken line, each
+    # table row. Blocks typed, pasted or generated (a TOC entry, a table
+    # border row, a quote-interior separator) carry none. This is the hook an
+    # editor/preview pair syncs its carets on: a source line maps to the
+    # block imported from it and back (`TextDocument#block_at`), with no
+    # position arithmetic the source markup would throw off.
+    #
+    # Not content: setting it records no undo entry and bumps no revision.
+    # `#clone` copies it; `#split` leaves the tail without one (the tail is an
+    # edit, not an import).
+    property source_line : Int32?
+
     # Overlay format runs `{from, to, patch}` a `SyntaxHighlighter` laid over
     # this block (Qt's layout `additionalFormats`): purely presentational,
     # never merged into the fragments, so highlighting doesn't touch the
@@ -153,7 +168,9 @@ module Crysterm
     # Deep copy: the fragment list is fresh, while strings and formats are
     # immutable and shared.
     def clone : TextBlock
-      TextBlock.new(@fragments.map { |f| TextFragment.new(f.text, f.format) }, @block_format)
+      b = TextBlock.new(@fragments.map { |f| TextFragment.new(f.text, f.format) }, @block_format)
+      b.source_line = @source_line
+      b
     end
 
     # Format of the character *preceding* `offset` (Qt `QTextCursor#charFormat`
