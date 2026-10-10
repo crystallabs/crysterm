@@ -135,11 +135,17 @@ module Crysterm
 
     # Whether `ev` is a quit-eligible key gesture on window `w`: an unconsumed
     # (`!accepted?`) quit key that no keyboard grab is intercepting — so typing
-    # `q` into a reading `LineEdit`/`TextEdit` never quits. Callers add any
+    # `q` into a reading `LineEdit`/`TextEdit` never quits. Two keys do pass a
+    # grab: `Ctrl-Q`, a control chord no reading widget types (the hard exit
+    # an editor documents), and any key on the window's always-propagate
+    # lists (`Window#always_propagated_keys`/`#always_propagated_chars`), the
+    # documented way to keep an app hotkey live under a grab — a pager whose
+    # read-only viewer should quit on `q` lists `'q'` there. Callers add any
     # further gate (e.g. `w.default_quit_keys?`) themselves. Shared by the
     # class-method graceful-close path (`.exec_all`) and instance `#route_input`.
     def self.quit_gesture?(w, ev) : Bool
-      !ev.accepted? && !w.grab_keys? && quit_key?(ev.char, ev.key)
+      return false if ev.accepted? || !quit_key?(ev.char, ev.key)
+      !w.grab_keys? || ev.key == ::Tput::Key::CtrlQ || w.always_propagated?(ev)
     end
 
     # :ditto:

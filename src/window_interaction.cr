@@ -68,6 +68,14 @@ module Crysterm
     # `Event::Key#key_event` / `Tput::KeyEvent`.)
     property always_propagated_chars = Array(Char).new
 
+    # Whether *e* is on either always-propagate list — its `#key` in
+    # `#always_propagated_keys` or its `#char` in `#always_propagated_chars`.
+    # Such a key bubbles past a keyboard grab, and the default quit keys
+    # (`Application.quit_gesture?`) honor it under one.
+    def always_propagated?(e : Crysterm::Event::Key) : Bool
+      @always_propagated_keys.includes?(e.key) || @always_propagated_chars.includes?(e.char)
+    end
+
     # Sets up IO listeners for keyboard and mouse input.
     def start_input
       # Ensure this surface is registered with an `Application`, the dispatcher
@@ -269,8 +277,7 @@ module Crysterm
         # Whether this key is on either always-propagate list (special `#key` or
         # ordinary `#char`) — scanned once and reused across the three checks
         # below.
-        always_propagate = @always_propagated_keys.includes?(e.key) ||
-                           @always_propagated_chars.includes?(e.char)
+        always_propagate = always_propagated? e
 
         # Not propagating and key isn't on the always-propagate list: done.
         if !@propagate_keys && !always_propagate
