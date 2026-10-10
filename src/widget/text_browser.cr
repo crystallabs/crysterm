@@ -216,8 +216,15 @@ module Crysterm
       end
 
       # Browser keys: `Tab`/`Shift-Tab` cycle links, `Enter` activates the
-      # focused one, `Backspace` goes back.
+      # focused one, `Backspace` goes back, and — while read-only, where
+      # there is nothing to type — the pager keys of `less` and `man`:
+      # `Space` reads on by a page and `Enter` (with no link focused) by a
+      # line, each riding the matching cursor key's own path.
       def _listener(e)
+        if read_only? && e.key.nil? && e.char == ' '
+          e.char = '\0'
+          e.key = Tput::Key::PageDown
+        end
         if k = e.key
           case k
           when Tput::Key::Tab
@@ -230,6 +237,10 @@ module Crysterm
             if @focused_link >= 0 && (l = links[@focused_link]?)
               e.accept
               return activate_link(l.url)
+            end
+            if read_only?
+              e.char = '\0'
+              e.key = Tput::Key::Down
             end
           when Tput::Key::Backspace, Tput::Key::CtrlH
             e.accept
