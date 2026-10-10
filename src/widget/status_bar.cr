@@ -1,4 +1,6 @@
 require "./box"
+require "../layout/hbox"
+require "./line_prompt"
 
 module Crysterm
   class Widget
@@ -14,6 +16,35 @@ module Crysterm
     # bar.add_permanent "UTF-8"
     # bar.add_permanent "Ln 1, Col 1"
     # bar.show_message "Saved", 2.seconds
+    # ```
+    #
+    # A bar can also be built from *widgets* — Qt's `addPermanentWidget`,
+    # here `#add_permanent_widget` — for fields that do more than show text:
+    # a live `Label`, a `ToolButton` that toggles a mode on click. The bar's
+    # layout is a `Layout::HBox`, so the fields sit in one row in add order,
+    # each as wide as its `width` spec (a percentage divides the bar
+    # proportionally at any terminal width) and those without one sharing
+    # the rest, like a `QStatusBar`'s own box layout. The painted message and
+    # text sections keep to the cells left of the first field, so a bar of
+    # fields only shows the fields.
+    #
+    # The bar can also ask a question in place of itself, the way vi's
+    # command line replaces the status line: `#prompt` shows a `LinePrompt`
+    # over the whole bar until the user answers (Enter) or gives up (Escape,
+    # or Backspace on an empty line), then the fields return.
+    #
+    # ```
+    # bar.prompt("Save as: ", "notes.md") { |path| save path if path }
+    # ```
+    #
+    # ```
+    # name = Widget::Label.new content: "notes.md" # takes the rest
+    # pos = Widget::Label.new width: "15%", content: "Ln 1, Col 1"
+    # ovr = Widget::ToolButton.new width: 5, text: "INS"
+    # ovr.on_clicked { editor.overwrite_mode = !editor.overwrite_mode? }
+    # bar.add_permanent_widget name
+    # bar.add_permanent_widget pos
+    # bar.add_permanent_widget ovr
     # ```
     # Excluded from the DOM-loader registry: self-populating composite
     # (see `Crysterm::DOM::Skip`).
@@ -65,6 +96,71 @@ module Crysterm
         # `window_region_focus.cr`) only actually stops here once the bar hosts
         # a focusable child widget. Turn off via `region_focusable = false`.
         @region_focusable = true
+        # Fields (`#add_permanent_widget`) form one row; an app that wants
+        # another arrangement assigns its own engine.
+        self.layout = Layout::HBox.new
+      end
+
+      # Adds *widget* as a field of the bar (Qt's `addPermanentWidget`):
+      # parented here and placed by the bar's layout after the fields added
+      # before it. Adding the same widget twice is a no-op. Returns *widget*.
+      def add_permanent_widget(widget : Widget) : Widget
+        return widget if @permanent_widgets.includes? widget
+        @permanent_widgets << widget
+        append widget
+        update!
+        widget
+      end
+
+      # Removes *widget* from the bar, detaching (not destroying) it (Qt's
+      # `removeWidget`); a no-op when it is not a field here.
+      def remove_permanent_widget(widget : Widget) : Nil
+        return unless @permanent_widgets.delete widget
+        remove widget
+        update!
+      end
+
+      # The fields, in add order. A copy — add and remove through
+      # `#add_permanent_widget`/`#remove_permanent_widget`, which also do the
+      # parenting.
+      def permanent_widgets : Array(Widget)
+        @permanent_widgets.dup
+      end
+
+      @permanent_widgets = [] of Widget
+
+      # The bar's prompt line, built on first use: a row of chrome over the
+      # whole bar (not a field), hidden until `#prompt`.
+      getter line_prompt : LinePrompt do
+        pl = LinePrompt.new left: 0, top: 0, width: "100%", height: 1
+        pl.layout_chrome = true
+        append pl
+        pl
+      end
+
+      # Asks *label* in place of the bar (see `LinePrompt#prompt`): the
+      # fields and sections stand down until the answer — the entered text,
+      # or `nil` when cancelled — is delivered to *callback*.
+      def prompt(label : String, value : String = "", &callback : String? ->) : Nil
+        line_prompt.prompt(label, value, &callback)
+      end
+
+      # Whether a question is open in place of the bar.
+      def prompting? : Bool
+        @line_prompt.try(&.active?) || false
+      end
+
+      # The first interior column a visible field occupies this frame, in
+      # absolute cells, or `nil` without fields — where the painted message
+      # and text sections must stop. Read after the children rendered.
+      private def fields_left : Int32?
+        left = nil.as(Int32?)
+        @permanent_widgets.each do |w|
+          next unless w.visible?
+          next unless pos = w.lpos
+          left = pos.xi if left.nil? || pos.xi < left
+        end
+        left
       end
 
       # Shows *text* as the temporary message. With *timeout*, the message clears
@@ -187,9 +283,11 @@ module Crysterm
       end
 
       def paint(*, with_children = true)
-        set_content @message
+        # While a question is open the prompt line covers the bar: neither
+        # the message nor the sections are painted under it.
+        set_content(prompting? ? "" : @message)
         super
-        draw_permanent
+        draw_permanent unless prompting?
       end
 
       # Overlays the permanent sections, right-aligned, after the base render
@@ -198,6 +296,8 @@ module Crysterm
       private def draw_permanent : Nil
         return if @permanent.empty?
         with_inner_coords do |xi, xl, yi, _yl|
+          # The fields own their cells; the sections end a cell short of them.
+          fields_left.try { |fl| xl = Math.min(xl, fl - 1) }
           avail = xl - xi
           return if avail <= 0
           text = @permanent_text
