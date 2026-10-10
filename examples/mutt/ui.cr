@@ -30,11 +30,14 @@ class MuttUI
   # Bottom: status line above the command line.
   getter status : StatusBar
   getter cmd_label : CW::Box
-  getter cmd_input : CW::LineEdit
+  # The command-line prompt (`LinePrompt`): laid over the whole command line
+  # while a question is open — Mutt asks for To/Subject/headers this way.
+  getter prompt : CW::LinePrompt
 
   # Whether a command-line prompt currently owns the keyboard.
-  getter? prompt_active = false
-  @prompt_done : Proc(String, Nil)? = nil
+  def prompt_active? : Bool
+    @prompt.active?
+  end
 
   def initialize(@window, *, mailboxes : Array(Mailbox), messages : Array(Message), help_text : String)
     frame = CW::Box.new(parent: @window, width: "100%", height: "100%", layout: CT::Layout::Dock.new)
@@ -69,35 +72,29 @@ class MuttUI
     @help = CW::ScrollableText.new(parent: center, parse_tags: true, keys: true, content: help_text)
 
     # A two-row footer stacked by a VBox — status line above, command line
-    # below. The command line is an HBox of a label zone (transient status, or
-    # a prompt like "To:") and, during a text prompt, an inline editor to its
-    # right — Mutt does all its prompting right here on the bottom line.
+    # below. The command line holds the label zone (transient status) and,
+    # over it while a question is open, a `LinePrompt` — Mutt does all its
+    # prompting right here on the bottom line.
     footer = CW::Box.new(parent: frame, height: 2, layout: CT::Layout::VBox.new,
       layout_hint: :bottom)
     @status = StatusBar.new
     footer.append @status
     cmdline = CW::Box.new(height: 1, width: "100%", layout: CT::Layout::HBox.new)
     footer.append cmdline
-    # `cmd_label` fills the line for plain messages; for a prompt it shrinks to
-    # the label width and `cmd_input` (flex) fills the rest.
+    # `cmd_label` fills the line for plain messages. The prompt is chrome over
+    # the whole line (not a flex cell), hidden until a question is asked — the
+    # same arrangement `StatusBar#prompt` uses.
     @cmd_label = CW::Box.new(height: 1, parse_tags: true)
-    @cmd_input = CW::LineEdit.new(height: 1, visible: false)
-    cmdline.append @cmd_label, @cmd_input
-
-    @cmd_input.on(CT::Event::Submitted) do
-      if @prompt_active
-        value = @cmd_input.value
-        done = @prompt_done
-        finish_prompt
-        done.try &.call(value)
-      end
-    end
+    cmdline.append @cmd_label
+    @prompt = CW::LinePrompt.new(left: 0, top: 0, width: "100%", height: 1)
+    @prompt.layout_chrome = true
+    @prompt.label.style = CT::Style.new(bold: true)
+    cmdline.append @prompt
   end
 
   # Show a transient status message on the command line: the label zone fills
-  # the whole line, the inline editor stands down.
+  # the whole line.
   def show_message(text : String) : Nil
-    @cmd_input.hide
     @cmd_label.content = text
     @cmd_label.width = nil
   end
@@ -116,32 +113,21 @@ class MuttUI
   end
 
   # Open a command-line prompt (Mutt asks for To/Subject/headers this way): the
-  # bold label shrinks to its width on the left, the inline editor fills the
-  # rest of the line, and the block runs with the submitted value.
+  # bold label on the left, the inline editor filling the rest of the line.
+  # The block runs with the submitted value, or `nil` when the prompt was
+  # cancelled — Escape, or Backspace on an empty line, as in vi; the
+  # `LinePrompt` handles those keys itself.
   #
   # *e* is the keypress that triggered the prompt. Accepting it marks the key
   # consumed, which is what stops `Application#route_input` from also treating
   # a command letter as the app-global quit key.
-  def open_prompt(label : String, initial : String, e : CT::Event::KeyPress?, &on_done : String ->) : Nil
-    @prompt_active = true
-    @prompt_done = on_done
-    @cmd_label.content = "{bold}#{label}{/bold}"
-    @cmd_label.width = label.size
-    @cmd_input.value = initial
-    @cmd_input.show
-    # `cmd_input` was hidden, so the enclosing HBox has not yet given it a
-    # column or a width — those are assigned during the render that `focus`
-    # schedules, and the end of that render re-places the caret against the
-    # resolved geometry.
-    @cmd_input.focus
+  def open_prompt(label : String, initial : String, e : CT::Event::KeyPress?, &on_done : String? ->) : Nil
+    @prompt.prompt(label, initial, &on_done)
     e.try &.accept
   end
 
-  # Close the command-line prompt without running its block.
+  # Close the command-line prompt; its block runs with `nil`.
   def finish_prompt : Nil
-    @prompt_active = false
-    @prompt_done = nil
-    @cmd_input.value = ""
-    @cmd_input.hide
+    @prompt.cancel
   end
 end

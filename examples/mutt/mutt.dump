@@ -22,10 +22,10 @@ w=80 h=24
 |                        │                                                       |
 |                        │                                                       |
 |                        │                                                       |
-|-*-Mutt: INBOX [Msgs:9 New:3 Del---------------------------(threads/date)-(all)-|
+|-*-Mutt: INBOX [Msgs:9 New:3 Del:1]------------------------(threads/date)-(all)-|
 |9 messages, 3 new                                                               |
 +--------------------------------------------------------------------------------+
 attrs:
 y0: 0-0:def/def+b+r 1-6:def/def+r 7-7:def/def+b+r 8-13:def/def+r 14-14:def/def+b+r 15-20:def/def+r 21-21:def/def+b+r 22-28:def/def+r 29-33:def/def+b+r 34-39:def/def+r 40-40:def/def+b+r 41-45:def/def+r 46-46:def/def+b+r 47-53:def/def+r 54-54:def/def+b+r 55-60:def/def+r 61-63:def/def+b+r 64-79:def/def+r
 y1: 0-23:#101010/#89b4fa 25-79:#101010/#89b4fa
-y22: 0-31:#cdd6f4/#424453+r 32-79:#cdd6f4/def+r
+y22: 0-57:#cdd6f4/#424453+r 58-79:#cdd6f4/def+r

@@ -272,16 +272,23 @@ end
 # Shared by the header command keys (t/c/s/b, which pass their triggering
 # keypress so it can be `accept`ed) and by Enter/click on a header row (which
 # pass `nil`). From is display-only here, so it has no prompt.
+# A cancelled prompt (Escape, or Backspace on an empty line) returns to where
+# it was asked from, with Mutt's "Cancelled" on the command line.
+prompt_cancelled = -> do
+  (current == :index) ? goto_index.call : ui.compose.menu.focus
+  ui.show_message "Cancelled"
+end
+
 edit_field = ->(field : String, e : CT::Event::KeyPress?) do
   case field
   when "To"
-    ui.open_prompt("To: ", draft_to, e) { |v| draft_to = v; open_compose_menu.call }
+    ui.open_prompt("To: ", draft_to, e) { |v| v ? (draft_to = v; open_compose_menu.call) : prompt_cancelled.call }
   when "Cc"
-    ui.open_prompt("Cc: ", draft_cc, e) { |v| draft_cc = v; open_compose_menu.call }
+    ui.open_prompt("Cc: ", draft_cc, e) { |v| v ? (draft_cc = v; open_compose_menu.call) : prompt_cancelled.call }
   when "Bcc"
-    ui.open_prompt("Bcc: ", draft_bcc, e) { |v| draft_bcc = v; open_compose_menu.call }
+    ui.open_prompt("Bcc: ", draft_bcc, e) { |v| v ? (draft_bcc = v; open_compose_menu.call) : prompt_cancelled.call }
   when "Subject"
-    ui.open_prompt("Subject: ", draft_subject, e) { |v| draft_subject = v; open_compose_menu.call }
+    ui.open_prompt("Subject: ", draft_subject, e) { |v| v ? (draft_subject = v; open_compose_menu.call) : prompt_cancelled.call }
   else
     e.try &.accept
   end
@@ -397,17 +404,9 @@ s.on(CT::Event::KeyPress) do |e|
     next
   end
 
-  # While the command-line prompt is up it owns the keyboard; only Escape
-  # (cancel) is handled here — everything else flows to the LineEdit.
-  if ui.prompt_active?
-    if key == Tput::Key::Escape
-      ui.finish_prompt
-      goto_index.call if current == :index
-      (current == :compose) ? ui.compose.menu.focus : nil
-      ui.show_message "Cancelled"
-    end
-    next
-  end
+  # While the command-line prompt is up it owns the keyboard — Escape cancels
+  # it on its own (`LinePrompt`), and the command letters stand down.
+  next if ui.prompt_active?
 
   case current
   when :index
