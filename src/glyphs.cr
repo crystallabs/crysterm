@@ -256,6 +256,8 @@ module Crysterm
       IconChat
       IconUser
       IconUsers
+      # A pointing device — a mouse-mode indicator's icon.
+      IconMouse
       # Time
       IconClock
       IconCalendar
@@ -717,6 +719,7 @@ module Crysterm
       set_in t, Role::IconChat, Entry.new('"', nil, '💬')
       set_in t, Role::IconUser, Entry.new('@', nil, '👤')
       set_in t, Role::IconUsers, Entry.new('%', nil, '👥')
+      set_in t, Role::IconMouse, Entry.new('M', nil, '🖱')
 
       set_in t, Role::IconClock, Entry.new('t', nil, '🕐')
       set_in t, Role::IconCalendar, Entry.new('#', nil, '📅')
