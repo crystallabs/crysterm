@@ -231,6 +231,23 @@ module Crysterm
       # still works programmatically.
       property? read_only : Bool = false
 
+      # Whether typed characters replace the one under the caret instead of
+      # being inserted before it — Qt's `QTextEdit#overwriteMode`. Off by
+      # default; the Insert key toggles it. Overwriting stops at the end of a
+      # line (the character after a line end is never consumed), a typed line
+      # break always inserts, and typing over a selection replaces the
+      # selection as in insert mode. Each overwritten character is one undo
+      # step: the delete-and-insert pair is grouped.
+      getter? overwrite_mode : Bool = false
+
+      # :ditto: — emits `Event::OverwriteModeChanged` on an actual change.
+      def overwrite_mode=(value : Bool) : Bool
+        return value if value == @overwrite_mode
+        @overwrite_mode = value
+        emit Crysterm::Event::OverwriteModeChanged, value
+        value
+      end
+
       # Desired column for vertical (Up/Down) movement, as a codepoint offset
       # into the target real line. Set on the first Up/Down so that walking
       # across short lines and back preserves the original column, and cleared

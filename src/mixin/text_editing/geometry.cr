@@ -259,6 +259,12 @@ module Crysterm
         true
       end
 
+      # Whether overwrite mode has a character to consume at the cursor: one
+      # exists and it is not a line end (overwriting never joins lines).
+      private def overwrite_target? : Bool
+        @cursor_pos < buf_size && buf_char(@cursor_pos) != '\n'
+      end
+
       # Inserts `text` at the cursor and advances the cursor past it, clearing the
       # goal column as every edit does.
       private def insert_at_cursor(text : String) : Nil

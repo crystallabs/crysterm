@@ -230,6 +230,9 @@ module Crysterm
                 buf_delete(@cursor_pos, @cursor_pos + w)
               end
             end
+          elsif !read_only? && k == Tput::Key::Insert
+            # Insert/overwrite toggle (Qt's `QTextEdit` does the same).
+            self.overwrite_mode = !overwrite_mode?
           elsif rl && !read_only? && k == Tput::Key::CtrlW # kill word before cursor
             killed = kill_backward_to word_left_pos
           elsif rl && !read_only? && k == Tput::Key::AltD # kill word after cursor
@@ -263,9 +266,22 @@ module Crysterm
           # first, then measure `max_length` against the freed-up length so a
           # replacement in a full field still works.
           unless TextEditing.control_char?(c)
+            # Overwrite mode consumes the grapheme under the caret, except
+            # over a selection (replaced as one unit, like insert mode), at a
+            # line end, or for a typed line break — those insert. Replacing
+            # keeps the size, so `max_length` is only measured on an insert.
+            overwrite = overwrite_mode? && !selection? && c != '\n'
             edit_replacing_selection do
-              at_limit = (ml = @max_length) ? buf_size >= ml : false
-              insert_at_cursor c.to_s unless at_limit
+              if overwrite && overwrite_target?
+                buf_edit_group do
+                  @goal_col = nil
+                  buf_delete(@cursor_pos, @cursor_pos + cursor_next_width)
+                  insert_at_cursor c.to_s
+                end
+              else
+                at_limit = (ml = @max_length) ? buf_size >= ml : false
+                insert_at_cursor c.to_s unless at_limit
+              end
             end
             # A printable character was consumed (even if the field was full and
             # the insert was suppressed) — don't let it also trigger a hotkey.

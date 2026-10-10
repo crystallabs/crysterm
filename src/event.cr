@@ -348,6 +348,12 @@ module Crysterm
     # geometry, or a document cursor for the document-backed editors.
     event CursorPositionChanged, position : Int32
 
+    # Emitted by an editable text widget when its insert/overwrite mode
+    # flips (`Mixin::TextEditing#overwrite_mode=`, the Insert key) — the
+    # signal a status bar's INS/OVR indicator follows. `overwrite` is the new
+    # mode.
+    event OverwriteModeChanged, overwrite : Bool
+
     # Emitted by an editable text widget when its selection changed —
     # extended, moved, or dropped (Qt's `selectionChanged()`). Parameterless,
     # as in Qt: read `#selected_text`/`#selection_range` off the sender (the
