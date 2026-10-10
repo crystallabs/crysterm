@@ -20,7 +20,11 @@ module Crysterm
   #   (numbering start). *Consecutive* blocks with identical list props join
   #   one `TextList`; a non-list block in between splits it (two adjacent
   #   distinct lists with equal props therefore merge on a round-trip).
-  #   Number prefix/suffix are not serialized.
+  #   Number prefix/suffix are not serialized. Tables: `tbl-N` (column
+  #   count) with optional `tal-<spec>` (per-column alignment, one letter
+  #   each: `l`eft/`c`enter/`r`ight) on every row block; the same
+  #   consecutive-run identity rule as lists makes the rows one
+  #   `TextTableFormat` instance, which is what the markdown exporter reads.
   # - Alignment additionally round-trips through the widget-native
   #   `{center}…{/center}` / `{right}…{/right}` wrapping tags — the export
   #   form, since widgets understand it.
@@ -277,7 +281,21 @@ module Crysterm
         # Per-block checked state of a checkbox item ([x] vs [ ]).
         props << "checked" if lf.style.checkbox? && bf.checked?
       end
+      if tf = bf.table_format
+        props << "tbl-#{tf.columns}"
+        if als = tf.alignments
+          props << "tal-#{als.join { |a| table_align_letter(a) }}"
+        end
+      end
       io << "{!block;" << props.join(';') << '}' unless props.empty?
+    end
+
+    # The `tal-` letter of a column alignment; anything but horizontal
+    # center/right (including `nil`-ish flags) is the GFM default, left.
+    private def self.table_align_letter(a : Tput::AlignFlag) : Char
+      return 'c' if a.h_center?
+      return 'r' if a.right?
+      'l'
     end
 
     private def self.write_fragment(io : IO, f : TextFragment, palette : ContentPalette? = nil, bf : TextBlockFormat = TextBlockFormat.default) : Nil
@@ -336,6 +354,9 @@ module Crysterm
       # Open list run (see `#list_instance`).
       @cur_list : TextListFormat?
       @cur_list_spec : {TextListFormat::Style, Int32, Int32}?
+      # Open table run (see `#table_instance`).
+      @cur_table : TextTableFormat?
+      @cur_table_spec : {Int32, Array(Tput::AlignFlag)?}?
 
       def parse(text : String) : Array(TextBlock)
         # The lexical layer is the shared `TextTags.each_token` (one grammar
@@ -436,6 +457,8 @@ module Crysterm
         list_style = nil
         list_indent = 1
         list_start = 1
+        table_columns = nil
+        table_aligns = nil
         spec.split(';').each_with_index do |prop, i|
           next if i == 0 # the "!block" marker itself
           # Numeric props use `to_i?`: an out-of-range value is a malformed
@@ -459,14 +482,18 @@ module Crysterm
           when /\Ali-(\d+)\z/     then list_indent = $1.to_i? || list_indent
           when /\Als-(\d+)\z/     then list_start = TextListFormat.sanitize_start($1.to_i? || list_start)
           when "checked"          then checked = true
+          when /\Atbl-(\d+)\z/    then table_columns = $1.to_i?
+          when /\Atal-([lcr]+)\z/ then table_aligns = $1.chars.map { |c| table_align_flag(c) }
           end
         end
         lf = list_style ? list_instance(list_style, list_indent, list_start) : nil
+        # `tal-` without `tbl-` is dropped; a column count of 0 is malformed.
+        tf = table_columns && table_columns > 0 ? table_instance(table_columns, table_aligns) : nil
         @block_format = @block_format.merge(TextBlockFormat.new(
           alignment: align, indent: indent, top_margin: mt, bottom_margin: mb,
           bg: bg, heading_level: heading, non_breakable: nobreak,
           quote_level: quote, horizontal_rule: hr, checked: checked,
-          list_format: lf, code_language: code_language))
+          list_format: lf, table_format: tf, code_language: code_language))
       end
 
       # Consecutive blocks with identical list props share one
@@ -479,6 +506,28 @@ module Crysterm
         else
           @cur_list_spec = spec
           @cur_list = TextListFormat.new(style: style, indent: indent, start: start)
+        end
+      end
+
+      # Consecutive blocks with an identical `tbl-`/`tal-` spec share one
+      # `TextTableFormat` instance — the row-grouping identity the markdown
+      # exporter relies on (`TextTable`'s `same?` convention); a finished
+      # block without table props resets the run (see `#finish_block`).
+      private def table_instance(columns : Int32, alignments : Array(Tput::AlignFlag)?) : TextTableFormat
+        spec = {columns, alignments}
+        if (cur = @cur_table) && @cur_table_spec == spec
+          cur
+        else
+          @cur_table_spec = spec
+          @cur_table = TextTableFormat.new(columns: columns, alignments: alignments)
+        end
+      end
+
+      private def table_align_flag(c : Char) : Tput::AlignFlag
+        case c
+        when 'c' then Tput::AlignFlag::HCenter
+        when 'r' then Tput::AlignFlag::Right
+        else          Tput::AlignFlag::Left
         end
       end
 
@@ -517,6 +566,8 @@ module Crysterm
         # A block without list props ends the current list run — the next
         # list block starts a fresh `TextList`.
         @cur_list = @cur_list_spec = nil if @block_format.list_format.nil?
+        # Likewise a block without table props ends the current table run.
+        @cur_table = @cur_table_spec = nil if @block_format.table_format.nil?
         @frags = [] of TextFragment
         # A still-open alignment tag carries into the next block.
         @block_format = (af = @aligns.last?) ? TextBlockFormat.new(alignment: af) : TextBlockFormat.default
