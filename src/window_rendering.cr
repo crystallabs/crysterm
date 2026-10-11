@@ -794,6 +794,12 @@ module Crysterm
       end
     end
 
+    # The color depth and the hyperlink policy the last frame was drawn
+    # with, so `_render_frame` sees one changed at run time and redraws
+    # everything (0: no frame yet).
+    @_drawn_ncolors = 0
+    @_drawn_links : Bool? = nil
+
     private def _render_frame
       t1 = Time.instant
 
@@ -803,6 +809,23 @@ module Crysterm
       # which clears the dirty flag.
       if @optimization.damage_tracking? && css_dirty?
         damage_force_full
+      end
+
+      # A change of output color depth since the last frame (`colors.depth`
+      # set at run time, re-resolved by `#color_count`) reduces every color
+      # differently, so every cell must reach the wire again: the diff against
+      # what the terminal shows would otherwise re-emit only the cells whose
+      # content changed, leaving the rest in the old depth.
+      # Likewise the hyperlink policy (`#hyperlinks`, `render.hyperlinks`):
+      # OSC 8 is emitted with a cell, so switching it on or off reaches the
+      # links already on screen only through a full re-emission.
+      ncolors = color_count
+      links = hyperlinks?
+      if @_drawn_ncolors != ncolors || @_drawn_links != links
+        @_drawn_ncolors = ncolors
+        @_drawn_links = links
+        damage_force_full
+        invalidate_region 0, width, 0, height
       end
 
       # Resolve CSS styling (no-op unless a stylesheet is set and dirty) before
