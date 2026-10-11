@@ -120,6 +120,15 @@ module Crysterm
         @text
       end
 
+      # The mirror as it stands — the last text copied or received — read
+      # without asking the paste command, whatever the mode: what `Internal`
+      # mode's `#text` is, for an application that offers the in-process
+      # buffer as one paste source beside the system's (an editor's
+      # "Paste Special").
+      def internal_text : String
+        @text
+      end
+
       # Sets the clipboard text and copies it to the active window's terminal.
       def text=(value : String) : String
         copy value
