@@ -75,12 +75,23 @@ module Crysterm
     end
   end
 
+  # Suspends the process the way the shell's `Ctrl-Z` does, from inside the
+  # application: hands every terminal back (`.suspend_terminals`) and stops
+  # the process, so the user is back at the shell prompt until `fg`, when
+  # the `SIGCONT` trap below repaints. For an app that takes `Ctrl-Z` as a
+  # key — raw mode turns the terminal's own job-control keys into ordinary
+  # keystrokes (`ISIG` off), so the shell never sees them — and wants it to
+  # mean what it means everywhere else.
+  def self.suspend : Nil
+    suspend_terminals
+    Process.signal Signal::STOP, Process.pid
+  end
+
   # SIGTSTP: suspend cleanly. TSTP (unlike SIGSTOP) is catchable, so restore
   # the terminal(s) first, then deliver the real (uncatchable) STOP to self.
   # On `fg`, the shell sends SIGCONT, handled below.
   Signal::TSTP.trap do
-    suspend_terminals
-    Process.signal Signal::STOP, Process.pid
+    suspend
   end
   Signal::CONT.trap do
     resume_terminals
