@@ -28,7 +28,39 @@ module Crysterm
         Dark     # Built-in dark theme
         Light    # Built-in light theme
         None     # No built-in theme (CSS comes only from an author stylesheet)
+        # The Qt themes shipped inside the binary (`BUILTIN_STYLESHEETS`),
+        # each named as its sheet is: `breeze-dark` on the command line and in
+        # a config file (`Enum.parse` reads the dashes), `BreezeDark` here.
+        BreezeDark
+        BreezeLight
+        QdarkstyleDark
+        QdarkstyleLight
+        QtmodernDark
+
+        # The built-in Qt stylesheet this choice names, as `BUILTIN_STYLESHEETS`
+        # keys it (`breeze-dark` for `BreezeDark`), or nil for a generated theme.
+        def builtin_stylesheet : String?
+          key = to_s.underscore.tr("_", "-")
+          BUILTIN_STYLESHEETS.has_key?(key) ? key : nil
+        end
       end
+
+      # The Qt stylesheets shipped inside the binary — `data/css/*.qss` of the
+      # Crysterm source, read at compile time — keyed by file name without the
+      # extension: Breeze and QDarkStyle in their dark and light forms, and
+      # qtmodern's dark one. Each is a Qt theme in Qt's own vocabulary
+      # (`QWidget`, `QMenuBar`, `palette(...)`), translated through `Qss` when
+      # first used (`Theme.builtin`). Nothing is read from disk at run time, so
+      # an application lists and switches them wherever it runs, as it does the
+      # generated themes; a `.qss` of the user's own still goes through
+      # `Window#load_stylesheet` or `colors.stylesheet`.
+      BUILTIN_STYLESHEETS = {
+        "breeze-dark"      => {{ read_file("#{__DIR__}/../../../data/css/breeze-dark.qss") }},
+        "breeze-light"     => {{ read_file("#{__DIR__}/../../../data/css/breeze-light.qss") }},
+        "qdarkstyle-dark"  => {{ read_file("#{__DIR__}/../../../data/css/qdarkstyle-dark.qss") }},
+        "qdarkstyle-light" => {{ read_file("#{__DIR__}/../../../data/css/qdarkstyle-light.qss") }},
+        "qtmodern-dark"    => {{ read_file("#{__DIR__}/../../../data/css/qtmodern-dark.qss") }},
+      }
 
       # The eight semantic roles. Each is one primary color from which five
       # shades are derived; their names become the CSS custom-property prefixes
@@ -50,7 +82,53 @@ module Crysterm
       getter? paint_surface : Bool
       getter? paint_text : Bool
 
-      def initialize(@name, @dark, @primaries, @paint_surface = true, @paint_text = true)
+      # For a theme made from a built-in Qt stylesheet (`Theme.builtin`), the
+      # sheet translated to Crysterm CSS, laid over the generated rules in the
+      # theme's stylesheet; nil for a generated theme.
+      getter overlay : String?
+
+      def initialize(@name, @dark, @primaries, @paint_surface = true, @paint_text = true, @overlay = nil)
+      end
+
+      # The themes made from `BUILTIN_STYLESHEETS` so far, by name, and their
+      # parsed stylesheets: each sheet is translated and parsed once per run.
+      @@builtins = {} of String => Theme
+      @@builtin_sheets = {} of String => Stylesheet
+
+      # The theme made from the built-in Qt stylesheet *name* (a key of
+      # `BUILTIN_STYLESHEETS`), or nil for a name that is not one. A Qt sheet
+      # covers Qt's widgets and says nothing of Crysterm's own vocabulary —
+      # the rich text's `TextEdit::heading`, a splitter's `.divider`, the
+      # `Box:selected` highlight — so it is laid over the generated rules
+      # rather than put in their place, winning every tie by coming after
+      # them, and the palette the generated rules draw from is derived from
+      # the sheet's own window colors: its `QWidget` background, text and
+      # selection color stand in for `Theme.dark`'s or `.light`'s surface,
+      # text and accent, so what the sheet leaves unsaid is painted in its
+      # colors, and `palette(role)` in the sheet (qtmodern's whole vocabulary)
+      # resolves to the same variables (`Qss::PALETTE_ROLES`). A sheet without
+      # a `QWidget` rule takes the generated palette its name says, dark or
+      # light. The author stylesheet layers over the result as over any theme.
+      def self.builtin(name : String) : Theme?
+        @@builtins[name]? || begin
+          source = BUILTIN_STYLESHEETS[name]? || return
+          css = Qss.to_css(source)
+          window = Stylesheet.parse(css).rules.find { |rule| rule.selector == ".Widget" && rule.state.nil? }
+          color = ->(property : String) { window.try { |rule| rule.declarations[property]?.try { |value| ColorValue.solid(value, nil) } } }
+          surface = color.call("background-color")
+          is_dark = surface ? Colors.luminance(surface) < 0.5 : !name.includes?("light")
+          primaries = (is_dark ? dark : light).primaries.dup
+          primaries["surface"] = surface if surface
+          color.call("color").try { |text| primaries["text"] = text }
+          color.call("selection-background-color").try { |accent| primaries["accent"] = accent }
+          @@builtins[name] = new name, is_dark, primaries, overlay: css
+        end
+      end
+
+      # The theme the *choice* of a built-in Qt stylesheet stands for
+      # (`Choice#builtin_stylesheet`), or nil for a generated theme's choice.
+      def self.builtin(choice : Choice) : Theme?
+        choice.builtin_stylesheet.try { |name| builtin name }
       end
 
       # Built-in dark theme (Catppuccin-Mocha-flavored).
@@ -134,12 +212,18 @@ module Crysterm
           # `:focus`/`:hover` rules for those to win.
           emit_surface_rules io
           io << WIDGET_RULES
+          # A built-in Qt sheet comes last, so its rules win the ties with the
+          # generated ones above (`Theme.builtin`).
+          @overlay.try { |css| io << '\n' << css }
         end
       end
 
       # Parses `#to_css` into a `Stylesheet` ready to install as the default.
+      # A built-in Qt theme's sheet, the largest by far, is parsed once and
+      # kept (`@@builtin_sheets`): its palette never changes.
       def stylesheet : Stylesheet
-        Stylesheet.parse to_css
+        return Stylesheet.parse to_css unless @overlay
+        @@builtin_sheets[@name] ||= Stylesheet.parse to_css
       end
 
       # Emits the `--role[-shade]: #rrggbb;` custom properties (carried on a
@@ -304,11 +388,22 @@ module Crysterm
 
     # Maps the `colors.theme` config value to a `Theme` (`nil` for "no theme").
     def self.resolve_config_theme(window) : Theme?
-      case Crysterm::Config.colors_theme
+      resolve_theme Crysterm::Config.colors_theme, window
+    end
+
+    # The theme a `colors.theme` *choice* stands for: the generated dark and
+    # light palettes, the terminal one derived from *window*'s probe of the
+    # terminal, a built-in Qt stylesheet (`Theme.builtin`), or `nil` for
+    # "no theme". What an application switching themes at runtime installs
+    # (`CSS.theme=`) for a choice of its own.
+    def self.resolve_theme(choice : Theme::Choice, window) : Theme?
+      case choice
       in .none?     then nil
       in .dark?     then Theme.dark
       in .light?    then Theme.light
       in .terminal? then window.terminal_theme
+      in .breeze_dark?, .breeze_light?, .qdarkstyle_dark?, .qdarkstyle_light?, .qtmodern_dark?
+        Theme.builtin choice
       end
     end
   end
