@@ -1219,6 +1219,11 @@ module Crysterm
     # Per-side widths and integer constructors, defaulting to a 1-cell box.
     SidedGeometry.sided_properties 1
 
+    # The shared frozen zero border ("no border") `Style#border_view` returns
+    # for a style with no border of its own. Only its side setters are
+    # guarded; nothing writes to a view.
+    ZERO = new(0).freeze!
+
     # Coerces *value* into a `Border`.
     def self.from(value)
       case value

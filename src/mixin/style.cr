@@ -390,7 +390,10 @@ module Crysterm
         # `Border.from`.
         if quick = floor_border_quick_sides(val)
           return if @floor_border_applied == quick # already in sync — no allocation
-          normal.border = ::Crysterm::Border.from(val)
+          # Removing a border from a style that never had one is a no-op:
+          # record the sync without materializing a zero `Border` on every
+          # plain widget's style at its first render.
+          normal.border = ::Crysterm::Border.from(val) unless quick == {0, 0, 0, 0} && !normal.box_touched?(:border)
           @floor_border_applied = quick
         else
           want = ::Crysterm::Border.from(val)

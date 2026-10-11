@@ -10,6 +10,10 @@ module Crysterm
       new 0, 0, 0, 0
     end
 
+    # The shared frozen zero shadow `Style#shadow_view` returns for a style
+    # with no shadow of its own.
+    ZERO = default.freeze!
+
     # Per-side extents: `left`/`right` are widths, `top`/`bottom` heights. The
     # resting defaults are asymmetric — a classic right/bottom drop shadow
     # (`right: 2, bottom: 1`, none on the left/top).

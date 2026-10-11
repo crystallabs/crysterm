@@ -83,7 +83,7 @@ module Crysterm
             # scrolling. Instead the wave rides the full-size field and the
             # visible cells map into it through `clip_offsets` (border-only
             # inset here, so the column origin is `aleft + border.left`).
-            border = style.border
+            border = style.border_view
             full_w, full_h, col_off, row_off = full_field_geometry(xi, border.left, border.right, border.top, border.bottom)
             next if full_w <= 0 || full_h <= 0
 

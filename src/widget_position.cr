@@ -88,7 +88,7 @@ module Crysterm
       # `{{ axis[:near].id }}=` would take to keep the widget in place).
       def r{{ axis[:near].id }} : Int32
         p = parent_or_window
-        m = (mg = style.margin).any? ? mg.{{ axis[:near].id }} : 0
+        m = (mg = style.margin_view).any? ? mg.{{ axis[:near].id }} : 0
         a{{ axis[:near].id }} - p.a{{ axis[:near].id }} - p.i{{ axis[:near].id }} - m
       end
 
@@ -225,7 +225,7 @@ module Crysterm
         o{{ axis[:near].id }} = eff_{{ axis[:near].id }}
         o{{ axis[:far].id }} = @{{ axis[:far].id }}
 
-        mg = style.margin
+        mg = style.margin_view
 
         # Far-anchored: the outward margin pushes the box toward its NEAR edge by
         # its own far margin. Included so hit-test geometry matches where `coords`
@@ -465,7 +465,7 @@ module Crysterm
       # the margin reserves space *outside* the box rather than eating into it. A
       # stretched auto size already folded its margin into `awidth`/`aheight`, so
       # shifting is all that remains; a fixed size never shrinks.
-      if (margin = style.margin).any?
+      if (margin = style.margin_view).any?
         xi, xl = shift_margin(xi, xl, eff_left, @right, margin.left, margin.right)
         yi, yl = shift_margin(yi, yl, eff_top, @bottom, margin.top, margin.bottom)
       end
@@ -519,9 +519,9 @@ module Crysterm
 
         # `style.border` is always non-nil (zero border means "no border"; see
         # Style#border), so fetch both borders once.
-        my_border = style.border
-        my_padding = style.padding
-        sp_border = scrollable_parent.style.border
+        my_border = style.border_view
+        my_padding = style.padding_view
+        sp_border = scrollable_parent.style.border_view
 
         # The clip on each edge must trigger at THAT edge's inner (border) width:
         # the bottom clip against the parent's BOTTOM border, the horizontal clips

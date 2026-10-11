@@ -221,7 +221,7 @@ module Crysterm
         # (e.g. a tight popup menu showing "Abo" instead of "About"). Give items
         # a borderless base style so geometry matches.
         item_style = style
-        item_style = without_border item_style if item_style.border.any?
+        item_style = without_border item_style if item_style.border_view.any?
         # An item's own style must not carry the list's *hidden* state: a style
         # captured while the list is hidden keeps `visible: false` and never
         # reappears when shown (e.g. menu rows added after `hide`). Dup only if

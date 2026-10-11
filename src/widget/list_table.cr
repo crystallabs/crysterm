@@ -652,7 +652,7 @@ module Crysterm
       # Draws the vertical cell separators (and their top/bottom junctions).
       # Ported from Blessed's `ListTable.prototype.render`.
       private def draw_borders(coords)
-        border = style.border
+        border = style.border_view
         return if !border.any? || !cell_borders?
 
         lines = window.cell_rows

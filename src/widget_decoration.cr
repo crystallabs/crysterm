@@ -15,8 +15,8 @@ module Crysterm
       if fi = @_frame_insets
         return fi
       end
-      p = st.padding
-      fi = if b = st.border
+      p = st.padding_view
+      fi = if b = st.border_view
              l, t, r, bt = b.left, b.top, b.right, b.bottom
              # Same fit the render path applies (`#effective_insets`): a border
              # too big for its box isn't drawn, so it must not inset the content
@@ -155,21 +155,21 @@ module Crysterm
     {% for side in %w[left top right bottom] %}
       # Margin offset on the {{ side.id }} side
       def m{{ side.id }} : Int32
-        style.margin.{{ side.id }}
+        style.margin_view.{{ side.id }}
       end
     {% end %}
 
     # Total horizontal margin: `mleft + mright`. **Not** a width; see
     # `#ihorizontal`.
     def mhorizontal : Int32
-      m = style.margin
+      m = style.margin_view
       m.left + m.right
     end
 
     # Total vertical margin: `mtop + mbottom`. **Not** a height; see
     # `#ivertical`.
     def mvertical : Int32
-      m = style.margin
+      m = style.margin_view
       m.top + m.bottom
     end
 

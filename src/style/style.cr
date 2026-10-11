@@ -679,6 +679,15 @@ module Crysterm
     # are all 0, which renders nothing and expands the widget by nothing.
     getter border : Border { Border.new 0 }
 
+    # Read-only view of the box: this style's own `#border` when set or
+    # materialized, else the shared frozen `Border::ZERO`. For the per-frame
+    # readers (insets, render, damage), which must not materialize a box on
+    # every style; writers use `#border`/`#border=`.
+    @[AlwaysInline]
+    def border_view : Border
+      @border || Border::ZERO
+    end
+
     def padding=(value : PaddingValue)
       @specified_mask |= SPEC_PADDING
       @padding = Padding.from value
@@ -690,6 +699,12 @@ module Crysterm
     # singleton — each style owns its box.
     getter padding : Padding { Padding.default }
 
+    # :ditto: (`Padding::ZERO` when unset).
+    @[AlwaysInline]
+    def padding_view : Padding
+      @padding || Padding::ZERO
+    end
+
     # Element's outer spacing. Unlike `padding`/`border`, which are inner insets,
     # margin offsets and shrinks the element itself within its allotted slot.
     def margin=(value : MarginValue)
@@ -700,6 +715,12 @@ module Crysterm
     # :ditto: (lazy, like `#padding`).
     getter margin : Margin { Margin.default }
 
+    # :ditto: (`Margin::ZERO` when unset).
+    @[AlwaysInline]
+    def margin_view : Margin
+      @margin || Margin::ZERO
+    end
+
     # Should element drop shadow?
     def shadow=(value : ShadowValue)
       @specified_mask |= SPEC_SHADOW
@@ -708,6 +729,12 @@ module Crysterm
 
     # :ditto: (lazy, like `#padding`).
     getter shadow : Shadow { Shadow.default }
+
+    # :ditto: (`Shadow::ZERO` when unset).
+    @[AlwaysInline]
+    def shadow_view : Shadow
+      @shadow || Shadow::ZERO
+    end
 
     # This widget's light override — where the light sits for its border
     # relief shading, weight bevel and shadow placement. Unset (`nil`, the

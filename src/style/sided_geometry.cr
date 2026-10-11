@@ -72,12 +72,39 @@ module Crysterm
       new %s[:left], %s[:top], %s[:right], %s[:bottom]
     end
 
+    # Raised on a side write to a shared frozen zero box (`Padding::ZERO`, …).
+    class FrozenError < Exception
+      def initialize(box)
+        super "Can't mutate the shared zero #{box.class} a Style#*_view reader returns; assign a box through Style#border=/padding=/margin=/shadow= or mutate the materializing getter instead"
+      end
+    end
+
+    # Whether this box is a shared frozen zero: the one the `Style#*_view`
+    # readers hand out for a style with no box of its own, so the per-frame
+    # readers allocate nothing. The side setters refuse writes to it.
+    getter? frozen : Bool = false
+
+    def freeze! : self
+      @frozen = true
+      self
+    end
+
+    @[AlwaysInline]
+    private def frozen_write_check : Nil
+      raise FrozenError.new(self) if @frozen
+    end
+
     # The four per-side integer properties, each with its own resting default.
+    # The setters guard the frozen zero singletons (`#freeze!`).
     macro sided_int_properties(left = 0, top = 0, right = 0, bottom = 0)
-      property left : Int32 = {{ left }}
-      property top : Int32 = {{ top }}
-      property right : Int32 = {{ right }}
-      property bottom : Int32 = {{ bottom }}
+      {% for side, default in {left: left, top: top, right: right, bottom: bottom} %}
+        getter {{ side.id }} : Int32 = {{ default }}
+
+        def {{ side.id }}=(value : Int32) : Int32
+          frozen_write_check
+          @{{ side.id }} = value
+        end
+      {% end %}
     end
 
     # The four per-side integer properties at one shared resting *default*, plus

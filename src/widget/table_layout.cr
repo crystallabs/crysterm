@@ -468,7 +468,7 @@ module Crysterm
     protected def draw_edge_junctions(line, xi : Int32, battr : Int64, top : Bool,
                                       start_col : Int32 = 0, width : Int32? = nil,
                                       right_limit : Int32? = nil) : Nil
-      border = style.border
+      border = style.border_view
       tier = glyph_tier
       g_v = Glyphs[Glyphs::Role::LineVertical, tier]
       g_tee = Glyphs[top ? Glyphs::Role::JunctionTeeTop : Glyphs::Role::JunctionTeeBottom, tier]

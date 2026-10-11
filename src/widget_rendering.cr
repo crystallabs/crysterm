@@ -325,7 +325,7 @@ module Crysterm
       # A layer root's opacity is applied as its plane's opacity at composite time,
       # so suppress the render-time self-blend while painting into the plane.
       style_opacity = @compositing ? nil : style.opacity?
-      padding = style.padding
+      padding = style.padding_view
       fill = style.fill?
       xi = coords.xi
       xl = coords.xl
@@ -379,7 +379,7 @@ module Crysterm
       # Unclipped edges get the full widths. These replace the whole-width
       # `border.adjust`/`p.adjust` calls, which would double-count the hidden
       # rows/columns and start content too far in (or paint phantom padding).
-      sb = style.border
+      sb = style.border_view
       insets = effective_insets(sb, padding, coords)
       ebl, epl = insets.left
       ebt, ept = insets.top
@@ -783,7 +783,7 @@ module Crysterm
       yl += hsr
 
       # Draw the border.
-      style.border.try do |border|
+      style.border_view.try do |border|
         # A border with all sides 0 is "no border": nothing to draw.
         next unless border.any?
 
@@ -924,7 +924,7 @@ module Crysterm
       # intentionally paint *outside* the rect, so on a clipped edge the band
       # would land past the clipping ancestor's viewport, over cells that
       # belong to other widgets.
-      if s = style.shadow
+      if s = style.shadow_view
         # The sides the shadow falls on: explicit extents verbatim, or — for
         # an auto shadow (`shadow: true`, the `Floating` look) — the sides
         # facing away from the light (`Shadow#resolved_sides`).
@@ -1067,7 +1067,7 @@ module Crysterm
     # dock when a horizontal stop crosses them). Base registers top/bottom rows
     # of a line-type border; widgets drawing lines otherwise override this.
     protected def register_junction_stops(coords : RenderedGeometry)
-      style.border.try do |border|
+      style.border_view.try do |border|
         if border.any? && border.type.solid?
           # A widget rendering into a compositing plane registers on the *plane*
           # stops so overlay borders join each other but not the base content
@@ -1236,8 +1236,8 @@ module Crysterm
       # Effective insets, exactly as `base_render` applies them: `ret` is
       # clamped to a clipping ancestor's viewport, so on a clipped edge only
       # the visible remainder of the border/padding band insets the interior.
-      border = style.border
-      padding = style.padding
+      border = style.border_view
+      padding = style.padding_view
       insets = effective_insets(border, padding, ret)
       ebl, epl = insets.left
       ebt, ept = insets.top

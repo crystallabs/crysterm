@@ -246,7 +246,7 @@ module Crysterm
         child.fit_to_content
         begin
           lp = last_rendered_position
-          border = style.border.any? ? 1 : 0
+          border = style.border_view.any? ? 1 : 0
           row_top = lp.yi + itop + (current_index - @child_base)
           Overlay.place_child(child,
             {lp.xi, row_top, (lp.xl - lp.xi) - border, 1},

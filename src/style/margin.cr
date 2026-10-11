@@ -8,5 +8,9 @@ module Crysterm
     include SidedGeometry
 
     SidedGeometry.zero_box
+
+    # The shared frozen zero box `Style#margin_view` returns for a style with
+    # no margin of its own.
+    ZERO = default.freeze!
   end
 end

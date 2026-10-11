@@ -58,8 +58,8 @@ module Crysterm
         # apply is only each band's visible remainder — subtracting the full
         # border+padding would double-count the clipped rows/columns and start
         # the document too far in. Mirrors base_render's per-edge treatment.
-        sb = style.border
-        pd = style.padding
+        sb = style.border_view
+        pd = style.padding_view
         ebt, ept = effective_edge_insets(sb.top, pd.top, coords.hidden_top)
         ebb, epb = effective_edge_insets(sb.bottom, pd.bottom, coords.hidden_bottom)
         ebl, epl = effective_edge_insets(sb.left, pd.left, coords.hidden_left)

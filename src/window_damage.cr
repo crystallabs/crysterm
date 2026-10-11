@@ -851,7 +851,7 @@ module Crysterm
       xl = lp.xl
       yi = lp.yi
       yl = lp.yl
-      if (s = w.style.shadow) && s.any?
+      if (s = w.style.shadow_view) && s.any?
         xi -= s.left
         xl += s.right
         yi -= s.top

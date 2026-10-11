@@ -430,7 +430,7 @@ module Crysterm
           # folds the margin in. Subtract before clamping, so
           # `[min_{{ axis[:dim].id }}, max_{{ axis[:dim].id }}]` applies to the
           # post-margin (used) size, per CSS min/max semantics.
-          msum = (mg = style.margin).any? ? mg.{{ axis[:near].id }} + mg.{{ axis[:far].id }} : 0
+          msum = (mg = style.margin_view).any? ? mg.{{ axis[:near].id }} + mg.{{ axis[:far].id }} : 0
           return clamp_a{{ axis[:dim].id }}({{ axis[:dim].id }} - msum, rendered)
         end
 

@@ -257,7 +257,7 @@ module Crysterm
       private def draw_borders(coords)
         recolor_cells coords
 
-        return if !style.border.any? || !cell_borders?
+        return if !style.border_view.any? || !cell_borders?
 
         draw_junction_rows coords
         draw_grid_runs coords
@@ -268,9 +268,9 @@ module Crysterm
       # attributes.
       private def gridline_attr : Int64
         if gc = style.gridline_color
-          style_to_attr style.border, fg: gc, bg: style.border.bg
+          style_to_attr style.border_view, fg: gc, bg: style.border_view.bg
         else
-          style_to_attr style.border
+          style_to_attr style.border_view
         end
       end
 
@@ -356,7 +356,7 @@ module Crysterm
       private def draw_junction_rows(coords)
         lines = window.cell_rows
         xi, yi, _width, _height = border_extent coords
-        border = style.border
+        border = style.border_view
         battr = gridline_attr
         hattr = @hattr_memo.fetch(style.header)
         cattr = @cattr_memo.fetch(style.cell)
@@ -421,7 +421,7 @@ module Crysterm
       # `xi + rx_last - 1` would leave a stray char short of the right one.
       # Content begins at the left inset `ileft`, not a hardcoded one column.
       private def draw_junction_row_ends(line, xi : Int32, battr : Int64, internal : Bool, right_limit : Int32) : Nil
-        border = style.border
+        border = style.border_view
         tier = glyph_tier
         g_h = Glyphs[Glyphs::Role::LineHorizontal, tier]
 

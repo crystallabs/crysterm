@@ -39,8 +39,8 @@ module Crysterm
       # (`Slider`, `ProgressBar`) paint into; `pad: false` insets by the
       # border alone, matching `ScrollBar`'s `with_inner_coords` track.
       protected def pointer_track(e, pad : Bool = true) : {Int32, Int32}
-        border = style.border
-        padding = style.padding
+        border = style.border_view
+        padding = style.padding_view
         if lp = @lpos
           if @orientation.horizontal?
             txi = lp.xi + track_edge_inset(border.left, padding.left, lp.hidden_left, pad)
