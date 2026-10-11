@@ -99,6 +99,7 @@ require "./reactive/effect"
 require "./reactive/computed"
 require "./reactive/observable_list"
 require "./reactive/bind_items"
+require "./reactive/bind_action"
 
 require "./style/css/**"
 
