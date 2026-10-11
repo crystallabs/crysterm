@@ -224,15 +224,15 @@ module Crysterm
     # Widgets do not need to call this themselves: `Widget#initialize`
     # registers them automatically when they ask for keys (`#keys?`/`#input?`).
     def register_keyable(el : Widget)
-      el.keyable = true if register_in el, @keyable
+      el.keyable = true if register_in el, @keyable, @keyable_set
     end
 
-    # Adds *el* to input-registry *coll* if not already present, returning whether
-    # it was newly added — so the caller can run its one-time side effects (set
-    # the widget's intrinsic flag, enable mouse reporting) only on first
-    # registration.
-    private def register_in(el : Widget, coll : Array(Widget)) : Bool
-      return false if coll.includes? el
+    # Adds *el* to input-registry *coll* if not already present (membership is
+    # answered by its index *set*), returning whether it was newly added — so
+    # the caller can run its one-time side effects (set the widget's intrinsic
+    # flag, enable mouse reporting) only on first registration.
+    private def register_in(el : Widget, coll : Array(Widget), set : Set(Widget)) : Bool
+      return false unless set.add? el
       coll.push el
       true
     end
@@ -241,7 +241,7 @@ module Crysterm
     # `#register_keyable`, used when a widget's focus policy drops to `None`.
     # (`#unregister` below drops keyboard AND mouse for a whole subtree.)
     def unregister_keyable(el : Widget)
-      @keyable.delete el
+      @keyable.delete el if @keyable_set.delete el
     end
 
     # Removes `el` and its entire subtree from this window's keyboard and mouse
@@ -252,13 +252,19 @@ module Crysterm
     # The whole subtree goes, because removing a container also detaches its
     # descendants. Each widget's intrinsic `keyable?`/`clickable?` flag is left
     # alone: it records that the widget *wants* keys/mouse, so a later
-    # re-`insert` re-registers it. `Array#delete` is by value and a no-op when
-    # absent, so unregistering a never-registered widget is safe.
+    # re-`insert` re-registers it. Membership is dropped from the index sets
+    # per widget, then each ordered array is compacted once for the whole
+    # subtree — not an `Array#delete` scan per widget. Unregistering a
+    # never-registered subtree touches neither array.
     def unregister(el : Widget)
+      dropped_k = false
+      dropped_c = false
       el.self_and_each_descendant do |e|
-        @keyable.delete e
-        @clickable.delete e
+        dropped_k = true if @keyable_set.delete e
+        dropped_c = true if @clickable_set.delete e
       end
+      @keyable.reject! { |w| !@keyable_set.includes? w } if dropped_k
+      @clickable.reject! { |w| !@clickable_set.includes? w } if dropped_c
     end
 
     # Sets up the general, screen-level key listener. It receives every

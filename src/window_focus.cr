@@ -59,6 +59,13 @@ module Crysterm
     @clickable = [] of Widget
     @keyable = [] of Widget
 
+    # O(1) membership indexes over the two ordered registries above. The
+    # arrays keep Tab/hit order; the sets answer "already registered?" so
+    # attaching a subtree (which registers every widget in it) and
+    # `#unregister` don't scan the arrays per widget.
+    @clickable_set = Set(Widget).new
+    @keyable_set = Set(Widget).new
+
     # Returns the current/top element from the focus history list.
     def focused : Widget?
       @history[-1]?

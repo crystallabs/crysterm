@@ -927,7 +927,7 @@ module Crysterm
     # `#register_keyable`; lazily ensures terminal mouse reporting is on if
     # mouse listening is already active (blessed-style on-demand enabling).
     def register_clickable(el : Widget)
-      return unless register_in el, @clickable
+      return unless register_in el, @clickable, @clickable_set
       # A new candidate can change the answer under a pointer that has not moved,
       # and no render need intervene — one of the hover-memo inputs the frame
       # counter does not cover (see `#widget_at`).

@@ -2,7 +2,7 @@ module Crysterm
   module Mixin
     module Children
       # Widget's children `Widget`s.
-      getter children = [] of Widget
+      getter children : Array(Widget) = [] of Widget
 
       # O(1) membership index for `@children`, kept in sync by `insert`/`remove`;
       # without it a batch of N appends would be O(N²) on the duplicate guard.

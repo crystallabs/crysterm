@@ -321,9 +321,19 @@ module Crysterm
     def update : Nil
       @render_dirty = true
       # A dirtying change can alter the resolved style within the same frame
-      # (e.g. `hide`/`show` writing `state_style.visible` — the frame-memoized
-      # `#style` may hold a detached floor-highlight `dup` that misses it).
-      invalidate_frame_style
+      # (e.g. `hide`/`show` writing `state_style.visible`). When the
+      # frame-memoized `#style` IS the persistent state style, every in-place
+      # write is already visible through it and the memo survives — a tick
+      # that sets content, position and colors on a widget then resolves its
+      # style once, not once per setter. Only a detached floor-highlight `dup`
+      # (frozen, so it can't carry the write) is dropped. The insets derived
+      # from the style are dropped either way: a border/padding write is an
+      # in-place change the cached tuple can't see.
+      if (fs = @_frame_style) && fs.same?(state_style)
+        @_frame_insets = nil
+      else
+        invalidate_frame_style
+      end
       # Content/geometry/visibility can change the shrink-to-content size of this
       # widget AND of any shrink ancestor within the same frame, so drop the
       # whole chain's frame-memoized rectangles.

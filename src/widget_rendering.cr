@@ -128,7 +128,7 @@ module Crysterm
     # True only while this widget renders as a layer root into its own `Plane`.
     # Translucency then comes from the plane's opacity, so the render-time
     # self-blend is suppressed.
-    property compositing = false
+    property compositing : Bool = false
 
     # Resolves the `Style` a *child* should render with, called on the child's
     # parent. Base returns the child's own style; containers that style children

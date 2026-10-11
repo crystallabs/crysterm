@@ -269,12 +269,19 @@ module Crysterm
     # which is the pre-existing behavior for untrackable scenes.
     private def damage_sweep_style_revisions : Nil
       @children.each do |top|
-        stale = top.painted_style_stale? || top.repaints_every_frame?
-        unless stale
-          top.each_descendant { |w| stale = true if w.painted_style_stale? || w.repaints_every_frame? }
-        end
-        @damage_dirty_roots << top if stale
+        @damage_dirty_roots << top if damage_subtree_stale?(top)
       end
+    end
+
+    # Whether *w* or any of its descendants has a stale painted style or opts
+    # into `repaints_every_frame?`. Plain recursion over the children arrays —
+    # no captured block, so no heap closure per top-level child per frame — and
+    # it returns at the first stale widget rather than walking the rest of the
+    # subtree.
+    private def damage_subtree_stale?(w : Widget) : Bool
+      return true if w.painted_style_stale? || w.repaints_every_frame?
+      w.children.each { |c| return true if damage_subtree_stale?(c) }
+      false
     end
 
     # Whether the NEXT frame may attempt the selective path — i.e. whether this

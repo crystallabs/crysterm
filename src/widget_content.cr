@@ -24,7 +24,7 @@ module Crysterm
     RAW_LINE_REGEX = /\r\n|\r|\n/
 
     # Can element's content be word-wrapped?
-    property? wrap_content = true
+    property? wrap_content : Bool = true
 
     # Is element's content to be parsed for tags?
     #
@@ -32,7 +32,7 @@ module Crysterm
     # names, program output) can't inject markup. Pass `parse_tags: true` for
     # `"{bold}hi{/bold}"`-style markup; in that mode a literal brace is
     # escaped as `{open}`/`{close}` (see `Widget.escape_tags`).
-    property? parse_tags = false
+    property? parse_tags : Bool = false
 
     # Alignment of contained text. (The `align`-consuming reads live in
     # `widget_content_wrap.cr`.)

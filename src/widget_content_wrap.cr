@@ -214,10 +214,16 @@ module Crysterm
       ftor = outbuf.ftor
 
       if !content || content.empty?
+        # One blank real line mapped to fake line 0, built in the arrays
+        # `reset` just cleared (and the recycled `ftor` row) rather than in
+        # fresh ones — every widget starts with empty content, so this is the
+        # construction-time shape.
         outbuf.push(content)
-        outbuf.rtof = [0]
-        outbuf.ftor = [[0]]
-        outbuf.fake = [] of String
+        rtof << 0
+        row = outbuf.take_ftor_row
+        row << 0
+        ftor << row
+        outbuf.fake.clear
         outbuf.real = outbuf
         outbuf.max_width = 0
         return outbuf
@@ -345,7 +351,9 @@ module Crysterm
           end
 
           # If only an escape code got cut off, add it to `part`.
-          if line.matches? /^(?:\e\[[\d;]*m)+$/ # SGR
+          # Only an SGR-only remainder is folded into the previous chunk; the
+          # `\e` test keeps the regex off every ordinary continuation line.
+          if line.starts_with?('\e') && line.matches?(/^(?:\e\[[\d;]*m)+$/)
             outbuf[outbuf.size - 1] += line
             break :main
           end

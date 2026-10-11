@@ -1,7 +1,7 @@
 module Crysterm
   class Widget
     # Is element scrollable?
-    getter? scrollable = false
+    getter? scrollable : Bool = false
 
     # Once-flag: has the `Event::ContentParsed → reclamp_scroll_index` clamp handler
     # been wired for this widget? Set by `Widget#initialize` (for a widget
@@ -378,20 +378,20 @@ module Crysterm
 
     # Lines hidden above the top of content due to scrolling. 0 == no scroll;
     # 5 == 5 lines hidden, 6th line of content is first displayed.
-    property child_base = 0
+    property child_base : Int32 = 0
 
     # Cursor offset (in lines) within the widget. 0 == cursor at first line of
     # visible (potentially scrolled) content.
-    property child_offset = 0
+    property child_offset : Int32 = 0
 
     # Horizontal counterparts of `child_base`/`child_offset`, in display columns.
     # `child_base_x` is the first visible column of (non-wrapped) content;
     # `child_offset_x` mirrors `child_offset` but the generic path keeps it 0, so
     # `scroll_position_x == child_base_x`. Only meaningful when `wrap_content?` is off.
-    property child_base_x = 0
+    property child_base_x : Int32 = 0
 
     # :ditto:
-    property child_offset_x = 0
+    property child_offset_x : Int32 = 0
 
     property base_limit = Int32::MAX
 

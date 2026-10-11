@@ -149,8 +149,20 @@ module Crysterm
     # `tty?` counts as "no"). The capability-gated escapes (DEC 2026, OSC 8)
     # resolve their `Auto` policies through this.
     private def output_tty? : Bool
-      (out = tput.output).responds_to?(:tty?) && out.tty?
+      out = tput.output
+      # `tty?` is an `isatty` syscall and the answer is a property of the IO
+      # object, so it is resolved once per output and re-resolved only when the
+      # output is swapped (`#output=`) — not on every frame's policy checks.
+      unless out.same?(@_output_tty_io)
+        @_output_tty_io = out
+        @_output_tty = out.responds_to?(:tty?) && out.tty?
+      end
+      @_output_tty
     end
+
+    # The output IO `@_output_tty` was resolved for, and the answer.
+    @_output_tty_io : IO? = nil
+    @_output_tty = false
 
     # OSC 8 hyperlink registry: cells store a compact `UInt16` id; the URIs live
     # here, deduplicated. Id `0` is "no link".
@@ -862,11 +874,12 @@ module Crysterm
       # mode / `@ret` capture diversion inside `_print`) sees one write instead
       # of up to five.
       @framebuf.clear
-      @framebuf << "\e[?2026h" if synchronized_output?
+      sync = synchronized_output?
+      @framebuf << "\e[?2026h" if sync
       @framebuf.write @pre.to_slice
       @framebuf.write @main.to_slice
       @framebuf.write @post.to_slice
-      @framebuf << "\e[?2026l" if synchronized_output?
+      @framebuf << "\e[?2026l" if sync
 
       tput._print do |io|
         io.write @framebuf.to_slice
@@ -1279,11 +1292,14 @@ module Crysterm
             x += 1
           end
         else
+          # Every cell in the span is rewritten, so the row's dirty range is
+          # widened once for the whole run instead of per cell.
+          x0 = x
           while x < xend
             attrs.unsafe_put(x, Colors.blend(attrs.unsafe_fetch(x), alpha: alpha))
-            line.mark_dirty x
             x += 1
           end
+          line.mark_dirty_range x0, xend - 1
         end
       end
     end
@@ -1298,11 +1314,13 @@ module Crysterm
 
     def tint_region(alpha, color, xi, xl, yi, yl)
       each_region_row(xi, xl, yi, yl) do |line, attrs, x, xend|
+        x0 = x
         while x < xend
           attrs.unsafe_put(x, Colors.tint(attrs.unsafe_fetch(x), color, alpha))
-          line.mark_dirty x
           x += 1
         end
+        # One range widening per row rather than a per-cell `mark_dirty`.
+        line.mark_dirty_range x0, xend - 1
       end
     end
   end

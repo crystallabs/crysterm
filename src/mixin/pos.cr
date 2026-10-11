@@ -4,7 +4,7 @@ module Crysterm
       # NOTE See if this can be unified with something else to reduce code.
 
       # Number of times object was rendered
-      property renders = 0
+      property renders : Int32 = 0
 
       # Absolute offsets of the including object's origin.
       #
