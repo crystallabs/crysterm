@@ -1021,6 +1021,20 @@ module Crysterm
         # only while nothing set one since. The walk is top-down, so a parent
         # that inherits in turn is already resolved here.
         style.bg = parent.bg if style.bg_inherit? && !style.specified?(:bg)
+        # `background-color: transparent` (the `-1` sentinel) means, as in CSS
+        # and Qt, that the widget paints no background of its own and the
+        # parent's shows through. A widget's fill writes every cell of its box,
+        # so there is no "no paint" here: the parent's computed background
+        # stands in for the show-through. The parent is resolved first (the walk
+        # is top-down), so a transparent chain ends at the first painted
+        # ancestor, and a widget with nothing behind it — a child of the window,
+        # visited with no parent — keeps `-1`, the terminal default. Without this
+        # a Qt theme's `QMenu::item { background: transparent }` row paints the
+        # terminal default over the menu's surface: dark rows on a dark terminal
+        # under a light theme, with the theme's dark text on them.
+        if style.bg == -1 && (surface = parent.bg) && surface != -1
+          style.bg = surface
+        end
         style.bold = parent.bold? if !style.specified?(:bold) && parent.specified?(:bold)
         style.italic = parent.italic? if !style.specified?(:italic) && parent.specified?(:italic)
         # `tab-size` and `tab-char` are inherited properties in CSS, so a

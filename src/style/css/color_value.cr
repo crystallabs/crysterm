@@ -33,7 +33,11 @@ module Crysterm
         # harvest numbers regardless of case, so they still get `v`.
         case dv = Case.fold_keyword(v)
         when "transparent"
-          -1 # terminal default
+          # The terminal default — for a widget with nothing behind it. As a
+          # background on a widget with a parent, the cascade's inheritance pass
+          # resolves it to the parent's computed background instead
+          # (`Cascade.inherit_props`), so the parent shows through as in CSS.
+          -1
         when "inherit"
           # Leave unset; cascade's color-inheritance pass fills it from the parent.
           nil
