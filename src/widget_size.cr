@@ -72,7 +72,7 @@ module Crysterm
         @{{ dim.id }} = val
         css_note_geometry_write {{ dim.id }}: val
         update
-        emit ::Crysterm::Event::Resize
+        emit_resize
       end
 
       # :ditto: — the `{{ dim.id }}_spec` property-pair spelling.
@@ -222,7 +222,7 @@ module Crysterm
                               @min_height.nil? && @max_height.nil?)
         css_note_geometry_write {{ dim.id }}: val
         update
-        emit ::Crysterm::Event::Resize
+        emit_resize
       end
     {% end %}
 

@@ -374,7 +374,7 @@ module Crysterm
 
       update
       emit ::Crysterm::Event::Move if moved
-      emit ::Crysterm::Event::Resize if resized
+      emit_resize if resized
     end
 
     # `Rectangle` overload of `#set_geometry` — Qt's `QWidget::setGeometry(QRect)`.
@@ -426,7 +426,7 @@ module Crysterm
 
       update
       emit ::Crysterm::Event::Move if moved
-      emit ::Crysterm::Event::Resize if resized
+      emit_resize if resized
     end
 
     # Quietly (no `#update`, no emits) drops the layout-assigned width — for an
@@ -802,9 +802,9 @@ module Crysterm
         self.tool_tip = t
       end
 
-      # on(AddHandlerEvent) { |wrapper| }
-      on(Crysterm::Event::Resize) { process_content }
-      on(Crysterm::Event::Attached) { process_content }
+      # Content is seeded; from here a resize or an attach reflows it (see
+      # `#emit_resize` / `#reflow_on_attach`).
+      @_reflow_hooks = true
 
       if @scrollable
         install_once _scroll_index_wired do
@@ -817,6 +817,29 @@ module Crysterm
       end
 
       focus if focused
+    end
+
+    # Whether the content hooks are armed: once `#initialize` has seeded the
+    # content, a resize or an attach reflows it (`#process_content`) before the
+    # corresponding event reaches any handler. Off while constructing, so the
+    # `append` inside `#initialize` does not lay out content that is not set
+    # yet. A direct call in place of a per-widget subscription: every widget
+    # would otherwise carry two closures and two handler records it never
+    # unsubscribes.
+    @_reflow_hooks : Bool = false
+
+    # Emits `Event::Resize` on this widget, reflowing the content first.
+    protected def emit_resize : Nil
+      process_content if @_reflow_hooks
+      emit ::Crysterm::Event::Resize
+    end
+
+    # Reflows the content for a (re)attach to a window; the window calls this
+    # on every widget of an attached subtree, right before `Event::Attached`.
+    #
+    # :nodoc:
+    def reflow_on_attach : Nil
+      process_content if @_reflow_hooks
     end
 
     # Tears this widget down: stops its animations, destroys its children,

@@ -215,6 +215,7 @@ module Crysterm
 
       element.self_and_each_descendant do |el|
         el.emit Crysterm::Event::Detached, previous if previous
+        el.reflow_on_attach
         el.emit Crysterm::Event::Attached, self
       end
     end
