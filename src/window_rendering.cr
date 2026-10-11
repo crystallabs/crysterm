@@ -205,7 +205,8 @@ module Crysterm
     # keep their terminator, so they concatenate back to the input (the
     # last may lack one). When the read ends, *done* runs on the render
     # fiber after the last line, with the `IO::Error` that cut the stream
-    # short or `nil` at a clean end. *name* names the reader fiber.
+    # short or `nil` at a clean end (without *done*, such an error is
+    # logged). *name* names the reader fiber.
     #
     # ```
     # window.pump(STDIN, done: ->(e : IO::Error?) { viewer.flush_markdown }) do |line|
@@ -228,6 +229,10 @@ module Crysterm
           # The explicit `nil` breaks the inference cycle when *done* itself
           # ends up posting (a refresh in the callback).
           post { finish.call(error); nil }
+        elsif error
+          # With no one to tell, an error that cut the stream short is at
+          # least on record.
+          ::Log.warn(exception: error) { "Crysterm: Window#pump stream ended with an error" }
         end
       end
     end

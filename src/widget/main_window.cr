@@ -72,15 +72,26 @@ module Crysterm
       # Subscribes on the application the window runs under
       # (`Window#exec_application`): call it with the main window in its
       # window and, with an application of your own, after that application
-      # adopted the window.
+      # adopted the window. Once: a second call replaces the first's
+      # subscription rather than reporting every error twice.
       #
       # ```
       # main.report_handler_errors
       # main.report_handler_errors { |error| "Oops: #{error.message}" }
       # ```
       def report_handler_errors(timeout : Time::Span? = HANDLER_ERROR_TIMEOUT, &message : Exception -> String) : Nil
+        @handler_error_sub.try &.off
         app = window.exec_application
-        app.on(::Crysterm::Event::HandlerError) { |e| report_handler_error(e.error, timeout, &message) }
+        @handler_error_sub = app.on(::Crysterm::Event::HandlerError) { |e| report_handler_error(e.error, timeout, &message) }
+      end
+
+      # The `HandlerError` subscription of `#report_handler_errors`, ended
+      # with the main window: the application outlives it.
+      @handler_error_sub : ::EventHandler::Subscription?
+
+      def destroy
+        @handler_error_sub.try &.off
+        super
       end
 
       # :ditto:

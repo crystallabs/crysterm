@@ -41,6 +41,17 @@ describe "MainWindow#report_handler_errors" do
     s.destroy
   end
 
+  it "subscribes once, a later call replacing the earlier subscription" do
+    s, main, messages = stage
+    app = s.exec_application
+    main.report_handler_errors { |e| "First: #{e.message}" }
+    main.report_handler_errors { |e| "Second: #{e.message}" }
+    app.handlers(Event::HandlerError).size.should eq 1
+    app.handler_raised RuntimeError.new("x")
+    messages.should eq ["Second: x"]
+    s.destroy
+  end
+
   it "subscribes to the application's HandlerError, opting into continuing" do
     s, main, messages = stage
     app = s.application || Application.global
