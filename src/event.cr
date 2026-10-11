@@ -412,6 +412,13 @@ module Crysterm
     # state.
     event RulersChanged, visible : Bool
 
+    # Emitted by a `Widget::AbstractScrollArea` when the user's guides
+    # changed — one added, moved or removed with the mouse, or set through
+    # `#guides=`/`#add_guide`/`#remove_guide`. `columns` is the new set,
+    # ascending, in the text's coordinates, for an application that keeps
+    # them.
+    event GuidesChanged, columns : Array(Int32)
+
     # Emitted by an editable text widget when its selection changed —
     # extended, moved, or dropped (Qt's `selectionChanged()`). Parameterless,
     # as in Qt: read `#selected_text`/`#selection_range` off the sender (the

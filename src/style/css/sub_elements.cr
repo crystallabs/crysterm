@@ -48,11 +48,12 @@ module Crysterm
       end
     end
 
-    # The rulers of every scroll area (`AbstractScrollArea::ruler { color: …
-    # }`, see `AbstractScrollArea#rulers=`), the text views included.
+    # The rulers and guides of every scroll area (`AbstractScrollArea::ruler
+    # { color: … }`, `::guide`; see `AbstractScrollArea#rulers=`), the text
+    # views included.
     class AbstractScrollArea
       def build_css_sub_elements : Array(String)
-        super + ["ruler"]
+        super + ["ruler", "guide"]
       end
     end
 

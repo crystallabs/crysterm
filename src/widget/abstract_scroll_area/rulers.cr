@@ -18,7 +18,8 @@ module Crysterm
       # counts the document's rows the same way, numbering the visible ones
       # from the top of the document, so it tells where the view is where the
       # gutter tells which source line a row came from; it is as wide as the
-      # row count's digits (two at least).
+      # row count's digits (two at least). A guide (`#guides_enabled=`) hangs
+      # from the column ruler as a `┬`, and is pulled off it with the mouse.
       # `AbstractScrollArea::ruler { color: … }` styles the rulers; with no
       # rule they fade the widget's own foreground toward its background, the
       # way the gutter does. `Event::RulersChanged` follows the toggle, for a

@@ -358,6 +358,11 @@ module Crysterm
       # press this widget didn't see.
       private def _setup_text_mouse : Nil
         on(Crysterm::Event::Mouse) do |e|
+          # A handler installed ahead of this one that took the event — a
+          # press on a scroll area's ruler lifting a guide
+          # (`AbstractScrollArea#install_guide_mouse`) — keeps the caret and
+          # the selection out of it.
+          next if e.accepted?
           if e.action.down?
             @goal_col = nil
             pos = position_at(e.x, e.y)

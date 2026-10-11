@@ -169,6 +169,14 @@ module Crysterm
         end
       end
 
+      # The guide-dragging mouse handler goes on first (`guides.cr`), ahead
+      # of the handlers a text widget installs in its own constructor, so a
+      # press on the ruler is accepted before they see it.
+      def initialize(parent = nil, **opts)
+        super(parent, **opts)
+        install_guide_mouse
+      end
+
       # The base render, then the chrome in the margins
       # (`#paint_viewport_chrome`). A subclass that paints the content itself
       # (`TextEdit`) calls the chrome pass after its own.
@@ -180,10 +188,12 @@ module Crysterm
 
       # Paints what `#viewport_margins` holds, over the base render: the
       # subclass's own band first (`#paint_viewport_margins`, the gutter),
-      # then the rulers.
+      # then the rulers, then the guides — last, so a guide's line runs over
+      # a gutter's gap column rather than under its blanks.
       protected def paint_viewport_chrome : Nil
         paint_viewport_margins
         paint_rulers if @rulers
+        paint_guides if @guides_enabled
       end
 
       # The subclass's chrome in the band it reserved with
@@ -195,3 +205,4 @@ module Crysterm
 end
 
 require "./abstract_scroll_area/rulers"
+require "./abstract_scroll_area/guides"
