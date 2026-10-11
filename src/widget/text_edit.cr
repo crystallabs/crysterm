@@ -377,6 +377,10 @@ module Crysterm
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         return false unless window?
         sync_palette
+        # The column's insets first (`AbstractScrollArea#process_content`
+        # does the same for the base pipeline): the wrap width below is the
+        # width left inside them.
+        sync_line_wrap_column(awidth_hint || awidth)
         colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
         if key == @layout_key && @layout_revision == @doc_revision && !@wrapped_lines.empty?

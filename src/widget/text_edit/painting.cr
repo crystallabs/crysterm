@@ -59,7 +59,9 @@ module Crysterm
         # border+padding would double-count the clipped rows/columns and start
         # the document too far in. Mirrors base_render's per-edge treatment.
         sb = style.border_view
-        pd = style.padding_view
+        # The padding plus the viewport margins and the wrap column's insets
+        # — the band the layout and the geometry already count from.
+        pd = padding_with_viewport_margins
         ebt, ept = effective_edge_insets(sb.top, pd.top, coords.hidden_top)
         ebb, epb = effective_edge_insets(sb.bottom, pd.bottom, coords.hidden_bottom)
         ebl, epl = effective_edge_insets(sb.left, pd.left, coords.hidden_left)
