@@ -58,6 +58,121 @@ module Crysterm
       end
     end
   end
+
+  # No flags of the application's own (the `except:` default below).
+  EMPTY_FLAGS = [] of String
+
+  # *argv* without the toolkit's options: what the application's own option
+  # parser should see, the way `QApplication` leaves `argv` to the
+  # application after taking its `-style`, `-platform` and the like.
+  # Crysterm reads its options from `ARGV` at load time without consuming
+  # them (`.configure!`), so a parser given `ARGV` as typed would report them
+  # as unknown, or take a separate-word value (`--colors-theme dark`) for a
+  # file name.
+  #
+  # Dropped: every registered option's flag — with its `=value` or
+  # separate-word value for a valued option, and its `--no-` negation for a
+  # boolean — plus `CONFIG_FLAG` and `DUMP_CONFIG_FLAG`. Everything from `--`
+  # on is the application's. *except* names flags the application owns,
+  # kept even where a toolkit option derives the same spelling (the
+  # application's flag wins, as in `.toolkit_options_help`). *argv* itself
+  # is left as it is.
+  #
+  # ```
+  # parser.parse Crysterm.strip_toolkit_args(ARGV, except: {"-v", "--verbose"})
+  # ```
+  def self.strip_toolkit_args(argv : Array(String) = ARGV, *, except : Enumerable(String) = EMPTY_FLAGS) : Array(String)
+    keep = except.to_set
+    flags = Set(String).new
+    valued = Set(String).new
+    Config.each do |opt|
+      next if keep.includes?(opt.cli)
+      if opt.bool?
+        flags << opt.cli
+        no = opt.cli.sub("--", "--no-")
+        flags << no if no != opt.cli
+      else
+        valued << opt.cli
+      end
+    end
+    valued << CONFIG_FLAG unless keep.includes?(CONFIG_FLAG)
+
+    out = [] of String
+    i = 0
+    while i < argv.size
+      arg = argv[i]
+      if arg == "--"
+        out.concat argv[i..]
+        break
+      end
+      name, eq, _ = arg.partition('=')
+      i += 1
+      if eq.empty? && flags.includes?(arg)
+        # a boolean, or its negation
+      elsif valued.includes?(name)
+        # `--flag=value`, or `--flag value`
+        i += 1 if eq.empty?
+      elsif name == DUMP_CONFIG_FLAG && !keep.includes?(DUMP_CONFIG_FLAG)
+        # the format is optional: a following word not starting with `-`
+        i += 1 if eq.empty? && (nxt = argv[i]?) && !nxt.starts_with?('-')
+      else
+        out << arg
+      end
+    end
+    out
+  end
+
+  # The toolkit's options formatted as `OptionParser` prints an application's
+  # own help: every registered option (Crysterm's and its libraries') with
+  # its description and default, the booleans' `--no-` negations, and the
+  # file and dump flags, under a banner naming the config file and the
+  # environment variables. For an application to print under its own help
+  # (or behind a verbose switch, as the options are many). *except* as in
+  # `.strip_toolkit_args`.
+  def self.toolkit_options_help(*, except : Enumerable(String) = EMPTY_FLAGS) : String
+    keep = except.to_set
+    config_path = Config.default_config_path.sub(Path.home.to_s, "~")
+    parser = OptionParser.new
+    parser.banner = <<-BANNER
+      Crysterm toolkit options. Each can also be set in #{config_path}
+      or by a #{Superconf.env_prefix}* environment variable; see #{DUMP_CONFIG_FLAG}.
+      BANNER
+    Config.each do |opt|
+      next if keep.includes?(opt.cli)
+      default = opt.default_string.presence || "\"\""
+      description = wrap_help("#{opt.description} (default: #{default})")
+      if opt.bool?
+        parser.on(opt.cli, description) { }
+        no = opt.cli.sub("--", "--no-")
+        parser.on(no, "Disable #{opt.key}") { } if no != opt.cli
+      else
+        parser.on("#{opt.cli}=VALUE", description) { |_| }
+      end
+    end
+    parser.on("#{CONFIG_FLAG}=FILE", wrap_help("Load Crysterm configuration from FILE (YAML or JSON)")) { |_| } unless keep.includes?(CONFIG_FLAG)
+    parser.on("#{DUMP_CONFIG_FLAG} [FORMAT]",
+      wrap_help("Dump the Crysterm configuration (yaml|json|env|pretty|report) and exit")) { |_| } unless keep.includes?(DUMP_CONFIG_FLAG)
+    parser.to_s
+  end
+
+  # Word-wraps *text* to fit next to `OptionParser`'s flag column within 80
+  # columns.
+  private def self.wrap_help(text : String, width : Int32 = 42) : String
+    lines = [] of String
+    line = ""
+    text.split(' ') do |word|
+      if line.empty?
+        line = word
+      elsif line.size + 1 + word.size <= width
+        line += " #{word}"
+      else
+        lines << line
+        line = word
+      end
+    end
+    lines << line unless line.empty?
+    lines.join('\n')
+  end
 end
 
 require "./config/builtins"

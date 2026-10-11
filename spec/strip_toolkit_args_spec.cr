@@ -1,0 +1,69 @@
+require "./spec_helper"
+
+# `Crysterm.strip_toolkit_args`: `ARGV` as an application's own option
+# parser should see it, with the toolkit's options taken out the way
+# `QApplication` takes its own from `argv`. `Crysterm.toolkit_options_help`
+# prints those options for the application's help.
+
+private def bool_flag : String
+  Crysterm::Config["tput.use_buffer"].cli
+end
+
+private def valued_flag : String
+  Crysterm::Config["window.resize_interval"].cli
+end
+
+describe "Crysterm.strip_toolkit_args" do
+  it "drops the toolkit's flags with their values, keeping the rest in order" do
+    argv = ["a.md", bool_flag, "--no-#{bool_flag.lchop("--")}", "#{valued_flag}=1s", valued_flag, "2s", "-", "--mine"]
+    Crysterm.strip_toolkit_args(argv).should eq ["a.md", "-", "--mine"]
+  end
+
+  it "leaves the input array as it was" do
+    argv = ["x", bool_flag]
+    Crysterm.strip_toolkit_args(argv)
+    argv.should eq ["x", bool_flag]
+  end
+
+  it "passes everything from -- on through, toolkit flags included" do
+    argv = [bool_flag, "--", bool_flag, "#{valued_flag}=1s"]
+    Crysterm.strip_toolkit_args(argv).should eq ["--", bool_flag, "#{valued_flag}=1s"]
+  end
+
+  it "drops the config file and dump flags, with their values" do
+    argv = ["--crysterm-config=c.yml", "--crysterm-config", "d.yml", "--crysterm-dump-config", "yaml", "--crysterm-dump-config", "-x", "--crysterm-dump-config=json", "f"]
+    Crysterm.strip_toolkit_args(argv).should eq ["-x", "f"]
+  end
+
+  it "keeps the flags the application names as its own" do
+    argv = [bool_flag, "--crysterm-config=c.yml", "f"]
+    Crysterm.strip_toolkit_args(argv, except: {bool_flag, "--crysterm-config"}).should eq [bool_flag, "--crysterm-config=c.yml", "f"]
+  end
+
+  it "defaults to ARGV" do
+    Crysterm.strip_toolkit_args.should eq Crysterm.strip_toolkit_args(ARGV)
+  end
+end
+
+describe "Crysterm.toolkit_options_help" do
+  it "lists every toolkit option with its description and default, and the file and dump flags" do
+    help = Crysterm.toolkit_options_help
+    help.should start_with "Crysterm toolkit options."
+    help.should contain "crysterm/config.yml"
+    help.should contain "CRYSTERM_*"
+    help.should contain bool_flag
+    help.should contain "--no-#{bool_flag.lchop("--")}"
+    help.should contain "#{valued_flag}=VALUE"
+    help.should contain Crysterm::Config["window.resize_interval"].description.split(' ').first
+    help.should contain "(default: "
+    help.should contain "--crysterm-config=FILE"
+    help.should contain "--crysterm-dump-config [FORMAT]"
+  end
+
+  it "leaves out the flags the application names as its own" do
+    help = Crysterm.toolkit_options_help(except: {bool_flag, "--crysterm-dump-config"})
+    help.should_not contain "#{bool_flag} "
+    help.should_not contain "--crysterm-dump-config [FORMAT]"
+    help.should contain valued_flag
+  end
+end
