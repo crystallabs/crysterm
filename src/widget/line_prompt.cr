@@ -19,7 +19,7 @@ module Crysterm
     #
     # ```
     # cl = Widget::LinePrompt.new parent: window, bottom: 0, left: 0, width: "100%"
-    # cl.completer = ->(text : String) { Dir.glob("#{text}*").sort }
+    # cl.completer = Widget::LinePrompt.path_completer
     # cl.prompt("Save as: ", "notes.md") { |path| save path if path }
     # ```
     #
@@ -41,6 +41,29 @@ module Crysterm
       # none. Called with the field's text on the first Tab of a run and
       # returns the candidates in cycling order.
       property completer : Proc(String, Array(String))?
+
+      # A `#completer` for file system paths, as a shell completes them: the
+      # entries matching the text typed so far, sorted, with a trailing `/`
+      # on directories so that the next Tab descends into them. A leading
+      # `~` stands for the home directory and is expanded in the
+      # completions. Glob characters in the text are taken literally.
+      #
+      # ```
+      # cl.completer = Widget::LinePrompt.path_completer
+      # ```
+      def self.path_completer : Proc(String, Array(String))
+        ->(text : String) do
+          expanded = if text == "~" || text.starts_with?("~/")
+                       Path.home.to_s + text[1..]
+                     else
+                       text
+                     end
+          pattern = expanded.gsub(/[*?\[\]{}\\]/) { |c| "\\#{c}" }
+          Dir.glob("#{pattern}*").sort.map do |path|
+            File.directory?(path) ? "#{path}/" : path
+          end
+        end
+      end
 
       # Whether a question is open.
       getter? active : Bool = false
