@@ -131,18 +131,24 @@ module Crysterm
       # completions, Backspace on an empty line cancels. Any other key ends a
       # completion run, so the next Tab completes the edited text afresh.
       # Registered at construction, so it runs before the read's listener.
+      #
+      # Every key is accepted: an open question owns the keyboard, as vi's
+      # command line does, so the window-level accelerators that fire on keys
+      # the focused widget leaves alone — `Action` shortcuts, a menu bar's
+      # activation key and mnemonics — stand down until the answer, the way
+      # Qt's shortcuts stand down while a modal dialog is up. The field's own
+      # reading is unaffected: its listener runs on the same emission
+      # whatever the event's state, and the keys it handles it accepts anyway.
       private def field_key(e : Crysterm::Event::KeyPress) : Nil
         return unless @active
+        e.accept
         case e.key
         when Tput::Key::Tab
-          e.accept
           complete 1
         when Tput::Key::ShiftTab
-          e.accept
           complete -1
         when Tput::Key::Backspace, Tput::Key::CtrlH
           if @field.value.empty?
-            e.accept
             cancel
           else
             end_completion
