@@ -202,7 +202,10 @@ module Crysterm
           if k == Tput::Key::Escape
             done.try &.call nil
           elsif clipboard && k == Tput::Key::CtrlC # copy selection
-            copy_selection
+            # With nothing selected there is nothing to copy, and the key goes
+            # on to the application, which may give it a meaning of its own
+            # (an action with the `Ctrl+C` shortcut copying the current line).
+            edited = copy_selection
           elsif clipboard && !read_only? && k == Tput::Key::CtrlX # cut selection
             if copy_selection
               delete_selection

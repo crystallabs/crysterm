@@ -212,6 +212,27 @@ module Crysterm
         @selection_anchor = nil
       end
 
+      # Copies the selection to the application clipboard (Qt's `copy`;
+      # the `Ctrl-C` key) and returns whether there was one to copy.
+      def copy : Bool
+        copy_selection
+      end
+
+      # Copies the selection and deletes it (Qt's `cut`; the `Ctrl-X` key):
+      # returns whether there was one, and does nothing when read-only.
+      def cut : Bool
+        return false if read_only?
+        return false unless copy_selection
+        delete_selection
+        true
+      end
+
+      # Inserts the clipboard at the cursor, replacing the selection (Qt's
+      # `paste`; the `Ctrl-V` key), unless read-only.
+      def paste : Nil
+        paste_clipboard unless read_only?
+      end
+
       # While this widget is reading, Up/Down/Ctrl-U/Ctrl-D/PageUp/PageDown/Home/End
       # are editing keys routed to `#_listener`, so the `Mixin::Interactive` scroll
       # handler must stand down to avoid double-handling them (scrolling the
