@@ -88,12 +88,29 @@ module Crysterm
       Media.resolve Media::Content::Background, s.tput
     end
 
+    # Drops the background layer, so the next frame builds it again for the
+    # backend `Media.resolve` picks then — the way a run-time change of
+    # `media.backend` or `media.exclude` reaches a background already on
+    # screen (`Media.rebuild_resolved`). The old layer is destroyed, so its
+    # backend erases its image; a widget without a layer is left alone.
+    def reset_background_media : Nil
+      return unless bg = @background_media
+      bg.destroy
+      @background_media = nil
+      @background_url = nil
+      # Marked damaged, not just dirty: a clean widget's frame would be
+      # skipped, and the image would be gone until something else repainted.
+      update!
+    end
+
     # Lazily builds the background `Media` child for the resolved backend, pinned
     # to this widget's content box and made `fixed` + `layout_excluded`. Returns
     # `nil` when no background-capable backend is available.
     protected def ensure_background_media(src : String) : Media::Base?
       @background_media ||= begin
         type = background_backend || return
+        # A layer resolved here follows the options from now on.
+        Media.watch_config
         m = Media.new(
           type: type,
           file: src,

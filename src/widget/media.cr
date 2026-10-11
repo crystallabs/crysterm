@@ -129,12 +129,36 @@ module Crysterm
         Kitty         # window-owns-pixels, in-band Kitty graphics protocol (`Media::Kitty`)
         Iterm         # window-owns-pixels, in-band iTerm2 inline images (`Media::Iterm`)
         Tek           # separate window, Tektronix 4014 vectors (`Media::Tek`)
+
+        # How this backend's pixels reach the window (see `Family`).
+        def family : Family
+          case self
+          when .overlay?, .ueberzug?              then Family::External
+          when .sixel?, .regis?, .kitty?, .iterm? then Family::Graphics
+          when .tek?                              then Family::Window
+          else                                         Family::Cells
+          end
+        end
+      end
+
+      # How a backend's pixels reach the window — the four groups the class
+      # comment above describes. What a UI that lists the backends groups
+      # them by (`Backend#family`), and what `Type#family` names.
+      enum Family
+        Cells    # character cells Crysterm owns and diffs (`Media::Cells`)
+        Graphics # in-band terminal graphics: an escape sequence the terminal renders as pixels (`Media::Graphics`)
+        External # a helper process paints the pixels in its own window (`Media::External`)
+        Window   # the terminal renders into another window entirely (`Media::Tek`)
       end
 
       # Selectable values of the `media.backend` config option: `Auto` (pick the
       # best `Type` the terminal supports) plus one member per `Type`. Members
       # must stay named identically to `Type`'s, so a non-`Auto` choice maps via
-      # `Type.parse?(choice.to_s)`.
+      # `Type.parse?(choice.to_s)` (`#type`).
+      #
+      # `#label`, `#family` and `#available?` are what an application needs to
+      # offer the choice in a menu: a name for each entry, a grouping, and
+      # whether the entry can be picked on this terminal.
       enum Backend
         Auto # Pick the best backend the terminal supports (see `resolve`)
         Ansi
@@ -157,6 +181,52 @@ module Crysterm
         Kitty
         Iterm
         Tek
+
+        # The `Type` this member pins, or `nil` for `Auto`, which pins none.
+        def type : Type?
+          Type.parse?(to_s)
+        end
+
+        # The family of the pinned backend, `nil` for `Auto`.
+        def family : Family?
+          type.try &.family
+        end
+
+        # Whether this backend can be driven on the terminal *tput* describes
+        # (the global window's by default): `Media.available?` of the pinned
+        # type; `Auto` always can, since it resolves to one that is. A UI
+        # offering the backends disables the entries this refuses.
+        def available?(tput : ::Tput? = nil) : Bool
+          (t = type) ? Media.available?(t, tput) : true
+        end
+
+        # A human-readable name for a menu or a notice: "Auto-detect", "Kitty
+        # graphics", "Unicode half blocks", …
+        def label : String
+          case self
+          in .auto?            then "Auto-detect"
+          in .ansi?            then "ANSI, one cell per pixel"
+          in .ansi_true_color? then "ANSI, true color"
+          in .ansi_c256?       then "ANSI, 256 colors"
+          in .ansi_c16?        then "ANSI, 16 colors"
+          in .ansi_c8?         then "ANSI, 8 colors"
+          in .glyph?           then "Sub-cell glyphs"
+          in .glyph_block?     then "Solid blocks"
+          in .glyph_half?      then "Unicode half blocks"
+          in .glyph_quadrant?  then "Unicode quadrants"
+          in .glyph_sextant?   then "Unicode sextants"
+          in .glyph_octant?    then "Unicode octants"
+          in .glyph_braille?   then "Braille dots"
+          in .glyph_ascii?     then "ASCII contours"
+          in .overlay?         then "w3mimgdisplay overlay"
+          in .ueberzug?        then "Überzug overlay"
+          in .sixel?           then "Sixel"
+          in .regis?           then "ReGIS"
+          in .kitty?           then "Kitty graphics"
+          in .iterm?           then "iTerm2 inline images"
+          in .tek?             then "Tektronix 4014"
+          end
+        end
       end
 
       # Selectable values of the `media.unsupported` config option: what a
@@ -397,6 +467,40 @@ module Crysterm
                        Crysterm::Config.window_dump.presence ||
                        Crysterm::Config.window_anim.presence
         available?(type, tput) ? type : fallback
+      end
+
+      # Whether `.watch_config` has subscribed to the backend options.
+      @@config_watched = false
+
+      # Subscribes, once, to run-time changes of the options `resolve` reads —
+      # `media.backend` and `media.exclude` — so media resolved under the old
+      # setting is rebuilt for the new one (`.rebuild_resolved`); as Qt restyles
+      # every widget when `QApplication::setStyle` is called. Called the first
+      # time a widget resolves a backend for its `background-image` layer, so
+      # a program that shows no media subscribes to nothing; an application
+      # offering the choice in a menu may call it up front.
+      def self.watch_config : Nil
+        return if @@config_watched
+        @@config_watched = true
+        {"media.backend", "media.exclude"}.each do |key|
+          Crysterm::Config.on_change(key) { rebuild_resolved }
+        end
+      end
+
+      # Rebuilds the media every live window resolved through `resolve`, for
+      # what it picks now, and repaints the windows. A backend is a concrete
+      # widget class chosen at construction (`Media.new`), so a widget that was
+      # built for one cannot switch; the layer Crysterm builds itself — the
+      # `background-image` layer of every widget with one — is dropped
+      # (`Widget#reset_background_media`) and comes back for the new backend
+      # on the next frame. A `Media` widget an application constructed is its
+      # own to rebuild.
+      def self.rebuild_resolved : Nil
+        Crysterm::Window.instances.dup.each do |window|
+          # A snapshot: dropping a layer removes a child under the walk.
+          window.descendants.each &.reset_background_media
+          window.update
+        end
       end
 
       # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
