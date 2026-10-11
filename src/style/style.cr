@@ -39,12 +39,27 @@ module Crysterm
 
     @cold : Cold?
 
-    # :nodoc:
-    protected setter cold
+    # Whether `@cold` is shared with a `#dup` (either side may be the copy):
+    # the next write through `#cold!` takes a private copy first, so the
+    # cascade's per-state dups cost no side-object copy until one of them
+    # changes a cold field.
+    @cold_shared = false
 
-    # The side object, created on the first write of a cold field.
+    # :nodoc:
+    protected setter cold_shared
+
+    # The side object for a write: created on the first write of a cold
+    # field, unshared from a dup first when needed.
     private def cold! : Cold
-      @cold ||= Cold.new
+      c = @cold
+      if c.nil?
+        @cold = Cold.new
+      elsif @cold_shared
+        @cold_shared = false
+        @cold = c.dup
+      else
+        c
+      end
     end
 
     # Writes a nilable cold field: a value materializes the side object;
@@ -52,7 +67,7 @@ module Crysterm
     private macro cold_set(field, value)
       %v = {{ value }}
       if %v.nil?
-        @cold.try(&.{{ field.id }} = nil)
+        cold!.{{ field.id }} = nil if @cold
       else
         cold!.{{ field.id }} = %v
       end
@@ -207,9 +222,9 @@ module Crysterm
 
     # Sets all four offset sides at once (`nil` clears).
     def offsets=(value : Int32?) : Int32?
-      (value.nil? ? @cold : cold!).try do |c|
-        c.offset_left = c.offset_top = c.offset_right = c.offset_bottom = value
-      end
+      return value if value.nil? && @cold.nil?
+      c = cold!
+      c.offset_left = c.offset_top = c.offset_right = c.offset_bottom = value
       value
     end
 
@@ -463,10 +478,13 @@ module Crysterm
       # copy — dup-then-mutate (`style.dup.tap(&.underline = true)`) is the
       # sanctioned way to derive from one.
       copy.frozen = false
-      # The side object is per style: a shallow copy, so the sub-styles it
-      # points at stay shared while later slot writes on either side stay
-      # independent.
-      @cold.try { |c| copy.cold = c.dup }
+      # The side object stays shared between the two until either writes a
+      # cold field (`#cold!` then copies it); the sub-styles it points at are
+      # shared either way.
+      if @cold
+        @cold_shared = true
+        copy.cold_shared = true
+      end
       @border.try { |border| copy.border = border.dup }
       # The boxes are lazy (nil until first set/read) and read through the ivar,
       # so a style that never touched one costs no dup here. Most widgets set no
@@ -769,7 +787,7 @@ module Crysterm
     end
 
     def gridline_color=(color : Nil)
-      @cold.try(&.gridline_color = nil)
+      cold!.gridline_color = nil if @cold
     end
 
     def border=(value : BorderValue)
@@ -879,7 +897,7 @@ module Crysterm
     # the relief off).
     def look=(value : (Look | Symbol)?)
       if value.nil?
-        @cold.try(&.look = nil)
+        cold!.look = nil if @cold
         return value
       end
       value = Look.parse value.to_s if value.is_a?(Symbol)

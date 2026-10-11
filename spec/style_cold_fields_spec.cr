@@ -85,16 +85,28 @@ describe "Style cold side object" do
     st.alternate_row?.should be_true
   end
 
-  it "dups the side object per style while sharing the sub-styles it points at" do
+  it "shares the side object with a dup until either side writes a cold field" do
     sub = Crysterm::Style.new(fg: "blue")
     st = Crysterm::Style.new(title: sub, glyph: "x")
     copy = st.dup
+    copy.@cold.same?(st.@cold).should be_true
     copy.title.same?(sub).should be_true
     copy.glyph.should eq "x"
     copy.title = Crysterm::Style.new(fg: "red")
+    copy.@cold.same?(st.@cold).should be_false
     st.title.same?(sub).should be_true
     st.glyph = "y"
     copy.glyph.should eq "x"
+    # Clearing through a still-shared side object unshares it too.
+    other = st.dup
+    other.glyph = nil
+    other.glyph.should be_nil
+    st.glyph.should eq "y"
+    # The original writing first leaves the copy untouched as well.
+    third = st.dup
+    st.offsets = 2
+    third.offset?.should be_false
+    st.offset_x.should eq 2
   end
 
   it "composes the alternate row from the bg override and drops the memo on change" do

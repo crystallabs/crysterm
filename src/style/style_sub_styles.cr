@@ -172,10 +172,10 @@ module Crysterm
     # mutation), or the bg override changes.
 
     def alternate_row=(value : Style?) : Style?
-      (value.nil? ? @cold : cold!).try do |c|
-        c.alternate_row_composed = nil
-        c.alternate_row = value
-      end
+      return value if value.nil? && @cold.nil?
+      c = cold!
+      c.alternate_row_composed = nil
+      c.alternate_row = value
       value
     end
 
@@ -194,9 +194,12 @@ module Crysterm
           dup.bg = bg
           dup
         end
-      c.alternate_row_composed_src = src
-      c.alternate_row_composed = copy
-      c.alternate_row_composed_fp = fp
+      unless copy.same?(c.alternate_row_composed)
+        c = cold!
+        c.alternate_row_composed_src = src
+        c.alternate_row_composed = copy
+        c.alternate_row_composed_fp = fp
+      end
       composed
     end
 

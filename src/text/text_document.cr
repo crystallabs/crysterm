@@ -130,9 +130,10 @@ module Crysterm
         sum
       end
 
-      # The block holding document position *pos*: the last block whose
-      # position is at most *pos* (the last block for a position past the end).
-      def find(pos : Int32) : Int32
+      # The block holding document position *pos* — the last block whose
+      # position is at most *pos* (the last block, for a position past the
+      # end) — and *pos* relative to that block's start, from the one descent.
+      def locate(pos : Int32) : {Int32, Int32}
         tree = @tree
         idx = 0
         rem = pos
@@ -145,7 +146,11 @@ module Crysterm
           end
           step >>= 1
         end
-        Math.min(idx, @count - 1)
+        if idx == @count
+          idx -= 1
+          rem += @lengths.unsafe_fetch(idx)
+        end
+        {idx, rem}
       end
 
       # Records block *index*'s current length (its size plus the separator).
@@ -309,10 +314,8 @@ module Crysterm
     # block's end; the next block starts one position later (past the
     # separator), so the mapping is unambiguous.
     def block_at(pos : Int32) : BlockLocation
-      bp = block_positions
-      index = bp.find(pos)
-      off = (pos - bp.position(index)).clamp(0, blocks[index].size)
-      BlockLocation.new(index, off)
+      index, off = block_positions.locate(pos)
+      BlockLocation.new(index, off.clamp(0, blocks[index].size))
     end
 
     # The block containing document position *pos* (Qt `findBlock`) — the
@@ -1008,7 +1011,7 @@ module Crysterm
       end
       # Positions before the edit are unchanged, so the tree still locates
       # the block the edit started in.
-      i = bp.find(pos)
+      i = bp.locate(pos)[0]
       finish = pos + added
       loop do
         bp.set_length(i, bs.unsafe_fetch(i).size + 1)
