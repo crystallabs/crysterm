@@ -143,6 +143,34 @@ module Crysterm
       true
     end
 
+    # Codepoint indexes of the non-ASCII rows on screen, one slot per content
+    # row of the box, kept across frames: such an index is a materialized
+    # `chars` array, so a row that stays put is indexed once rather than per
+    # frame (Qt keeps a block's `QTextLayout` the same way). A slot is reused
+    # only while it indexes the very `String` shown on that row — a replaced
+    # or scrolled row rebuilds — so nothing invalidates it. An ASCII row's
+    # index is a zero-copy byte view and is built fresh each time.
+    @_row_indexes : Array(StringIndex)?
+
+    private def row_index(line : String, slot : Int32) : StringIndex
+      return StringIndex.new line if line.ascii_only?
+      cache = (@_row_indexes ||= [] of StringIndex)
+      if slot < cache.size
+        cached = cache.unsafe_fetch(slot)
+        return cached if cached.object.same?(line)
+        built = StringIndex.new line
+        cache[slot] = built
+      else
+        built = StringIndex.new line
+        # Fill the slots up to this one; a filler is never served, its
+        # identity check fails for any other row.
+        while cache.size <= slot
+          cache << built
+        end
+      end
+      built
+    end
+
     # Column range (`x - xi` units, half-open) on real (post-wrap) line *rl* to
     # paint with the selection highlight, or `nil` for none. Overridden by
     # widgets that can hold an active selection.
@@ -539,7 +567,7 @@ module Crysterm
         ridx = nil
         last_row = false
         if rows && r >= 0 && r < row_count
-          ridx = StringIndex.new rows.unsafe_fetch(r)
+          ridx = row_index(rows.unsafe_fetch(r), y - yi)
           last_row = r == row_count - 1
           attr = row_attrs.try(&.[r]?) || default_attr
           if keep_selected_fg && attr != default_attr
