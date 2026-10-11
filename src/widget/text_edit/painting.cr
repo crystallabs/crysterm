@@ -563,8 +563,10 @@ module Crysterm
           if links
             pal.link.try { |c| fg = Attr.pack_color(c) }
           elsif !fmt.underline?
+            # The anchor's underline goes; the widget style's own stays.
             attr = fmt.apply_to_attr(Attr.pack(flags, fg, bg))
-            return Attr.pack(Attr.flags(attr) & ~Attr::UNDERLINE.to_i64, Attr.fg(attr), Attr.bg(attr))
+            kept = (Attr.flags(attr) & ~Attr::UNDERLINE.to_i64) | (flags & Attr::UNDERLINE.to_i64)
+            return Attr.pack(kept, Attr.fg(attr), Attr.bg(attr))
           end
         end
         fmt.apply_to_attr(Attr.pack(flags, fg, bg))

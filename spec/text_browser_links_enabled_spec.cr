@@ -157,4 +157,30 @@ describe "TextBrowser#link_clicks" do
     expect_raises(ArgumentError) { tb.link_clicks = 0 }
     tb.link_clicks.should eq 1
   end
+
+  describe "TextBrowser links off and double clicks, with the rest of the row" do
+    it "keeps the widget style's own underline on a disabled link" do
+      s = headless_screen(40, 8)
+      tb = linked_tb s
+      tb.style.underline = true
+      tb.links_enabled = false
+      s.repaint
+      link = Attr.flags(s.cell_rows[0][3].attr)
+      plain = Attr.flags(s.cell_rows[0][0].attr)
+      (link & Attr::UNDERLINE.to_i64).should eq Attr::UNDERLINE.to_i64
+      link.should eq plain
+    end
+
+    it "leaves no word selected after the double click that followed a link" do
+      s = headless_screen(40, 8)
+      tb = linked_tb s
+      tb.link_clicks = 2
+      clicked = [] of String
+      tb.on(Crysterm::Event::AnchorClick) { |e| clicked << e.url }
+      click s, 4, 0
+      click s, 4, 0
+      clicked.should eq ["u://1"]
+      tb.selection?.should be_false # the text's double-click word select was the link's click
+    end
+  end
 end

@@ -80,6 +80,9 @@ module Crysterm
         on(Crysterm::Event::Mouse) do |e|
           if e.action.down? && links_enabled? && (window?.try(&.click_count) || 1) == @link_clicks
             if text_hit?(e.x, e.y) && (url = anchor_at(position_at(e.x, e.y)))
+              # A double click is also the text's word selection, which ran
+              # first; the click was the link's, so the selection goes.
+              clear_selection if @link_clicks == 2
               activate_link url
             end
           end
