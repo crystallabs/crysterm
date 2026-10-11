@@ -15,7 +15,7 @@ module Crysterm
       if fi = @_frame_insets
         return fi
       end
-      p = st.padding_view
+      p = padding_with_viewport_margins
       fi = if b = st.border_view
              l, t, r, bt = b.left, b.top, b.right, b.bottom
              # Same fit the render path applies (`#effective_insets`): a border
@@ -32,6 +32,38 @@ module Crysterm
       @_frame_insets = fi
       fi
     end
+
+    # Extra inset the widget itself reserves inside its frame, between the
+    # padding and the content — Qt's `QAbstractScrollArea::viewportMargins()`,
+    # the band a `QPlainTextEdit` subclass gives its line-number area. A
+    # plain widget reserves none (the shared frozen zero box);
+    # `Widget::AbstractScrollArea` overrides this with a settable box. The
+    # margins act exactly as padding does — `#ileft`…`#ibottom`, the content
+    # width the wrap runs at, and `#base_render`'s content origin all include
+    # them — but they belong to the widget's own chrome, not to its `Style`,
+    # so a stylesheet's `padding` neither sees nor clobbers them.
+    protected def viewport_margins : Padding
+      Padding::ZERO
+    end
+
+    # The padding band the frame actually insets by: `Style#padding_view` plus
+    # `#viewport_margins`. With no margins this is the style's own box (the
+    # common case, no allocation); otherwise a widget-owned box summed per
+    # side, rewritten in place each call so the margins may change between
+    # frames without a fresh `Padding` each time.
+    protected def padding_with_viewport_margins : Padding
+      p = style.padding_view
+      vm = viewport_margins
+      return p unless vm.any?
+      box = (@_padding_with_margins ||= Padding.new(0))
+      box.left = p.left + vm.left
+      box.top = p.top + vm.top
+      box.right = p.right + vm.right
+      box.bottom = p.bottom + vm.bottom
+      box
+    end
+
+    @_padding_with_margins : Padding?
 
     # Whether *edges* (an axis' two border widths) exceed the box they'd be
     # drawn in, i.e. whether that axis' border collapses this frame.
