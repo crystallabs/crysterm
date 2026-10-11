@@ -824,7 +824,8 @@ module Crysterm
       if @_drawn_ncolors != ncolors || @_drawn_links != links
         @_drawn_ncolors = ncolors
         @_drawn_links = links
-        damage_force_full
+        # The buffer holds the frame as it is; only the terminal's copy is
+        # stale, so poisoning it is all it takes (it also marks the rows).
         invalidate_region 0, width, 0, height
       end
 

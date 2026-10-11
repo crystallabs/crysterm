@@ -175,9 +175,37 @@ module Crysterm
       Crysterm toolkit options. Each can also be set in #{config_path}
       or by a #{Superconf.env_prefix}* environment variable; see #{DUMP_CONFIG_FLAG}.
       BANNER
+    options = [] of Superconf::AbstractOption
+    Config.each { |opt| options << opt unless keep.includes?(opt.cli) }
+    add_options_help parser, options
+    parser.on("#{CONFIG_FLAG}=FILE", wrap_help("Load Crysterm configuration from FILE (YAML or JSON)")) { |_| } unless keep.includes?(CONFIG_FLAG)
+    parser.on("#{DUMP_CONFIG_FLAG} [FORMAT]",
+      wrap_help("Dump the Crysterm configuration (yaml|json|env|pretty|report) and exit")) { |_| } unless keep.includes?(DUMP_CONFIG_FLAG)
+    parser.to_s
+  end
+
+  # *options* — an application's own, registered in the same registry —
+  # formatted as `.toolkit_options_help` formats the toolkit's, under
+  # *banner*: for an application's help that lists its settings in one
+  # section and the toolkit's options in another (`except:` there keeping
+  # the two apart).
+  #
+  # ```
+  # puts Crysterm.options_help("Settings:", Config.each.select(&.key.starts_with?("myapp.")))
+  # ```
+  def self.options_help(banner : String, options : Enumerable(Superconf::AbstractOption)) : String
+    parser = OptionParser.new
+    parser.banner = banner
+    add_options_help parser, options
+    parser.to_s
+  end
+
+  # Registers each of *options* on *parser* for printing: its flag with the
+  # description and default, a boolean's `--no-` negation too, unless
+  # another option owns that spelling.
+  private def self.add_options_help(parser : OptionParser, options : Enumerable(Superconf::AbstractOption)) : Nil
     primaries = toolkit_primary_flags
-    Config.each do |opt|
-      next if keep.includes?(opt.cli)
+    options.each do |opt|
       default = opt.default_string.presence || "\"\""
       description = wrap_help("#{opt.description} (default: #{default})")
       if opt.bool?
@@ -189,15 +217,11 @@ module Crysterm
         parser.on("#{opt.cli}=VALUE", description) { |_| }
       end
     end
-    parser.on("#{CONFIG_FLAG}=FILE", wrap_help("Load Crysterm configuration from FILE (YAML or JSON)")) { |_| } unless keep.includes?(CONFIG_FLAG)
-    parser.on("#{DUMP_CONFIG_FLAG} [FORMAT]",
-      wrap_help("Dump the Crysterm configuration (yaml|json|env|pretty|report) and exit")) { |_| } unless keep.includes?(DUMP_CONFIG_FLAG)
-    parser.to_s
   end
 
   # Word-wraps *text* to fit next to `OptionParser`'s flag column within 80
-  # columns, as `.toolkit_options_help` lays its descriptions out — for an
-  # application listing options of its own the same way.
+  # columns, as `.toolkit_options_help` and `.options_help` lay their
+  # descriptions out.
   def self.wrap_help(text : String, width : Int32 = 42) : String
     lines = [] of String
     line = ""
