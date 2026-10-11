@@ -478,7 +478,7 @@ module Crysterm
       # Outer pipes contribute empty edge cells; drop them.
       cells.shift if row.starts_with?('|') && !cells.empty?
       cells.pop if cells.size > 1 && row.ends_with?('|') && cells.last.empty?
-      cells.map { |c| c.strip.gsub(/[ \t]+/, ' ') }
+      cells.map(&.strip.gsub(/[ \t]+/, ' '))
     end
 
     protected def self.gfm_align(spec : String) : Tput::AlignFlag

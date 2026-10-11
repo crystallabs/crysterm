@@ -68,7 +68,7 @@ describe "Markdown whitespace" do
 
     it "collapses inside a table cell" do
       doc = TextDocument.from_markdown("| h1 | h2 |\n|---|---|\n| a    b | c\t\td |")
-      row = doc.blocks.find! { |b| b.text.includes?("a b") }
+      row = doc.blocks.find!(&.text.includes?("a b"))
       TextTable.split_data_row(row.text).should eq ["a b", "c d"]
     end
   end

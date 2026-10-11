@@ -138,7 +138,7 @@ module Crysterm
       def resizable=(value : Bool) : Bool
         return value if value == @resizable
         @resizable = value
-        @dividers.each { |div| div.enabled = value }
+        @dividers.each(&.enabled=(value))
         update!
         value
       end

@@ -130,7 +130,7 @@ describe "Widget::Media::Backend" do
     Widget::Media::Backend::Auto.label.should eq "Auto-detect"
     Widget::Media::Backend::Kitty.label.should eq "Kitty graphics"
     Widget::Media::Backend::GlyphHalf.label.should eq "Unicode half blocks"
-    Widget::Media::Backend.values.map(&.label).uniq.size.should eq Widget::Media::Backend.values.size
+    Widget::Media::Backend.values.map(&.label).uniq!.size.should eq Widget::Media::Backend.values.size
   end
 
   it "groups the members by how the pixels reach the window" do
