@@ -110,8 +110,9 @@ module Crysterm
       # heading line selects that heading and one inside the text below it
       # selects the heading above. When that entry's node is hidden under a
       # collapsed ancestor, the nearest ancestor that is a visible row is
-      # selected instead, so collapsing a branch keeps the highlight on the
-      # branch rather than losing it. Selection only: nothing is expanded and
+      # selected instead — a filler node for a skipped level included — so
+      # collapsing a branch keeps the highlight on the branch rather than
+      # losing it. Selection only: nothing is expanded and
       # no `Event::AnchorClick` is emitted — activating an entry jumps,
       # tracking does not — which is what lets a caller hook it to every caret
       # move without the two views chasing each other. Returns whether the
