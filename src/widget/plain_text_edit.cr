@@ -161,6 +161,9 @@ module Crysterm
         return value if value == @line_numbers
         @line_numbers = value
         update_line_number_area_width
+        # The row ruler's answer to `#row_ruler_numbers?` just flipped: its
+        # band is re-reserved now, so the same frame lays out beside it.
+        sync_ruler_width if @row_ruler
         emit Crysterm::Event::LineNumbersChanged, value
         update
         update! if window?
@@ -172,6 +175,13 @@ module Crysterm
       # and 0 while hidden. The Qt example's `lineNumberAreaWidth()`.
       def line_number_area_width : Int32
         @line_number_width
+      end
+
+      # The row ruler (`AbstractScrollArea#row_ruler=`) numbers the rows only
+      # while the gutter does not: with the line numbers on it is a
+      # one-column tape of ticks beside them.
+      protected def row_ruler_numbers? : Bool
+        !@line_numbers
       end
 
       # The gutter width *blocks* lines need; see `#line_number_area_width`.
@@ -221,12 +231,12 @@ module Crysterm
         # On a scroll-clipped left edge only the gutter's visible remainder is
         # on window (the same per-edge fit `base_render` applies), and that is
         # its right part: `hidden` leading columns of each number are cut.
-        # The rulers' band (`AbstractScrollArea#rulers=`) is outside the
-        # gutter's: a row above it and the row ruler's columns before it.
-        rulers_left = @vertical_ruler_width
+        # Of the rulers' band (`AbstractScrollArea#rulers=`) only the column
+        # ruler's row is outside the gutter's, above it; the row ruler's
+        # columns come after the gutter, between it and the text.
         rulers_top = @column_ruler ? 1 : 0
-        ebl, epl = effective_edge_insets(sb.left, pd.left + rulers_left, lp.hidden_left)
-        shown = effective_edge_insets(sb.left, pd.left + rulers_left + w, lp.hidden_left)[1] - epl
+        ebl, epl = effective_edge_insets(sb.left, pd.left, lp.hidden_left)
+        shown = effective_edge_insets(sb.left, pd.left + w, lp.hidden_left)[1] - epl
         return if shown <= 0
         hidden = w - shown
         x0 = lp.xi + ebl + epl

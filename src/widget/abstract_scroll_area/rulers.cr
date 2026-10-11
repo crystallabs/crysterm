@@ -7,8 +7,9 @@ module Crysterm
       # rulers Qt Designer's form editor hangs on its canvas are the nearest
       # kin, and like them the rulers are chrome of the view's own, reserved
       # through `#viewport_margins` (the band `PlainTextEdit`'s line-number
-      # gutter sits in; with both shown the ruler is the outer one), so the
-      # text lays out, scrolls and takes the mouse below and right of them.
+      # gutter sits in; with both shown the gutter is the outer one and the
+      # row ruler stands between it and the text), so the text lays out,
+      # scrolls and takes the mouse below and right of them.
       #
       # The column ruler counts in the text's own coordinates — column 1 is
       # the text's first column wherever `#line_wrap_column` and its
@@ -19,8 +20,12 @@ module Crysterm
       # counts the document's rows the same way, numbering the visible ones
       # from the top of the document, so it tells where the view is where the
       # gutter tells which source line a row came from; it is as wide as the
-      # row count's digits (two at least). A guide (`#guides_enabled=`) hangs
-      # from the column ruler as a `┬`, and is pulled off it with the mouse.
+      # row count's digits (two at least) — or, for a widget whose own
+      # margins already number the rows (`#row_ruler_numbers?` false, the
+      # editor with its gutter on), a one-column tape of ticks: `│` on a
+      # row, `┼` on every fifth, `╪` on every tenth. A guide
+      # (`#guides_enabled=`) hangs from the column ruler as a `┬`, and is
+      # pulled off it with the mouse.
       # `AbstractScrollArea::ruler { color: … }` styles the rulers; with no
       # rule they fade the widget's own foreground toward its background, the
       # way the gutter does. `Event::RulersChanged` follows the toggle, for a
@@ -84,14 +89,30 @@ module Crysterm
       # off; the column ruler's row is `#column_ruler?` itself.
       @vertical_ruler_width = 0
 
+      # Whether the row ruler prints the row numbers, or is a one-column
+      # tape of ticks for a widget whose own margins already number the
+      # rows — `PlainTextEdit` says no while its line-number gutter shows.
+      # true here; a subclass that overrides it re-runs `#sync_ruler_width`
+      # when its answer changes, so the band is re-reserved at once.
+      protected def row_ruler_numbers? : Bool
+        true
+      end
+
       # The row ruler's width, in columns: the row count's digits, so a
       # thousand-row document gets a fourth column (`RULER_MIN_DIGITS` at
-      # least). Re-derived before each layout (`#process_content`) from the
-      # rows the last one produced — the count can only change with a new
-      # layout, and a width that grows by it settles the frame after, as the
-      # scroll bar's reservation does.
+      # least), or one column while `#row_ruler_numbers?` is false.
+      # Re-derived before each layout (`#process_content`) from the rows the
+      # last one produced — the count can only change with a new layout, and
+      # a width that grows by it settles the frame after, as the scroll bar's
+      # reservation does.
       private def sync_ruler_width : Nil
-        w = @row_ruler ? Math.max(decimal_digits(@wrapped_lines.size), RULER_MIN_DIGITS) : 0
+        w = if !@row_ruler
+              0
+            elsif row_ruler_numbers?
+              Math.max(decimal_digits(@wrapped_lines.size), RULER_MIN_DIGITS)
+            else
+              1
+            end
         return if w == @vertical_ruler_width
         @vertical_ruler_width = w
         @_frame_insets = nil
@@ -109,7 +130,9 @@ module Crysterm
 
       # The on-window frame the chrome paints and hit-tests in, from the
       # last render: `{x0, xl, y0, yl, text_x0, content_top}` — the band's
-      # first column and the row the column ruler is on (the padding's inner
+      # first column (the subclass's own margin's, the gutter's; the row
+      # ruler stands `@viewport_margins.left` columns in from it) and the
+      # row the column ruler is on (the padding's inner
       # edge), the interior's exclusive right and bottom edges with the scroll
       # bars kept out, the screen column the text's column 1 is at (before
       # the horizontal scroll) and the first content row. The same arithmetic
@@ -137,11 +160,11 @@ module Crysterm
 
       # Paints the rulers after the base render: the column ruler on the row
       # above the content, from the row ruler's right edge to the interior's,
-      # and the row ruler down the content rows. The base render filled the
-      # band with the widget's background; both are written in
-      # `#ruler_attr`. Columns before the text's first (the gutter, a
-      # centered column's left slack) and rows past the document's end stay
-      # blank.
+      # and the row ruler down the content rows, right of the subclass's own
+      # margin (the gutter). The base render filled the band with the
+      # widget's background; both are written in `#ruler_attr`. Columns
+      # before the text's first (a centered column's left slack) and rows
+      # past the document's end stay blank.
       private def paint_rulers : Nil
         lp = @lpos || return
         x0, xl, y0, yl, text_x0, content_top = chrome_frame || return
@@ -149,20 +172,22 @@ module Crysterm
         rows = window.cell_rows
         attr = ruler_attr
         vw = @vertical_ruler_width
+        ruler_x0 = x0 + @viewport_margins.left
         if @column_ruler && y0 >= 0 && (row = rows[y0]?)
-          (x0 + vw...xl).each do |x|
+          (ruler_x0 + vw...xl).each do |x|
             next if x < 0
             cell = row[x]? || break
             cell.set_if_changed attr, column_ruler_glyph(text_column_at(x, text_x0))
           end
         end
         return if vw == 0
+        numbers = row_ruler_numbers?
         total = @wrapped_lines.size
         (content_top...yl).each do |y|
           next if y < 0
           row = rows[y]? || break
           r = lp.base + (y - content_top) + 1
-          paint_row_ruler_cells row, x0, vw, (r <= total ? r : 0), attr
+          paint_row_ruler_cells row, ruler_x0, vw, (r <= total ? r : 0), numbers, attr
         end
       end
 
@@ -185,12 +210,13 @@ module Crysterm
       end
 
       # Writes the row ruler's *width* cells of *row* at *x0* on for document
-      # row *r* (1-based; 0 for a row past the end, left blank): the number
-      # right-aligned on a tenth row, a `┼` in the last column on a fifth,
-      # `│` otherwise. No String is built — the digit for a column is read
-      # off the number by place value.
-      private def paint_row_ruler_cells(row, x0 : Int32, width : Int32, r : Int32, attr : Int64) : Nil
-        digits = r > 0 && r % 10 == 0 ? decimal_digits(r) : 0
+      # row *r* (1-based; 0 for a row past the end, left blank): with
+      # *numbers*, the number right-aligned on a tenth row, a `┼` in the last
+      # column on a fifth, `│` otherwise; without them (the one-column tape),
+      # a `╪` stands on the tenth row where the number would. No String is
+      # built — the digit for a column is read off the number by place value.
+      private def paint_row_ruler_cells(row, x0 : Int32, width : Int32, r : Int32, numbers : Bool, attr : Int64) : Nil
+        digits = numbers && r > 0 && r % 10 == 0 ? decimal_digits(r) : 0
         (0...width).each do |c|
           x = x0 + c
           next if x < 0
@@ -200,6 +226,8 @@ module Crysterm
                  place < digits ? '0' + (r // 10 ** place) % 10 : ' '
                elsif r == 0 || place > 0
                  ' '
+               elsif r % 10 == 0
+                 '╪'
                elsif r % 5 == 0
                  '┼'
                else

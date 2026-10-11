@@ -121,7 +121,7 @@ module Crysterm
         rows = window.cell_rows
         fg = Attr.fg(guide_attr)
         marker_attr = @column_ruler ? ruler_attr : 0_i64
-        first_x = x0 + @vertical_ruler_width
+        first_x = guides_first_x(x0)
         guide_columns.each do |col|
           x = text_x0 + col - 1 - @child_base_x
           next if x < first_x || x >= xl || x < 0
@@ -187,8 +187,18 @@ module Crysterm
       # the row ruler and within the interior; nil anywhere else.
       private def ruler_column_at(x : Int32, y : Int32) : Int32?
         x0, xl, y0, _yl, text_x0, _top = chrome_frame || return
-        return unless y == y0 && x >= x0 + @vertical_ruler_width && x < xl
+        return unless y == y0 && x >= guides_first_x(x0) && x < xl
         text_column_at x, text_x0
+      end
+
+      # The first screen column a guide is drawn in and the ruler is taken
+      # hold of at, given the band's first column *x0*: the row ruler's right
+      # edge while it shows (it stands right of the subclass's own margin,
+      # and a guide never runs over its ticks), else the band's own first
+      # column, so the left bound may run down a gutter's gap column.
+      private def guides_first_x(x0 : Int32) : Int32
+        vw = @vertical_ruler_width
+        vw > 0 ? x0 + @viewport_margins.left + vw : x0
       end
 
       # Takes the guide at *column* in hand — the user's one there, lifted out

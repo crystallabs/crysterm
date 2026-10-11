@@ -20,8 +20,8 @@ module Crysterm
       @viewport_margins : Padding = Padding::ZERO
 
       # The subclass's band plus the rulers' (`#rulers=`, a row above and
-      # columns left of it — the outer band, so a gutter sits between the
-      # row ruler and the text): a widget-owned box summed per side,
+      # columns left of the text — the inner band, so the row ruler sits
+      # between a gutter and the text): a widget-owned box summed per side,
       # rewritten in place each call like the base's, so the sum may change
       # between frames without an allocation.
       protected def viewport_margins : Padding

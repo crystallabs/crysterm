@@ -4,7 +4,8 @@ include Crysterm
 
 # `AbstractScrollArea#rulers=`: a column ruler on the viewport's top row and
 # a row ruler down its leftmost columns, reserved as viewport margins like
-# the line-number gutter (outside it when both show), counted in the text's
+# the line-number gutter (between it and the text when both show, as a
+# one-column tape of ticks since the gutter numbers the lines), counted in the text's
 # coordinates — the text width column, its alignment and the horizontal
 # scroll move the numbers with the text — and styled by `::ruler`.
 
@@ -57,19 +58,64 @@ describe "AbstractScrollArea rulers" do
     row_text(s, 8 - 1, 0..4).should eq " │l14"
   end
 
-  it "sits outside the line-number gutter" do
+  it "sits between the line-number gutter and the text, as ticks while the gutter numbers the lines" do
     s = headless_screen(30, 8)
     pe = editor(s, "one\ntwo")
     pe.rulers = true
     pe.line_numbers = true
     s.repaint
-    row_text(s, 1).should eq " │ 1 one"
-    row_text(s, 2).should eq " │ 2 two"
-    # Column 1 of the tape is the text's first column, past the gutter.
-    row_text(s, 0, 0..9).should eq "     ────┼"
+    # The gutter (two digits and the gap: 3 columns), then the one-column
+    # tick ruler, then the text.
+    pe.line_number_area_width.should eq 3
+    pe.ileft.should eq 4
+    pe.itop.should eq 1
+    row_text(s, 1).should eq " 1 │one"
+    row_text(s, 2).should eq " 2 │two"
+    row_text(s, 3).should eq ""
+    # Column 1 of the tape is the text's first column, past the gutter and
+    # the ruler.
+    row_text(s, 0, 0..9).should eq "    ────┼─"
+    # Turning the line numbers off widens the ruler back to its numbered,
+    # two-column form in the same frame.
     pe.line_numbers = false
     s.repaint
+    pe.ileft.should eq 2
     row_text(s, 1).should eq " │one"
+    row_text(s, 0, 0..9).should eq "  ────┼───"
+    pe.line_numbers = true
+    s.repaint
+    pe.ileft.should eq 4
+    row_text(s, 1).should eq " 1 │one"
+  end
+
+  it "ticks the one-column ruler beside the gutter: ┼ on a fifth row, ╪ on a tenth" do
+    s = headless_screen(30, 8)
+    pe = editor(s, (1..30).map { |i| "l#{i}" }.join('\n'))
+    pe.rulers = true
+    pe.line_numbers = true
+    pe.cursor_position = 0
+    pe.scroll_to 0
+    s.repaint
+    row_text(s, 1, 0..6).should eq " 1 │l1 "
+    row_text(s, 5, 0..6).should eq " 5 ┼l5 "
+    pe.scroll_to 7
+    s.repaint
+    row_text(s, 1, 0..6).should eq " 8 │l8 "
+    row_text(s, 3, 0..6).should eq "10 ╪l10"
+    row_text(s, 7, 0..6).should eq "14 │l14"
+  end
+
+  it "numbers the rows of a viewer, which has no gutter, as before" do
+    s = headless_screen(40, 8)
+    te = viewer(s, "one\ntwo")
+    te.rulers = true
+    s.repaint
+    te.ileft.should eq 2
+    te.itop.should eq 1
+    row_text(s, 0, 0..11).should eq "  ────┼────│"
+    row_text(s, 1).should eq " │one"
+    row_text(s, 2).should eq " │two"
+    row_text(s, 3).should eq ""
   end
 
   it "counts the text's columns: a capped, centered column starts the tape where the text starts" do
