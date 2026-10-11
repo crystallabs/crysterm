@@ -173,7 +173,13 @@ module Crysterm
         /* Editable fields (Button is an Input subclass, so this comes first and
            the Button rules below win the equal-specificity tie via source order). */
         Input, LineEdit, PlainTextEdit, SpinBox, DoubleSpinBox, ComboBox { background-color: var(--surface-dark); color: var(--text); }
-        Input:focus, LineEdit:focus, PlainTextEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
+        /* A one-line field lightens while it has the focus, as a form's active
+           field conventionally does. The multi-line editor keeps its base color
+           in either state, as Qt's QPlainTextEdit does (its focus frame and
+           caret are what change): a document pane that changes shade with the
+           focus reads as dimmed whenever the user works in another pane. (The
+           chat `Input` is a PlainTextEdit, and keeps the tint by its own name.) */
+        Input:focus, LineEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
         /* The plain editor's line-number gutter reads as chrome, like muted text. */
         PlainTextEdit::line-number { color: var(--muted-light); }
 
