@@ -381,6 +381,29 @@ module Crysterm
       Attr.fg(code) != Attr::COLOR_DEFAULT && Attr.bg(code) != Attr::COLOR_DEFAULT
     end
 
+    # Reduces `code` to what a monochrome terminal (color count 1) can show.
+    # Such a terminal has no colors to send — only reverse video (SGR 7) — so a
+    # cell's *polarity* is all that survives: whether it reads as dark-on-light
+    # or light-on-dark. Both colors come back as `Attr::COLOR_DEFAULT`, and the
+    # `Attr::REVERSE` flag is flipped (XOR, so a cell already reversed by its
+    # style comes out un-reversed) when the cell's polarity is the opposite of
+    # the terminal's: a light cell (a concrete background with
+    # `Colors.luminance > 0.5`) on a dark terminal, or a dark cell on a light
+    # one. A light theme — dark text on a light background — therefore renders
+    # as reverse video on a dark terminal, black on white, instead of
+    # vanishing into the terminal's own white-on-dark defaults; on a light
+    # terminal it renders plain. A cell with no concrete background has the
+    # terminal's own polarity whatever its foreground: a dark foreground on the
+    # default background is low-contrast text, not a light cell, so the
+    # foreground alone never flips.
+    def self.monochrome(code : Int64, light_terminal : Bool) : Int64
+      bg = Attr.unpack_color(Attr.bg(code))
+      light_cell = bg != -1 ? Colors.luminance(bg) > 0.5 : light_terminal
+      flags = Attr.flags(code)
+      flags ^= Attr::REVERSE if light_cell != light_terminal
+      Attr.pack(flags, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)
+    end
+
     # `code`'s full SGR sequence as a `String` (`""` for the default attr) at
     # color count `n` — the allocating convenience over `.write`.
     def self.attr_to_string(code : Int64, n : Int) : String

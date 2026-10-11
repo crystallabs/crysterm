@@ -19,7 +19,7 @@ module Crysterm
   # advertises. Drives color reduction at output time.
   enum ColorDepth
     Auto      # Terminal detection (+ the NO_COLOR / FORCE_COLOR / CLICOLOR env vars)
-    None      # Monochrome: emit no color (styles like bold still apply)
+    None      # Monochrome: no color; a cell's polarity goes through reverse video (`SGR.monochrome`), styles like bold still apply
     Basic     # 8 ANSI colors
     Ansi      # 16 ANSI colors (8 normal + 8 bright)
     Xterm256  # 256-color palette

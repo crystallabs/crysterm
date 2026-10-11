@@ -199,6 +199,13 @@ module Crysterm
     # by `#draw` (linked cells register regardless under `Auto`; see `#link_id`).
     @_links_enabled = false
 
+    # Whether the terminal's default background is light — resolved once per
+    # frame by `#draw` from the probed OSC 11 reply (unknown counts as dark).
+    # Only the monochrome depth reads it: `emit_sgr_transition` expresses a
+    # cell's polarity against the terminal's with reverse video there
+    # (`SGR.monochrome`).
+    @_light_terminal = false
+
     # Emits the OSC 8 sequence switching the terminal's "current hyperlink" to
     # *id*'s URI (`0` = close): printed cells from here on carry the link.
     # No-op while the resolved hyperlink policy is off — cells keep their link
@@ -239,7 +246,18 @@ module Crysterm
     # bits — which in any case never survive into `@lines` (`Colors.composite`
     # clears them at fold time, and `Plane::CLEAR_ATTR` is the only producer)
     # — cannot make an SGR-empty attr look non-default.
+    #
+    # At the monochrome depth (*ncolors* < 2) both attrs are first reduced by
+    # `SGR.monochrome` — colors dropped, polarity folded into the reverse flag —
+    # and nothing is written when they reduce to the same attr: many colored
+    # attrs collapse onto one monochrome one, so a caller that tracks the
+    # unmapped attr may ask for a transition that is no transition here.
     private def emit_sgr_transition(io : IO::Memory, from : Int64, to : Int64, df : Int64, ncolors : Int32) : Nil
+      if ncolors < 2
+        from = SGR.monochrome(from, @_light_terminal)
+        to = SGR.monochrome(to, @_light_terminal)
+        return if from == to
+      end
       unless from == df ||
              ((Attr.flags(from) & ~Attr.flags(to)) == 0 && SGR.has_both_concrete?(to))
         io.print "\e[m"
@@ -275,6 +293,13 @@ module Crysterm
       # Resolve the hyperlink policy once per frame (the `Auto` arm does a
       # `tty?` syscall) — `emit_link` consults this, not `#hyperlinks?`.
       @_links_enabled = hyperlinks?
+      # The terminal's polarity for the monochrome depth: light when its probed
+      # default background (OSC 11) is light, dark when unknown.
+      @_light_terminal = if bg = tput.features.default_background
+                           Colors.luminance(Colors.rgb(bg.r, bg.g, bg.b)) > 0.5
+                         else
+                           false
+                         end
 
       # Terminal-constant capabilities bound to locals. Only `bce_opt`, `fu` and
       # `ncolors` can change at runtime, so they stay per-frame.

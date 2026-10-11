@@ -33,8 +33,9 @@ module Crysterm
     # Resolves the effective output color count from the `colors.depth` config
     # option and the `screen.color_force` policy (resolved once at startup from
     # the `NO_COLOR` / `FORCE_COLOR` / `CLICOLOR[_FORCE]` conventions), falling
-    # back to the terminal-detected count. `1` means monochrome (no color
-    # emitted; styles still apply).
+    # back to the terminal-detected count. `1` means monochrome: no color is
+    # emitted, a cell's polarity against the terminal's goes through reverse
+    # video instead (`SGR.monochrome`), and styles still apply.
     def self.resolve_color_depth(detected : Int32) : Int32
       # An explicit config depth wins outright.
       if forced = Config.colors_depth.to_count
