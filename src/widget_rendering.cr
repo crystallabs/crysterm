@@ -137,6 +137,12 @@ module Crysterm
       item.style
     end
 
+    # Whether `base_render` paints the wrapped lines. A widget that paints its
+    # text itself over the base fill (`TextEdit`) answers `false`.
+    protected def base_render_rows? : Bool
+      true
+    end
+
     # Column range (`x - xi` units, half-open) on real (post-wrap) line *rl* to
     # paint with the selection highlight, or `nil` for none. Overridden by
     # widgets that can hold an active selection.
@@ -325,36 +331,25 @@ module Crysterm
       # A layer root's opacity is applied as its plane's opacity at composite time,
       # so suppress the render-time self-blend while painting into the plane.
       style_opacity = @compositing ? nil : style.opacity?
-      padding = style.padding_view
+      # The style's padding plus the widget's own `#viewport_margins` (a
+      # line-number gutter): both inset the content the same way.
+      padding = padding_with_viewport_margins
       fill = style.fill?
       xi = coords.xi
       xl = coords.xl
       yi = coords.yi
       yl = coords.yl
-      # `#pcontent` materializes the printable string if a deferred append left it
-      # stale, caching into `@printable_content`. Once per frame, not per appended line.
-      pcontent = self.pcontent
-      # Reuse the cached codepoint index unless `@printable_content` was reparsed into a
-      # fresh `String` (identity check).
-      content = @_content_index
-      unless content && content.built_from?(pcontent)
-        content = StringIndex.new pcontent
-        @_content_index = content
-      end
       bch = style.fill_char
-      # `ci[base]` is the codepoint offset in the full content where the first
-      # visible wrapped line starts. `coords.base` can transiently sit at or past
-      # the end (a scroll left below the last line by an in-flight resize/reflow):
-      # there the content starts past the end, so clamp to the content length. In
-      # range the lookup is always a valid `Int32` (`ci` is `Array(Int32)`, so the
-      # `[]?` is nil only when out of range — handled above); the `|| 0` is a bare
-      # guard for a non-sensical negative base and never fires in practice.
-      ci =
-        if coords.base >= @wrapped_lines.ci.size
-          content.size
-        else
-          @wrapped_lines.ci[coords.base]? || 0
-        end
+      # The wrapped lines, each painted on its own screen row through its own
+      # codepoint index — never joined into one document string. A widget that
+      # paints its text itself (`TextEdit`) exposes none here and gets only the
+      # background fill. `row` is the wrapped line shown on the first content
+      # row: `coords.base` (a scroll past the end just shows blank rows), moved
+      # negative below for a vertical-alignment gap.
+      rows = base_render_rows? ? @wrapped_lines.lines : nil
+      row_count = rows ? rows.size : 0
+      row_attrs = rows ? @wrapped_lines.attr : nil
+      row = coords.base
 
       @lpos = coords
 
@@ -365,12 +360,6 @@ module Crysterm
       # defensive fallback.
       default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || style_to_attr(style)
       attr = default_attr
-
-      # If we're in a scrollable text box, check to
-      # see which attributes this line starts with.
-      if ci > 0
-        attr = @wrapped_lines.attr.try(&.[Math.min(coords.base, @wrapped_lines.size - 1)]?) || default_attr
-      end
 
       # Effective per-edge insets: on a scroll-clipped edge part (or all) of the
       # border/padding band is hidden past the ancestor's viewport, and `coords`
@@ -410,7 +399,7 @@ module Crysterm
       # Padding/valign make the content loop skip some cells/lines, so fill
       # those ahead of time. On the common opaque-fill path only the padding
       # bands and the scrollbar-reserved rows need pre-filling (the loop paints
-      # the valign gap itself — a negative `ci` indexes to nil, i.e. the `bch`
+      # the valign gap itself — a row before the first line reads no content, i.e. the `bch`
       # fill). A background-image widget keeps the whole-box fill; a
       # `fill: false` widget must not be filled at all. The `hsr > 0` arm covers
       # the no-padding default-align case: the reserved bar band (including the
@@ -492,7 +481,7 @@ module Crysterm
           elsif @align.bottom?
             visible -= @wrapped_lines.size
           end
-          ci -= visible * (xl - xi)
+          row -= visible
         end
       end
 
@@ -520,27 +509,44 @@ module Crysterm
             next
           end
         end
-        # Rows above the top edge (`y < 0`) must still be walked so the content
-        # index advances, but NOT painted: `Indexable#[]?` counts a negative
-        # index from the END, so writing there corrupts the window bottom (same
-        # hazard per-cell for `x < 0`).
-        draw_row = y >= 0
+        # The wrapped line on this screen row; the next row takes the next
+        # line. Rows above the top edge (`y < 0`) are skipped unpainted:
+        # `Indexable#[]?` counts a negative index from the END, so writing
+        # there corrupts the window bottom (same hazard per-cell for `x < 0`).
+        r = row
+        row += 1
+        next if y < 0
 
         # `y - yi` assumes top alignment.
         sel_cols = selection_columns_for_row(coords.base + (y - yi))
         xsels, xfull = extra_selections_for_row(coords.base + (y - yi))
 
-        # Content exhausted: every remaining cell of this row is the constant
-        # `{attr, bch}` fill — no SGR can arrive, the single-column `bch` never
-        # clusters, and with no selection `highlighted_attr` is `attr` itself.
-        # `ci` intentionally stays put: every later read is `content[>= size]` →
-        # nil regardless.
-        if bulk_fill_ok && ci >= content.size && sel_cols.nil? && xfull.nil?
-          if fill && !bg_cells && draw_row
+        # Content exhausted (every line painted, or none to paint): every cell
+        # of this row is the constant `{attr, bch}` fill — no SGR can arrive,
+        # the single-column `bch` never clusters, and with no selection
+        # `highlighted_attr` is `attr` itself.
+        if bulk_fill_ok && r >= row_count && sel_cols.nil? && xfull.nil?
+          if fill && !bg_cells
             scr.fill_region(attr, bch, xi, xl, y, y + 1)
           end
           next
         end
+
+        # The line's codepoints, or none in the valign gap and past the content
+        # (every read then yields the fill char). Its first cell starts from
+        # the attr the preceding lines' SGR left open (`_parse_attr`'s per-line
+        # record); a selected item keeps the default fg over it, as below.
+        ridx = nil
+        last_row = false
+        if rows && r >= 0 && r < row_count
+          ridx = StringIndex.new rows.unsafe_fetch(r)
+          last_row = r == row_count - 1
+          attr = row_attrs.try(&.[r]?) || default_attr
+          if keep_selected_fg && attr != default_attr
+            attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
+          end
+        end
+        ri = 0
 
         # (Cells stay allocated for the whole row rather than created lazily per
         # drawn glyph: the frame diff and damage tracking compare against a dense
@@ -565,29 +571,33 @@ module Crysterm
             end
           end
           # The cell to actually paint into this iteration, or `nil` when the
-          # column/row is off-window. Gates every write below.
-          target = draw_row ? cell : nil
+          # column is off-window. Gates every write below.
+          target = cell
 
-          ch = content[ci]? || bch
-          ci += 1
+          # The line's codepoint at `ri`, `nil` past its end (and on a row
+          # with no line), which paints as the fill char.
+          c = ridx.try &.[ri]?
+          ch = c || bch
+          ri += 1
 
           # Handle escape codes.
-          while ch == '\e'
+          while ch == '\e' && (rx = ridx)
             # Recognize the SGR sequence (`\e[[\d;]*m`) by scanning codepoints
-            # directly rather than by regex, which allocates per escape. `ci - 1`
-            # is the `\e` just consumed; `ci` should be `[`, then digits/`;`,
+            # directly rather than by regex, which allocates per escape. `ri - 1`
+            # is the `\e` just consumed; `ri` should be `[`, then digits/`;`,
             # then `m`.
-            if content[ci]? == '[' && (m = SGR.terminator(content, ci + 1))
+            if rx[ri]? == '[' && (m = SGR.terminator(rx, ri + 1))
               # `m` is the index of the trailing 'm'. Parse params straight out of
-              # `content` (no substring), then advance past the 'm'.
-              attr = SGR.to_attr(content, ci - 1, m, attr, default_attr)
-              ci = m + 1
+              # the line (no substring), then advance past the 'm'.
+              attr = SGR.to_attr(rx, ri - 1, m, attr, default_attr)
+              ri = m + 1
               # Selected items keep the default fg; the rest of the attr changes.
               if keep_selected_fg
                 attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
               end
-              ch = content[ci]? || bch
-              ci += 1
+              c = rx[ri]?
+              ch = c || bch
+              ri += 1
             else
               break
             end
@@ -604,13 +614,9 @@ module Crysterm
             # pre-expansion pass.
             ch = bch
           end
-          if ch == '\n'
-            # On the first cell, if the last cell of the previous line wasn't a
-            # newline, treat this newline as already "counted".
-            if (x == xi) && (y != yi) && ci >= 2 && (content[ci - 2]? != '\n')
-              x -= 1
-              next
-            end
+          # The line ends before the row does (the last line runs out into
+          # plain fill-char cells instead, like the rows past the content).
+          if c.nil? && ridx && !last_row
             ch = bch
             # A buffer-image background owns the rest of this line, and a
             # `fill: false` widget draws no background: paint nothing across the
@@ -629,7 +635,7 @@ module Crysterm
               # the per-cell loop's `x < 0` skip and its break on the first
               # missing cell; `x = xl` then ends the row as the loop's own
               # run-to-`xl` does, with the content index untouched either way.
-              scr.fill_region(attr, ch, Math.max(x, 0), xl, y, y + 1) if draw_row
+              scr.fill_region(attr, ch, Math.max(x, 0), xl, y, y + 1)
               x = xl
             else
               while x < xl
@@ -637,13 +643,11 @@ module Crysterm
                 # but are never fetched/painted (negative-index wrap).
                 fcell = x >= 0 ? line[x]? : nil
                 break if x >= 0 && fcell.nil?
-                if draw_row && (fc = fcell)
+                if fc = fcell
                   paint_attr = overlaid_attr(highlighted_attr(attr, sel_cols, x - xi), xsels, xfull, x - xi)
                   if opacity = style_opacity
                     fc.attr = Colors.blend(paint_attr, fc.attr, alpha: opacity)
-                    if content[ci - 1]?
-                      fc.char = ch
-                    end
+                    fc.char = ch
                     line.mark_dirty x
                   else
                     fc.set_if_changed(paint_attr, ch)
@@ -653,13 +657,13 @@ module Crysterm
               end
             end
 
-            # Newline: row filled to the end, move to the next row.
+            # Row filled to the end, move to the next row.
             next
           end
 
           # Whether this cell maps to a real content codepoint (vs. the fill
           # char `bch` past the end of content).
-          has_content = !content[ci - 1]?.nil?
+          has_content = !c.nil?
 
           # A `Media::Cells` background has painted this box; leave an empty cell
           # showing the image rather than overwriting it. Text cells draw on top.
@@ -672,11 +676,11 @@ module Crysterm
           grapheme = ""
           cell_width = 1
           is_cluster = false
-          if fu && has_content
-            if needs_cluster? ch, content[ci]?
+          if fu && has_content && (rx = ridx)
+            if needs_cluster? ch, rx[ri]?
               # Costly path — a real multi-codepoint cluster, whose `String`
               # alloc is unavoidable but bounded by cluster cells on window.
-              grapheme, ci = extend_grapheme(content, ci, ch)
+              grapheme, ri = extend_grapheme(rx, ri, ch)
               cell_width = ::Crysterm::Unicode.width grapheme
               is_cluster = true
               if cell_width == 0
@@ -684,7 +688,7 @@ module Crysterm
                 # the previous cell rather than consuming one. The overlay is
                 # read directly, and the base char interpolated, to build the
                 # merged cluster in a single allocation.
-                if draw_row && x > xi && x - 1 >= 0 && (prev = line[x - 1]?)
+                if x > xi && x - 1 >= 0 && (prev = line[x - 1]?)
                   merged =
                     if ov = prev.grapheme_overlay
                       ov + grapheme
@@ -747,7 +751,7 @@ module Crysterm
           # next cell as its continuation so 1 cell == 1 terminal column. The
           # claim happens even off-window to stay in step; only the write is gated.
           if fu && cell_width == 2 && (x + 1 < xl) && (nxt = line[x + 1]?)
-            if draw_row && x + 1 >= 0
+            if x + 1 >= 0
               if x >= 0
                 nxt.attr = overlaid_attr(highlighted_attr(attr, sel_cols, x + 1 - xi), xsels, xfull, x + 1 - xi)
                 nxt.continuation!
@@ -1237,7 +1241,7 @@ module Crysterm
       # clamped to a clipping ancestor's viewport, so on a clipped edge only
       # the visible remainder of the border/padding band insets the interior.
       border = style.border_view
-      padding = style.padding_view
+      padding = padding_with_viewport_margins
       insets = effective_insets(border, padding, ret)
       ebl, epl = insets.left
       ebt, ept = insets.top

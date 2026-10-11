@@ -113,16 +113,8 @@ module Crysterm
         # `_parse_attr` also records `style_to_attr(style)` in `@_parse_attr_default`, so
         # no separate recompute is needed here.
         @wrapped_lines.attr = _parse_attr @wrapped_lines
-        # Reuse the `CLines`' own `ci` array (clear + refill) instead of
-        # allocating a fresh replacement every reparse.
-        ci = @wrapped_lines.ci
-        ci.clear
-        @wrapped_lines.reduce(0) do |total, line|
-          ci.push(total)
-          total + line.size + 1
-        end
-
-        @printable_content = clines_joined
+        # The joined printable string is rebuilt only by a `#pcontent` reader.
+        @printable_content = nil
         emit Crysterm::Event::ContentParsed
 
         return true

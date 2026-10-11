@@ -368,6 +368,12 @@ module Crysterm
       # Replaces the base content pipeline: instead of parsing `@content`,
       # assemble `@wrapped_lines` from the per-block wrap cache. Returns whether a
       # relayout happened (base contract).
+      # The base pass paints only the background fill; `#paint_document`
+      # draws the rows with their formats.
+      protected def base_render_rows? : Bool
+        false
+      end
+
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         return false unless window?
         sync_palette
@@ -532,9 +538,8 @@ module Crysterm
         cl.max_width = max_width
         cl.real = cl
         cl.attr = nil
-        # Keep the printable content empty: the base `base_render` pass then paints
-        # only the background fill (plus borders/bars/selection-on-fill), and
-        # `#paint_document` draws the actual text over it.
+        # The rows are `#paint_document`'s to draw (`#base_render_rows?`); the
+        # printable content stays empty so `#pcontent` never joins them.
         @printable_content = ""
         # The base attr cache normally refreshes in base `process_content`.
         # Routed through the memo so the first steady frame after a rebuild

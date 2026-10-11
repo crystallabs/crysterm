@@ -166,10 +166,6 @@ module Crysterm
       end
     end
 
-    # Cached codepoint index over `@printable_content`, reused across frames. Rebuilt only
-    # when `@printable_content` becomes a different `String`.
-    @_content_index : StringIndex? = nil
-
     # Public getter (read widely by specs and subclass render code); the setter
     # is `protected` so external writes can't bypass the wrap/version pipeline.
     #

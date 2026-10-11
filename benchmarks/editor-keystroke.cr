@@ -35,9 +35,9 @@ def measure(label, n, &block)
   block.call # warm
   GC.collect
   b0 = GC.stats.total_bytes
-  t0 = Time.monotonic
+  t0 = Time.instant
   n.times { block.call }
-  dt = Time.monotonic - t0
+  dt = Time.instant - t0
   db = GC.stats.total_bytes - b0
   STDERR.printf "  %-34s %9.1f µs  %8.1f KiB alloc\n", label, dt.total_microseconds / n, db.to_f / n / 1024
 end

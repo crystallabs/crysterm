@@ -50,7 +50,6 @@ module Crysterm
 
       property ftor = [] of Array(Int32)
       property rtof = [] of Int32
-      property ci = [] of Int32
 
       # Pool of recycled `ftor` sub-arrays, so steady-state reparsing reuses the
       # same `Array(Int32)` objects instead of allocating one per line per frame.
@@ -83,7 +82,6 @@ module Crysterm
           @ftor_pool << row
         end
         @ftor.clear
-        @ci.clear
       end
 
       # A cleared per-line `ftor` sub-array: recycled from the pool (see
@@ -209,18 +207,6 @@ module Crysterm
         cl.ftor << row.map { |r| r + base_real }
       end
       scratch.rtof.each { |f| cl.rtof << (f + base_fake) }
-
-      # Extend `ci` (char offset of each real line in the joined pcontent). Must
-      # derive from the existing offsets, not `@printable_content`, which is lazily built
-      # and may be stale/nil here. The first new line starts one past the last
-      # existing line's end (the +1 is the joining "\n"); `base_real >= 1` since
-      # content is non-blank. The safe `[]?` keeps offsets monotonic rather than
-      # raising should `ci` somehow be short.
-      running = (cl.ci[base_real - 1]? || 0) + cl.lines[base_real - 1].size + 1
-      scratch.lines.each do |ln|
-        cl.ci << running
-        running += ln.size + 1
-      end
 
       # Per-line starting attrs for new lines, carrying SGR state across the
       # boundary: first new line starts from the attr the existing content ended
@@ -396,17 +382,12 @@ module Crysterm
       n_old = old_rows.size
       lines = cl.lines
 
-      # Widths and joined-length of the rows being replaced, before they go.
-      old_chars = 0
+      # Widths of the rows being replaced, before they go.
       old_max = 0
       n_old.times do |i|
-        row = lines[r0 + i]
-        old_chars += row.size + 1
-        w = str_width(row)
+        w = str_width(lines[r0 + i])
         old_max = w if w > old_max
       end
-      new_chars = 0
-      new_lines.each { |row| new_chars += row.size + 1 }
       old_full = @wrap_content ? 0 : str_width(cl.fake[fake])
 
       # Rows, fake line, and the row→fake map.
@@ -429,24 +410,6 @@ module Crysterm
         while j < ftor.size
           ftor.unsafe_fetch(j).map! { |r| r + delta }
           j += 1
-        end
-      end
-
-      # Joined-content offsets: the new rows' offsets run from the first
-      # replaced row's start, and every row after shifts by the length delta.
-      ci = cl.ci
-      running = ci[r0]
-      ci[r0, n_old] = Array.new(n_new, 0) if delta != 0
-      new_lines.each_with_index do |row, i|
-        ci.unsafe_put(r0 + i, running)
-        running += row.size + 1
-      end
-      dc = new_chars - old_chars
-      if dc != 0
-        i = r0 + n_new
-        while i < ci.size
-          ci.unsafe_put(i, ci.unsafe_fetch(i) + dc)
-          i += 1
         end
       end
 

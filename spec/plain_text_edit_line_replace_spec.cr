@@ -38,7 +38,6 @@ private def expect_identical(pte, wrap = true, height = H)
   pc.fake.should eq rc.fake
   pc.ftor.should eq rc.ftor
   pc.rtof.should eq rc.rtof
-  pc.ci.should eq rc.ci
   pc.attr.should eq rc.attr
   pc.max_width.should eq rc.max_width
   pc.full_width.should eq rc.full_width
@@ -52,20 +51,20 @@ private def at(pte, line, col)
   pte.document.block_position(line) + col
 end
 
-# Types *str* at *pos*, then shows the frame. The patch leaves the printable
-# string to be rebuilt lazily, so a `nil` `printable_content` right after the
+# Types *str* at *pos*, then shows the frame. The patch leaves the raw
+# content to be re-joined lazily, so a stale `@content` right after the
 # edit is the sign the fast path (not a full `set_content`) handled it.
 private def type_at(pte, s, pos, str, *, fast = true)
   pte.cursor_pos = pos
   pte.insert_text str
-  pte.printable_content.nil?.should eq(fast) if fast
+  pte.@_content_stale.should be_true if fast
   s.repaint
 end
 
 private def backspace_at(pte, s, pos, n = 1, *, fast = true)
   pte.cursor_pos = pos
   n.times { pte._listener kp('\0', ::Tput::Key::Backspace) }
-  pte.printable_content.nil?.should eq(fast) if fast
+  pte.@_content_stale.should be_true if fast
   s.repaint
 end
 
