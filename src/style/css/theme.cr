@@ -174,6 +174,8 @@ module Crysterm
            the Button rules below win the equal-specificity tie via source order). */
         Input, LineEdit, PlainTextEdit, SpinBox, DoubleSpinBox, ComboBox { background-color: var(--surface-dark); color: var(--text); }
         Input:focus, LineEdit:focus, PlainTextEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
+        /* The plain editor's line-number gutter reads as chrome, like muted text. */
+        PlainTextEdit::line-number { color: var(--muted-light); }
 
         /* Buttons (after Input so they win the tie) */
         Button { background-color: var(--muted-dark); color: var(--text); }

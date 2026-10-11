@@ -20,6 +20,26 @@ module Crysterm
     # document text back into `set_content`. The document is settable/shareable
     # between views, exactly like `TextEdit`.
     #
+    # A line-number gutter — the `LineNumberArea` of Qt's code editor
+    # example, built in here as a view property — shows with `#line_numbers =
+    # true`: each source line's 1-based number sits right-aligned on the first
+    # row of the line, a space before the text, and the rows a wrapped line
+    # continues on stay blank. The gutter is as wide as the line count's
+    # digits (two at least) plus the space, growing past 99 and 999 lines, and
+    # the text re-wraps to the width left of it; the caret, mouse hit-testing,
+    # selections and the horizontal scroll all count from the text's edge.
+    # `Event::LineNumbersChanged` follows the toggle, for a View menu entry
+    # bound to it (`Action#bind_checked`), and `PlainTextEdit::line-number {
+    # color: … }` styles the digits — muted in the default theme, faded toward
+    # the background with no stylesheet; the caret's line keeps the normal
+    # foreground.
+    #
+    # ```
+    # editor = Widget::PlainTextEdit.new parent: s, content: File.read(path)
+    # editor.line_numbers = true
+    # editor.highlight_current_line = true
+    # ```
+    #
     # <!-- widget-examples:capture v1 -->
     # ![PlainTextEdit screenshot](../../tests/widget/plaintextedit/plaintextedit.5s.apng)
     # <!-- /widget-examples:capture -->
@@ -68,6 +88,18 @@ module Crysterm
       # Block count the display was built for; a single-block edit keeps it.
       @_display_blocks = 0
 
+      # Columns the gutter reserves right now (`#line_number_area_width`),
+      # 0 while `#line_numbers?` is off. Mirrored into `#viewport_margins`.
+      @line_number_width = 0
+
+      # Fewest digit columns the gutter shows, so it doesn't jitter between
+      # 9 and 10 lines on a short document.
+      LINE_NUMBER_MIN_DIGITS = 2
+
+      # How far the gutter's foreground fades toward the background when no
+      # `::line-number` rule styles it: the weight of the text color in the mix.
+      LINE_NUMBER_FADE = 0.55
+
       def initialize(
         input_on_focus = false,
         max_length = nil,
@@ -112,6 +144,150 @@ module Crysterm
       protected def reset_document_caches : Nil
         @_display_value = nil
         @_display_fresh = false
+        update_line_number_area_width
+      end
+
+      # Whether the line-number gutter is shown (see the class docs). Off by
+      # default. Qt's `QPlainTextEdit` has no such property — its code editor
+      # example composes the gutter from `setViewportMargins` and a child
+      # widget — so this is Crysterm's own, as a view property that a menu
+      # entry can toggle.
+      getter? line_numbers : Bool = false
+
+      # :ditto: — emits `Event::LineNumbersChanged` on an actual change. The
+      # gutter's columns are reserved (or released) at once, so the next frame
+      # already wraps the text to the new width.
+      def line_numbers=(value : Bool) : Bool
+        return value if value == @line_numbers
+        @line_numbers = value
+        update_line_number_area_width
+        emit Crysterm::Event::LineNumbersChanged, value
+        update
+        update! if window?
+        value
+      end
+
+      # Columns the gutter takes while shown — the digits of the line count
+      # (`LINE_NUMBER_MIN_DIGITS` at least) plus the space before the text —
+      # and 0 while hidden. The Qt example's `lineNumberAreaWidth()`.
+      def line_number_area_width : Int32
+        @line_number_width
+      end
+
+      # The gutter width *blocks* lines need; see `#line_number_area_width`.
+      private def line_number_area_width_for(blocks : Int32) : Int32
+        Math.max(decimal_digits(blocks), LINE_NUMBER_MIN_DIGITS) + 1
+      end
+
+      # Digits of *n* in base 10 (one for 0), without a `String`.
+      private def decimal_digits(n : Int32) : Int32
+        digits = 1
+        while n >= 10
+          n //= 10
+          digits += 1
+        end
+        digits
+      end
+
+      # Re-reserves the gutter's columns from the current block count (the Qt
+      # example's `updateLineNumberAreaWidth`, which it runs on
+      # `blockCountChanged`). Called on the toggle, on every document change
+      # and once per frame before the display syncs, so the wrap width the
+      # frame lays out with already includes the gutter. A no-op while the
+      # width is unchanged, which is every keystroke that keeps the digit
+      # count.
+      private def update_line_number_area_width : Nil
+        w = @line_numbers ? line_number_area_width_for(document.block_count) : 0
+        return if w == @line_number_width
+        @line_number_width = w
+        self.viewport_margins = w.zero? ? Padding::ZERO : Padding.left(w)
+      end
+
+      # Paints the gutter after the base render: the band is `#viewport_margins`
+      # wide, left of the content and right of the border and padding, and the
+      # base render already filled it with the widget's background. Each
+      # wrapped row that starts a source line gets that line's number,
+      # right-aligned before the gap column (`lineNumberAreaPaintEvent` of the
+      # Qt example, walking `firstVisibleBlock` on); continuation rows and the
+      # rows past the end stay blank. The caret's line keeps the widget's own
+      # foreground, the others take `#line_number_attr`; a full-width extra
+      # selection or the current-line tint on a row covers its gutter cells
+      # too, so a highlighted row reads as one bar.
+      private def paint_line_numbers : Nil
+        lp = @lpos || return
+        w = @line_number_width
+        sb = style.border_view
+        pd = style.padding_view
+        # On a scroll-clipped left edge only the gutter's visible remainder is
+        # on window (the same per-edge fit `base_render` applies), and that is
+        # its right part: `hidden` leading columns of each number are cut.
+        ebl, epl = effective_edge_insets(sb.left, pd.left, lp.hidden_left)
+        shown = effective_edge_insets(sb.left, pd.left + w, lp.hidden_left)[1] - epl
+        return if shown <= 0
+        hidden = w - shown
+        x0 = lp.xi + ebl + epl
+        ebt, ept = effective_edge_insets(sb.top, pd.top, lp.hidden_top)
+        ebb, epb = effective_edge_insets(sb.bottom, pd.bottom, lp.hidden_bottom)
+        yi = lp.yi + ebt + ept
+        yl = lp.yl - ebb - epb - hscrollbar_rows
+
+        rows = window.cell_rows
+        base_attr = style_to_attr(style)
+        dim_attr = line_number_attr(base_attr)
+        current = document.block_at(@cursor_pos).index
+        blocks = document.block_count
+        wl = @wrapped_lines
+        (yi...yl).each do |y|
+          # A negative row index would count from the window's bottom.
+          next if y < 0
+          row = rows[y]? || break
+          rl = lp.base + (y - yi)
+          next if rl < 0 || rl >= wl.size
+          fake = wl.rtof[rl]? || next
+          # The placeholder's rows past its first carry no line.
+          next if fake >= blocks
+          next unless wl.ftor[fake]?.try(&.first?) == rl
+          attr = fake == current ? base_attr : dim_attr
+          if xfull = extra_selections_for_row(rl)[1]
+            attr = xfull.apply_to_attr(attr)
+          end
+          paint_line_number row, x0, hidden, w, fake + 1, attr
+        end
+      end
+
+      # Writes *number* into *row* over the gutter's visible columns
+      # (`hidden...width` of the band, at *x0* on): the digits end right
+      # before the gap column, blanks lead. No String is built — the digit for
+      # a column is read off the number by place value.
+      private def paint_line_number(row, x0 : Int32, hidden : Int32, width : Int32, number : Int32, attr : Int64) : Nil
+        digits = decimal_digits(number)
+        (hidden...width).each do |c|
+          x = x0 + c - hidden
+          next if x < 0
+          cell = row[x]? || break
+          place = width - 2 - c # 0 at the units digit, -1 at the gap column
+          ch = place >= 0 && place < digits ? '0' + (number // 10 ** place) % 10 : ' '
+          cell.set_if_changed(attr, ch)
+        end
+      end
+
+      # The gutter's attr: the `::line-number` sub-style when a rule (or an
+      # assignment) set it, else the widget's own colors with the foreground
+      # faded toward the background by `LINE_NUMBER_FADE`, so the numbers
+      # read as chrome under any plain stylesheet. (Terminal-default colors
+      # can't be mixed; those stay as they are.)
+      private def line_number_attr(base_attr : Int64) : Int64
+        if sub = style.line_number?
+          return style_to_attr(sub)
+        end
+        bg = Attr.bg(base_attr)
+        Colors.blend(base_attr, Attr.pack(0_i64, bg, bg), alpha: LINE_NUMBER_FADE)
+      end
+
+      # The base render, then the gutter over its left band.
+      def paint(*, with_children = true)
+        super
+        paint_line_numbers if @line_number_width > 0
       end
 
       # `Widget#extra_selections_for_row`: this widget paints through the
@@ -144,6 +320,7 @@ module Crysterm
           # push (`#sync_display`).
           follow_document_change(e.kind, e.position, e.chars_removed, e.chars_added)
           patch_display e.kind, e.position, e.chars_removed, e.chars_added
+          update_line_number_area_width if @line_numbers
           update! if window?
         end
       end
@@ -188,6 +365,9 @@ module Crysterm
       # `DocumentBuffer#refresh_value`, then re-syncs `set_content` if it changed.
       def refresh_value : Nil
         super
+        # Before the display syncs, so this frame's wrap width already holds
+        # the gutter the current line count needs.
+        update_line_number_area_width if @line_numbers
         sync_display
       end
 

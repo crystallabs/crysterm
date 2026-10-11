@@ -119,6 +119,13 @@ module Crysterm
     # (e.g. the parent's border).
     sub_style_accessor label
 
+    # Style of a `Widget::PlainTextEdit`'s line-number gutter
+    # (`PlainTextEdit::line-number { color: … }`), shown with `#line_numbers=`.
+    # Defaults to `self`; the gutter then fades its own numbers toward the
+    # background so they read as chrome, not text. Qt has no analog — its
+    # code editor example paints the area with a hardcoded brush.
+    sub_style_accessor line_number
+
     sub_style_accessor scrollbar
 
     sub_style_accessor track
@@ -256,6 +263,7 @@ module Crysterm
            "float-button"  => "float_button",
            "drop-down"     => "drop_down",
            "label"         => "label",
+           "line-number"   => "line_number",
            "alternate-row" => "alternate_row",
          } %}
 
