@@ -191,7 +191,7 @@ describe Crysterm::Action do
     it "wraps a single key into a one-stroke sequence and renders text" do
       a = Action.new "Bold", shortcut: Tput::Key::CtrlB
       a.shortcut.should eq [Tput::Key::CtrlB]
-      a.shortcut_text.should eq "CtrlB"
+      a.shortcut_text.should eq "Ctrl+B"
       a.shortcut_context.should eq Action::ShortcutContext::Window
     end
 

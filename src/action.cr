@@ -245,6 +245,40 @@ module Crysterm
         raise ArgumentError.new("Unrecognized key stroke #{stroke.inspect} (no Tput::Key member #{name.inspect})")
     end
 
+    # The inverse of `.parse_key_sequence`: *seq* in Qt's textual form
+    # (`QKeySequence::toString` with `PortableText`), the strokes' labels
+    # comma-separated — `"Ctrl+K, Ctrl+B"` for a chord. What `#shortcut_text`
+    # prints in a menu's shortcut column.
+    def self.key_sequence_text(seq : KeySequence) : String
+      seq.join(", ") { |key| key_stroke_text key }
+    end
+
+    # One stroke of `.key_sequence_text`: the `Tput::Key` member's modifier,
+    # if any, joined with `+` to the key's name — `CtrlS` → `"Ctrl+S"`, `AltG`
+    # → `"Alt+G"`, `ShiftTab` → `"Shift+Tab"`, `CtrlPageDown` →
+    # `"Ctrl+PgDown"`, `F10` → `"F10"`. The key's name is Qt's where Qt
+    # abbreviates (`Esc`, `Ins`, `Del`, `PgUp`, `PgDown`) and the member's
+    # own otherwise (`Home`, `Space`, `Backspace`, `Enter`). Every label this
+    # produces reads back to the same member through `.parse_key_stroke`.
+    def self.key_stroke_text(key : KeyStroke) : String
+      name = key.to_s
+      # A modifier is a leading `Ctrl`/`Alt`/`Shift` followed by the key's own
+      # capitalized name (`Clear` has none).
+      modifier = {"Ctrl", "Alt", "Shift"}.find do |m|
+        name.size > m.size && name.starts_with?(m) && name[m.size].ascii_uppercase?
+      end
+      name = name[modifier.size..] if modifier
+      name = case name
+             when "Escape"   then "Esc"
+             when "Insert"   then "Ins"
+             when "Delete"   then "Del"
+             when "PageUp"   then "PgUp"
+             when "PageDown" then "PgDown"
+             else                 name
+             end
+      modifier ? "#{modifier}+#{name}" : name
+    end
+
     # Sets the primary (and only) shortcut to *seq* (replacing any alternatives).
     def shortcut=(seq : KeySequence) : KeySequence
       self.shortcuts = [seq]
@@ -466,12 +500,14 @@ module Crysterm
       ::Crysterm::Mnemonic.parse(@text)[1]
     end
 
-    # Display string for the primary shortcut, e.g. `"CtrlB"` or `"CtrlK, CtrlB"`
-    # for a chord. Empty when no shortcut is set.
+    # Display string for the primary shortcut, as a menu's shortcut column
+    # shows it: `"Ctrl+B"`, or `"Ctrl+K, Ctrl+B"` for a chord (Qt's
+    # `QKeySequence::toString` on `QAction::shortcut`; see
+    # `.key_sequence_text`). Empty when no shortcut is set.
     def shortcut_text : String
       seq = shortcut
       return "" unless seq
-      seq.map(&.to_s).join(", ")
+      Action.key_sequence_text seq
     end
 
     # Whether keypress *e* alone completes one of this action's single-keystroke
