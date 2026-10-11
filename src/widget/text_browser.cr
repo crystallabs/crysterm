@@ -127,7 +127,7 @@ module Crysterm
         @cursor_pos = document.block_position(entry.block)
         clear_selection
         process_content # the row map is rebuilt at paint time; measure now
-        scroll_to cursor_row
+        scroll_cursor_to_row 0 # the heading on the top row
         emit_caret_events
         true
       end
