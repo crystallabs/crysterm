@@ -812,10 +812,9 @@ module Crysterm
       yl += hsr
 
       # Draw the border.
-      style.border_view.try do |border|
-        # A border with all sides 0 is "no border": nothing to draw.
-        next unless border.any?
-
+      border = style.border_view
+      # A border with all sides 0 is "no border": nothing to draw.
+      if border.any?
         # An explicitly transparent border background (`bg: "transparent"` → -1,
         # distinct from an unset `nil`) shows whatever is already in the buffer
         # behind the border; each border cell keeps its existing bg and only the
