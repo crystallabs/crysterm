@@ -126,7 +126,7 @@ module Crysterm
         return false unless entry
         @cursor_pos = document.block_position(entry.block)
         clear_selection
-        process_content # the row map is rebuilt at paint time; measure now
+        process_content        # the row map is rebuilt at paint time; measure now
         scroll_cursor_to_row 0 # the heading on the top row
         emit_caret_events
         true
