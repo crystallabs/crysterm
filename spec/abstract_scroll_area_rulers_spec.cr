@@ -31,8 +31,8 @@ describe "AbstractScrollArea rulers" do
     pe.rulers = true
     s.repaint
     # Two ruler columns, then the tape from column 1: a `┼` at every fifth
-    # column, the number ending on every tenth.
-    row_text(s, 0).should eq "  ────┼───10────┼───20────┼───"
+    # column, a `│` on every tenth with its number right after it.
+    row_text(s, 0).should eq "  ────┼────│10──┼────│20──┼───"
     row_text(s, 1).should eq " │one"
     row_text(s, 2).should eq " │two"
     # Rows past the document's end are blank on the ruler too.
@@ -83,7 +83,7 @@ describe "AbstractScrollArea rulers" do
     # of them used, so 8 blank at the left before column 1.
     te.ileft.should eq 10
     row_text(s, 0, 0..9).should eq "          "
-    row_text(s, 0, 10..19).should eq "────┼───10"
+    row_text(s, 0, 10..19).should eq "────┼────│"
     row_text(s, 1, 10..14).should eq "hello"
   end
 
@@ -96,7 +96,7 @@ describe "AbstractScrollArea rulers" do
     pe.scroll_to_x 5
     s.repaint
     # The first text column now shows column 6: three dashes, then the 10.
-    row_text(s, 0, 2..6).should eq "───10"
+    row_text(s, 0, 2..6).should eq "────│"
     row_text(s, 1, 2..6).should eq "56789"
   end
 
@@ -130,6 +130,31 @@ describe "AbstractScrollArea rulers" do
     pe.ileft.should eq 0
     pe.itop.should eq 0
     row_text(s, 0, 0..3).should eq "1   "
+  end
+
+  it "shows the column ruler and the row ruler one at a time" do
+    s = headless_screen(30, 8)
+    pe = editor(s, "one\ntwo")
+    pe.column_ruler = true
+    s.repaint
+    pe.rulers?.should be_true
+    pe.row_ruler?.should be_false
+    pe.itop.should eq 1
+    pe.ileft.should eq 0
+    row_text(s, 0, 0..9).should eq "────┼────│"
+    row_text(s, 1).should eq "one"
+    pe.column_ruler = false
+    pe.row_ruler = true
+    s.repaint
+    pe.itop.should eq 0
+    pe.ileft.should eq 2
+    row_text(s, 0).should eq " │one"
+    row_text(s, 1).should eq " │two"
+    pe.rulers = false
+    pe.rulers?.should be_false
+    pe.row_ruler?.should be_false
+    s.repaint
+    row_text(s, 0).should eq "one"
   end
 
   it "emits RulersChanged on an actual change only" do

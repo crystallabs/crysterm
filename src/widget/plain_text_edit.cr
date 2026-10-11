@@ -224,7 +224,7 @@ module Crysterm
         # The rulers' band (`AbstractScrollArea#rulers=`) is outside the
         # gutter's: a row above it and the row ruler's columns before it.
         rulers_left = @vertical_ruler_width
-        rulers_top = @rulers ? 1 : 0
+        rulers_top = @column_ruler ? 1 : 0
         ebl, epl = effective_edge_insets(sb.left, pd.left + rulers_left, lp.hidden_left)
         shown = effective_edge_insets(sb.left, pd.left + rulers_left + w, lp.hidden_left)[1] - epl
         return if shown <= 0

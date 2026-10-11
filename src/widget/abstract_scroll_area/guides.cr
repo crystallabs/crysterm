@@ -120,7 +120,7 @@ module Crysterm
         return if xl <= x0 || yl <= content_top
         rows = window.cell_rows
         fg = Attr.fg(guide_attr)
-        marker_attr = @rulers ? ruler_attr : 0_i64
+        marker_attr = @column_ruler ? ruler_attr : 0_i64
         first_x = x0 + @vertical_ruler_width
         guide_columns.each do |col|
           x = text_x0 + col - 1 - @child_base_x
@@ -133,7 +133,7 @@ module Crysterm
             a = cell.attr
             cell.set_if_changed Attr.pack(Attr.flags(a), fg, Attr.bg(a)), '│'
           end
-          next unless @rulers && y0 >= 0
+          next unless @column_ruler && y0 >= 0
           if (row = rows[y0]?) && (cell = row[x]?)
             cell.set_if_changed marker_attr, '┬'
           end
@@ -158,7 +158,7 @@ module Crysterm
       private def install_guide_mouse : Nil
         on(Crysterm::Event::Mouse) do |e|
           if e.action.down?
-            next unless @rulers && @guides_enabled
+            next unless @column_ruler && @guides_enabled
             next unless column = ruler_column_at(e.x, e.y)
             lift_guide column
             e.accept

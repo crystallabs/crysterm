@@ -13,8 +13,9 @@ module Crysterm
       # The column ruler counts in the text's own coordinates — column 1 is
       # the text's first column wherever `#line_wrap_column` and its
       # alignment put it, and a horizontal scroll slides the numbers with the
-      # text — as a tape of `─` with a `┼` every fifth column and the number
-      # on every tenth, its last digit on the column it names. The row ruler
+      # text — as a tape of `─` with a `┼` every fifth column and a `│` on
+      # every tenth with its number right after it, so the mark itself is on
+      # the column named (`│20` marks column 20). The row ruler
       # counts the document's rows the same way, numbering the visible ones
       # from the top of the document, so it tells where the view is where the
       # gutter tells which source line a row came from; it is as wide as the
@@ -23,20 +24,51 @@ module Crysterm
       # `AbstractScrollArea::ruler { color: … }` styles the rulers; with no
       # rule they fade the widget's own foreground toward its background, the
       # way the gutter does. `Event::RulersChanged` follows the toggle, for a
-      # View menu entry bound to it.
-      getter? rulers : Bool = false
+      # View menu entry bound to it. The two are also switched one at a
+      # time (`#column_ruler=`, `#row_ruler=`), for a view that wants the
+      # column count without a band down its left, or the other way round.
+      getter? column_ruler : Bool = false
 
-      # :ditto: — the band is reserved (or released) at once, so the next
-      # frame already lays the text out beside it.
+      # Whether the row ruler is shown; see `#rulers=`.
+      getter? row_ruler : Bool = false
+
+      # Whether either ruler is shown.
+      def rulers? : Bool
+        @column_ruler || @row_ruler
+      end
+
+      # Shows or hides both rulers — the band is reserved (or released) at
+      # once, so the next frame already lays the text out beside it.
       def rulers=(value : Bool) : Bool
-        return value if value == @rulers
-        @rulers = value
+        set_rulers value, value
+        value
+      end
+
+      # Shows or hides the column ruler alone.
+      def column_ruler=(value : Bool) : Bool
+        set_rulers value, @row_ruler
+        value
+      end
+
+      # Shows or hides the row ruler alone.
+      def row_ruler=(value : Bool) : Bool
+        set_rulers @column_ruler, value
+        value
+      end
+
+      # The one place the two flags change: the band follows, and
+      # `Event::RulersChanged` reports whether any ruler shows, once, when
+      # that or the band changed.
+      private def set_rulers(column : Bool, row : Bool) : Nil
+        return if column == @column_ruler && row == @row_ruler
+        was = rulers?
+        @column_ruler = column
+        @row_ruler = row
         sync_ruler_width
         @_frame_insets = nil
-        emit Crysterm::Event::RulersChanged, value
+        emit Crysterm::Event::RulersChanged, rulers? if rulers? != was
         update
         update! if window?
-        value
       end
 
       # Fewest columns the row ruler takes, so a short document's ruler does
@@ -48,8 +80,8 @@ module Crysterm
       # color in the mix (`PlainTextEdit::LINE_NUMBER_FADE`'s twin).
       CHROME_FADE = 0.55
 
-      # Columns the row ruler takes this frame, 0 while `#rulers?` is off;
-      # the column ruler's row is `#rulers?` itself.
+      # Columns the row ruler takes this frame, 0 while `#row_ruler?` is
+      # off; the column ruler's row is `#column_ruler?` itself.
       @vertical_ruler_width = 0
 
       # The row ruler's width, in columns: the row count's digits, so a
@@ -59,7 +91,7 @@ module Crysterm
       # layout, and a width that grows by it settles the frame after, as the
       # scroll bar's reservation does.
       private def sync_ruler_width : Nil
-        w = @rulers ? Math.max(decimal_digits(@wrapped_lines.size), RULER_MIN_DIGITS) : 0
+        w = @row_ruler ? Math.max(decimal_digits(@wrapped_lines.size), RULER_MIN_DIGITS) : 0
         return if w == @vertical_ruler_width
         @vertical_ruler_width = w
         @_frame_insets = nil
@@ -90,7 +122,7 @@ module Crysterm
         text_x0 = lp.xi + ileft
         content_top = lp.yi + itop
         x0 = text_x0 - @column_margins[0] - vm.left - @vertical_ruler_width
-        y0 = content_top - vm.top - (@rulers ? 1 : 0)
+        y0 = content_top - vm.top - (@column_ruler ? 1 : 0)
         xl = lp.xl - iright - (show_scrollbar? ? scrollbar_width : 0)
         yl = lp.yl - ibottom - hscrollbar_rows
         {x0, xl, y0, yl, text_x0, content_top}
@@ -117,13 +149,14 @@ module Crysterm
         rows = window.cell_rows
         attr = ruler_attr
         vw = @vertical_ruler_width
-        if y0 >= 0 && (row = rows[y0]?)
+        if @column_ruler && y0 >= 0 && (row = rows[y0]?)
           (x0 + vw...xl).each do |x|
             next if x < 0
             cell = row[x]? || break
             cell.set_if_changed attr, column_ruler_glyph(text_column_at(x, text_x0))
           end
         end
+        return if vw == 0
         total = @wrapped_lines.size
         (content_top...yl).each do |y|
           next if y < 0
@@ -133,16 +166,17 @@ module Crysterm
         end
       end
 
-      # The column ruler's glyph at text column *col*: the digit of the next
-      # multiple of ten whose number ends on that column, a `┼` on a fifth
-      # column, `─` elsewhere, and a blank before column 1.
+      # The column ruler's glyph at text column *col*: a `│` on a tenth
+      # column, the digits of the last tenth's number on the columns right
+      # after it (`│20` — the mark is on column 20, the digits on 21 and
+      # 22), a `┼` on a fifth column, `─` elsewhere, and a blank before
+      # column 1.
       private def column_ruler_glyph(col : Int32) : Char
         return ' ' if col <= 0
-        tens = (col + 9) // 10 * 10
-        digits = decimal_digits(tens)
-        if col > tens - digits
-          place = tens - col # 0 at the units digit
-          '0' + (tens // 10 ** place) % 10
+        return '│' if col % 10 == 0
+        tens = col // 10 * 10
+        if tens > 0 && (offset = col - tens) <= (digits = decimal_digits(tens))
+          '0' + (tens // 10 ** (digits - offset)) % 10
         elsif col % 5 == 0
           '┼'
         else

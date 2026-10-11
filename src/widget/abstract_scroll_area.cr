@@ -26,10 +26,10 @@ module Crysterm
       # between frames without an allocation.
       protected def viewport_margins : Padding
         own = @viewport_margins
-        return own unless @rulers
+        return own unless @column_ruler || @row_ruler
         box = (@_margins_with_rulers ||= Padding.new(0))
         box.left = own.left + @vertical_ruler_width
-        box.top = own.top + 1
+        box.top = own.top + (@column_ruler ? 1 : 0)
         box.right = own.right
         box.bottom = own.bottom
         box
@@ -95,7 +95,7 @@ module Crysterm
       # them the wrap width, the painted origin and the caret and mouse
       # geometry — already include them.
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
-        sync_ruler_width if @rulers
+        sync_ruler_width if @row_ruler
         sync_line_wrap_column(awidth_hint || awidth) if window?
         super
       end
@@ -192,7 +192,7 @@ module Crysterm
       # a gutter's gap column rather than under its blanks.
       protected def paint_viewport_chrome : Nil
         paint_viewport_margins
-        paint_rulers if @rulers
+        paint_rulers if @column_ruler || @row_ruler
         paint_guides if @guides_enabled
       end
 
