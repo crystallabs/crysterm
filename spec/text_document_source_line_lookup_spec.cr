@@ -43,6 +43,14 @@ describe "TextDocument source line lookups" do
     doc.block_from_source_line(999).should eq first_block_of(doc, top)
   end
 
+  it "finds the block itself, for a caller after its position" do
+    doc = md_doc
+    block = doc.find_block_by_source_line(3).not_nil!
+    block.source_line.should eq 3
+    block.position.should eq doc.block_position(first_block_of(doc, 3))
+    doc.find_block_by_source_line(0).should be_nil
+  end
+
   it "is nil above everything rendered" do
     doc = md_doc
     doc.block_from_source_line(0).should be_nil

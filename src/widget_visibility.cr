@@ -122,10 +122,12 @@ module Crysterm
     # last pane of a layout) disables the action, as it would any entry.
     def toggle_view_action(text : String? = nil) : Action
       @toggle_view_action ||= begin
-        action = Action.new(text || label || "", checkable: true, checked: visible?)
+        action = Action.new(text || label || "", checkable: true)
         action.on(Crysterm::Event::Triggered) { |e| e.checked ? show : hide }
-        on(Crysterm::Event::Show) { action.checked = visible? }
-        on(Crysterm::Event::Hide) { action.checked = visible? }
+        # The check follows the widget (`Action#bind_checked`): set now, and
+        # again on every show or hide.
+        action.bind_checked(self, Crysterm::Event::Show) { visible? }
+        action.bind_checked(self, Crysterm::Event::Hide) { visible? }
         action
       end
     end

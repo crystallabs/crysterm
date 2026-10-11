@@ -293,6 +293,14 @@ module Crysterm
       best
     end
 
+    # The block rendered from source *line*, as `#block_from_source_line`
+    # finds it — the handle form, after Qt's `findBlockByLineNumber`, for a
+    # caller that goes on to the block's `#position`, `#size` or
+    # `#source_line` rather than its index. `nil` where the index is.
+    def find_block_by_source_line(line : Int32) : TextBlock?
+      block_from_source_line(line).try { |i| blocks[i] }
+    end
+
     # The source line block *index* was rendered from — or, for a block the
     # importer generated (a table border, a quote's blank line), the nearest
     # stamped block above's. `nil` with no stamped block at or above.

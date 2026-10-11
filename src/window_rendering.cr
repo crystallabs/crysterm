@@ -216,9 +216,11 @@ module Crysterm
       spawn name: name do
         error = nil
         begin
-          while line = io.gets(chomp: false)
-            post_line line, block
-          end
+          # A block parameter, not a `while line = io.gets` loop variable:
+          # the posted closure must capture this line, and a loop variable
+          # would have moved on (to `nil` at the end) by the time the render
+          # fiber runs it.
+          io.each_line(chomp: false) { |line| post { block.call line } }
         rescue ex : IO::Error
           error = ex
         end
@@ -228,14 +230,6 @@ module Crysterm
           post { finish.call(error); nil }
         end
       end
-    end
-
-    # Posts one line of `#pump`. A method rather than a block in the read
-    # loop: the closure must capture this call's own *line*, not the loop
-    # variable, which the reader has already moved on from (or set to `nil`
-    # at the end of input) by the time the render fiber runs it.
-    private def post_line(line : String, block : String ->) : Nil
-      post { block.call line }
     end
 
     # Runs every currently-queued `post` closure on the render fiber. Drains

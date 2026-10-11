@@ -419,9 +419,16 @@ module Crysterm
 
         def extra_selections=(list : Array(Widget::TextEdit::ExtraSelection))
           @extra_selections = list
+          overlays_changed
+          list
+        end
+
+        # Repaints for a change of the render-time overlays (the extra
+        # selections, the current-line tint): they are not content, so no
+        # document change announces them.
+        private def overlays_changed : Nil
           update
           update! if window?
-          list
         end
 
         # Whether the display row(s) holding the caret are tinted
@@ -435,8 +442,7 @@ module Crysterm
         def highlight_current_line=(value : Bool) : Bool
           return value if value == @highlight_current_line
           @highlight_current_line = value
-          update
-          update! if window?
+          overlays_changed
           value
         end
 
@@ -448,8 +454,7 @@ module Crysterm
 
         def current_line_format=(fmt : TextCharFormat?) : TextCharFormat?
           @current_line_format = fmt
-          update
-          update! if window?
+          overlays_changed
           fmt
         end
 

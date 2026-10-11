@@ -121,8 +121,7 @@ module Crysterm
   # long flag — and left out where it would be another option's own flag
   # (`color` next to `no_color`), as Superconf leaves it out.
   private def self.toolkit_flags(keep : Set(String)) : {Set(String), Set(String)}
-    primaries = Set(String).new
-    Config.each { |opt| primaries << opt.cli }
+    primaries = toolkit_primary_flags
     flags = Set(String).new
     valued = Set(String).new
     Config.each do |opt|
@@ -137,6 +136,13 @@ module Crysterm
       end
     end
     {flags, valued}
+  end
+
+  # Every registered option's own flag.
+  private def self.toolkit_primary_flags : Set(String)
+    primaries = Set(String).new
+    Config.each { |opt| primaries << opt.cli }
+    primaries
   end
 
   # The `--no-` negation of the boolean *opt*, or `nil` where Superconf
@@ -161,8 +167,7 @@ module Crysterm
       Crysterm toolkit options. Each can also be set in #{config_path}
       or by a #{Superconf.env_prefix}* environment variable; see #{DUMP_CONFIG_FLAG}.
       BANNER
-    primaries = Set(String).new
-    Config.each { |opt| primaries << opt.cli }
+    primaries = toolkit_primary_flags
     Config.each do |opt|
       next if keep.includes?(opt.cli)
       default = opt.default_string.presence || "\"\""
@@ -199,6 +204,16 @@ module Crysterm
     end
     lines << line unless line.empty?
     lines.join('\n')
+  end
+
+  class Application
+    # The arguments the application was started with, less the toolkit's
+    # own — Qt's `QCoreApplication::arguments`, which likewise leaves out
+    # what `QApplication` consumed. `Crysterm.strip_toolkit_args` under a
+    # Qt name; *except* as there.
+    def self.arguments(argv : Array(String) = ARGV, *, except : Enumerable(String) = EMPTY_FLAGS) : Array(String)
+      Crysterm.strip_toolkit_args(argv, except: except)
+    end
   end
 end
 

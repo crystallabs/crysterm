@@ -1,11 +1,12 @@
 require "./label"
+require "../subscription"
 
 module Crysterm
   class Widget
     # A `Label` showing the caret's line and column of a text view (a
     # `PlainTextEdit`, `TextEdit` or `TextBrowser`) — the "Ln 1, Col 1"
     # field of an editor's status bar — kept up to date on the view's
-    # `Crysterm::Event::CursorPositionChanged` and `Crysterm::Event::TextChanged` (an edit can
+    # `Event::CursorPositionChanged` and `Event::TextChanged` (an edit can
     # move the caret's line without moving the caret). Both numbers are
     # 1-based, the column counting characters from the line's start;
     # `#format` renders them, `"Ln #{line}, Col #{column}"` by default.
@@ -28,14 +29,14 @@ module Crysterm
       # Renders the 1-based line and column.
       getter format : Proc(Int32, Int32, String)
 
-      @caret_sub : ::EventHandler::Subscription
-      @text_sub : ::EventHandler::Subscription
+      # The subscriptions on the view, ended with the label.
+      @subs = Crysterm::Subscriptions.new
 
       def initialize(@view : Mixin::TextEditing::DocumentBuffer, format : Proc(Int32, Int32, String) = DEFAULT_FORMAT, **opts)
         @format = format
         super(**{content: CursorPositionLabel.text_for(@view, format)}.merge(opts))
-        @caret_sub = @view.on(Crysterm::Event::CursorPositionChanged) { refresh }
-        @text_sub = @view.on(Crysterm::Event::TextChanged) { refresh }
+        @subs.on(@view, Crysterm::Event::CursorPositionChanged) { refresh }
+        @subs.on(@view, Crysterm::Event::TextChanged) { refresh }
       end
 
       def format=(format : Proc(Int32, Int32, String)) : Proc(Int32, Int32, String)
@@ -56,8 +57,7 @@ module Crysterm
       end
 
       def destroy
-        @view.off(Crysterm::Event::CursorPositionChanged, @caret_sub)
-        @view.off(Crysterm::Event::TextChanged, @text_sub)
+        @subs.off
         super
       end
     end
@@ -65,7 +65,7 @@ module Crysterm
     # A `Label` showing where in its content a scrolling view is, the way
     # vi reports it at the right of its status line: `All` when the whole
     # content fits, else `Top`, `Bot`, or the percentage scrolled. Kept up
-    # to date on the view's `Crysterm::Event::Scroll` and `Crysterm::Event::Resize`; `#refresh`
+    # to date on the view's `Event::Scroll` and `Event::Resize`; `#refresh`
     # for a content change the app knows about.
     #
     # ```
@@ -81,13 +81,13 @@ module Crysterm
       # The view followed.
       getter view : Widget
 
-      @scroll_sub : ::EventHandler::Subscription
-      @resize_sub : ::EventHandler::Subscription
+      # The subscriptions on the view, ended with the label.
+      @subs = Crysterm::Subscriptions.new
 
       def initialize(@view : Widget, **opts)
         super(**{content: ScrollPositionLabel.text_for(@view)}.merge(opts))
-        @scroll_sub = @view.on(Crysterm::Event::Scroll) { refresh }
-        @resize_sub = @view.on(Crysterm::Event::Resize) { refresh }
+        @subs.on(@view, Crysterm::Event::Scroll) { refresh }
+        @subs.on(@view, Crysterm::Event::Resize) { refresh }
       end
 
       # Brings the text in line with the view's scroll position.
@@ -109,8 +109,7 @@ module Crysterm
       end
 
       def destroy
-        @view.off(Crysterm::Event::Scroll, @scroll_sub)
-        @view.off(Crysterm::Event::Resize, @resize_sub)
+        @subs.off
         super
       end
     end

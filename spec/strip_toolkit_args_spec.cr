@@ -42,6 +42,12 @@ describe "Crysterm.strip_toolkit_args" do
     Crysterm.strip_toolkit_args(argv, except: {bool_flag, "--crysterm-config"}).should eq [bool_flag, "--crysterm-config=c.yml", "f"]
   end
 
+  it "is Application.arguments under Qt's name" do
+    argv = ["a", bool_flag, "b"]
+    Crysterm::Application.arguments(argv).should eq ["a", "b"]
+    Crysterm::Application.arguments(argv, except: {bool_flag}).should eq argv
+  end
+
   it "defaults to ARGV" do
     Crysterm.strip_toolkit_args.should eq Crysterm.strip_toolkit_args(ARGV)
   end

@@ -61,21 +61,25 @@ module Crysterm
       follow(source, event) { self.enabled = block.call }
     end
 
+    # The subscriptions on other emitters this action's bindings hold
+    # (`Subscriptions`), ended by `#destroy`.
+    @bound_subs : Crysterm::Subscriptions?
+
     # Subscribes *block* to *event* on *source* for as long as this action
     # lives: `#destroy` ends the subscription.
     private def follow(source : ::EventHandler, event : E.class, &block : ->) : ::EventHandler::Subscription forall E
-      sub = source.on(event) { block.call }
-      on(::Crysterm::Event::Destroy) { source.off(event, sub) }
-      sub
+      subs = @bound_subs ||= Crysterm::Subscriptions.new
+      subs.on(source, event) { block.call }
     end
 
     # Ends the action, as `~QAction` does: emits `Event::Destroy`, so the
-    # bindings it owns let go — `Reactive.bind`'s dispose on their side, the
-    # event subscriptions of `#bind_checked`/`#bind_enabled` here — then
+    # bindings owned through it let go (`Reactive.bind`'s auto-dispose),
+    # ends the event subscriptions of `#bind_checked`/`#bind_enabled`, then
     # drops every handler on it. Menus and tool bars holding the action
     # are not told; remove it from them first.
     def destroy : Nil
       emit ::Crysterm::Event::Destroy
+      @bound_subs.try &.off
       remove_all_handlers
     end
   end
