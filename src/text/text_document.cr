@@ -87,9 +87,18 @@ module Crysterm
       # Sum of every length: the document size plus one.
       getter total : Int32
 
+      # The largest power of two not above `count`: where `#find`'s descent
+      # starts.
+      @top : Int32
+
       def initialize(blocks : Array(TextBlock))
         n = blocks.size
         @count = n
+        top = 1
+        while (top << 1) <= n
+          top <<= 1
+        end
+        @top = top
         lengths = Array(Int32).new(n)
         tree = Array(Int32).new(n + 1, 0)
         total = 0
@@ -127,10 +136,7 @@ module Crysterm
         tree = @tree
         idx = 0
         rem = pos
-        step = 1
-        while (step << 1) <= @count
-          step <<= 1
-        end
+        step = @top
         while step > 0
           nxt = idx + step
           if nxt <= @count && (len = tree.unsafe_fetch(nxt)) <= rem

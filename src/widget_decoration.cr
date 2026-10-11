@@ -16,21 +16,16 @@ module Crysterm
         return fi
       end
       p = padding_with_viewport_margins
-      fi = if b = st.border_view
-             l, t, r, bt = b.left, b.top, b.right, b.bottom
-             # Same fit the render path applies (`#effective_insets`): a border
-             # too big for its box isn't drawn, so it must not inset the content
-             # either. Without this a one-row bordered widget reports a 2-cell
-             # vertical inset it never paints, and its content box — what a
-             # percentage child resolves against — comes out *negative*.
-             l, r = 0, 0 if l + r > 0 && border_fits_axis?(l + r, vertical: false)
-             t, bt = 0, 0 if t + bt > 0 && border_fits_axis?(t + bt, vertical: true)
-             {l + p.left, t + p.top, r + p.right, bt + p.bottom}
-           else
-             {p.left, p.top, p.right, p.bottom}
-           end
-      @_frame_insets = fi
-      fi
+      b = st.border_view
+      l, t, r, bt = b.left, b.top, b.right, b.bottom
+      # Same fit the render path applies (`#effective_insets`): a border
+      # too big for its box isn't drawn, so it must not inset the content
+      # either. Without this a one-row bordered widget reports a 2-cell
+      # vertical inset it never paints, and its content box — what a
+      # percentage child resolves against — comes out *negative*.
+      l, r = 0, 0 if l + r > 0 && border_fits_axis?(l + r, vertical: false)
+      t, bt = 0, 0 if t + bt > 0 && border_fits_axis?(t + bt, vertical: true)
+      @_frame_insets = {l + p.left, t + p.top, r + p.right, bt + p.bottom}
     end
 
     # Extra inset the widget itself reserves inside its frame, between the

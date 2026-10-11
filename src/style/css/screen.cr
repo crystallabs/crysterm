@@ -601,7 +601,7 @@ module Crysterm
         return parsed
       end
       unless document == @css_parsed_doc_string
-        css_patch_nodes
+        css_patch_nodes_diff
         @css_parsed_doc_string = document
       end
       cached
@@ -660,33 +660,16 @@ module Crysterm
 
     # Patches the cached document's changed nodes in place: each tracked widget's
     # node has its attributes replaced with the widget's current ones.
-    private def css_patch_nodes : Nil
-      index = @css_node_index
-      return unless index
-      @css_patch_widgets.each do |widget|
-        node = index[widget.uid_s]?
-        next unless node
-        node.attr.clear
-        node.attr.concat widget.css_node_attributes
-        # The widget's sub-element pseudo-nodes repeat its intrinsic attributes
-        # (`[checked]` on the checkbox's Indicator), so an attribute-only change
-        # must refresh them too or `::indicator:checked` rules would match
-        # against the stale toggle state.
-        widget.css_sub_elements.each do |slot|
-          sub = index["#{widget.uid_s}::#{slot}"]?
-          next unless sub
-          sub.attr.clear
-          sub.attr.concat widget.css_sub_node_attributes(slot)
-        end
-      end
-    end
-
-    # `#css_patch_nodes` that also reports *what* changed: the selector tokens
-    # whose presence on a patched node differs from the cached document — a
-    # class as `.name` (and `[class`), an id as `#id` (and `[id`), any other
-    # attribute as `[name`. A rule mentioning none of them matches exactly the
-    # same nodes as before the patch. `nil` when a changed value can't be
-    # expressed as a token (every rule must then be re-matched).
+    # Patches the cached document's changed nodes in place — each tracked
+    # widget's node, and its sub-element pseudo-nodes (they repeat the
+    # widget's intrinsic attributes, `[checked]` on a checkbox's Indicator, so
+    # `::indicator:checked` must not match a stale toggle state) — and reports
+    # *what* changed: the selector tokens whose presence on a patched node
+    # differs from the cached document — a class as `.name` (and `[class`),
+    # an id as `#id` (and `[id`), any other attribute as `[name`. A rule
+    # mentioning none of them matches exactly the same nodes as before the
+    # patch. `nil` when a changed value can't be expressed as a token (every
+    # rule must then be re-matched).
     private def css_patch_nodes_diff : Set(String)?
       index = @css_node_index
       return unless index

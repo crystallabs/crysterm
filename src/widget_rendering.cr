@@ -598,9 +598,6 @@ module Crysterm
               end
             end
           end
-          # The cell to actually paint into this iteration, or `nil` when the
-          # column is off-window. Gates every write below.
-          target = cell
 
           # The line's codepoint at `ri`, `nil` past its end (and on a row
           # with no line), which paints as the fill char.
@@ -756,7 +753,7 @@ module Crysterm
             cell_width = 1
           end
 
-          if t = target
+          if t = cell
             paint_attr = overlaid_attr(highlighted_attr(attr, sel_cols, x - xi), xsels, xfull, x - xi)
             if opacity = style_opacity
               t.attr = Colors.blend(paint_attr, t.attr, alpha: opacity)
@@ -1099,21 +1096,19 @@ module Crysterm
     # dock when a horizontal stop crosses them). Base registers top/bottom rows
     # of a line-type border; widgets drawing lines otherwise override this.
     protected def register_junction_stops(coords : RenderedGeometry)
-      style.border_view.try do |border|
-        if border.any? && border.type.solid?
-          # A widget rendering into a compositing plane registers on the *plane*
-          # stops so overlay borders join each other but not the base content
-          # beneath; a base-layer widget uses the window stops. The gate must be
-          # the window's `compositing_layers?`, NOT this widget's `@compositing`
-          # (set only on the layer root) — else a bordered descendant registers
-          # on the BASE stops and docks to base content, producing stray
-          # junctions.
-          scr = window
-          stops = scr.compositing_layers? ? scr.plane_junction_stops : scr.junction_stops
-          stops[coords.yi] = true
-          stops[coords.yl - 1] = true
-        end
-      end
+      border = style.border_view
+      return unless border.any? && border.type.solid?
+      # A widget rendering into a compositing plane registers on the *plane*
+      # stops so overlay borders join each other but not the base content
+      # beneath; a base-layer widget uses the window stops. The gate must be
+      # the window's `compositing_layers?`, NOT this widget's `@compositing`
+      # (set only on the layer root) — else a bordered descendant registers
+      # on the BASE stops and docks to base content, producing stray
+      # junctions.
+      scr = window
+      stops = scr.compositing_layers? ? scr.plane_junction_stops : scr.junction_stops
+      stops[coords.yi] = true
+      stops[coords.yl - 1] = true
     end
 
     # Re-joins the line-drawing characters on the given window *rows* into
