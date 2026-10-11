@@ -406,10 +406,10 @@ module Crysterm
     # gutter outright, so there is nothing to toggle.
     event LineNumbersChanged, visible : Bool
 
-    # Emitted by a `Widget::AbstractScrollArea` when its rulers are shown or
-    # hidden (`#rulers=`), for a View menu's "Rulers" check entry to bind
-    # to, as `LineNumbersChanged` is for the gutter. `visible` is the new
-    # state.
+    # Emitted by a `Widget::AbstractScrollArea` when whether any of its
+    # rulers shows changes (`#rulers=`, `#column_ruler=`, `#row_ruler=`), for
+    # a View menu's "Rulers" check entry to bind to, as `LineNumbersChanged`
+    # is for the gutter. `visible` is the new state, `#rulers?`.
     event RulersChanged, visible : Bool
 
     # Emitted by a `Widget::AbstractScrollArea` when the user's guides

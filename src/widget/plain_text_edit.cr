@@ -184,6 +184,16 @@ module Crysterm
         !@line_numbers
       end
 
+      # A full-width extra selection on the row (the current line's tint)
+      # covers the row ruler's cell too, as it does the gutter's.
+      protected def row_ruler_attr(rl : Int32, attr : Int64) : Int64
+        if xfull = extra_selections_for_row(rl)[1]
+          xfull.apply_to_attr(attr)
+        else
+          attr
+        end
+      end
+
       # The gutter width *blocks* lines need; see `#line_number_area_width`.
       private def line_number_area_width_for(blocks : Int32) : Int32
         Math.max(decimal_digits(blocks), LINE_NUMBER_MIN_DIGITS) + 1

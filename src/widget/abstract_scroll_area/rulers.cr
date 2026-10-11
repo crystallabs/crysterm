@@ -16,12 +16,12 @@ module Crysterm
       # alignment put it, and a horizontal scroll slides the numbers with the
       # text — as a tape of `─` with a `┼` every fifth column and a `│` on
       # every tenth with its number right after it, so the mark itself is on
-      # the column named (`│20` marks column 20). The row ruler
-      # counts the document's rows the same way, numbering the visible ones
-      # from the top of the document, so it tells where the view is where the
-      # gutter tells which source line a row came from; it is as wide as the
-      # row count's digits (two at least) — or, for a widget whose own
-      # margins already number the rows (`#row_ruler_numbers?` false, the
+      # the column named (`│20` marks column 20). The row ruler counts the
+      # document's rows the same way, numbering the visible ones from the top
+      # of the document, so it tells where the view is where the gutter tells
+      # which source line a row came from; it is as wide as the row count's
+      # digits (two at least) — or, for a widget whose own margins already
+      # number the rows (`#row_ruler_numbers?` false, the
       # editor with its gutter on), a one-column tape of ticks: `│` on a
       # row, `┼` on every fifth, `╪` on every tenth. A guide
       # (`#guides_enabled=`) hangs from the column ruler as a `┬`, and is
@@ -187,8 +187,17 @@ module Crysterm
           next if y < 0
           row = rows[y]? || break
           r = lp.base + (y - content_top) + 1
-          paint_row_ruler_cells row, ruler_x0, vw, (r <= total ? r : 0), numbers, attr
+          paint_row_ruler_cells row, ruler_x0, vw, (r <= total ? r : 0), numbers, row_ruler_attr(r - 1, attr)
         end
+      end
+
+      # The attr the row ruler's cells on display row *rl* (0-based) are
+      # written in, given the ruler's *attr*: the ruler's own by default. A
+      # subclass that tints whole rows (the current line, a full-width
+      # selection) carries the tint across the ruler here, so the gutter, the
+      # ruler and the text read as one bar.
+      protected def row_ruler_attr(rl : Int32, attr : Int64) : Int64
+        attr
       end
 
       # The column ruler's glyph at text column *col*: a `│` on a tenth

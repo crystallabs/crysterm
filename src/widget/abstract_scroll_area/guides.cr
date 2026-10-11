@@ -187,15 +187,18 @@ module Crysterm
       # the row ruler and within the interior; nil anywhere else.
       private def ruler_column_at(x : Int32, y : Int32) : Int32?
         x0, xl, y0, _yl, text_x0, _top = chrome_frame || return
-        return unless y == y0 && x >= guides_first_x(x0) && x < xl
+        # The tape starts past the subclass's own margin and the row ruler
+        # (`#paint_rulers`); a press on the blank above a gutter is no press
+        # on the ruler.
+        return unless y == y0 && x >= x0 + @viewport_margins.left + @vertical_ruler_width && x < xl
         text_column_at x, text_x0
       end
 
-      # The first screen column a guide is drawn in and the ruler is taken
-      # hold of at, given the band's first column *x0*: the row ruler's right
-      # edge while it shows (it stands right of the subclass's own margin,
-      # and a guide never runs over its ticks), else the band's own first
-      # column, so the left bound may run down a gutter's gap column.
+      # The first screen column a guide is drawn in, given the band's first
+      # column *x0*: the row ruler's right edge while it shows (it stands
+      # right of the subclass's own margin, and a guide never runs over its
+      # ticks), else the band's own first column, so the left bound may run
+      # down a gutter's gap column.
       private def guides_first_x(x0 : Int32) : Int32
         vw = @vertical_ruler_width
         vw > 0 ? x0 + @viewport_margins.left + vw : x0

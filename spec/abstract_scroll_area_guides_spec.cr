@@ -19,6 +19,19 @@ private def drag(s, x0, y0, x1, y1)
 end
 
 describe "AbstractScrollArea guides" do
+  it "takes no guide off the blank above the line-number gutter" do
+    s = headless_screen(30, 8)
+    pe = editor(s, "abcdef\nxy")
+    pe.column_ruler = true
+    pe.line_numbers = true
+    pe.guides_enabled = true
+    s.repaint
+    drag(s, 1, 0, 8, 2) # above the gutter, where no tape is
+    pe.guides.should be_empty
+    drag(s, pe.ileft + 4, 0, pe.ileft + 4, 2) # on the tape: column 5
+    pe.guides.should eq [5]
+  end
+
   it "is off by default, with no guides of the user's" do
     s = headless_screen(20, 5)
     pe = editor(s, "ab", width: 20, height: 5)

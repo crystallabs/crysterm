@@ -203,6 +203,20 @@ describe "AbstractScrollArea rulers" do
     row_text(s, 0).should eq "one"
   end
 
+  it "carries the current-line tint across the row ruler, so gutter, ruler and text read as one bar" do
+    s = headless_screen(30, 8)
+    pe = editor(s, "one\ntwo")
+    pe.rulers = true
+    pe.line_numbers = true
+    pe.highlight_current_line = true
+    pe.current_line_format = TextCharFormat.new(bg: 0x222244)
+    pe.cursor_position = 5 # on "two", row 2
+    s.repaint
+    tint = Attr.pack_color(0x222244)
+    (0..5).each { |x| Attr.bg(s.cell_rows[2][x].attr).should eq tint } # gutter, ruler, text
+    Attr.bg(s.cell_rows[1][3].attr).should_not eq tint                 # the other row's ruler cell
+  end
+
   it "emits RulersChanged on an actual change only" do
     s = headless_screen(30, 8)
     pe = editor(s, "one")
