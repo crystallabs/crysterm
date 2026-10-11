@@ -168,11 +168,12 @@ module Crysterm
         self.cursor_position = value
       end
 
-      # The fixed end of an in-progress mouse selection (a codepoint index into the
-      # buffer), or `nil` when nothing is selected. `#cursor_pos` is the other,
-      # moving end. Any keyboard interaction or external `value=` drops it: there
-      # is no keyboard-extend (Shift+arrow) support yet, so a plain keystroke
-      # always means "the selection is no longer live".
+      # The fixed end of a selection (a codepoint index into the buffer), or
+      # `nil` when nothing is selected; `#cursor_pos` is the other, moving
+      # end. A mouse drag and `Shift` + a movement key (arrows, `Home`/`End`,
+      # `PageUp`/`PageDown` — Qt's `QTextCursor::KeepAnchor` moves, in a
+      # read-only editor too) set and keep it; any other keystroke and an
+      # external `value=` drop it.
       property selection_anchor : Int32? = nil
 
       # The selected range as `[lo, hi)` codepoint indices into the buffer, or
