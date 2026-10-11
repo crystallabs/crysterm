@@ -84,6 +84,8 @@ module Crysterm
         min_col = Math.max(0, -xi)
 
         base_attr = @_parse_attr_default || style_to_attr(style)
+        # Read once per frame: the per-run anchor path below is the hot path.
+        links_on = links_enabled?
         # One raw TAB paints as this whole string (`tab_char` may be several
         # codepoints) — the same expansion the layout/caret math uses.
         tab_expansion = style.tab_char * style.tab_size
@@ -237,10 +239,11 @@ module Crysterm
               end
               if ri < runs.size && lp >= runs[ri][0]
                 run_hi = runs[ri][1]
-                run_attr = pack_char_attr(runs[ri][2], base_attr, block_bg, heading, code_block)
+                run_attr = pack_char_attr(runs[ri][2], base_attr, block_bg, heading, code_block, links_on)
                 # Anchor runs also carry their target as a cell hyperlink, so
-                # the draw loop emits OSC 8 around them (0 when links are off).
-                run_link = (href = runs[ri][2].anchor_href) ? scr.link_id(href) : 0_u16
+                # the draw loop emits OSC 8 around them (0 when links are off —
+                # the window's policy or this widget's `links_enabled?`).
+                run_link = links_on && (href = runs[ri][2].anchor_href) ? scr.link_id(href) : 0_u16
               else
                 run_hi = Int32::MAX
                 run_attr = pack_char_attr(nil, base_attr, block_bg, heading, code_block)
@@ -533,8 +536,10 @@ module Crysterm
       # (`TextCharFormat#apply_to_attr`), so a stored color always beats a
       # palette one. An inline code span also takes the code background
       # (none when the palette has none); a fenced-code line already sits
-      # on it.
-      private def pack_char_attr(fmt : TextCharFormat?, base_attr : Int64, block_bg : Int32?, heading : Bool, code_block : Bool = false) : Int64
+      # on it. With *links* false (`links_enabled?` off) an anchor is plain
+      # text: no link color, and the underline `apply_to_attr` adds for an
+      # anchor is stripped unless the format underlines on its own.
+      private def pack_char_attr(fmt : TextCharFormat?, base_attr : Int64, block_bg : Int32?, heading : Bool, code_block : Bool = false, links : Bool = true) : Int64
         pal = @palette
         flags = Attr.flags(base_attr)
         fg = Attr.fg(base_attr)
@@ -553,11 +558,16 @@ module Crysterm
         if heading
           pal.heading.try { |c| fg = Attr.pack_color(c) }
         end
-        if fmt && fmt.anchor?
-          pal.link.try { |c| fg = Attr.pack_color(c) }
+        return Attr.pack(flags, fg, bg) unless fmt
+        if fmt.anchor?
+          if links
+            pal.link.try { |c| fg = Attr.pack_color(c) }
+          elsif !fmt.underline?
+            attr = fmt.apply_to_attr(Attr.pack(flags, fg, bg))
+            return Attr.pack(Attr.flags(attr) & ~Attr::UNDERLINE.to_i64, Attr.fg(attr), Attr.bg(attr))
+          end
         end
-        attr = Attr.pack(flags, fg, bg)
-        fmt ? fmt.apply_to_attr(attr) : attr
+        fmt.apply_to_attr(Attr.pack(flags, fg, bg))
       end
 
       # *attr* with this cell's overlays applied: extra selections (format

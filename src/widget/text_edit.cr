@@ -91,6 +91,25 @@ module Crysterm
       # typed marker text), a second removes the marker keystrokes.
       property auto_formatting : AutoFormatting = AutoFormatting::None
 
+      # Whether the document's anchors are live links (the plain-boolean
+      # counterpart of Qt's `Qt::LinksAccessibleByMouse` /
+      # `Qt::LinksAccessibleByKeyboard` text interaction flags; default on).
+      # Off, an anchor paints as the text around it — no `palette.link`
+      # color, no underline beyond one its own format carries — and emits no
+      # OSC 8 hyperlink; `TextBrowser` also stops cycling, activating and
+      # clicking them. The document is untouched: `anchor_href` stays
+      # stored, and switching back on relights every link.
+      getter? links_enabled : Bool = true
+
+      # :ditto:
+      def links_enabled=(v : Bool) : Bool
+        return v if @links_enabled == v
+        @links_enabled = v
+        update
+        update! if window?
+        v
+      end
+
       # Per-display-row decoration metadata, parallel to `@wrapped_lines`. `offset` is
       # the column where the row's text starts (frame insets + quote bars +
       # indents + list marker + alignment shift), read by the shared geometry

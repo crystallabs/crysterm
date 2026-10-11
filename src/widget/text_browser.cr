@@ -44,6 +44,20 @@ module Crysterm
       # `openLinks`). The `AnchorClick` event is emitted either way.
       property? open_links = true
 
+      # How many clicks on an anchor follow it: 1 (the default) a single
+      # click, 2 a double click — the single/double-click choice desktop
+      # environments offer, which Qt has not. With 2, the first click lands
+      # as on ordinary text (caret placement, selection) and only the second
+      # within `Config.mouse_double_click_interval` activates. Any other
+      # value raises `ArgumentError`.
+      getter link_clicks : Int32 = 1
+
+      # :ditto:
+      def link_clicks=(n : Int32) : Int32
+        raise ArgumentError.new("link_clicks must be 1 or 2, got #{n}") unless n == 1 || n == 2
+        @link_clicks = n
+      end
+
       getter source : String?
 
       # Visited sources, each with the reading position it was left at.
@@ -57,13 +71,14 @@ module Crysterm
       def initialize(input_on_focus = false, read_only = true, document : TextDocument? = nil, **input)
         super(**input, input_on_focus: input_on_focus, read_only: read_only, document: document)
 
-        # Pointer activation: a plain click on an anchor follows it. Not
-        # `#accept`ed, so click-to-focus still works. `text_hit?` must gate
-        # first: `position_at` *clamps* and `anchor_at` resolves a line-end
-        # position to the preceding char's format, so without the exact
-        # hit-test a click on empty space would activate a trailing link.
+        # Pointer activation: the `#link_clicks`-th click on an anchor follows
+        # it, when links are enabled. Not `#accept`ed, so click-to-focus
+        # still works. `text_hit?` must gate first: `position_at` *clamps*
+        # and `anchor_at` resolves a line-end position to the preceding
+        # char's format, so without the exact hit-test a click on empty space
+        # would activate a trailing link.
         on(Crysterm::Event::Mouse) do |e|
-          if e.action.down? && (window?.try(&.click_count) || 1) == 1
+          if e.action.down? && links_enabled? && (window?.try(&.click_count) || 1) == @link_clicks
             if text_hit?(e.x, e.y) && (url = anchor_at(position_at(e.x, e.y)))
               activate_link url
             end
@@ -232,17 +247,22 @@ module Crysterm
       # up, as in `QTextBrowser`). The read-only navigation keys of every
       # text edit apply otherwise (`Mixin::TextEditing#effective_key`): Space
       # pages forward, and `Enter` with no link focused moves down a line.
+      # With `#links_enabled?` off, the link keys fall through like any other.
       def _listener(e)
         if k = e.key
           case k
           when Tput::Key::Tab
-            e.accept
-            return focus_link(1)
+            if links_enabled?
+              e.accept
+              return focus_link(1)
+            end
           when Tput::Key::ShiftTab
-            e.accept
-            return focus_link(-1)
+            if links_enabled?
+              e.accept
+              return focus_link(-1)
+            end
           when Tput::Key::Enter
-            if @focused_link >= 0 && (l = links[@focused_link]?)
+            if links_enabled? && @focused_link >= 0 && (l = links[@focused_link]?)
               e.accept
               return activate_link(l.url)
             end
@@ -256,6 +276,13 @@ module Crysterm
 
       def document=(doc : TextDocument)
         drop_link_focus
+        super
+      end
+
+      # Switching links off also drops any keyboard link focus (and its
+      # inverse highlight); `#links` keeps enumerating either way.
+      def links_enabled=(v : Bool) : Bool
+        drop_link_focus unless v
         super
       end
 
