@@ -182,6 +182,8 @@ module Crysterm
         Input:focus, LineEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
         /* The plain editor's line-number gutter reads as chrome, like muted text. */
         PlainTextEdit::line-number { color: var(--muted-light); }
+        /* So do a scroll area's rulers. */
+        AbstractScrollArea::ruler { color: var(--muted-light); }
 
         /* Buttons (after Input so they win the tie) */
         Button { background-color: var(--muted-dark); color: var(--text); }

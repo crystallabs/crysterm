@@ -221,12 +221,16 @@ module Crysterm
         # On a scroll-clipped left edge only the gutter's visible remainder is
         # on window (the same per-edge fit `base_render` applies), and that is
         # its right part: `hidden` leading columns of each number are cut.
-        ebl, epl = effective_edge_insets(sb.left, pd.left, lp.hidden_left)
-        shown = effective_edge_insets(sb.left, pd.left + w, lp.hidden_left)[1] - epl
+        # The rulers' band (`AbstractScrollArea#rulers=`) is outside the
+        # gutter's: a row above it and the row ruler's columns before it.
+        rulers_left = @vertical_ruler_width
+        rulers_top = @rulers ? 1 : 0
+        ebl, epl = effective_edge_insets(sb.left, pd.left + rulers_left, lp.hidden_left)
+        shown = effective_edge_insets(sb.left, pd.left + rulers_left + w, lp.hidden_left)[1] - epl
         return if shown <= 0
         hidden = w - shown
         x0 = lp.xi + ebl + epl
-        ebt, ept = effective_edge_insets(sb.top, pd.top, lp.hidden_top)
+        ebt, ept = effective_edge_insets(sb.top, pd.top + rulers_top, lp.hidden_top)
         ebb, epb = effective_edge_insets(sb.bottom, pd.bottom, lp.hidden_bottom)
         yi = lp.yi + ebt + ept
         yl = lp.yl - ebb - epb - hscrollbar_rows
@@ -284,9 +288,10 @@ module Crysterm
         Colors.blend(base_attr, Attr.pack(0_i64, bg, bg), alpha: LINE_NUMBER_FADE)
       end
 
-      # The base render, then the gutter over its left band.
-      def paint(*, with_children = true)
-        super
+      # The gutter over its band, in the chrome pass after the base render
+      # (`AbstractScrollArea#paint_viewport_chrome`, before the rulers and
+      # the guides).
+      protected def paint_viewport_margins : Nil
         paint_line_numbers if @line_number_width > 0
       end
 

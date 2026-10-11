@@ -406,6 +406,12 @@ module Crysterm
     # gutter outright, so there is nothing to toggle.
     event LineNumbersChanged, visible : Bool
 
+    # Emitted by a `Widget::AbstractScrollArea` when its rulers are shown or
+    # hidden (`#rulers=`), for a View menu's "Rulers" check entry to bind
+    # to, as `LineNumbersChanged` is for the gutter. `visible` is the new
+    # state.
+    event RulersChanged, visible : Bool
+
     # Emitted by an editable text widget when its selection changed —
     # extended, moved, or dropped (Qt's `selectionChanged()`). Parameterless,
     # as in Qt: read `#selected_text`/`#selection_range` off the sender (the

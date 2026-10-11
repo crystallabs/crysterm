@@ -19,9 +19,23 @@ module Crysterm
       # and by `TextEdit#paint_document`.
       @viewport_margins : Padding = Padding::ZERO
 
+      # The subclass's band plus the rulers' (`#rulers=`, a row above and
+      # columns left of it — the outer band, so a gutter sits between the
+      # row ruler and the text): a widget-owned box summed per side,
+      # rewritten in place each call like the base's, so the sum may change
+      # between frames without an allocation.
       protected def viewport_margins : Padding
-        @viewport_margins
+        own = @viewport_margins
+        return own unless @rulers
+        box = (@_margins_with_rulers ||= Padding.new(0))
+        box.left = own.left + @vertical_ruler_width
+        box.top = own.top + 1
+        box.right = own.right
+        box.bottom = own.bottom
+        box
       end
+
+      @_margins_with_rulers : Padding?
 
       # :ditto: — Qt's `setViewportMargins()`. The frame insets derived from the
       # old box are dropped and a repaint scheduled; the content re-wraps on
@@ -81,6 +95,7 @@ module Crysterm
       # them the wrap width, the painted origin and the caret and mouse
       # geometry — already include them.
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
+        sync_ruler_width if @rulers
         sync_line_wrap_column(awidth_hint || awidth) if window?
         super
       end
@@ -153,6 +168,30 @@ module Crysterm
           hb.width = Dim.percent(100, left + right - (show_v ? scrollbar_width : 0))
         end
       end
+
+      # The base render, then the chrome in the margins
+      # (`#paint_viewport_chrome`). A subclass that paints the content itself
+      # (`TextEdit`) calls the chrome pass after its own.
+      def paint(*, with_children = true)
+        ret = super
+        paint_viewport_chrome if ret
+        ret
+      end
+
+      # Paints what `#viewport_margins` holds, over the base render: the
+      # subclass's own band first (`#paint_viewport_margins`, the gutter),
+      # then the rulers.
+      protected def paint_viewport_chrome : Nil
+        paint_viewport_margins
+        paint_rulers if @rulers
+      end
+
+      # The subclass's chrome in the band it reserved with
+      # `#viewport_margins=`; nothing by default.
+      protected def paint_viewport_margins : Nil
+      end
     end
   end
 end
+
+require "./abstract_scroll_area/rulers"

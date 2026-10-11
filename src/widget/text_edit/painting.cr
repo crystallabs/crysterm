@@ -21,6 +21,9 @@ module Crysterm
           # instead of the (blank) document — Qt's
           # `QPlainTextEdit#placeholderText`, honored on the rich editor too.
           placeholder_visible? ? paint_placeholder(ret) : paint_document(ret)
+          # The rulers and guides over the margins, as the base `paint` does
+          # for a widget that renders through `base_render` alone.
+          paint_viewport_chrome
         end
         ret
       end

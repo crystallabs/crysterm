@@ -126,6 +126,12 @@ module Crysterm
     # code editor example paints the area with a hardcoded brush.
     sub_style_accessor line_number
 
+    # Style of a `Widget::AbstractScrollArea`'s rulers
+    # (`AbstractScrollArea::ruler { color: … }`), shown with `#rulers=`.
+    # Defaults to `self`; the rulers then fade their own foreground toward
+    # the background, like the gutter.
+    sub_style_accessor ruler
+
     sub_style_accessor scrollbar
 
     sub_style_accessor track
@@ -267,6 +273,7 @@ module Crysterm
            "drop-down"     => "drop_down",
            "label"         => "label",
            "line-number"   => "line_number",
+           "ruler"         => "ruler",
            "alternate-row" => "alternate_row",
          } %}
 
