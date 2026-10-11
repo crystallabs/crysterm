@@ -228,9 +228,10 @@ module Crysterm
       end
 
       # Browser keys: `Tab`/`Shift-Tab` cycle links, `Enter` activates the
-      # focused one, `Backspace` goes back. While read-only, `Space` pages
-      # forward as in every read-only edit, and `Enter` with no link focused
-      # moves down a line, as in `less` and `man` (`#effective_key`).
+      # focused one, `Backspace` goes back (in place of the read-only page
+      # up, as in `QTextBrowser`). The read-only navigation keys of every
+      # text edit apply otherwise (`Mixin::TextEditing#effective_key`): Space
+      # pages forward, and `Enter` with no link focused moves down a line.
       def _listener(e)
         if k = e.key
           case k
@@ -251,13 +252,6 @@ module Crysterm
           end
         end
         super
-      end
-
-      # Enter rides the Down key's own path while read-only (`_listener`
-      # already followed a focused link); otherwise the shared mapping.
-      protected def effective_key(e : Crysterm::Event::KeyPress) : Tput::Key?
-        k = super
-        (k == Tput::Key::Enter && read_only?) ? Tput::Key::Down : k
       end
 
       def document=(doc : TextDocument)

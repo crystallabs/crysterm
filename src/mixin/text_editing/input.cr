@@ -323,20 +323,28 @@ module Crysterm
         e.accept if handled
       end
 
-      # The key this keystroke stands for: `e.key`, or `PageDown` for Space in
-      # a read-only editor that `#space_pages?` — a read-only `QTextEdit` pages
-      # on Space, since there is nothing to type. The event is left as it
-      # arrived, so a listener after this one still sees the Space. Subclasses
-      # extend the mapping (`TextBrowser`).
+      # The key this keystroke stands for: `e.key`, except in a read-only
+      # editor that `#read_only_navigation?`, where the keys Qt's `QTextEdit`
+      # turns into navigation while read-only (there is nothing to type) are
+      # mapped the same way: Space pages down, Enter moves down a line (as in
+      # `less` and `man`), Backspace pages up. (Qt's Shift+Space, paging up,
+      # has no key here: a terminal sends a plain space for it.) The event is
+      # left as it arrived, so a listener after this one still sees the key.
       protected def effective_key(e : Crysterm::Event::KeyPress) : Tput::Key?
-        return Tput::Key::PageDown if e.key.nil? && e.char == ' ' && read_only? && space_pages?
-        e.key
+        k = e.key
+        return k unless read_only? && read_only_navigation?
+        return Tput::Key::PageDown if k.nil? && e.char == ' '
+        case k
+        when Tput::Key::Enter     then Tput::Key::Down
+        when Tput::Key::Backspace then Tput::Key::PageUp
+        else                           k
+        end
       end
 
-      # Whether Space pages the view while read-only (`#effective_key`): the
+      # Whether the read-only navigation keys apply (`#effective_key`): the
       # multi-line editors, as Qt's `QTextEdit`; not a one-row field (Qt's
       # `QLineEdit` has no page to turn).
-      protected def space_pages? : Bool
+      protected def read_only_navigation? : Bool
         false
       end
 

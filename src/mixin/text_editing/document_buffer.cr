@@ -485,7 +485,7 @@ module Crysterm
           return {nil, nil} if @extra_selections.empty? && !@highlight_current_line
           ranged = nil
           full_fmt = nil
-          if @highlight_current_line && @cursor_pos >= row_start && @cursor_pos <= row_end
+          if @highlight_current_line && position_on_row?(@cursor_pos, row_start, row_end)
             full_fmt = current_line_format_in_effect
           end
           @extra_selections.each do |xs|
@@ -501,11 +501,21 @@ module Crysterm
                 ranged ||= [] of Tuple(Range(Int32, Int32), TextCharFormat)
                 ranged << {cols, xs.format}
               end
-            elsif xs.full_width && c.position >= row_start && c.position <= row_end
+            elsif xs.full_width && position_on_row?(c.position, row_start, row_end)
               full_fmt = full_fmt ? full_fmt.merge(xs.format) : xs.format
             end
           end
           {ranged, full_fmt}
+        end
+
+        # Whether buffer position *pos* is drawn on the row `[row_start,
+        # row_end]`: inside it, or at its end when that end is a line end (or
+        # the document's) — as Qt's `lineForTextPosition` reads it. At a soft
+        # wrap the end position is the next row's start and belongs to that
+        # row, so a caret there tints one row, not two.
+        private def position_on_row?(pos : Int32, row_start : Int32, row_end : Int32) : Bool
+          return false if pos < row_start || pos > row_end
+          pos < row_end || pos >= buf_size || buf_char(pos) == '\n'
         end
 
         # A `TextCursor` materializing this view's caret and selection (Qt

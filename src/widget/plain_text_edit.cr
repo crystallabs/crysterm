@@ -30,8 +30,8 @@ module Crysterm
 
       @scrollable = true
 
-      # Space pages a read-only edit (`Mixin::TextEditing#effective_key`).
-      protected def space_pages? : Bool
+      # The read-only navigation keys apply (`Mixin::TextEditing#effective_key`).
+      protected def read_only_navigation? : Bool
         true
       end
 
