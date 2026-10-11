@@ -56,14 +56,18 @@ describe "BUGS13 C20: SIGTSTP/SIGCONT suspend-resume" do
   # so the trap installation is asserted structurally (like
   # spec/bugs5_lifecycle_spec.cr does for the capture pipeline); the resume
   # half (`Crysterm.resume_terminals`) is exercised for real below.
-  it "wires the TSTP trap to suspend_terminals + STOP, and CONT to resume_terminals" do
-    # The signal traps live in src/lifecycle.cr since the crysterm.cr split.
+  it "wires the TSTP trap to suspend (suspend_terminals + STOP), and CONT to resume_terminals" do
+    # The signal traps live in src/lifecycle.cr since the crysterm.cr split;
+    # the TSTP trap calls `Crysterm.suspend`, which an application calls too.
     src = File.read(File.join(__DIR__, "..", "src", "lifecycle.cr"))
 
+    suspend = src.index!("def self.suspend : Nil")
+    suspend_body = src[suspend, 120]
+    suspend_body.includes?("suspend_terminals").should be_true
+    suspend_body.includes?("Process.signal Signal::STOP").should be_true
+
     tstp = src.index!("Signal::TSTP.trap")
-    tstp_body = src[tstp, 200]
-    tstp_body.includes?("suspend_terminals").should be_true
-    tstp_body.includes?("Process.signal Signal::STOP").should be_true
+    src[tstp, 60].includes?("suspend").should be_true
 
     cont = src.index!("Signal::CONT.trap")
     src[cont, 120].includes?("resume_terminals").should be_true
