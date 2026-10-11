@@ -105,6 +105,9 @@ module Crysterm
     # but only when no widget/handler `#accept`ed the key and no widget has
     # grabbed the keyboard, so `q` typed into a reading `LineEdit`/`TextEdit`
     # edits instead of quitting the app. Windows that opt out never quit here.
+    # The window is asked first, through `Window#request_close`: an
+    # `Event::CloseRequest` handler that `#ignore`s (unsaved changes) keeps
+    # the app running.
     def route_input(screen : Screen, e : ::Tput::InputEvent) : Nil
       # An in-band resize report (DEC 2048) describes the DEVICE, not a
       # surface — and the flag is device-level, so the SIGWINCH path stands
@@ -122,10 +125,11 @@ module Crysterm
       return unless win
 
       # Dispatch to the window first, then quit only if the resulting `KeyPress`
-      # came back un-`accepted?` and no widget is grabbing the keyboard.
+      # came back un-`accepted?`, no widget is grabbing the keyboard, and the
+      # window's `CloseRequest` handlers (if any) did not veto.
       ev = win.handle_input e
 
-      if ev && win.default_quit_keys? && quit_gesture?(win, ev)
+      if ev && win.default_quit_keys? && quit_gesture?(win, ev) && win.request_close
         # Through `#quit`, not a bare `exit`: handlers get `Event::AboutToQuit`
         # (their only chance to save state), and *every* window this app drives
         # is torn down, not just the one the key arrived on.
@@ -482,10 +486,12 @@ module Crysterm
           end
         end
         w.on(Crysterm::Event::KeyPress) do |e|
-          # Quit only when no widget consumed the key and nothing is grabbing
-          # the keyboard — the same guards `#route_input` applies. Without them,
-          # typing `q` into a reading `LineEdit`/`TextEdit` closes every window.
-          windows.each { |o| o.destroy unless o.destroyed? } if quit_gesture?(w, e)
+          # Quit only when no widget consumed the key, nothing is grabbing
+          # the keyboard, and the window agrees (`Window#request_close`) — the
+          # same guards `#route_input` applies. Without them, typing `q` into a
+          # reading `LineEdit`/`TextEdit` closes every window, and an app with
+          # unsaved changes could not refuse.
+          windows.each { |o| o.destroy unless o.destroyed? } if quit_gesture?(w, e) && w.request_close
         end
         w.on(Crysterm::Event::WindowClosed) { w.destroy unless w.destroyed? }
         w.on(Crysterm::Event::OutputFailed) { |e| fail_all.call e.error }

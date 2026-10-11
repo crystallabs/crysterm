@@ -803,6 +803,24 @@ module Crysterm
       {% end %}
     end
 
+    # Asks whether this window may be closed (Qt's `QWidget::closeEvent`):
+    # emits `Event::CloseRequest` and returns whether it stayed accepted. The
+    # application calls it before the default quit keys (`q`/Ctrl-Q) quit, so
+    # an app with unsaved changes can refuse — and, say, ask the user instead:
+    #
+    # ```
+    # window.on(Crysterm::Event::CloseRequest) { |e| e.ignore if document.modified? }
+    # ```
+    #
+    # Only a question: nothing is torn down here, and `#quit`, `#close` and
+    # `#destroy` never ask (the toolkit's reattach and teardown paths depend
+    # on them being unconditional). With no handler the answer is `true`.
+    def request_close : Bool
+      e = Crysterm::Event::CloseRequest.new
+      emit e
+      e.accepted?
+    end
+
     # Politely closes the window (Qt's `QWindow#close`): disconnects, emits
     # `Event::WindowClosed`, and then tears it down with `#destroy`. Returns
     # whether the window was open (`false` if already destroyed).

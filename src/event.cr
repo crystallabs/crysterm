@@ -265,6 +265,35 @@ module Crysterm
       end
     end
 
+    # Emitted by `Window#request_close` before the default quit keys
+    # (`q`/Ctrl-Q) quit the application — Qt's `QCloseEvent`, delivered to
+    # `closeEvent`. Accepted by default, so with no handler the quit goes
+    # ahead; a handler calls `#ignore` to veto it, e.g. because the document
+    # has unsaved changes (and may then ask the user what to do instead):
+    #
+    # ```
+    # window.on(Crysterm::Event::CloseRequest) { |e| e.ignore if document.modified? }
+    # ```
+    #
+    # Only a *request* asks: `Window#quit`, `#close` and `#destroy` (and
+    # `Application#quit`) never do, since the toolkit's own reattach and
+    # teardown paths rely on them being unconditional. Defined as a class
+    # (not via the `event` macro) because, unlike `Acceptable`, its default
+    # is *accepted*.
+    class CloseRequest < EventHandler::Event
+      property? accepted : Bool = true
+
+      # Lets the close go ahead (the default).
+      def accept
+        @accepted = true
+      end
+
+      # Vetoes the close: `Window#request_close` returns `false`.
+      def ignore
+        @accepted = false
+      end
+    end
+
     # Emitted when an OSC 52 clipboard *read* reply arrives, in answer to a
     # `Window#request_clipboard` / `Application::Clipboard#request` — the
     # `QClipboard::dataChanged` analogue. `content` is the decoded clipboard text.
@@ -279,6 +308,11 @@ module Crysterm
     # Emitted by a `Crysterm::Timer` on every tick. Widgets (and anything else)
     # subscribe to a shared timer to animate in lockstep off one clock.
     event Tick
+
+    # Emitted by a `FileWatcher` when a watched file's size or modification
+    # time changed, or the file appeared or disappeared — Qt's
+    # `QFileSystemWatcher::fileChanged`. `path` is the path as it was added.
+    event FileChanged, path : String
 
     # Emitted when object is hidden
     event Hide
