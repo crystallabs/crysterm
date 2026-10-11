@@ -44,9 +44,9 @@ module Crysterm
       @submenu_open : Menu?
       @submenu_action : Action?
 
-      # The item box that opened the current submenu. A click on it toggles the
-      # submenu (via `#activate_index`), so the outside-click watcher leaves it
-      # alone rather than fighting that toggle.
+      # The item box that opened the current submenu. A click on it keeps the
+      # submenu open (`#activate_index`), so the outside-click watcher leaves
+      # it alone rather than dismissing what the row stands for.
       @submenu_anchor : Widget?
 
       # Click-away dismissal for the submenu chain, installed (on the top-level
@@ -155,14 +155,13 @@ module Crysterm
         return if action.separator?
         return unless action.enabled?
 
-        # A submenu item opens its child menu instead of firing — or, if already
-        # open, toggles it closed (a second click/Enter closes it).
+        # A submenu item opens its child menu instead of firing. A click on a
+        # row whose submenu is open already — the pointer got there before the
+        # button did, and the hover opened it (`#hover_item`) — leaves it open,
+        # as Qt does: a toggle here would close what the hover had just opened,
+        # and the row would look dead to a click.
         if action.menu?
-          if @submenu_open && @submenu_action == action
-            close_submenu
-          else
-            open_submenu action
-          end
+          open_submenu action unless @submenu_open && @submenu_action == action
           return
         end
 
@@ -315,6 +314,17 @@ module Crysterm
         return true if contains_point?(x, y)
         if child = @submenu_open
           return child.in_chain?(x, y)
+        end
+        false
+      end
+
+      # Whether this menu is *menu* itself or one of its submenus, at any
+      # depth.
+      def in_chain_of?(menu : Menu) : Bool
+        m = self
+        while m
+          return true if m.same?(menu)
+          m = m.parent_menu
         end
         false
       end

@@ -369,8 +369,9 @@ module Crysterm
       private def on_menu_blur(menu : Menu, e) : Nil
         return unless (oi = @open_index) && @menus[oi]? == menu
         nf = e.next_focused
-        # Focus moved into this menu's own (sub)menu chain — still active.
-        return if nf.is_a?(Menu) && (nf.parent_menu == menu || @menus.includes?(nf))
+        # Focus moved into this menu's own submenu chain, at any depth (a
+        # third-level menu's parent is the second, not *menu*) — still active.
+        return if nf.is_a?(Menu) && (nf.in_chain_of?(menu) || @menus.includes?(nf))
         # Focus returned to the bar itself — keep the menu open.
         return if nf == self
         close
