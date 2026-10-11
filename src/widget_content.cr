@@ -80,6 +80,17 @@ module Crysterm
     # Raw appended chunks not yet folded into `@content`.
     @_content_tail = [] of String
 
+    # Whether `@content` lags behind `@_content_raw_lines`: a logical line was
+    # replaced in place (`replace_content_line`), and the raw string is
+    # re-joined only when content is read, so a run of single-line edits is
+    # O(line) each rather than O(buffer).
+    @_content_stale = false
+
+    # The raw logical lines, index-aligned with `@wrapped_lines.fake`, kept
+    # only while line replacements are being spliced; `nil` whenever
+    # `@content` is rewritten wholesale, and re-split from it on demand.
+    @_content_raw_lines : Array(String)?
+
     # The widget's content exactly as it was set: tags, inline SGR and all.
     # This is the RAW half of the raw/rendered pair — for what ends up on screen
     # (tags expanded, lines word-wrapped) read `#rendered_content` /
@@ -96,12 +107,21 @@ module Crysterm
     # outlined in the slow arm.
     @[AlwaysInline]
     private def fold_content_tail : Nil
-      return if @_content_tail.empty?
+      return if @_content_tail.empty? && !@_content_stale
       fold_content_tail_slow
     end
 
-    # The pending-tail arm of `#fold_content_tail`.
+    # The pending-tail arm of `#fold_content_tail`: a stale `@content` is
+    # re-joined from the raw lines first, then the appended chunks follow.
     private def fold_content_tail_slow : Nil
+      if @_content_stale
+        @content = (@_content_raw_lines || [] of String).join('\n')
+        @_content_stale = false
+      end
+      return if @_content_tail.empty?
+      # The appended chunks are new logical lines, so the raw-line copy no
+      # longer describes the content.
+      @_content_raw_lines = nil
       @content = String.build do |s|
         s << @content
         @_content_tail.each do |t|
@@ -114,7 +134,8 @@ module Crysterm
 
     # No content at all, materialized or pending. O(1) (does not fold).
     private def content_blank?
-      @content.empty? && @_content_tail.empty?
+      # A stale `@content` stands for replaced lines, never for no content.
+      @content.empty? && @_content_tail.empty? && !@_content_stale
     end
 
     # Printable, word-wrapped content, ready for rendering. `nil` means "stale";
@@ -227,7 +248,7 @@ module Crysterm
       # Identity fast path: re-assigning the very String object already held
       # (an animation tick re-assigning a literal each frame), with no deferred
       # tail pending, can change nothing — skip even the value compare.
-      return if content.same?(@content) && no_tags == @_content_no_tags && @_content_tail.empty?
+      return if content.same?(@content) && no_tags == @_content_no_tags && @_content_tail.empty? && !@_content_stale
       # Fold deferred appends so the comparison below sees current content.
       fold_content_tail
       # Idempotent no-op for re-setting identical content. Gates on the tag mode
@@ -239,6 +260,7 @@ module Crysterm
       # internal structures, not @content (for rendering purposes, where
       # original content should not be modified).
       @content = content
+      @_content_raw_lines = nil
       @_content_no_tags = no_tags
       # The `{` check short-circuits the PCRE2 match for the common tag-free case.
       @_content_has_tags = content.includes?('{') && content.matches?(TAG_REGEX)

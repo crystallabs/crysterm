@@ -52,7 +52,21 @@ module Crysterm
 
       # Last plain text pushed to the base content pipeline (`set_content`);
       # the display re-syncs only when the document text actually changed.
+      # `nil` after a single-line patch, so the next full push never dedups
+      # against a text the display no longer shows.
       @_display_value : String?
+
+      # Whether the display reflects the document as it is now — true after a
+      # full push and after each single-line patch, dropped by any document
+      # change the patch can't take. Only a current display can be patched.
+      @_display_fresh = false
+
+      # Set by a single-line patch: the next frame follows the caret
+      # (`_type_scroll`/`_update_cursor`) without pushing content.
+      @_display_patched = false
+
+      # Block count the display was built for; a single-block edit keeps it.
+      @_display_blocks = 0
 
       def initialize(
         input_on_focus = false,
@@ -97,6 +111,7 @@ module Crysterm
 
       protected def reset_document_caches : Nil
         @_display_value = nil
+        @_display_fresh = false
       end
 
       # `Widget#extra_selections_for_row`: this widget paints through the
@@ -114,6 +129,7 @@ module Crysterm
         return value if value == @placeholder_text
         @placeholder_text = value
         @_display_value = nil
+        @_display_fresh = false
         sync_display
         update!
         value
@@ -123,10 +139,35 @@ module Crysterm
         @ev_contents_change = document.on(Crysterm::Event::ContentsChanged) do |e|
           # Mirror an edit made by another actor on a shared document onto this
           # view's caret (own edits are skipped — the mixin moves the caret
-          # itself); the display re-syncs on the next render via `#value=`.
+          # itself). An edit inside one block patches that line's rows right
+          # here; anything else leaves the display to the next frame's full
+          # push (`#sync_display`).
           follow_document_change(e.kind, e.position, e.chars_removed, e.chars_added)
+          patch_display e.kind, e.position, e.chars_removed, e.chars_added
           update! if window?
         end
+      end
+
+      # Patches the displayed lines for an edit confined to one block, via
+      # `Widget#replace_content_line`. Needs a display that is current, a
+      # document that was and stays non-empty (an empty one shows the
+      # placeholder through the full push), an unchanged block count, and an
+      # inserted range that stays inside the block the edit started in. Any
+      # other change marks the display stale for the full push.
+      private def patch_display(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil
+        fresh = @_display_fresh
+        @_display_fresh = false
+        return unless fresh && kind.edit?
+        doc = document
+        size = doc.size
+        return if size == 0 || size - added + removed == 0
+        return if doc.block_count != @_display_blocks
+        block = doc.block_at(pos).index
+        return if added > 0 && doc.block_at(pos + added).index != block
+        return unless replace_content_line(block, doc.blocks[block].text)
+        @_display_value = nil
+        @_display_fresh = true
+        @_display_patched = true
       end
 
       # Adds undo/redo on top of the shared editing keys.
@@ -150,14 +191,23 @@ module Crysterm
         sync_display
       end
 
-      # Pushes the document's plain text into `set_content` whenever it changed.
-      # An empty document with a `#placeholder_text` shows the placeholder
+      # Pushes the document's plain text into `set_content` whenever it changed
+      # — unless the display is already current: untouched since the last
+      # push, or patched line by line (then only the caret is followed). An
+      # empty document with a `#placeholder_text` shows the placeholder
       # instead (Qt's `QPlainTextEdit#placeholderText`); the value stays empty.
       private def sync_display : Nil
-        v = buf_text
-        return if v == @_display_value
-        @_display_value = v
-        set_content(v.empty? && !@placeholder_text.empty? ? @placeholder_text : v)
+        if @_display_fresh
+          return unless @_display_patched
+          @_display_patched = false
+        else
+          v = buf_text
+          @_display_fresh = true
+          @_display_blocks = document.block_count
+          return if v == @_display_value
+          @_display_value = v
+          set_content(v.empty? && !@placeholder_text.empty? ? @placeholder_text : v)
+        end
         _type_scroll
         _update_cursor
       end

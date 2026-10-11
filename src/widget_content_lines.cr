@@ -294,5 +294,178 @@ module Crysterm
       emit Crysterm::Event::ContentSet
       true
     end
+
+    # The raw logical lines, index-aligned with `@wrapped_lines.fake`. Reused
+    # across line replacements; re-split from the (folded) content only after
+    # it was rewritten wholesale or appended to.
+    private def raw_content_lines : Array(String)
+      if (lines = @_content_raw_lines) && @_content_tail.empty?
+        return lines
+      end
+      fold_content_tail
+      @_content_raw_lines = @content.split(RAW_LINE_REGEX)
+    end
+
+    # Replaces logical line *fake* with *text* (one line: no newline) without
+    # reparsing the rest of the content — the per-keystroke path of a
+    # multi-line editor. Only the new line is cleaned and wrapped; its rows
+    # are spliced over the old ones in `@wrapped_lines`, the row maps after
+    # it are renumbered, and the raw content is left to be re-joined lazily
+    # (`@_content_stale`). O(line + rows after it) rather than O(buffer).
+    #
+    # Returns `true` if the fast path handled it, `false` if it bailed and the
+    # caller must fall back to `set_content`. Byte-identical to a full reparse
+    # under the conditions it accepts (`#content_line_replaceable?`): no tag
+    # parsing in play (tags are expanded with cross-line state), no inline
+    # SGR anywhere (so no attr carry), and a result that keeps the content
+    # non-empty.
+    def replace_content_line(fake : Int32, text : String) : Bool
+      return false unless content_line_replaceable?(fake, text)
+      cl = @wrapped_lines
+      seg = clean_content_chars text
+      # Content that would clean away entirely takes the empty-content shape
+      # (`fake` empty, one blank row), which only a full wrap produces.
+      return false if seg.empty? && cl.fake.size == 1
+
+      # Wrap just the new line, at the width and bar reservation the cached
+      # lines were wrapped with.
+      scratch = (@_append_scratch ||= CLines.new)
+      wrap_lines(seg, cl.width, into: scratch, margin: cl.margin)
+      return false if scratch.lines.empty?
+      splice_content_rows cl, fake, seg, scratch
+
+      # The raw side: the line is recorded, the joined string re-built only
+      # when read. Content-shape flags accumulate like `append_content`'s.
+      raw_content_lines[fake] = text
+      @_content_stale = true
+      @printable_content = nil
+      @_content_has_tags ||= text.includes?('{') && text.matches?(TAG_REGEX)
+      @_content_has_braces ||= text.includes?('{') || text.includes?('}')
+      @_content_has_align_tag ||= text.includes?('{') && text.matches?(ALIGN_TAG_REGEX)
+      @_content_version += 1
+      cl.content_version = @_content_version
+
+      # A row-count change can flip an `AsNeeded` bar on or off, changing the
+      # width every line wraps at: reconcile with one full reparse, as
+      # `append_content` does.
+      if cl.margin != content_margin_x
+        process_content
+      end
+
+      update
+      emit Crysterm::Event::ContentParsed
+      emit Crysterm::Event::ContentSet
+      true
+    end
+
+    # The guards of `#replace_content_line`: a current wrap cache at the
+    # live width and scroll, a single existing line to replace, and content
+    # whose lines wrap independently of each other.
+    private def content_line_replaceable?(fake : Int32, text : String) : Bool
+      return false unless window?
+      cl = @wrapped_lines
+      return false unless cl.content_version == @_content_version
+      return false if content_blank?
+      colwidth = cl.width
+      return false if colwidth <= 0
+      return false if (awidth - ihorizontal) != colwidth
+      return false if cl.base_x != @child_base_x
+      return false if fake < 0 || fake >= cl.fake.size
+      return false if text.includes?('\n') || text.includes?('\r')
+      # A tag-parsing widget only takes brace-free text over brace-free
+      # content: `expand_tags` carries state across lines.
+      if @parse_tags && !@_content_no_tags
+        return false if @_content_has_braces || text.includes?('{') || text.includes?('}')
+      end
+      # Inline SGR colors the lines after it (`_parse_attr`'s carry); with
+      # none anywhere every row starts at the base attr and `attr` needs no
+      # recompute.
+      return false if @_content_has_sgr || text.includes?('\e')
+      return false unless raw_content_lines.size == cl.fake.size
+      !cl.ftor[fake].empty?
+    end
+
+    # Splices *scratch*'s rows (the freshly wrapped line *seg*) over fake line
+    # *fake*'s rows in *cl*, renumbering the row maps and joined-content
+    # offsets after them and keeping the widest-row records current.
+    private def splice_content_rows(cl : CLines, fake : Int32, seg : String, scratch : CLines) : Nil
+      new_lines = scratch.lines
+      n_new = new_lines.size
+      old_rows = cl.ftor[fake]
+      r0 = old_rows.first
+      n_old = old_rows.size
+      lines = cl.lines
+
+      # Widths and joined-length of the rows being replaced, before they go.
+      old_chars = 0
+      old_max = 0
+      n_old.times do |i|
+        row = lines[r0 + i]
+        old_chars += row.size + 1
+        w = str_width(row)
+        old_max = w if w > old_max
+      end
+      new_chars = 0
+      new_lines.each { |row| new_chars += row.size + 1 }
+      old_full = @wrap_content ? 0 : str_width(cl.fake[fake])
+
+      # Rows, fake line, and the row→fake map.
+      lines[r0, n_old] = new_lines
+      cl.fake[fake] = seg
+      cl.rtof[r0, n_old] = Array.new(n_new, fake) if n_new != n_old
+      # With no SGR anywhere, an existing attr array (built because the raw
+      # text carries tag-shaped braces) holds the base attr on every row.
+      if (attrs = cl.attr) && n_new != n_old
+        attrs[r0, n_old] = Array.new(n_new, attrs[r0])
+      end
+      # The fake→rows map: this line's row list is rebuilt in place, the
+      # lines after it shift by the row delta.
+      old_rows.clear
+      n_new.times { |i| old_rows << r0 + i }
+      delta = n_new - n_old
+      if delta != 0
+        ftor = cl.ftor
+        j = fake + 1
+        while j < ftor.size
+          ftor.unsafe_fetch(j).map! { |r| r + delta }
+          j += 1
+        end
+      end
+
+      # Joined-content offsets: the new rows' offsets run from the first
+      # replaced row's start, and every row after shifts by the length delta.
+      ci = cl.ci
+      running = ci[r0]
+      ci[r0, n_old] = Array.new(n_new, 0) if delta != 0
+      new_lines.each_with_index do |row, i|
+        ci.unsafe_put(r0 + i, running)
+        running += row.size + 1
+      end
+      dc = new_chars - old_chars
+      if dc != 0
+        i = r0 + n_new
+        while i < ci.size
+          ci.unsafe_put(i, ci.unsafe_fetch(i) + dc)
+          i += 1
+        end
+      end
+
+      # The widest row: taken from the new rows when they reach it, re-scanned
+      # only when the replaced rows held the record and the new ones fall
+      # short of it.
+      if scratch.max_width >= cl.max_width
+        cl.max_width = scratch.max_width
+      elsif old_max >= cl.max_width
+        cl.max_width = lines.max_of { |row| str_width(row) }
+      end
+      # :ditto: for the unclipped width (unwrapped content only).
+      unless @wrap_content
+        if scratch.full_width >= cl.full_width
+          cl.full_width = scratch.full_width
+        elsif old_full >= cl.full_width
+          cl.full_width = cl.fake.max_of { |line| str_width(line) }
+        end
+      end
+    end
   end
 end
