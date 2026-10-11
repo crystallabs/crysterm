@@ -58,6 +58,7 @@ describe "Window#mouse_policy" do
 
   it "asks with nil when no widget has focus" do
     s, a, b = stage
+    s.release_focus # the window had focused the first widget on its own
     seen = [] of Widget?
     s.mouse_policy = ->(w : Widget?) { seen << w; true }
     seen.last.should be_nil

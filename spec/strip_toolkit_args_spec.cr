@@ -63,12 +63,14 @@ describe "Crysterm.toolkit_options_help" do
   end
 
   it "lists a negation another option spells as its own flag once, as Superconf registers it" do
-    Superconf.register("spectest.color", true, description: "Color")
-    Superconf.register("spectest.no_color", true, description: "No color")
+    Superconf.register("spectestcolor", true, description: "Color")
+    Superconf.register("no_spectestcolor", true, description: "No color")
     help = Crysterm.toolkit_options_help
-    help.scan("--spectest-no-color").size.should eq 1
-    help.should contain "--spectest-no-no-color"
-    Crysterm.strip_toolkit_args(["--spectest-no-color", "f"]).should eq ["f"]
+    # `--no-spectestcolor` is no_spectestcolor's own flag, not spectestcolor's
+    # negation as well: once, as the option.
+    help.scan(/--no-spectestcolor\b/).size.should eq 1
+    help.should contain "--no-no-spectestcolor"
+    Crysterm.strip_toolkit_args(["--spectestcolor", "--no-spectestcolor", "--no-no-spectestcolor", "f"]).should eq ["f"]
   end
 
   it "leaves out the flags the application names as its own" do

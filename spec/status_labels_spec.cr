@@ -13,6 +13,8 @@ describe "Widget::CursorPositionLabel" do
     e.plain_text = "first\nsecond\nthird"
     label = Widget::CursorPositionLabel.new e, parent: s, top: 6, left: 0, width: 20
     s.repaint
+    label.text.should eq "Ln 3, Col 6" # plain_text= leaves the caret at the end
+    e.cursor_position = 0
     label.text.should eq "Ln 1, Col 1"
     e.cursor_position = e.document.block_position(2) + 3
     label.text.should eq "Ln 3, Col 4"

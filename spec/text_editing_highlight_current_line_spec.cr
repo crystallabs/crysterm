@@ -50,6 +50,7 @@ describe "TextEditing#highlight_current_line" do
     window = headless_window
     e = Widget::PlainTextEdit.new parent: window, left: 0, top: 0, width: 40, height: 8
     e.plain_text = DOC
+    e.cursor_position = 0 # plain_text= leaves the caret at the end
     window.repaint
     plain = bg_at(window, e, 0)
     e.highlight_current_line = true
