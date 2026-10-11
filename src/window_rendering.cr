@@ -199,6 +199,45 @@ module Crysterm
       schedule_render
     end
 
+    # Reads *io* line by line on a fiber of its own and hands each line to
+    # *block* on the render fiber (`#post`) as it arrives — a document
+    # streaming in on standard input, a command's output into a log. Lines
+    # keep their terminator, so they concatenate back to the input (the
+    # last may lack one). When the read ends, *done* runs on the render
+    # fiber after the last line, with the `IO::Error` that cut the stream
+    # short or `nil` at a clean end. *name* names the reader fiber.
+    #
+    # ```
+    # window.pump(STDIN, done: ->(e : IO::Error?) { viewer.flush_markdown }) do |line|
+    #   viewer.append_markdown line
+    # end
+    # ```
+    def pump(io : IO, *, name : String? = nil, done : Proc(IO::Error?, Nil)? = nil, &block : String ->) : Nil
+      spawn name: name do
+        error = nil
+        begin
+          while line = io.gets(chomp: false)
+            post_line line, block
+          end
+        rescue ex : IO::Error
+          error = ex
+        end
+        if finish = done
+          # The explicit `nil` breaks the inference cycle when *done* itself
+          # ends up posting (a refresh in the callback).
+          post { finish.call(error); nil }
+        end
+      end
+    end
+
+    # Posts one line of `#pump`. A method rather than a block in the read
+    # loop: the closure must capture this call's own *line*, not the loop
+    # variable, which the reader has already moved on from (or set to `nil`
+    # at the end of input) by the time the render fiber runs it.
+    private def post_line(line : String, block : String ->) : Nil
+      post { block.call line }
+    end
+
     # Runs every currently-queued `post` closure on the render fiber. Drains
     # without blocking (stops as soon as the queue is empty).
     private def drain_ui_queue

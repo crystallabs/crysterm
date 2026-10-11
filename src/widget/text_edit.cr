@@ -284,6 +284,24 @@ module Crysterm
         document.flush_markdown
       end
 
+      # Streams Markdown from *io* into the document as it arrives: the
+      # lines are read on a fiber of their own and appended on the render
+      # fiber (`Window#pump`, `#append_markdown`), the view following the
+      # tail while it sits at the bottom (`#follow_tail`). At the end the
+      # buffered rest is flushed and the inline TOCs refreshed; *done* then
+      # runs on the render fiber with the `IO::Error` that cut the stream
+      # short, or `nil`. The widget must be in a window.
+      def stream_markdown(io : IO, done : Proc(IO::Error?, Nil)? = nil) : Nil
+        self.follow_tail = true
+        finish = ->(error : IO::Error?) do
+          flush_markdown
+          document.refresh_tocs
+          done.try &.call(error)
+          nil
+        end
+        window.pump(io, done: finish) { |line| append_markdown line }
+      end
+
       # Regenerates every inline table of contents from the current headings,
       # returning whether any changed.
       #
