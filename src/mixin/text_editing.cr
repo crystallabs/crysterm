@@ -464,4 +464,5 @@ module Crysterm
 end
 
 require "./text_editing/geometry"
+require "./text_editing/hard_wrap"
 require "./text_editing/input"

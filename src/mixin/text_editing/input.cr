@@ -274,17 +274,16 @@ module Crysterm
             # line end, or for a typed line break — those insert. Replacing
             # keeps the size, so `max_length` is only measured on an insert.
             overwrite = overwrite_mode? && !selection? && c != '\n'
-            edit_replacing_selection do
-              if overwrite && overwrite_target?
-                buf_edit_group do
-                  @goal_col = nil
-                  buf_delete(@cursor_pos, @cursor_pos + cursor_next_width)
-                  insert_at_cursor c.to_s
-                end
-              else
-                at_limit = (ml = @max_length) ? buf_size >= ml : false
-                insert_at_cursor c.to_s unless at_limit
+            if hard_wrap_pending?(c)
+              # A character that takes the line past the wrap column: the
+              # keystroke and the wrap it causes are one undo step, as in
+              # Kate (`#hard_wrap_column`).
+              buf_edit_group do
+                type_char c, overwrite
+                hard_wrap_caret_line
               end
+            else
+              type_char c, overwrite
             end
             # A printable character was consumed (even if the field was full and
             # the insert was suppressed) — don't let it also trigger a hotkey.
@@ -324,6 +323,24 @@ module Crysterm
         # Consume the event so window-level accelerators don't double-act on a
         # key this reading field already handled.
         e.accept if handled
+      end
+
+      # Types *c* at the caret, replacing the selection; in overwrite mode
+      # (*overwrite*) over the character under the caret, the pair one undo
+      # step. A full field (`max_length`) takes nothing.
+      private def type_char(c : Char, overwrite : Bool) : Nil
+        edit_replacing_selection do
+          if overwrite && overwrite_target?
+            buf_edit_group do
+              @goal_col = nil
+              buf_delete(@cursor_pos, @cursor_pos + cursor_next_width)
+              insert_at_cursor c.to_s
+            end
+          else
+            at_limit = (ml = @max_length) ? buf_size >= ml : false
+            insert_at_cursor c.to_s unless at_limit
+          end
+        end
       end
 
       # The key this keystroke stands for: `e.key`, except in a read-only
