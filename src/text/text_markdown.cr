@@ -98,7 +98,8 @@ module Crysterm
       # resolves the escape before the AST, so the text nodes are identical.
       #
       # markd's `gfm` option stays off on purpose: the importer detects
-      # tables, task lists, alerts and `~~` strike itself. With `gfm: true`,
+      # tables, task lists, alerts, `~~` strike and bare-URL autolinks
+      # itself. With `gfm: true`,
       # markd (0.6.0) lets any paragraph line that merely contains a `|`
       # (`a|b`, `{|}`) open a table block that then degrades to a separate
       # paragraph, splitting ordinary prose in two — which github.com does
@@ -1076,6 +1077,88 @@ module Crysterm
         @frags << TextFragment.new(text, current_format) unless text.empty?
       end
 
+      # A bare URL in running text, as GFM's autolink extension sees one
+      # (github.com turns it into a link without the `[]()` syntax): an
+      # `http://`, `https://` or `www.` run at the start of the text or
+      # after whitespace or one of `*_~(`, up to whitespace or `<`. What
+      # the run ends with is trimmed afterwards (`.autolink_end`).
+      AUTOLINK = /(?<![^\s*_~(])(?:https?:\/\/|www\.)[^\s<]+/i
+
+      # Trailing punctuation GFM leaves out of an autolink.
+      AUTOLINK_TRAIL = "?!.,:*_~"
+
+      # Where an autolink match *run* really ends: without trailing
+      # punctuation, a `)` that closes no `(` of its own, or an entity-like
+      # `&…;` tail — repeatedly, as `https://x.io/a).` sheds both.
+      def self.autolink_end(run : String) : Int32
+        stop = run.size
+        loop do
+          break if stop == 0
+          last = run[stop - 1]
+          if AUTOLINK_TRAIL.includes?(last)
+            stop -= 1
+          elsif last == ')' && run[0, stop].count(')') > run[0, stop].count('(')
+            stop -= 1
+          elsif last == ';' && (m = run[0, stop].match(/&[A-Za-z0-9]+;\z/))
+            stop -= m[0].size
+          else
+            break
+          end
+        end
+        stop
+      end
+
+      # A URL's host, for `AUTOLINK`: a dot somewhere before the path.
+      AUTOLINK_HOST = /\A(?:https?:\/\/|www\.)[^\/]*\./i
+
+      # Commits the block with its bare URLs linked (`#autolink_frags`).
+      private def commit_block : Nil
+        autolink_frags
+        super
+      end
+
+      # Links the bare URLs of the block about to be committed. markd hands a
+      # paragraph over as many small text nodes (`https://x` arrives as
+      # `https`, `:`, `//`, `x`), so the fragments are read in runs of one
+      # format, and a URL found in a run's text (`AUTOLINK`, its end by
+      # `.autolink_end`) becomes a fragment of its own with the anchor
+      # added — a `www.` one with `http://` before it, as github.com links
+      # it. Code and text inside a link already are left alone.
+      private def autolink_frags : Nil
+        frags = @frags
+        return if frags.empty?
+        out = [] of TextFragment
+        i = 0
+        while i < frags.size
+          fmt = frags[i].format
+          j = i
+          text = String.build do |io|
+            while j < frags.size && frags[j].format == fmt
+              io << frags[j].text
+              j += 1
+            end
+          end
+          if fmt.anchor_href || fmt.code? || !text.matches?(AUTOLINK)
+            (i...j).each { |k| out << frags[k] }
+          else
+            pos = 0
+            text.scan(AUTOLINK) do |m|
+              run = m[0]
+              stop = Importer.autolink_end(run)
+              next if stop == 0 || !run[0, stop].matches?(AUTOLINK_HOST)
+              out << TextFragment.new(text[pos...m.begin], fmt) if m.begin > pos
+              url = run[0, stop]
+              href = url.starts_with?("www.") ? "http://#{url}" : url
+              out << TextFragment.new(url, fmt.merge(TextCharFormat.new(anchor_href: href)))
+              pos = m.begin + stop
+            end
+            out << TextFragment.new(text[pos..], fmt) if pos < text.size
+          end
+          i = j
+        end
+        @frags = out
+      end
+
       # Emits literal text: drops a pending task-marker prefix, collapses the
       # whitespace (unless *collapse* is off — a raw HTML block's lines go in
       # as written) and treats `~~` as a strike toggle (markd leaves `~`
@@ -1542,8 +1625,12 @@ module Crysterm
           next if t.empty?
           fmt = f.format
           # The anchor outranks the code flag: a code span *inside* a link
-          # keeps the link, with the span as the link text.
-          if url = fmt.anchor_href
+          # keeps the link, with the span as the link text. A link that is
+          # its own URL went in as a bare one (`Importer::AUTOLINK`) and
+          # comes out as one, unescaped: `[u](u)` would not be what was read.
+          if (url = fmt.anchor_href) && autolink?(t, url, fmt)
+            io << t
+          elsif url
             io << '['
             if fmt.code?
               write_code_span(io, t, fmt)
@@ -1564,6 +1651,16 @@ module Crysterm
       # the other SGR flags have no markdown form and are dropped. Fragment-
       # edge whitespace moves *outside* the markers — `**bold **` is not
       # right-flanking and would re-import as literal asterisks.
+      # Whether a fragment *text* linked to *url* is a bare URL the importer
+      # autolinked: the plain, unformatted URL itself, or a `www.` one with
+      # the `http://` the importer put before it.
+      private def autolink?(text : String, url : String, fmt : TextCharFormat) : Bool
+        return false if fmt.code? || fmt.bold? || fmt.italic? || fmt.strike?
+        return false unless text == url || (text.starts_with?("www.") && url == "http://#{text}")
+        m = text.match(Importer::AUTOLINK)
+        !m.nil? && m.begin == 0 && Importer.autolink_end(text) == text.size
+      end
+
       private def write_emphasis(io : IO, text : String, fmt : TextCharFormat, lead : Bool = false) : Nil
         em = fmt.bold? ? (fmt.italic? ? "***" : "**") : (fmt.italic? ? "*" : "")
         if em.empty? && !fmt.strike?

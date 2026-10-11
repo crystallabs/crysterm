@@ -52,6 +52,24 @@ describe Crysterm::TextMarkdown do
       link.format.anchor_href.should eq "https://example.com"
     end
 
+    it "links bare URLs as github.com does, trimming what is not the URL's" do
+      doc = md_doc "see https://www.example.com/ and www.x.io/a?b=1, or (http://x.io/p_(q)) at last."
+      frags = doc.blocks[0].fragments.map { |f| {f.text, f.format.anchor_href} }
+      frags.should eq [
+        {"see ", nil},
+        {"https://www.example.com/", "https://www.example.com/"},
+        {" and ", nil},
+        {"www.x.io/a?b=1", "http://www.x.io/a?b=1"},
+        {", or (", nil},
+        {"http://x.io/p_(q)", "http://x.io/p_(q)"},
+        {") at last.", nil},
+      ]
+      # Not inside a link already, nor a URL glued to a word, nor an empty host.
+      md_doc("[see https://x.io](https://y.io)").blocks[0].fragments.map(&.format.anchor_href).should eq ["https://y.io"]
+      md_doc("ahttps://x.io and https://nohost").blocks[0].fragments.map(&.format.anchor_href).should eq [nil]
+      md_doc("a https://x.io/a_b. end").to_markdown.should eq "a https://x.io/a_b. end"
+    end
+
     it "imports lists as TextLists with nesting via the list-format indent" do
       doc = md_doc "- one\n- two\n  - sub"
       doc.blocks[0].text.should eq "one"
