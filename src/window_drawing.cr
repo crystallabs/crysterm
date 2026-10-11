@@ -145,6 +145,14 @@ module Crysterm
       end
     end
 
+    # Whether the terminal is light: its probed default background (OSC 11)
+    # has a relative luminance above one half; unknown counts as dark. The
+    # monochrome depth draws against this polarity (`SGR.monochrome`).
+    def light_terminal? : Bool
+      bg = tput.features.default_background || return false
+      Colors.luminance(Colors.rgb(bg.r, bg.g, bg.b)) > 0.5
+    end
+
     # Whether this window's output is a real terminal (an IO that can't report
     # `tty?` counts as "no"). The capability-gated escapes (DEC 2026, OSC 8)
     # resolve their `Auto` policies through this.
@@ -293,13 +301,9 @@ module Crysterm
       # Resolve the hyperlink policy once per frame (the `Auto` arm does a
       # `tty?` syscall) — `emit_link` consults this, not `#hyperlinks?`.
       @_links_enabled = hyperlinks?
-      # The terminal's polarity for the monochrome depth: light when its probed
-      # default background (OSC 11) is light, dark when unknown.
-      @_light_terminal = if bg = tput.features.default_background
-                           Colors.luminance(Colors.rgb(bg.r, bg.g, bg.b)) > 0.5
-                         else
-                           false
-                         end
+      # The terminal's polarity for the monochrome depth (`#light_terminal?`;
+      # a change of it re-emits the frame, see `render`).
+      @_light_terminal = light_terminal?
 
       # Terminal-constant capabilities bound to locals. Only `bce_opt`, `fu` and
       # `ncolors` can change at runtime, so they stay per-frame.
@@ -333,6 +337,9 @@ module Crysterm
       # `caps.ncolors`: `#color_count` re-resolves the `colors.depth` config/env
       # override, so a depth changed at runtime reaches the wire.
       ncolors = color_count
+      # At the monochrome depth the attrs on the wire are the mapped ones
+      # (`SGR.monochrome`), so the BCE gate below must judge those.
+      mono = ncolors < 2
       # Whether non-ASCII glyphs must be reduced to a 1-column ASCII fallback.
       ascii_reduce = !term_unicode && (u8 != 1)
       # A VS16-widened cluster (narrow base made emoji-presentation) is counted
@@ -521,9 +528,10 @@ module Crysterm
           # a printed *space*: `el` fills with the background only, so a run of
           # UNDERLINE/STRIKE (not just REVERSE) blanks would come out undecorated
           # and — `@flushed_lines` being mirrored as-drawn — stay missing forever.
+          gate_attr = mono ? SGR.monochrome(desired_attr, @_light_terminal) : desired_attr
           if bce_opt && (desired_char == ' ') && (x > bce_skip_until) &&
-             (has_bce || (Attr.bg(desired_attr) == default_bg)) &&
-             ((Attr.flags(desired_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)) == default_deco)
+             (has_bce || (Attr.bg(gate_attr) == default_bg)) &&
+             ((Attr.flags(gate_attr) & (Attr::REVERSE | Attr::UNDERLINE | Attr::STRIKE)) == default_deco)
             clr = true
             neq = false # line changed content vs. previous render
             breaker = line_size

@@ -95,4 +95,49 @@ describe "ColorDepth::None" do
     # One reverse per row, nothing between the boxes.
     two.scan(/\e\[7m/).size.should eq 3
   end
+
+  describe "monochrome depth, the frame after a change" do
+    it "re-emits the frame when the terminal's polarity becomes known" do
+      previous = Crysterm::Config.colors_depth
+      Crysterm::Config.colors_depth = Crysterm::ColorDepth::None
+      output = IO::Memory.new
+      window = Crysterm::Window.new input: IO::Memory.new, output: output, width: 10, height: 2
+      box = Crysterm::Widget::Box.new parent: window, width: 10, height: 2, content: "light"
+      box.style.fg = 0x000000
+      box.style.bg = 0xffffff
+      window.repaint
+      output.to_s.should contain "\e[7m" # dark terminal assumed: reversed
+      output.clear
+      window.repaint
+      output.to_s.should eq "" # nothing changed
+      # The OSC 11 answer arrives: the terminal is light, so the same cells
+      # must reach the wire again, plain this time.
+      window.tput.features.default_background = Tput::RGB.new(255_u8, 255_u8, 255_u8)
+      window.repaint
+      text = output.to_s
+      text.should contain "light"
+      text.should_not contain "\e[7m"
+    ensure
+      Crysterm::Config.colors_depth = previous if previous
+      window.try &.destroy
+    end
+
+    it "does not clear a light row's blank tail with el, which would drop the reverse video" do
+      previous = Crysterm::Config.colors_depth
+      Crysterm::Config.colors_depth = Crysterm::ColorDepth::None
+      output = IO::Memory.new
+      window = Crysterm::Window.new input: IO::Memory.new, output: output, error: IO::Memory.new, width: 12, height: 2
+      window.optimization = Crysterm::OptimizationFlag::BCE
+      box = Crysterm::Widget::Box.new parent: window, width: 12, height: 2, content: "hi"
+      box.style.fg = 0x000000
+      box.style.bg = 0xffffff
+      window.repaint
+      text = output.to_s
+      text.should contain "\e[7m"
+      text.should_not contain "\e[K" # the blanks are printed in reverse video, not erased
+    ensure
+      Crysterm::Config.colors_depth = previous if previous
+      window.try &.destroy
+    end
+  end
 end

@@ -798,6 +798,7 @@ module Crysterm
     # with, so `_render_frame` sees one changed at run time and redraws
     # everything (0: no frame yet).
     @_drawn_ncolors = 0
+    @_drawn_light = false
     @_drawn_links : Bool? = nil
 
     private def _render_frame
@@ -818,12 +819,17 @@ module Crysterm
       # content changed, leaving the rest in the old depth.
       # Likewise the hyperlink policy (`#hyperlinks`, `render.hyperlinks`):
       # OSC 8 is emitted with a cell, so switching it on or off reaches the
-      # links already on screen only through a full re-emission.
+      # links already on screen only through a full re-emission. And the
+      # terminal's polarity (`#light_terminal?`), which the monochrome depth
+      # maps every cell against: the OSC 11 answer arrives after the first
+      # frames, and the cells drawn before it are mapped the other way.
       ncolors = color_count
       links = hyperlinks?
-      if @_drawn_ncolors != ncolors || @_drawn_links != links
+      light = light_terminal?
+      if @_drawn_ncolors != ncolors || @_drawn_links != links || @_drawn_light != light
         @_drawn_ncolors = ncolors
         @_drawn_links = links
+        @_drawn_light = light
         # The buffer holds the frame as it is; only the terminal's copy is
         # stale, so poisoning it is all it takes (it also marks the rows).
         invalidate_region 0, width, 0, height
