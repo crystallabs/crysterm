@@ -213,8 +213,9 @@ module Crysterm
 
     # Renders `el` inline, or — when it carries a `z_index` and we aren't
     # already compositing a layer — defers it to its own plane (composited after
-    # the base tree). While compositing a layer, nested layers flatten into the
-    # enclosing plane and render inline.
+    # the base tree), or, for a `local_layer?` widget, folds that plane over the
+    # base right here, in child order. While compositing a layer, nested layers
+    # flatten into the enclosing plane and render inline.
     protected def render_or_defer(el : Widget) : Nil
       if deferred_this_frame? el
         # A deferred child renders later, on its own plane, so its `#_render`
@@ -224,6 +225,8 @@ module Crysterm
         # child from its row-height accounting.
         el.layout_suppressed = false
         el.window.defer_layer el
+      elsif el.local_layer? && el.style.z_index && !el.window.compositing_layers?
+        el.window.paint_local_layer el
       else
         el.paint
       end
@@ -235,9 +238,12 @@ module Crysterm
     # for the deferral test — `#render_or_defer` acts on it, and the flow engines
     # consult it for chain/row-height math, since a deferred child's `lpos` is not
     # refreshed until plane compositing and so within `#arrange` still holds the
-    # previous frame's rect and must not anchor that math.
+    # previous frame's rect and must not anchor that math. A `local_layer?`
+    # widget is painted in place (its `lpos` fresh like any inline child's), so
+    # it is never deferred.
     protected def deferred_this_frame?(el : Widget) : Bool
       return false unless el.style.z_index
+      return false if el.local_layer?
       !el.window.compositing_layers?
     end
 

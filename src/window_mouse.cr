@@ -774,7 +774,9 @@ module Crysterm
     private def hit_scan(el : Widget, x : Int32, y : Int32, skip : Widget?, anc_visible : Bool, anc_z : Int32?) : Nil
       visible = anc_visible && el.style.visible?
       return unless visible
-      z = anc_z || el.style.z_index
+      # A `local_layer?` widget paints within its parent, in child order, so
+      # it is hit in that order too: its `z_index` opens no layer here.
+      z = anc_z || (el.local_layer? ? nil : el.style.z_index)
       if hit_candidate?(el, x, y, skip)
         key = z ? {1, z} : {0, 0}
         # Prefer a higher layer; within the same layer `>=` keeps "last wins"
@@ -855,7 +857,7 @@ module Crysterm
       while n && !n.same?(clipper)
         st = n.style
         visible &&= st.visible?
-        if zi = st.z_index
+        if (zi = st.z_index) && !n.local_layer?
           z = zi
         end
         n = n.parent

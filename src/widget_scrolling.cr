@@ -60,6 +60,18 @@ module Crysterm
     # flex cell.
     property? layout_chrome = false
 
+    # Whether this widget's `z-index` layer stacks *within its parent*: folded
+    # over what the parent and its earlier children painted as soon as the
+    # child pass reaches it, rather than over the whole base buffer at the end
+    # of the frame. The plane still lends it its translucency, but a widget
+    # painted after the parent — a modal `Dialog` brought `#to_front`, anything
+    # raised above the parent — covers it along with the rest of the parent,
+    # where a window-level layer shows through everything painted later. Set
+    # for a bound scroll bar: a `QScrollBar` is a child widget painted inside
+    # its `QAbstractScrollArea`, so a dialog over the area covers its bar too.
+    # Mouse hit-testing counts such a widget as base layer for the same reason.
+    property? local_layer = false
+
     # :ditto: — folds the write into the CSS geometry snapshot (`position:` is
     # a snapshotted geometry property).
     def layout_chrome=(value : Bool) : Bool
@@ -272,6 +284,9 @@ module Crysterm
       # Chrome: pinned to an interior edge, never arranged as a content slot by an
       # installed layout engine.
       sb.layout_chrome = true
+      # The themed bar is a translucent layer (`.scrollbar { z-index; opacity }`),
+      # stacked within this widget like a Qt child, not over the whole window.
+      sb.local_layer = true
       sb.add_css_class "scrollbar"
       sb.attach self
       sb

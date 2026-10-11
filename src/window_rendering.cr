@@ -631,6 +631,41 @@ module Crysterm
       end
     end
 
+    # The plane a `Widget#local_layer?` widget renders into (see
+    # `#paint_local_layer`), separate from the z-keyed planes: those may be
+    # carried over between frames by the damage engine, so a fold in the
+    # middle of the base pass must not clear one of them.
+    @local_plane : Plane?
+
+    # Paints *el* — a `Widget#local_layer?` widget with a `z_index` — as a
+    # layer folded over the base buffer right now, where a window-level layer
+    # would wait for `#composite_planes`: it renders into its own plane (so
+    # its `opacity` reads as the layer's translucency, as for any layer root)
+    # and that plane is composited onto the base at once, over what *el*'s
+    # parent and earlier siblings painted and under whatever paints later. A
+    # scroll area's bound scroll bar takes this path, so a sibling raised above
+    # the area — a modal dialog — covers the bar like any other part of it. The
+    # frame counts as an effect for the damage engine, exactly as a plane did
+    # for it before: the fold is a composite the selective path does not model.
+    def paint_local_layer(el : Widget) : Nil
+      pl = @local_plane ||= Plane.new(0, awidth, aheight)
+      pl.resize awidth, aheight
+      pl.clear
+      pl.opacity = el.style.opacity? || 1.0
+      @compositing_layers = true
+      begin
+        @plane_junction_stops.clear
+        render_members_into_plane pl, {el}
+        if @border_junctions && !@plane_junction_stops.empty?
+          Junctions.merge pl.cells, @plane_junction_stops, awidth, @junction_contrast, ascii: glyph_tier.ascii?
+        end
+        pl.composite_onto @lines
+      ensure
+        @compositing_layers = false
+      end
+      note_effect
+    end
+
     # Renders every layered widget collected this frame (any widget, at any
     # nesting depth, that declares `style.z_index`) into its plane, then
     # composites the planes over the base buffer bottom-to-top. A no-op —

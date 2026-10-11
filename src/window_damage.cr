@@ -334,9 +334,11 @@ module Crysterm
         el.render_index = @render_index_cursor
         @render_index_cursor += 1
         # Base layer: paint straight into `@lines`. A child declaring a
-        # `z_index` is deferred to its own plane (composited below).
+        # `z_index` is deferred to its own plane (composited below) — unless
+        # it stacks locally, in which case its plane is folded in right here,
+        # in child order (`Widget#local_layer?`).
         if el.style.z_index
-          defer_layer el
+          el.local_layer? ? paint_local_layer(el) : defer_layer(el)
         else
           el.paint
         end
@@ -851,7 +853,8 @@ module Crysterm
       xl = lp.xl
       yi = lp.yi
       yl = lp.yl
-      if (s = w.style.shadow_view) && s.any?
+      s = w.style.shadow_view
+      if s.any?
         xi -= s.left
         xl += s.right
         yi -= s.top
