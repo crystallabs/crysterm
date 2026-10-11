@@ -39,27 +39,25 @@ module Crysterm
     # stops after one step.
     def self.link_config(property : Property(T), key : String, owner : ::EventHandler? = nil) : ConfigLink forall T
       property.value = Config.get(key, T)
-      link = ConfigLink.new key, Config.on_change(key) { property.value = Config.get(key, T) }
-      link.watch property
+      link = ConfigLink.new
+      link.watch property, key
       link.attach_auto_dispose owner if owner
       link
     end
 
     # The two-way link `Reactive.link_config` makes between a `Property` and
-    # a config option: disposing it unhooks both sides.
+    # a config option: disposing it unhooks both sides. Both live in one
+    # `Subscriptions` bag — the option's listener as a teardown block, the
+    # property's handler as an event subscription — so one `off` ends them.
     class ConfigLink
       @subs = ::Crysterm::Subscriptions.new
-      getter? disposed = false
 
-      # *handle* is the option-side listener, as `Superconf.on_change`
-      # returned it.
-      def initialize(@key : String, @handle : Proc(Nil))
-      end
-
-      # Hooks the property side: an assignment sets the option at runtime
+      # Hooks the two sides: a change of the option puts its value into the
+      # property, an assignment to the property sets the option at runtime
       # precedence.
-      protected def watch(property : Property(T)) : Nil forall T
-        key = @key
+      protected def watch(property : Property(T), key : String) : Nil forall T
+        handle = Config.on_change(key) { property.value = Config.get(key, T) }
+        @subs.add { Config.off_change key, handle }
         @subs.on(property, ::Crysterm::Event::ReactiveChanged) { Config.set key, property.value }
       end
 
@@ -71,10 +69,12 @@ module Crysterm
       # Unhooks the option's listener and the property's, so neither side
       # hears the other again. Idempotent.
       def dispose : Nil
-        return if @disposed
-        @disposed = true
-        Config.off_change @key, @handle
         @subs.off
+      end
+
+      # Whether the link has been ended.
+      def disposed? : Bool
+        @subs.disposed?
       end
     end
   end
