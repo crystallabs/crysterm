@@ -21,6 +21,10 @@ module Crysterm
   #   fence inside a blockquote) stays a literal quote-level separator block —
   #   it is quoted content and renders the quote bar. A hard line break
   #   starts a new block with neither.
+  # - Whitespace inside a paragraph, heading, item or cell collapses as a
+  #   browser renders it: runs of spaces and tabs to one space, a soft line
+  #   break to a space. Code spans, code blocks and raw HTML blocks keep
+  #   theirs.
   # - Lists → one `TextList` per markdown list (disc/decimal style, nesting
   #   via `TextListFormat#indent`); the widget renders markers/indent as
   #   decorations. An item's continuation blocks get a plain block indent
@@ -596,7 +600,8 @@ module Crysterm
           node.text.chomp.split('\n').each_with_index do |line, i|
             @line = first + i
             start_block
-            append_text line
+            # Raw HTML shows as written, a `<pre>` block's spacing included.
+            append_text line, collapse: false
             end_block
           end
         when .text?
@@ -1071,13 +1076,15 @@ module Crysterm
         @frags << TextFragment.new(text, current_format) unless text.empty?
       end
 
-      # Emits literal text: drops a pending task-marker prefix and treats
-      # `~~` as a strike toggle (markd leaves `~` literal, and splits
-      # backslash-escaped `\~` into single-char text nodes — those never
-      # form a `~~` here, so escapes stay literal). GFM-ish flanking: an
-      # opener can't precede whitespace, a closer can't follow it; a
-      # delimiter at a node edge pairs across sibling inline nodes.
-      private def append_text(str : String) : Nil
+      # Emits literal text: drops a pending task-marker prefix, collapses the
+      # whitespace (unless *collapse* is off — a raw HTML block's lines go in
+      # as written) and treats `~~` as a strike toggle (markd leaves `~`
+      # literal, and splits backslash-escaped `\~` into single-char text
+      # nodes — those never form a `~~` here, so escapes stay literal).
+      # GFM-ish flanking: an opener can't precede whitespace, a closer can't
+      # follow it; a delimiter at a node edge pairs across sibling inline
+      # nodes.
+      private def append_text(str : String, collapse : Bool = true) : Nil
         if @strip_task > 0
           drop = Math.min(@strip_task, str.size)
           @strip_task -= drop
@@ -1088,6 +1095,7 @@ module Crysterm
           @strip_alert -= drop
           str = str[drop..]
         end
+        str = collapse_spaces(str) if collapse
         return if str.empty?
         pos = 0
         while p = str.index("~~", pos)
@@ -1107,6 +1115,32 @@ module Crysterm
           pos = p + 2
         end
         push_frag str[pos..]
+      end
+
+      # Runs of spaces and tabs in a paragraph line — CommonMark leaves them
+      # in the text and expects the renderer to collapse them, as a browser
+      # does for the HTML renderers' output. A soft break arrives here as a
+      # space too (`walk`), so a wrapped line joins its successor with one.
+      SPACE_RUN = /[ \t]+/
+
+      # *str* with its whitespace collapsed the way a browser renders a
+      # paragraph: every run of spaces and tabs becomes one space, and a
+      # space that would open the block or follow one already emitted (by
+      # the preceding inline node — `**a**   b` arrives as `a` and `   b`)
+      # is dropped. Code spans and code blocks bypass this (`push_frag` and
+      # `import_code_block` take their text as is), and markd has already
+      # trimmed the paragraph's and each line's ends.
+      private def collapse_spaces(str : String) : String
+        s = str.gsub(SPACE_RUN, ' ')
+        s = s.lchop(' ') if s.starts_with?(' ') && boundary_space?
+        s
+      end
+
+      # Whether a leading space would be redundant here: nothing emitted in
+      # the block yet, or the previous run already ends in one.
+      private def boundary_space? : Bool
+        last = @frags.last?
+        last.nil? || last.text.ends_with?(' ')
       end
     end
 

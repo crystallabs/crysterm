@@ -450,7 +450,10 @@ module Crysterm
 
     # Splits a `| a | b |` GFM row into trimmed cells (outer pipes
     # optional). A backslash-escaped `\|` is a literal pipe inside its
-    # cell, not a boundary (the markdown exporter writes them).
+    # cell, not a boundary (the markdown exporter writes them). A cell's
+    # interior whitespace collapses to single spaces, as it does in a
+    # paragraph (the padding that aligns a source table's columns is not
+    # content).
     protected def self.split_gfm_row(row : String) : Array(String)
       row = row.strip
       cells = [] of String
@@ -475,7 +478,7 @@ module Crysterm
       # Outer pipes contribute empty edge cells; drop them.
       cells.shift if row.starts_with?('|') && !cells.empty?
       cells.pop if cells.size > 1 && row.ends_with?('|') && cells.last.empty?
-      cells.map(&.strip)
+      cells.map { |c| c.strip.gsub(/[ \t]+/, ' ') }
     end
 
     protected def self.gfm_align(spec : String) : Tput::AlignFlag
