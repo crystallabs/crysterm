@@ -1111,6 +1111,21 @@ module Crysterm
       # A URL's host, for `AUTOLINK`: a dot somewhere before the path.
       AUTOLINK_HOST = /\A(?:https?:\/\/|www\.)[^\/]*\./i
 
+      # Whether *url* is a `www.` one, in any case, as `AUTOLINK` matches it.
+      def self.www?(url : String) : Bool
+        url.size >= 4 && url[0, 4].compare("www.", case_insensitive: true) == 0
+      end
+
+      # Whether a block's fragments can hold a bare URL at all: the `//` of a
+      # scheme (which markd hands over as one node) or a `www.`; the cheap
+      # gate before the runs are joined and scanned.
+      private def autolink_candidate?(frags : Array(TextFragment)) : Bool
+        frags.any? do |f|
+          t = f.text
+          t.includes?("//") || t.includes?("www.") || t.includes?("WWW.") || t.includes?("Www.")
+        end
+      end
+
       # Commits the block with its bare URLs linked (`#autolink_frags`).
       private def commit_block : Nil
         autolink_frags
@@ -1126,7 +1141,7 @@ module Crysterm
       # it. Code and text inside a link already are left alone.
       private def autolink_frags : Nil
         frags = @frags
-        return if frags.empty?
+        return if frags.empty? || !autolink_candidate?(frags)
         out = [] of TextFragment
         i = 0
         while i < frags.size
@@ -1148,7 +1163,7 @@ module Crysterm
               next if stop == 0 || !run[0, stop].matches?(AUTOLINK_HOST)
               out << TextFragment.new(text[pos...m.begin], fmt) if m.begin > pos
               url = run[0, stop]
-              href = url.starts_with?("www.") ? "http://#{url}" : url
+              href = Importer.www?(url) ? "http://#{url}" : url
               out << TextFragment.new(url, fmt.merge(TextCharFormat.new(anchor_href: href)))
               pos = m.begin + stop
             end
@@ -1615,7 +1630,7 @@ module Crysterm
       # as sitting at a line start, where leading block syntax (`- `, `# `,
       # `1. `, …) must be escaped or it re-parses as structure.
       private def write_inline(io : IO, frags : Array(TextFragment) | TextFragmentView, skip : Int32 = 0, lead : Bool = false) : Nil
-        frags.each do |f|
+        frags.each_with_index do |f, i|
           t = f.text
           if skip > 0
             d = Math.min(skip, t.size)
@@ -1627,8 +1642,10 @@ module Crysterm
           # The anchor outranks the code flag: a code span *inside* a link
           # keeps the link, with the span as the link text. A link that is
           # its own URL went in as a bare one (`Importer::AUTOLINK`) and
-          # comes out as one, unescaped: `[u](u)` would not be what was read.
-          if (url = fmt.anchor_href) && autolink?(t, url, fmt)
+          # comes out as one, unescaped — where the text around it lets a
+          # bare URL be read as one (`#bare_context?`); `[u](u)` would not be
+          # what was read.
+          if (url = fmt.anchor_href) && autolink?(t, url, fmt) && bare_context?(frags, i)
             io << t
           elsif url
             io << '['
@@ -1656,9 +1673,23 @@ module Crysterm
       # the `http://` the importer put before it.
       private def autolink?(text : String, url : String, fmt : TextCharFormat) : Bool
         return false if fmt.code? || fmt.bold? || fmt.italic? || fmt.strike?
-        return false unless text == url || (text.starts_with?("www.") && url == "http://#{text}")
+        return false unless text == url || (Importer.www?(text) && url == "http://#{text}")
         m = text.match(Importer::AUTOLINK)
         !m.nil? && m.begin == 0 && Importer.autolink_end(text) == text.size
+      end
+
+      # Whether fragment *i* of *frags*, written bare, would be read back as
+      # the URL it is: what comes before it is nothing, whitespace or one of
+      # the characters `Importer::AUTOLINK` lets precede a URL, and what
+      # follows is nothing, whitespace, a closing parenthesis or punctuation
+      # the import trims off a URL's end (`Importer::AUTOLINK_TRAIL`) — not
+      # text that would join the URL (`https://x.iomore`) or keep it from
+      # being one (`see:https://y.io`).
+      private def bare_context?(frags : Array(TextFragment) | TextFragmentView, i : Int32) : Bool
+        before = i > 0 ? frags[i - 1].text[-1]? : nil
+        after = frags[i + 1]?.try(&.text[0]?)
+        (before.nil? || before.whitespace? || "*_~(".includes?(before)) &&
+          (after.nil? || after.whitespace? || after == ')' || Importer::AUTOLINK_TRAIL.includes?(after))
       end
 
       private def write_emphasis(io : IO, text : String, fmt : TextCharFormat, lead : Bool = false) : Nil

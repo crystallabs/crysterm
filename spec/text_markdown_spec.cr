@@ -68,6 +68,16 @@ describe Crysterm::TextMarkdown do
       md_doc("[see https://x.io](https://y.io)").blocks[0].fragments.map(&.format.anchor_href).should eq ["https://y.io"]
       md_doc("ahttps://x.io and https://nohost").blocks[0].fragments.map(&.format.anchor_href).should eq [nil]
       md_doc("a https://x.io/a_b. end").to_markdown.should eq "a https://x.io/a_b. end"
+      # A `www.` in any case gets its scheme.
+      md_doc("see WWW.Example.com/x").blocks[0].fragments.map(&.format.anchor_href).should eq [nil, "http://WWW.Example.com/x"]
+    end
+
+    it "writes a self-linked URL bare only where the text around it reads it back as one" do
+      # Glued to a word, or after a colon, the bare form would re-import as
+      # another URL or none: those stay explicit links.
+      doc = md_doc "[https://x.io](https://x.io)more and see:[https://y.io](https://y.io) ok, (https://z.io), https://w.io."
+      doc.to_markdown.should eq "[https://x.io](https://x.io)more and see:[https://y.io](https://y.io) ok, (https://z.io), https://w.io."
+      md_doc(doc.to_markdown).blocks[0].fragments.compact_map(&.format.anchor_href).should eq ["https://x.io", "https://y.io", "https://z.io", "https://w.io"]
     end
 
     it "imports lists as TextLists with nesting via the list-format indent" do
