@@ -246,6 +246,49 @@ module Crysterm
       block_offsets[index]
     end
 
+    # The index of the block rendered from source *line* (1-based,
+    # `TextBlock#source_line`, as the Markdown importer stamps it): the first
+    # block stamped with that line — or, for a line that rendered nothing (a
+    # blank line, a fence, a table delimiter row), with the nearest line
+    # above that did. `nil` above everything rendered, and in a document
+    # with no stamps. The source-to-preview direction of a source/preview
+    # pair's caret sync; `#source_line_at` is the other.
+    def block_from_source_line(line : Int32) : Int32?
+      best = nil
+      best_line = 0
+      block_count.times do |i|
+        if (l = blocks[i].source_line) && l <= line && l > best_line
+          best = i
+          best_line = l
+        end
+      end
+      best
+    end
+
+    # The source line block *index* was rendered from — or, for a block the
+    # importer generated (a table border, a quote's blank line), the nearest
+    # stamped block above's. `nil` with no stamped block at or above.
+    def source_line_at(index : Int32) : Int32?
+      index.downto(0) do |i|
+        if line = blocks[i].source_line
+          return line
+        end
+      end
+      nil
+    end
+
+    # The source line of the first stamped block after *index*: the block's
+    # own source ends on the line before it. `nil` when no block after
+    # *index* is stamped.
+    def next_source_line_after(index : Int32) : Int32?
+      ((index + 1)...block_count).each do |j|
+        if line = blocks[j].source_line
+          return line
+        end
+      end
+      nil
+    end
+
     # Character at `pos`; the separator reads as `'\n'`, end-of-document as nil.
     def char_at(pos : Int32) : Char?
       return if pos < 0 || pos >= size
