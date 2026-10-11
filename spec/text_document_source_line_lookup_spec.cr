@@ -69,6 +69,17 @@ describe "TextDocument source line lookups" do
     doc.next_source_line_after(last).should be_nil
   end
 
+  it "finds the block in a long document, every line of it" do
+    md = (1..300).map { |i| "para #{i}" }.join("\n\n")
+    doc = md_doc(md)
+    (1..599).each do |line|
+      want = (0...doc.block_count).select { |i| (l = doc.blocks[i].source_line) && l <= line }
+        .max_by { |i| doc.blocks[i].source_line.not_nil! }
+      doc.block_from_source_line(line).should eq want
+    end
+    doc.block_from_source_line(0).should be_nil
+  end
+
   it "is nil throughout a document without stamps" do
     doc = md_doc("")
     doc.block_from_source_line(1).should be_nil

@@ -31,8 +31,10 @@ describe "Crysterm.strip_toolkit_args" do
   end
 
   it "drops the config file and dump flags, with their values" do
-    argv = ["--crysterm-config=c.yml", "--crysterm-config", "d.yml", "--crysterm-dump-config", "yaml", "--crysterm-dump-config", "-x", "--crysterm-dump-config=json", "f"]
-    Crysterm.strip_toolkit_args(argv).should eq ["-x", "f"]
+    argv = ["--crysterm-config=c.yml", "--crysterm-config", "d.yml", "--crysterm-dump-config", "yaml", "--crysterm-dump-config", bool_flag, "--crysterm-dump-config=json", "f"]
+    Crysterm.strip_toolkit_args(argv).should eq ["f"]
+    # A word after the dump flag that is not a toolkit flag is its format.
+    Crysterm.strip_toolkit_args(["--crysterm-dump-config", "-x", "g"]).should eq ["g"]
   end
 
   it "keeps the flags the application names as its own" do
@@ -58,6 +60,15 @@ describe "Crysterm.toolkit_options_help" do
     help.should contain "(default: "
     help.should contain "--crysterm-config=FILE"
     help.should contain "--crysterm-dump-config [FORMAT]"
+  end
+
+  it "lists a negation another option spells as its own flag once, as Superconf registers it" do
+    Superconf.register("spectest.color", true, description: "Color")
+    Superconf.register("spectest.no_color", true, description: "No color")
+    help = Crysterm.toolkit_options_help
+    help.scan("--spectest-no-color").size.should eq 1
+    help.should contain "--spectest-no-no-color"
+    Crysterm.strip_toolkit_args(["--spectest-no-color", "f"]).should eq ["f"]
   end
 
   it "leaves out the flags the application names as its own" do

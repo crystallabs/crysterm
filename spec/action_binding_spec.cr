@@ -54,6 +54,22 @@ describe "Action#bind_checked" do
   end
 end
 
+describe "Action#destroy" do
+  it "ends the event subscriptions of its bindings" do
+    s = headless_screen(40, 8)
+    e = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 4
+    before = e.handlers(Event::OverwriteModeChanged).size
+    action = Action.new "Overwrite", checkable: true
+    action.bind_checked(e, Event::OverwriteModeChanged) { e.overwrite_mode? }
+    e.handlers(Event::OverwriteModeChanged).size.should eq before + 1
+    action.destroy
+    e.handlers(Event::OverwriteModeChanged).size.should eq before
+    e.overwrite_mode = true
+    action.checked?.should be_false
+    s.destroy
+  end
+end
+
 describe "Action#bind_enabled" do
   it "derives enabled from a property" do
     count = Reactive::Property.new 0

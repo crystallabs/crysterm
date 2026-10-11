@@ -253,13 +253,41 @@ module Crysterm
     # above that did. `nil` above everything rendered, and in a document
     # with no stamps. The source-to-preview direction of a source/preview
     # pair's caret sync; `#source_line_at` is the other.
+    #
+    # A binary search, as this runs on every caret move of a following
+    # view: it relies on the stamps being non-decreasing in document order,
+    # which they are as the importer lays them, generated blocks between
+    # them aside. A document edited since (blocks moved, not re-imported)
+    # gets an approximate answer.
     def block_from_source_line(line : Int32) : Int32?
+      lo = 0
+      hi = block_count - 1
       best = nil
-      best_line = 0
-      block_count.times do |i|
-        if (l = blocks[i].source_line) && l <= line && l > best_line
+      while lo <= hi
+        mid = (lo + hi) // 2
+        # The stamped block nearest below the middle, within the range.
+        i = mid
+        while i >= lo && blocks[i].source_line.nil?
+          i -= 1
+        end
+        if i < lo
+          lo = mid + 1
+        elsif blocks[i].source_line.not_nil! <= line
           best = i
-          best_line = l
+          lo = mid + 1
+        else
+          hi = i - 1
+        end
+      end
+      return nil unless best
+      # Back to the first block stamped with that line.
+      stamp = blocks[best].source_line
+      j = best - 1
+      while j >= 0
+        case blocks[j].source_line
+        when nil   then j -= 1
+        when stamp then best = j; j -= 1
+        else            break
         end
       end
       best

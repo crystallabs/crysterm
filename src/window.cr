@@ -163,8 +163,13 @@ module Crysterm
     # autocasting would not compile through it. Also passes this window's
     # `#send_focus?` so focus-in/out reporting (DEC 1004) follows the property.
     def enable_mouse(pixels : PixelMouse = :auto)
+      @mouse_pixels = pixels
       @screen.enable_mouse(pixels: pixels, focus: send_focus?)
     end
+
+    # The pixel mode of the last `#enable_mouse`, which `#apply_mouse_policy`
+    # turns the mouse back on with.
+    @mouse_pixels : PixelMouse = PixelMouse::Auto
 
     # `delegate` can't forward assignment, so forward these explicitly.
     def mouse_cursor_shape=(shape : ::Tput::MouseCursorShape?)
@@ -574,13 +579,23 @@ module Crysterm
       Application.exec_all wins
     end
 
+    # The application this window runs under — its own, once an
+    # `Application#add_window` adopted it, else the global one (created when
+    # none exists yet): what `#exec` and `#quit` drive, and where anything
+    # subscribing on the window's behalf (`MainWindow#report_handler_errors`)
+    # subscribes. With an application of your own, add the window to it
+    # before asking.
+    def exec_application : Application
+      application || Application.global
+    end
+
     # Renders this window and runs the main loop (the `QApplication::exec()`
     # analogue). Delegates to the current application, creating one if none
     # exists, so a single-window program stays the one-liner
     # `Window.new(...).exec`. Blocks until `#quit` (a plain `q` by default),
     # returning the status passed to it.
     def exec : Int32
-      (application || Application.global).exec self
+      exec_application.exec self
     end
 
     # Quits the application this window is driven by (creating/using the global
@@ -591,7 +606,7 @@ module Crysterm
     # `at_exit` net restores the terminal). Makes `#exec` return *status*.
     # See `Application#quit`.
     def quit(status : Int32 = 0) : Nil
-      (application || Application.global).quit status
+      exec_application.quit status
     end
 
     # Brings this window to the front of its device and makes it the app-active

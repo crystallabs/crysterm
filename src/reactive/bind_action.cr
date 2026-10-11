@@ -36,14 +36,16 @@ module Crysterm
 
     # Keeps `#checked` on *block*'s answer, asked now and again on every
     # *event* from *source* — for state a widget reports through an event
-    # rather than a property. Returns the subscription.
+    # rather than a property. The subscription ends with the action
+    # (`#destroy`), as a Qt connection ends with either object; it is
+    # returned for ending it earlier.
     #
     # ```
     # action.bind_checked(editor, Crysterm::Event::OverwriteModeChanged) { editor.overwrite_mode? }
     # ```
     def bind_checked(source : ::EventHandler, event : E.class, &block : -> Bool) : ::EventHandler::Subscription forall E
       self.checked = block.call
-      source.on(event) { self.checked = block.call }
+      follow(source, event) { self.checked = block.call }
     end
 
     # Keeps `#enabled` on *block*'s answer, asked again whenever any of
@@ -53,10 +55,28 @@ module Crysterm
     end
 
     # Keeps `#enabled` on *block*'s answer, asked now and again on every
-    # *event* from *source*.
+    # *event* from *source*; the subscription ends with the action.
     def bind_enabled(source : ::EventHandler, event : E.class, &block : -> Bool) : ::EventHandler::Subscription forall E
       self.enabled = block.call
-      source.on(event) { self.enabled = block.call }
+      follow(source, event) { self.enabled = block.call }
+    end
+
+    # Subscribes *block* to *event* on *source* for as long as this action
+    # lives: `#destroy` ends the subscription.
+    private def follow(source : ::EventHandler, event : E.class, &block : ->) : ::EventHandler::Subscription forall E
+      sub = source.on(event) { block.call }
+      on(::Crysterm::Event::Destroy) { source.off(event, sub) }
+      sub
+    end
+
+    # Ends the action, as `~QAction` does: emits `Event::Destroy`, so the
+    # bindings it owns let go — `Reactive.bind`'s dispose on their side, the
+    # event subscriptions of `#bind_checked`/`#bind_enabled` here — then
+    # drops every handler on it. Menus and tool bars holding the action
+    # are not told; remove it from them first.
+    def destroy : Nil
+      emit ::Crysterm::Event::Destroy
+      remove_all_handlers
     end
   end
 end

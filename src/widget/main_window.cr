@@ -69,15 +69,17 @@ module Crysterm
       # error with its backtrace through `::Log` and shows a message for
       # *timeout*. The message is *message*'s, given the error; by default
       # `.handler_error_message`'s: the error and where the backtrace went.
-      # Call once the main window is in its window (the application is the
-      # window's, else `Application.global`).
+      # Subscribes on the application the window runs under
+      # (`Window#exec_application`): call it with the main window in its
+      # window and, with an application of your own, after that application
+      # adopted the window.
       #
       # ```
       # main.report_handler_errors
       # main.report_handler_errors { |error| "Oops: #{error.message}" }
       # ```
       def report_handler_errors(timeout : Time::Span? = HANDLER_ERROR_TIMEOUT, &message : Exception -> String) : Nil
-        app = window?.try(&.application) || Application.global
+        app = window.exec_application
         app.on(::Crysterm::Event::HandlerError) { |e| report_handler_error(e.error, timeout, &message) }
       end
 

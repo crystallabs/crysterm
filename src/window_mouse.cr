@@ -253,7 +253,8 @@ module Crysterm
       return unless policy = @mouse_policy
       want = policy.call(focused)
       return if want == mouse_enabled?
-      want ? enable_mouse : disable_mouse
+      # Back on the way the app last turned it on (its pixel mode kept).
+      want ? enable_mouse(@mouse_pixels) : disable_mouse
     end
 
     # Inline mode: the device reports rows in physical terminal coordinates,

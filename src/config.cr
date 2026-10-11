@@ -83,19 +83,9 @@ module Crysterm
   # ```
   def self.strip_toolkit_args(argv : Array(String) = ARGV, *, except : Enumerable(String) = EMPTY_FLAGS) : Array(String)
     keep = except.to_set
-    flags = Set(String).new
-    valued = Set(String).new
-    Config.each do |opt|
-      next if keep.includes?(opt.cli)
-      if opt.bool?
-        flags << opt.cli
-        no = opt.cli.sub("--", "--no-")
-        flags << no if no != opt.cli
-      else
-        valued << opt.cli
-      end
-    end
+    flags, valued = toolkit_flags(keep)
     valued << CONFIG_FLAG unless keep.includes?(CONFIG_FLAG)
+    dump = !keep.includes?(DUMP_CONFIG_FLAG)
 
     out = [] of String
     i = 0
@@ -110,16 +100,50 @@ module Crysterm
       if eq.empty? && flags.includes?(arg)
         # a boolean, or its negation
       elsif valued.includes?(name)
-        # `--flag=value`, or `--flag value`
+        # `--flag=value`, or `--flag value` — the next word whatever it is,
+        # as `OptionParser` takes a required value
         i += 1 if eq.empty?
-      elsif name == DUMP_CONFIG_FLAG && !keep.includes?(DUMP_CONFIG_FLAG)
-        # the format is optional: a following word not starting with `-`
-        i += 1 if eq.empty? && (nxt = argv[i]?) && !nxt.starts_with?('-')
+      elsif dump && name == DUMP_CONFIG_FLAG
+        # the format is optional: the next word unless it is a flag of the
+        # toolkit's own, as `OptionParser` takes an optional value
+        if eq.empty? && (nxt = argv[i]?) && !flags.includes?(nxt) && !valued.includes?(nxt) && nxt != DUMP_CONFIG_FLAG
+          i += 1
+        end
       else
         out << arg
       end
     end
     out
+  end
+
+  # The toolkit's flags, less *keep*: `{booleans with their negations,
+  # valued}`. A negation is derived as Superconf derives it — `--no-` for a
+  # long flag — and left out where it would be another option's own flag
+  # (`color` next to `no_color`), as Superconf leaves it out.
+  private def self.toolkit_flags(keep : Set(String)) : {Set(String), Set(String)}
+    primaries = Set(String).new
+    Config.each { |opt| primaries << opt.cli }
+    flags = Set(String).new
+    valued = Set(String).new
+    Config.each do |opt|
+      next if keep.includes?(opt.cli)
+      if opt.bool?
+        flags << opt.cli
+        if no = toolkit_negation(opt, primaries)
+          flags << no
+        end
+      else
+        valued << opt.cli
+      end
+    end
+    {flags, valued}
+  end
+
+  # The `--no-` negation of the boolean *opt*, or `nil` where Superconf
+  # registers none: a short flag, or a spelling another option owns.
+  private def self.toolkit_negation(opt : Superconf::AbstractOption, primaries : Set(String)) : String?
+    no = opt.cli.sub("--", "--no-")
+    no != opt.cli && !primaries.includes?(no) ? no : nil
   end
 
   # The toolkit's options formatted as `OptionParser` prints an application's
@@ -137,14 +161,17 @@ module Crysterm
       Crysterm toolkit options. Each can also be set in #{config_path}
       or by a #{Superconf.env_prefix}* environment variable; see #{DUMP_CONFIG_FLAG}.
       BANNER
+    primaries = Set(String).new
+    Config.each { |opt| primaries << opt.cli }
     Config.each do |opt|
       next if keep.includes?(opt.cli)
       default = opt.default_string.presence || "\"\""
       description = wrap_help("#{opt.description} (default: #{default})")
       if opt.bool?
         parser.on(opt.cli, description) { }
-        no = opt.cli.sub("--", "--no-")
-        parser.on(no, "Disable #{opt.key}") { } if no != opt.cli
+        if no = toolkit_negation(opt, primaries)
+          parser.on(no, "Disable #{opt.key}") { }
+        end
       else
         parser.on("#{opt.cli}=VALUE", description) { |_| }
       end
