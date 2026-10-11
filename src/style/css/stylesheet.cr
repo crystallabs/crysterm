@@ -521,23 +521,38 @@ module Crysterm
       # opener, so quoted spans are copied through verbatim. Each comment outside
       # them becomes a single space; an unterminated comment runs to end of
       # input, per CSS tokenization.
+      #
+      # Scanned by byte: every delimiter is ASCII, and a *character* index into
+      # a String holding one multi-byte character (an em dash in a comment)
+      # walks from the String's start on each use, which made this pass
+      # quadratic — over a second for a 60 KB Qt theme laid under a commented
+      # sheet, against milliseconds for the same sheet in ASCII.
       private def self.decommented(css : String) : String
         return css unless css.includes?("/*")
+        bytes = css.to_slice
         String.build(css.bytesize) do |io|
           i = 0
-          n = css.size
+          n = bytes.size
           while i < n
-            ch = css[i]
-            if ch == '"' || ch == '\''
-              j = Selectors.skip_string(css, i)
-              io << css[i...j]
+            b = bytes[i]
+            if b === '"' || b === '\''
+              # Past the closing quote, honoring backslash escapes (as
+              # `Selectors.skip_string` does by character); the guard keeps a
+              # malformed trailing `\` from running the index past the end.
+              j = i + 1
+              while j < n && bytes[j] != b
+                j += 1 if bytes[j] === '\\' && j + 1 < n
+                j += 1
+              end
+              j += 1 if j < n
+              io.write bytes[i, j - i]
               i = j
-            elsif ch == '/' && css[i + 1]? == '*'
-              close = css.index("*/", i + 2)
+            elsif b === '/' && bytes[i + 1]? === '*'
+              close = css.byte_index("*/", i + 2)
               io << ' '
               i = close ? close + 2 : n
             else
-              io << ch
+              io.write_byte b
               i += 1
             end
           end
