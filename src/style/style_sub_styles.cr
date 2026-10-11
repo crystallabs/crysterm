@@ -17,16 +17,22 @@ module Crysterm
     # unset lands on the base style. To address only the slot, assign a
     # `Style` to the setter, or read the `?` variant and handle `nil`.
     private macro sub_style_accessor(name, fallback = "self")
-      setter {{ name.id }} : Style?
+      class Cold
+        property {{ name.id }} : Style?
+      end
+
+      def {{ name.id }}=(value : Style?) : Style?
+        cold_set {{ name.id }}, value
+      end
 
       def {{ name.id }}
-        @{{ name.id }} || {{ fallback.id }}
+        @cold.try(&.{{ name.id }}) || {{ fallback.id }}
       end
 
       # The explicitly-assigned `{{ name.id }}` sub-style, or `nil` when unset
       # — never the `{{ fallback.id }}` fallback the plain getter returns.
       def {{ name.id }}? : Style?
-        @{{ name.id }}
+        @cold.try &.{{ name.id }}
       end
     end
 
@@ -150,38 +156,40 @@ module Crysterm
     # attributes always track the current cell/self style — a `color` declaration
     # applied after `alternate-background-color`, or one inherited from a parent
     # rule, still reaches alternate rows (per Qt, only the background changes).
-    @alternate_row : Style?
-
-    # Only the background override is frozen; fg/attributes compose live.
-    @alternate_bg : Int32?
-
-    # Memoized composed sub-style, guarded by the base style's identity *and*
-    # its `#attr_fingerprint` so the per-frame read stays cheap; invalidated
-    # whenever the base object, its attribute values (in-place mutation), or
-    # the bg override changes.
-    @alternate_row_composed : Style?
-    @alternate_row_composed_src : Style?
-    @alternate_row_composed_fp : AttrFingerprint?
+    # Its fields live in the `Cold` side object: `alternate_row` (the explicit
+    # sub-style), `alternate_bg` (only the background override is frozen;
+    # fg/attributes compose live), and the memoized composed sub-style
+    # `alternate_row_composed` with its `_src`/`_fp` guards — the base style's
+    # identity *and* `#attr_fingerprint`, so the per-frame read stays cheap and
+    # is invalidated whenever the base object, its attribute values (in-place
+    # mutation), or the bg override changes.
 
     def alternate_row=(value : Style?) : Style?
-      @alternate_row_composed = nil
-      @alternate_row = value
+      (value.nil? ? @cold : cold!).try do |c|
+        c.alternate_row_composed = nil
+        c.alternate_row = value
+      end
+      value
     end
 
     def alternate_row : Style
-      base = @alternate_row || cell
-      bg = @alternate_bg
-      return base if bg.nil?
+      c = @cold
+      base = c.try(&.alternate_row) || cell
+      bg = c.try(&.alternate_bg)
+      return base if bg.nil? || c.nil?
       # Reuse the memoized composition while the base object is unchanged —
       # both by identity and by value, so an in-place `base.fg = ...` between
       # frames recomposes instead of returning the stale frozen copy.
-      composed, @alternate_row_composed_src, @alternate_row_composed, @alternate_row_composed_fp =
-        Style.memo_derive(base, @alternate_row_composed_src, @alternate_row_composed,
-          @alternate_row_composed_fp) do |s|
-          copy = s.dup
-          copy.bg = bg
-          copy
+      composed, src, copy, fp =
+        Style.memo_derive(base, c.alternate_row_composed_src, c.alternate_row_composed,
+          c.alternate_row_composed_fp) do |s|
+          dup = s.dup
+          dup.bg = bg
+          dup
         end
+      c.alternate_row_composed_src = src
+      c.alternate_row_composed = copy
+      c.alternate_row_composed_fp = fp
       composed
     end
 
@@ -189,7 +197,7 @@ module Crysterm
     # sub-style or a CSS `alternate-background-color` override), as opposed to the
     # getter falling back to `cell`/`self`.
     def alternate_row?
-      !@alternate_row.nil? || !@alternate_bg.nil?
+      !!@cold.try { |c| c.alternate_row || c.alternate_bg }
     end
 
     # Sets the background of the alternating-row sub-style (CSS
@@ -198,14 +206,15 @@ module Crysterm
     # style at read time (see `#alternate_row`), so a later `color` declaration or
     # inherited color still reaches alternate rows.
     def alternate_background_color=(color) : Nil
-      @alternate_bg = Colors.to_native color
-      @alternate_row_composed = nil
+      c = cold!
+      c.alternate_bg = Colors.to_native color
+      c.alternate_row_composed = nil
     end
 
     # The alternate-row background color, or `nil` when no distinct alternate-row
     # background has been set (the row then follows `cell`/`self`).
     def alternate_background_color
-      @alternate_bg || @alternate_row.try &.bg
+      @cold.try { |c| c.alternate_bg || c.alternate_row.try &.bg }
     end
 
     # Canonical CSS *slot* → sub-`Style` accessor mapping. Every place that maps
@@ -252,17 +261,20 @@ module Crysterm
 
       # Folds *inline*'s explicitly-set nested sub-styles onto this style, so an
       # inline `@style` carrying one survives recomputation even when no
-      # sub-element rule matched. Must read the raw nilable ivars: the getters
-      # fall back to `self`/`cell`, so they would always look "set".
+      # sub-element rule matched. Reads *inline*'s side object directly: the
+      # getters fall back to `self`/`cell`, so they would always look "set".
       def fold_inline_sub_styles(inline : Style) : Nil
+        ic = inline.@cold
+        return unless ic
         {% for css_name, accessor in slots %}
-        @{{ accessor.id }} = inline.@{{ accessor.id }} if inline.@{{ accessor.id }}
+        ic.{{ accessor.id }}.try { |s| self.{{ accessor.id }} = s }
         {% end %}
         # `alternate-background-color` is stored as a scalar override, not a
         # sub-style, so the slot loop above misses it.
-        if b = inline.@alternate_bg
-          @alternate_bg = b
-          @alternate_row_composed = nil
+        if b = ic.alternate_bg
+          c = cold!
+          c.alternate_bg = b
+          c.alternate_row_composed = nil
         end
       end
 
@@ -272,9 +284,11 @@ module Crysterm
       # telling "inline set an `indicator`" apart from "no indicator, use the
       # base style".
       def raw_sub_style(slot : String) : Style?
+        c = @cold
+        return unless c
         case slot
         {% for css_name, accessor in slots %}
-        when {{ css_name }} then @{{ accessor.id }}
+        when {{ css_name }} then c.{{ accessor.id }}
         {% end %}
         else nil
         end

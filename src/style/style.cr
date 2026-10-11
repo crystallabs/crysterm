@@ -3,6 +3,62 @@ module Crysterm
   class Style
     include Colorizable
 
+    # The rarely-set fields of a style — the nested sub-style slots, the glyph
+    # overrides, the state-rule offsets, transitions and animation, the
+    # background image, gridline color, light and look — in one side object
+    # created on the first write. Every widget's `Styles.default` dup, and
+    # every per-state copy the cascade makes, carries only the hot fields
+    # until something sets one of these; the side object's defaults equal
+    # what the accessors report without one. The sub-style slots are declared
+    # into it by `sub_style_accessor` (`style_sub_styles.cr`).
+    class Cold
+      property background_image : String?
+      property background_size : BackgroundSize = BackgroundSize::Cover
+      property transitions : Hash(String, Tuple(Time::Span, Easing))?
+      property animation : AnimationSpec?
+      property gridline_color : Int32?
+      property light : Light?
+      property look : Look?
+      property glyph : String?
+      property glyph_ascii : String?
+      property glyph_unicode : String?
+      property glyph_extended : String?
+      property glyph_open : String?
+      property glyph_close : String?
+      property glyphs : String?
+      property offset_left : Int32?
+      property offset_top : Int32?
+      property offset_right : Int32?
+      property offset_bottom : Int32?
+      property alternate_row : Style?
+      property alternate_bg : Int32?
+      property alternate_row_composed : Style?
+      property alternate_row_composed_src : Style?
+      property alternate_row_composed_fp : AttrFingerprint?
+    end
+
+    @cold : Cold?
+
+    # :nodoc:
+    protected setter cold
+
+    # The side object, created on the first write of a cold field.
+    private def cold! : Cold
+      @cold ||= Cold.new
+    end
+
+    # Writes a nilable cold field: a value materializes the side object;
+    # clearing a field on a style without one is a no-op (nothing to clear).
+    private macro cold_set(field, value)
+      %v = {{ value }}
+      if %v.nil?
+        @cold.try(&.{{ field.id }} = nil)
+      else
+        cold!.{{ field.id }} = %v
+      end
+      %v
+    end
+
     # Foreground color (color of font/character).
     #
     # The native color form is a `0xRRGGBB` integer (`-1` = terminal default,
@@ -84,55 +140,69 @@ module Crysterm
     # `Widget::Media` background layer, so it only has visible effect where a
     # background-capable backend is available (Kitty for true pixels under the
     # text, or the cell-grid `Glyph`/`Ansi` fallback).
-    property background_image : String?
+    def background_image : String?
+      @cold.try &.background_image
+    end
+
+    def background_image=(value : String?) : String?
+      cold_set background_image, value
+    end
 
     # CSS `background-size`: how `background_image` fills the box. Defaults to
     # `Cover` rather than the strict CSS `auto`, as the more useful default for a
     # widget backdrop.
-    getter background_size : BackgroundSize = BackgroundSize::Cover
+    def background_size : BackgroundSize
+      (c = @cold) ? c.background_size : BackgroundSize::Cover
+    end
 
     def background_size=(value : BackgroundSize) : BackgroundSize
       @specified_mask |= SPEC_BACKGROUND_SIZE
-      @background_size = value
+      cold!.background_size = value
     end
 
     # CSS `transition`: animatable property name -> `{duration, easing}`. When an
     # animated property's value changes (e.g. on a `:hover`/`:focus` state
     # change) the new value tweens in over its duration rather than snapping.
-    property transitions : Hash(String, Tuple(Time::Span, Easing))?
+    def transitions : Hash(String, Tuple(Time::Span, Easing))?
+      @cold.try &.transitions
+    end
+
+    def transitions=(value : Hash(String, Tuple(Time::Span, Easing))?)
+      cold_set transitions, value
+    end
 
     # Positional nudge in cells, Qt's QSS `position: relative` offsets: a
     # `top`/`left`/`right`/`bottom` declaration inside a *state* rule
     # (`Button:pressed { top: 1; left: 1 }`) lands here rather than in widget
     # geometry, and `Widget#coords` shifts the whole rendered box — border,
     # content, shadow and children together — by it while the state lasts.
-    # `nil` = no offset on that side. Set all four via `#offsets=`.
-    #
-    # Declared at the class tail (see the bottom of this file), NOT here: the
-    # four nilable ivars are 64 bytes of cold, rarely-set data, and placing
-    # them mid-object would split the render-hot field cluster
-    # (`attr_revision`, the border/padding/margin/shadow refs) across extra
-    # cache lines. Cold data belongs after the hot fields.
+    # `nil` = no offset on that side. Set all four via `#offsets=`. Held in
+    # the `Cold` side object; the per-side accessors are at the class tail.
 
     # The resolved horizontal nudge: Qt's rule is `left` when given, else the
     # negated `right` (`right: 1` ≡ `left: -1`), else 0.
     def offset_x : Int32
-      @offset_left || -(@offset_right || 0)
+      c = @cold
+      c ? (c.offset_left || -(c.offset_right || 0)) : 0
     end
 
     # The resolved vertical nudge: `top` when given, else the negated `bottom`.
     def offset_y : Int32
-      @offset_top || -(@offset_bottom || 0)
+      c = @cold
+      c ? (c.offset_top || -(c.offset_bottom || 0)) : 0
     end
 
     # Whether any positional offset side is set.
     def offset? : Bool
-      !!(@offset_left || @offset_top || @offset_right || @offset_bottom)
+      !!@cold.try { |c| c.offset_left || c.offset_top || c.offset_right || c.offset_bottom }
     end
 
     # Sets all four offset sides at once (`nil` clears).
     def offsets=(value : Int32?) : Int32?
-      @offset_left = @offset_top = @offset_right = @offset_bottom = value
+      (value.nil? ? @cold : cold!).try do |c|
+        c.offset_left = c.offset_top = c.offset_right = c.offset_bottom = value
+      end
+      value
     end
 
     # A CSS `animation` binding: which `@keyframes` to play and how. `nil` = none.
@@ -144,7 +214,13 @@ module Crysterm
       alternate : Bool = false   # ping-pong direction each cycle
 
     # CSS `animation`: a named `@keyframes` sequence to loop.
-    property animation : AnimationSpec?
+    def animation : AnimationSpec?
+      @cold.try &.animation
+    end
+
+    def animation=(value : AnimationSpec?) : AnimationSpec?
+      cold_set animation, value
+    end
 
     # Tracks which text-attribute booleans (and struct properties) were
     # explicitly set, vs left at default, so the CSS cascade can tell "set to
@@ -217,24 +293,24 @@ module Crysterm
       when :bg               then !@bg.nil?
       when :opacity          then !@opacity.nil?
       when :tint             then !@tint.nil?
-      when :gridline_color   then !@gridline_color.nil?
       when :z_index          then !@z_index.nil?
-      when :background_image then !@background_image.nil?
-      when :transitions      then !@transitions.nil?
-      when :animation        then !@animation.nil?
-      when :offset_left      then !@offset_left.nil?
-      when :offset_top       then !@offset_top.nil?
-      when :offset_right     then !@offset_right.nil?
-      when :offset_bottom    then !@offset_bottom.nil?
-      when :glyph            then !@glyph.nil?
-      when :glyph_ascii      then !@glyph_ascii.nil?
-      when :glyph_unicode    then !@glyph_unicode.nil?
-      when :glyph_extended   then !@glyph_extended.nil?
-      when :glyph_open       then !@glyph_open.nil?
-      when :glyph_close      then !@glyph_close.nil?
-      when :glyphs           then !@glyphs.nil?
-      when :light            then !@light.nil?
-      when :look             then !@look.nil?
+      when :gridline_color   then !gridline_color.nil?
+      when :background_image then !background_image.nil?
+      when :transitions      then !transitions.nil?
+      when :animation        then !animation.nil?
+      when :offset_left      then !offset_left.nil?
+      when :offset_top       then !offset_top.nil?
+      when :offset_right     then !offset_right.nil?
+      when :offset_bottom    then !offset_bottom.nil?
+      when :glyph            then !glyph.nil?
+      when :glyph_ascii      then !glyph_ascii.nil?
+      when :glyph_unicode    then !glyph_unicode.nil?
+      when :glyph_extended   then !glyph_extended.nil?
+      when :glyph_open       then !glyph_open.nil?
+      when :glyph_close      then !glyph_close.nil?
+      when :glyphs           then !glyphs.nil?
+      when :light            then !light.nil?
+      when :look             then !look.nil?
       else                        (@specified_mask & specified_bit(property)) != 0_u32
       end
     end
@@ -379,6 +455,10 @@ module Crysterm
       # copy — dup-then-mutate (`style.dup.tap(&.underline = true)`) is the
       # sanctioned way to derive from one.
       copy.frozen = false
+      # The side object is per style: a shallow copy, so the sub-styles it
+      # points at stay shared while later slot writes on either side stay
+      # independent.
+      @cold.try { |c| copy.cold = c.dup }
       @border.try { |border| copy.border = border.dup }
       # The boxes are lazy (nil until first set/read) and read through the ivar,
       # so a style that never touched one costs no dup here. Most widgets set no
@@ -599,26 +679,24 @@ module Crysterm
     # cell-role consumer reduces it to a lone `Char`; a run-role consumer takes
     # it whole.
 
-    # Universal override: use this grapheme at any tier.
-    property glyph : String?
+    # `glyph` is the universal override (this grapheme at any tier);
+    # `glyph_ascii`/`glyph_unicode`/`glyph_extended` the per-tier longhands,
+    # resolving *down* tiers within this layer, then to `glyph` — never across
+    # layers mid-tier; `glyph_open`/`glyph_close` the delimiter pair around a
+    # composed indicator marker (a checkbox's `[`/`]`; `Glyphs::NONE_STR` omits
+    # the delimiter, shrinking the marker); `glyphs` a sequence override whose
+    # characters are the ordered steps of the site's sequence role — spinner
+    # frames, dial pointer ring, fill ramp (`nil` = ask the `Glyphs` sequence
+    # registry). All held in the `Cold` side object.
+    {% for field in %w[glyph glyph_ascii glyph_unicode glyph_extended glyph_open glyph_close glyphs] %}
+      def {{ field.id }} : String?
+        @cold.try &.{{ field.id }}
+      end
 
-    # Per-tier longhands (CSS `glyph-ascii`/`glyph-unicode`/`glyph-extended`).
-    # Resolution falls *down* tiers within this layer, then to `glyph` — never
-    # across layers mid-tier.
-    property glyph_ascii : String?
-    property glyph_unicode : String?
-    property glyph_extended : String?
-
-    # Delimiter pair around a composed indicator marker (CSS `glyph-open`/
-    # `glyph-close`), e.g. a checkbox's `[`/`]`. `Glyphs::NONE_STR` omits the
-    # delimiter entirely, shrinking the marker.
-    property glyph_open : String?
-    property glyph_close : String?
-
-    # A sequence override (CSS `glyphs`): the string's characters are the ordered
-    # steps of the site's sequence role — spinner frames, dial pointer ring, fill
-    # ramp. `nil` = unset (ask the `Glyphs` sequence registry).
-    property glyphs : String?
+      def {{ field.id }}=(value : String?) : String?
+        cold_set {{ field.id }}, value
+      end
+    {% end %}
 
     # The CSS-specified glyph for *tier*: the tier longhand, falling down tiers,
     # else the universal `glyph`; `nil` when this style specifies none, so the
@@ -626,10 +704,12 @@ module Crysterm
     # grapheme, or `Glyphs::NONE_STR` — see the field docs above.
     @[AlwaysInline]
     def glyph_for(tier : Glyphs::Tier) : String?
+      c = @cold
+      return unless c
       case tier
-      in .extended? then @glyph_extended || @glyph_unicode || @glyph_ascii || @glyph
-      in .unicode?  then @glyph_unicode || @glyph_ascii || @glyph
-      in .ascii?    then @glyph_ascii || @glyph
+      in .extended? then c.glyph_extended || c.glyph_unicode || c.glyph_ascii || c.glyph
+      in .unicode?  then c.glyph_unicode || c.glyph_ascii || c.glyph
+      in .ascii?    then c.glyph_ascii || c.glyph
       end
     end
 
@@ -666,9 +746,23 @@ module Crysterm
     # default) means the gridlines follow the box `border` color. When set, it
     # overrides just the gridline foreground; other border attributes are kept.
     # See `#fg` for the accepted forms.
-    getter gridline_color : Int32?
+    def gridline_color : Int32?
+      @cold.try &.gridline_color
+    end
 
-    Colorizable.color_setter gridline_color
+    # The three overloads `Colorizable.color_setter` generates, writing the
+    # side object instead of an ivar.
+    def gridline_color=(color : Int)
+      cold!.gridline_color = color.to_i32
+    end
+
+    def gridline_color=(color : String)
+      cold!.gridline_color = Colors.convert_cached(color)
+    end
+
+    def gridline_color=(color : Nil)
+      @cold.try(&.gridline_color = nil)
+    end
 
     def border=(value : BorderValue)
       @specified_mask |= SPEC_BORDER
@@ -742,10 +836,12 @@ module Crysterm
     # itself defaulting to the classic NW directional). Accepts a `Light`,
     # or a bare direction (`Light::Direction` / its symbol, `:ne`) for a
     # directional light from there. See `Light` and plans/BORDERS.md § 4.
-    getter light : Light?
+    def light : Light?
+      @cold.try &.light
+    end
 
     def light=(value : (Light | Light::Direction | Symbol)?)
-      @light = value.nil? ? nil : Light.from(value)
+      cold_set light, (value.nil? ? nil : Light.from(value))
     end
 
     # Predefined 3D looks: one keyword bundling `Border#relief`,
@@ -763,7 +859,9 @@ module Crysterm
       Elevated # Raised + Floating
     end
 
-    getter look : Look?
+    def look : Look?
+      @cold.try &.look
+    end
 
     # Applies *value*'s bundle (see `Look`). A look that shades or weights
     # the frame materializes a default 1-cell solid border when none is
@@ -773,11 +871,11 @@ module Crysterm
     # the relief off).
     def look=(value : (Look | Symbol)?)
       if value.nil?
-        @look = nil
+        @cold.try(&.look = nil)
         return value
       end
       value = Look.parse value.to_s if value.is_a?(Symbol)
-      @look = value
+      cold!.look = value
       case value
       in .flat?
         @border.try do |b|
@@ -835,30 +933,30 @@ module Crysterm
       padding : PaddingValue = nil,
       margin : MarginValue = nil,
       shadow : ShadowValue = nil,
-      @scrollbar = @scrollbar,
-      @track = @track,
-      @sub_line = @sub_line,
-      @add_line = @add_line,
-      @sub_page = @sub_page,
-      @add_page = @add_page,
-      @up_arrow = @up_arrow,
-      @down_arrow = @down_arrow,
-      @left_arrow = @left_arrow,
-      @right_arrow = @right_arrow,
-      @alternate_row = @alternate_row,
-      @indicator = @indicator,
-      @item = @item,
-      @prefix = @prefix,
-      @separator = @separator,
-      @tab = @tab,
-      @title = @title,
-      @pane = @pane,
-      @close_button = @close_button,
-      @float_button = @float_button,
-      @drop_down = @drop_down,
-      @header = @header,
-      @cell = @cell,
-      @label = @label,
+      scrollbar : Style? = nil,
+      track : Style? = nil,
+      sub_line : Style? = nil,
+      add_line : Style? = nil,
+      sub_page : Style? = nil,
+      add_page : Style? = nil,
+      up_arrow : Style? = nil,
+      down_arrow : Style? = nil,
+      left_arrow : Style? = nil,
+      right_arrow : Style? = nil,
+      alternate_row : Style? = nil,
+      indicator : Style? = nil,
+      item : Style? = nil,
+      prefix : Style? = nil,
+      separator : Style? = nil,
+      tab : Style? = nil,
+      title : Style? = nil,
+      pane : Style? = nil,
+      close_button : Style? = nil,
+      float_button : Style? = nil,
+      drop_down : Style? = nil,
+      header : Style? = nil,
+      cell : Style? = nil,
+      label : Style? = nil,
       fg : ColorValue = nil,
       bg : ColorValue = nil,
       bold : Bool? = nil,
@@ -882,16 +980,24 @@ module Crysterm
       tab_size : Int32? = nil,
       tab_char : String? = nil,
       fill : Bool? = nil,
-      @glyph : String? = nil,
-      @glyph_ascii : String? = nil,
-      @glyph_unicode : String? = nil,
-      @glyph_extended : String? = nil,
-      @glyph_open : String? = nil,
-      @glyph_close : String? = nil,
-      @glyphs : String? = nil,
+      glyph : String? = nil,
+      glyph_ascii : String? = nil,
+      glyph_unicode : String? = nil,
+      glyph_extended : String? = nil,
+      glyph_open : String? = nil,
+      glyph_close : String? = nil,
+      glyphs : String? = nil,
       light : (Light | Light::Direction | Symbol)? = nil,
       look : (Look | Symbol)? = nil,
     )
+      # The sub-style slots and glyph overrides land in the `Cold` side
+      # object, through their setters, only when given.
+      {% for name in %w[scrollbar track sub_line add_line sub_page add_page up_arrow down_arrow
+                       left_arrow right_arrow alternate_row indicator item prefix separator tab title
+                       pane close_button float_button drop_down header cell label
+                       glyph glyph_ascii glyph_unicode glyph_extended glyph_open glyph_close glyphs] %}
+        {{ name.id }}.try { |v| self.{{ name.id }} = v }
+      {% end %}
       # Route fg/bg through the setters so a native `0xRRGGBB` int is normalized
       # to its `#rrggbb` string (each call type — String, Int, Nil — resolves to
       # the matching `fg=`/`bg=` overload).
@@ -946,20 +1052,17 @@ module Crysterm
       value
     end
 
-    # The state-rule positional-nudge sides (see `#offset_x`/`#offset_y` and
-    # the note at their methods): declared last on purpose, so this cold,
-    # rarely-set data sits past the render-hot fields instead of pushing them
-    # across a cache-line boundary.
-    property offset_left : Int32?
+    # The state-rule positional-nudge sides (see `#offset_x`/`#offset_y`),
+    # held in the `Cold` side object.
+    {% for side in %w[offset_left offset_top offset_right offset_bottom] %}
+      def {{ side.id }} : Int32?
+        @cold.try &.{{ side.id }}
+      end
 
-    # :ditto:
-    property offset_top : Int32?
-
-    # :ditto:
-    property offset_right : Int32?
-
-    # :ditto:
-    property offset_bottom : Int32?
+      def {{ side.id }}=(value : Int32?) : Int32?
+        cold_set {{ side.id }}, value
+      end
+    {% end %}
   end
 end
 
