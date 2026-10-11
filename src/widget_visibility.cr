@@ -110,5 +110,26 @@ module Crysterm
       end
       true
     end
+
+    # A checkable `Action` that shows and hides this widget, its check
+    # following the widget's visibility — Qt's `QDockWidget::toggleViewAction`
+    # for any widget, so a View menu lists the panes of a layout with one
+    # entry each. Created on the first call, with *text* (the widget's
+    # `#label` by default); the same action on every later call, *text*
+    # ignored. Triggering it calls `#show` or `#hide`; a `#show`/`#hide` from
+    # anywhere else re-checks it (through `Event::Show`/`Event::Hide`), so
+    # the entry never disagrees with the widget. An app refusing a hide (the
+    # last pane of a layout) disables the action, as it would any entry.
+    def toggle_view_action(text : String? = nil) : Action
+      @toggle_view_action ||= begin
+        action = Action.new(text || label || "", checkable: true, checked: visible?)
+        action.on(Crysterm::Event::Triggered) { |e| e.checked ? show : hide }
+        on(Crysterm::Event::Show) { action.checked = visible? }
+        on(Crysterm::Event::Hide) { action.checked = visible? }
+        action
+      end
+    end
+
+    @toggle_view_action : Action?
   end
 end
