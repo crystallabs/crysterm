@@ -129,6 +129,10 @@ module Crysterm
       # (`Window#focus_region`/`#focus_central`), shared with F6 cycling.
       private def on_activation_key(e : ::Crysterm::Event::KeyPress) : Nil
         return if e.accepted?
+        # A hidden bar (an application's full-screen view) does not answer:
+        # its menus would open under nothing. The actions' own shortcuts are
+        # the window's and keep working, as in Qt.
+        return unless visible?
         w = window? || return
         if (key = @activation_key) && e.key == key
           e.accept
