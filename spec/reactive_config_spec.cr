@@ -51,7 +51,7 @@ describe "Reactive.config_property" do
     prop = Crysterm::Reactive::Property.new 0
     changes = 0
     prop.on_change { changes += 1 }
-    Crysterm::Reactive.link_config(prop, "rxspec.level").should be prop
+    Crysterm::Reactive.link_config prop, "rxspec.level"
     prop.value.should eq 4
     changes.should eq 1
     prop.value = 4 # unchanged: no echo into the option, no notification
@@ -61,6 +61,31 @@ describe "Reactive.config_property" do
     prop.value = 6
     Crysterm::Config.get("rxspec.level", Int32).should eq 6
     changes.should eq 2
+  ensure
+    Crysterm::Config.reset "rxspec.level"
+  end
+end
+
+describe "Reactive.link_config with an owner" do
+  it "ends the link when the owner is destroyed, or when disposed by hand" do
+    window = Crysterm::Window.new input: IO::Memory.new, output: IO::Memory.new, width: 20, height: 5
+    prop = Crysterm::Reactive.config_property "rxspec.level", Int32, window
+    prop.value = 2
+    Crysterm::Config.get("rxspec.level", Int32).should eq 2
+    window.destroy
+    Crysterm::Config.set "rxspec.level", 8
+    prop.value.should eq 2 # no longer hears the option
+    prop.value = 3
+    Crysterm::Config.get("rxspec.level", Int32).should eq 8 # nor the option the property
+
+    other = Crysterm::Reactive::Property.new 0
+    link = Crysterm::Reactive.link_config other, "rxspec.level"
+    other.value.should eq 8
+    link.dispose
+    link.disposed?.should be_true
+    Crysterm::Config.set "rxspec.level", 1
+    other.value.should eq 8
+    link.dispose # idempotent
   ensure
     Crysterm::Config.reset "rxspec.level"
   end
