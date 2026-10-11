@@ -267,19 +267,20 @@ module Crysterm
         mid = (lo + hi) // 2
         # The stamped block nearest below the middle, within the range.
         i = mid
-        while i >= lo && blocks[i].source_line.nil?
+        probe = nil
+        while i >= lo && (probe = blocks[i].source_line).nil?
           i -= 1
         end
-        if i < lo
+        if probe.nil?
           lo = mid + 1
-        elsif blocks[i].source_line.not_nil! <= line
+        elsif probe <= line
           best = i
           lo = mid + 1
         else
           hi = i - 1
         end
       end
-      return nil unless best
+      return unless best
       # Back to the first block stamped with that line.
       stamp = blocks[best].source_line
       j = best - 1

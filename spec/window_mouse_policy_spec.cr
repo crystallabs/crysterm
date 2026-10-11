@@ -28,13 +28,13 @@ describe "Window#mouse_policy" do
   end
 
   it "applies when set, and re-applies on apply_mouse_policy" do
-    s, a, b = stage
+    s, a, _ = stage
     a.focus
     s.enable_mouse
-    s.mouse_policy = ->(w : Widget?) { false }
+    s.mouse_policy = ->(_w : Widget?) { false }
     s.mouse_enabled?.should be_false
     serve = false
-    s.mouse_policy = ->(w : Widget?) { serve }
+    s.mouse_policy = ->(_w : Widget?) { serve }
     s.mouse_enabled?.should be_false
     serve = true
     s.apply_mouse_policy
@@ -48,7 +48,7 @@ describe "Window#mouse_policy" do
     a.focus
     b.focus
     s.mouse_enabled?.should be_true
-    s.mouse_policy = ->(w : Widget?) { false }
+    s.mouse_policy = ->(_w : Widget?) { false }
     s.mouse_enabled?.should be_false
     s.mouse_policy = nil
     a.focus
@@ -57,7 +57,7 @@ describe "Window#mouse_policy" do
   end
 
   it "asks with nil when no widget has focus" do
-    s, a, b = stage
+    s, a, _ = stage
     s.release_focus # the window had focused the first widget on its own
     seen = [] of Widget?
     s.mouse_policy = ->(w : Widget?) { seen << w; true }
