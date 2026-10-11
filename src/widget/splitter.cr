@@ -478,9 +478,7 @@ module Crysterm
       end
 
       private def shown_count : Int32
-        count = 0
-        @panes.each { |pane| count += 1 unless pane.hidden? }
-        count
+        @panes.count { |pane| !pane.hidden? }
       end
 
       private def shown?(i : Int32) : Bool
@@ -489,8 +487,7 @@ module Crysterm
 
       # The index of the first shown pane after *i*, or nil.
       private def next_shown(i : Int32) : Int32?
-        ((i + 1)...@panes.size).each { |j| return j if shown?(j) }
-        nil
+        ((i + 1)...@panes.size).find { |j| shown?(j) }
       end
 
       # Makes the extent every shown pane has the one it wants (Qt's
@@ -593,8 +590,7 @@ module Crysterm
         fit total
 
         n = @panes.size
-        last = -1
-        @panes.each_index { |i| last = i if shown?(i) }
+        last = @panes.rindex { |pane| !pane.hidden? } || -1
         cursor = 0
         @panes.each_with_index do |pane, i|
           if shown?(i)
