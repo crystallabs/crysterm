@@ -176,15 +176,22 @@ module Crysterm
       # Prefer *icon* over embedding the glyph in *text*: only a real
       # `Action#icon` joins the menu's shared icon column, aligning labels
       # across icon-ful and icon-less entries.
-      def add_action(text : String, icon : String? = nil) : Action
+      #
+      # With *shortcut* (Qt's `#addAction(text, shortcut, …)`) the entry gets
+      # its key — in Qt's textual form (`"Ctrl+O"`), a `Tput::Key` or a
+      # `Action::KeySequence`, as `Action#shortcut=` takes them — shown in the
+      # menu's right-hand column and live on the window the menu's bar is on,
+      # whether or not the menu is open.
+      def add_action(text : String, icon : String? = nil, shortcut : (String | Action::KeyStroke | Action::KeySequence)? = nil) : Action
         action = Action.new text, icon: icon
+        action.shortcut = shortcut if shortcut
         self << action
         action
       end
 
       # :ditto: — also connecting *block* to the action's `Event::Triggered`.
-      def add_action(text : String, icon : String? = nil, &block : ->) : Action
-        action = add_action text, icon
+      def add_action(text : String, icon : String? = nil, shortcut : (String | Action::KeyStroke | Action::KeySequence)? = nil, &block : ->) : Action
+        action = add_action text, icon, shortcut
         action.on_triggered { block.call }
         action
       end
