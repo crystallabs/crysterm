@@ -170,6 +170,7 @@ module Crysterm
         # on `#show`) with no listener ever seeing focus leave it. `nil` payload:
         # no widget is taking over focus.
         old.emit Crysterm::Event::FocusOut, nil if blur_state_reset old
+        apply_mouse_policy
       end
 
       {el, old}
@@ -354,6 +355,7 @@ module Crysterm
         render_if_active if old.try(&.cursor).try(&.artificial?)
       end
 
+      apply_mouse_policy
       cur.emit Crysterm::Event::FocusIn, old unless refocus
     end
   end

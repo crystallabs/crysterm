@@ -225,6 +225,37 @@ module Crysterm
       @screen.disable_mouse
     end
 
+    # Whether the mouse serves while a given widget has focus — vi's `set
+    # mouse=` (`a`, `n`, `i`, none) at the toolkit level. `nil`, the default,
+    # leaves mouse reporting as `#enable_mouse`/`#disable_mouse` set it. With
+    # a policy, the window owns it: the policy is asked with the focused
+    # widget (`nil` when none) on every focus change and when it is set, and
+    # reporting is turned on while it answers `true` and off while it answers
+    # `false` — so the terminal's own selection and copy work in the panes
+    # that have no use for the mouse.
+    #
+    # ```
+    # # The editor takes the mouse; the reader panes leave it to the terminal.
+    # window.mouse_policy = ->(focused : Widget?) { focused.same?(editor) }
+    # ```
+    getter mouse_policy : Proc(Widget?, Bool)?
+
+    def mouse_policy=(policy : Proc(Widget?, Bool)?) : Proc(Widget?, Bool)?
+      @mouse_policy = policy
+      apply_mouse_policy
+      policy
+    end
+
+    # Brings mouse reporting in line with `#mouse_policy` for the focused
+    # widget; a no-op without a policy, or when it already matches. For an
+    # app to call when what the policy depends on changed (a mode switch).
+    def apply_mouse_policy : Nil
+      return unless policy = @mouse_policy
+      want = policy.call(focused)
+      return if want == mouse_enabled?
+      want ? enable_mouse : disable_mouse
+    end
+
     # Inline mode: the device reports rows in physical terminal coordinates,
     # but the surface (widgets, hit-test) lives in `[0, aheight)` at physical
     # rows `[offset, offset + aheight)`. Translate the pointer back into
