@@ -20,7 +20,7 @@ module Crysterm
     # Crysterm::Config.load_file "settings.yml", Superconf::Source::Runtime # the property follows
     # ```
     def self.config_property(key : String, type : T.class, owner : ::EventHandler? = nil) : Property(T) forall T
-      property = Property.new(Superconf.get(key, T))
+      property = Property.new(Config.get(key, T))
       link_config property, key, owner
       property
     end
@@ -38,8 +38,8 @@ module Crysterm
     # holds notifies no one), so the loop property → option → property
     # stops after one step.
     def self.link_config(property : Property(T), key : String, owner : ::EventHandler? = nil) : ConfigLink forall T
-      property.value = Superconf.get(key, T)
-      link = ConfigLink.new key, Superconf.on_change(key) { property.value = Superconf.get(key, T) }
+      property.value = Config.get(key, T)
+      link = ConfigLink.new key, Config.on_change(key) { property.value = Config.get(key, T) }
       link.watch property
       link.attach_auto_dispose owner if owner
       link
@@ -60,7 +60,7 @@ module Crysterm
       # precedence.
       protected def watch(property : Property(T)) : Nil forall T
         key = @key
-        @subs.on(property, ::Crysterm::Event::ReactiveChanged) { Superconf.set key, property.value }
+        @subs.on(property, ::Crysterm::Event::ReactiveChanged) { Config.set key, property.value }
       end
 
       # Ends the link at *owner*'s `Event::Destroy`.
@@ -73,7 +73,7 @@ module Crysterm
       def dispose : Nil
         return if @disposed
         @disposed = true
-        Superconf.off_change @key, @handle
+        Config.off_change @key, @handle
         @subs.off
       end
     end

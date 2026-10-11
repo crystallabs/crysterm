@@ -344,7 +344,7 @@ module Crysterm
       # A `--crysterm-dump-config` the load-time `Crysterm.configure!` put off
       # until the application's options were registered: before the terminal
       # is touched, so the dump lands on a plain standard output.
-      Superconf.dump_pending
+      Config.dump_pending
 
       # `inline:` is the intent-named inverse of `alternate:`; when set it wins.
       @alternate = inline ? false : alternate
