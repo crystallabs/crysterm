@@ -196,8 +196,9 @@ module Crysterm
   end
 
   # Word-wraps *text* to fit next to `OptionParser`'s flag column within 80
-  # columns.
-  private def self.wrap_help(text : String, width : Int32 = 42) : String
+  # columns, as `.toolkit_options_help` lays its descriptions out — for an
+  # application listing options of its own the same way.
+  def self.wrap_help(text : String, width : Int32 = 42) : String
     lines = [] of String
     line = ""
     text.split(' ') do |word|
