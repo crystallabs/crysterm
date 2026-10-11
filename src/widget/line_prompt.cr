@@ -39,7 +39,8 @@ module Crysterm
 
       # Completions for the text typed so far, for Tab/Shift+Tab; `nil` for
       # none. Called with the field's text on the first Tab of a run and
-      # returns the candidates in cycling order.
+      # returns the candidates in cycling order. A lone candidate is taken
+      # outright and the next Tab completes it further.
       property completer : Proc(String, Array(String))?
 
       # A `#completer` for file system paths, as a shell completes them: the
@@ -159,11 +160,19 @@ module Crysterm
       end
 
       # Steps the completion run by *dir*, starting one from the field's text.
+      # A lone completion is taken and the run ends with it, so the next Tab
+      # completes the new text afresh — a shell's `/t` → `/tmp/` → the
+      # entries under it. A run only cycles when there is something to cycle.
       private def complete(dir : Int32) : Nil
         return unless completer = @completer
         unless @completing
           @matches = completer.call @field.value
           return if @matches.empty?
+          if @matches.size == 1
+            @field.value = @matches[0]
+            end_completion
+            return
+          end
           @completing = true
           @match_index = dir > 0 ? -1 : 0
         end

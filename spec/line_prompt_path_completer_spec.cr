@@ -69,4 +69,18 @@ describe "Widget::LinePrompt.path_completer" do
       cl.field.value.should eq File.join(dir, "ab.md")
     end
   end
+
+  it "takes a lone directory match and descends into it on the next Tab" do
+    with_tree do |dir|
+      s = headless_screen(40, 3)
+      cl = Widget::LinePrompt.new parent: s, bottom: 0, left: 0, width: "100%"
+      cl.completer = Widget::LinePrompt.path_completer
+      cl.prompt("Open: ", File.join(dir, "ad")) { }
+      s.repaint
+      cl.field.emit Event::KeyPress.new('\0', Tput::Key::Tab)
+      cl.field.value.should eq File.join(dir, "adir/")
+      cl.field.emit Event::KeyPress.new('\0', Tput::Key::Tab)
+      cl.field.value.should eq File.join(dir, "adir", "inner.md")
+    end
+  end
 end
