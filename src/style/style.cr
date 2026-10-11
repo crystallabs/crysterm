@@ -70,6 +70,14 @@ module Crysterm
     # Background color (color of cell). See `#fg` for the accepted forms.
     getter bg : Int32?
 
+    # Whether a `background-color: inherit` declaration asked for the parent's
+    # background: `#bg` stays unset until the cascade's inheritance pass copies
+    # the parent's computed value in (`CSS::Cascade.inherit_props`). Unlike
+    # `color`, a background is not an inherited property, so the pass copies
+    # it only where this asks, and only while `#bg` is still unset — a value
+    # set after the declaration (an inline style, a later rule) wins.
+    property? bg_inherit : Bool = false
+
     # CSS-vocabulary alias of `#fg` (`color`), reading and writing the same
     # value.
     def color : Int32?

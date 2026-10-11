@@ -232,6 +232,16 @@ module Crysterm
         /* Bars and chrome */
         MenuBar, ToolBar { background-color: var(--muted-dark); color: var(--text); }
         StatusBar { background-color: var(--muted-dark); color: var(--text); }
+        /* What sits on a bar — its menu titles and tool items (plain boxes), the
+           status fields, a label an application floats over the bar — shows the
+           bar's color through, as Qt's children do without `autoFillBackground`:
+           the `Box` surface rule above would otherwise paint each of them its own
+           opaque block on the bar, and a message (painted by the bar itself)
+           would come up in a different color than the field it replaced. Inherited
+           rather than restated, so an author recoloring a bar recolors its contents
+           with it. Two type selectors, so this loses to any state rule
+           (`Box:selected`, `Button:focus`), which keep their highlights. */
+        MenuBar Box, ToolBar Box, StatusBar Box { background-color: inherit; }
         CommandBar::prefix { color: var(--info); }
 
         /* Tooltips */

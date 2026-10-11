@@ -1016,6 +1016,11 @@ module Crysterm
       # wherever *style* leaves them unset (so an explicit value always wins).
       private def self.inherit_props(style : Style, parent : Style) : Nil
         style.fg = parent.fg if !style.specified?(:fg) && parent.specified?(:fg)
+        # A background is not inherited by default: only a `background-color:
+        # inherit` declaration (`Style#bg_inherit?`) takes the parent's, and
+        # only while nothing set one since. The walk is top-down, so a parent
+        # that inherits in turn is already resolved here.
+        style.bg = parent.bg if style.bg_inherit? && !style.specified?(:bg)
         style.bold = parent.bold? if !style.specified?(:bold) && parent.specified?(:bold)
         style.italic = parent.italic? if !style.specified?(:italic) && parent.specified?(:italic)
         # `tab-size` and `tab-char` are inherited properties in CSS, so a

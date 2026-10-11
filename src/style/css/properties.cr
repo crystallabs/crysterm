@@ -27,7 +27,20 @@ module Crysterm
         when "color"
           with_color(value, style.fg) { |c| style.fg = c }
         when "background-color"
-          with_color(value, style.fg) { |c| style.bg = c }
+          # `inherit` takes the parent's computed background. Not an inherited
+          # property, so unlike `color: inherit` (an unset the inheritance pass
+          # fills regardless) it is recorded on the style for that pass to act
+          # on (`Style#bg_inherit?`); any other value, `initial`/`unset`
+          # included, is a plain assignment and withdraws the request.
+          if Case.fold_keyword(value.strip) == "inherit"
+            style.bg = nil
+            style.bg_inherit = true
+          else
+            with_color(value, style.fg) do |c|
+              style.bg = c
+              style.bg_inherit = false
+            end
+          end
         when "alternate-background-color"
           # Background of every other row in a `Table`/`ListTable` with
           # `alternate_rows` on (Qt's property).
