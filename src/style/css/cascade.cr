@@ -92,18 +92,30 @@ module Crysterm
       # cascades. Both are rebuilt here when omitted, keeping this
       # callable standalone.
       #
+      # *rematch*, when given, says *doc* is the same parsed document the
+      # previous cascade matched against, patched in place so that only the
+      # listed selector tokens (`.class`, `#id`, `[attr`) changed on any node:
+      # a rule mentioning none of them is served from the window's rule-match
+      # cache instead of being run again. `nil` re-matches every rule and
+      # refills the cache.
+      #
       # Deliberately one flat resolver walk (the benchmarked cascade hot path);
       # splitting it to satisfy the metric would spread cascade state across
       # helpers.
       # ameba:disable Metrics/CyclomaticComplexity
       def self.apply_sheets(sheets : Array(Tuple(Stylesheet, Int32, Widget?)), window : Window, doc : HTML5::Node, scope : Set(Widget)? = nil,
-                            cached_variables : Hash(String, String)? = nil, cached_resolved : Hash(String, String)? = nil) : Nil
+                            cached_variables : Hash(String, String)? = nil, cached_resolved : Hash(String, String)? = nil,
+                            rematch : Set(String)? = nil) : Nil
         return if sheets.all?(&.[0].rules.empty?)
 
         # Reuse the window's structurally-cached widget index instead of
         # re-walking the whole tree (and re-interning `uid::slot` strings) every
         # cascade; `index_tree` rebuilds it only on a structural change.
         index = window.css_widget_index { index_tree(window) }
+
+        # Per-rule matches against *doc*, kept across cascades (see *rematch*).
+        matches = window.css_rule_matches(doc)
+        matches.clear if rematch.nil?
 
         # Match each distinct structural selector at most once per cascade (the
         # same selector can recur across tiers, states and `@media` blocks).
@@ -174,7 +186,10 @@ module Crysterm
             if mq = rule.media
               next unless mq.matches?(media_width, media_height, media_colors, media_glyphs)
             end
-            if has_slots && backward_structural?(rule.selector)
+            match_key = {sheet, rule_index}
+            if rematch && !rule_mentions?(rule, rematch) && (cached = matches[match_key]?)
+              nodes = cached
+            elsif has_slots && backward_structural?(rule.selector)
               # Real child widgets *and* extra pseudo-nodes (table `Row`/`Cell`,
               # which carry a `:` in their slot key) are matched against the
               # sub-element-free structural document, so their backward/only
@@ -203,8 +218,10 @@ module Crysterm
                   matched_nodes(sheet, doc, rule, selector_cache).select { |node| sub_element_uid?(node) }
                 end
               nodes = real + slots
+              matches[match_key] = nodes
             else
               nodes = matched_nodes(sheet, doc, rule, selector_cache)
+              matches[match_key] = nodes
             end
             # A state pseudo-class rule (`:hover`/`:selected`/`:focus`/…) is more
             # specific than the state-agnostic inline `@style`: a themed
@@ -219,6 +236,10 @@ module Crysterm
             nodes.each do |node|
               key = node["data-uid"]?.try(&.val)
               next unless key
+              # Only the widgets being recomputed consume what accumulates
+              # below (every later pass filters on *scope*), so an out-of-scope
+              # match is dropped here rather than accumulated and ignored.
+              next if scope && !in_scope?(index, key, scope)
               # A widget-scoped sheet styles only its owner's subtree,
               # whatever its selectors matched elsewhere in the document.
               next if owner && !in_subtree?(index, key, owner)
@@ -715,6 +736,30 @@ module Crysterm
       private def self.bias_entries(entries : Array(Entry), bias : Int64) : Array(Entry)
         return entries if bias == 0 || entries.empty?
         entries.map { |(tier, layer, spec, order, decls)| {tier, layer, spec, order + bias, decls} }
+      end
+
+      # Whether *rule*'s structural selector or relational conditions mention
+      # any of *tokens* (textually, so a token that is a prefix of a longer
+      # name is a conservative hit): the rules whose match set can differ
+      # after those tokens changed on some node.
+      private def self.rule_mentions?(rule : Rule, tokens : Set(String)) : Bool
+        tokens.each do |token|
+          return true if rule.selector.includes?(token)
+          if has = rule.has
+            return true if has.includes?(token)
+          end
+          rule.ancestor_has.try &.each do |(qualifier, inner)|
+            return true if qualifier.includes?(token) || inner.includes?(token)
+          end
+        end
+        false
+      end
+
+      # Whether the widget an index *key* maps to is in *scope* (a key of a
+      # widget no longer in the index is not).
+      private def self.in_scope?(index : Hash(String, Tuple(Widget, String?)), key : String, scope : Set(Widget)) : Bool
+        target = index[key]?
+        !target.nil? && scope.includes?(target[0])
       end
 
       # Whether the widget (or sub-element host) an index *key* maps to is

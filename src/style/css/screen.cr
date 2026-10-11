@@ -30,6 +30,7 @@ module Crysterm
     # recompute.
     protected def invalidate_css_tree : Nil
       @css_structural = true
+      @css_widget_sheets_stale = true
       restyle
     end
 
@@ -59,6 +60,12 @@ module Crysterm
     # so a runtime theme / default-sheet swap (which marks nothing dirty on any
     # window) forces a full recompute. `nil` until the first run.
     @css_last_default_generation : Int32?
+
+    # Whether a patch-only cascade changed the cached parsed document since
+    # `@css_last_document` was serialized, so the next serializing cascade must
+    # not skip on a byte-identical string. (`@css_last_document` itself stays
+    # set: `nil` there means a forced cascade, which the patch route defers to.)
+    @css_last_document_stale = false
 
     # Whether a cascade has styled this window's widgets (and no reset has
     # reverted them since). Gates the revert-to-pristine pass in
@@ -118,6 +125,25 @@ module Crysterm
     # since the last parse, to be patched into the cached document.
     @css_patch_widgets = Set(Widget).new
 
+    # Whether `@css_widget_sheets_cache` must be rebuilt by walking the tree:
+    # set on a structural change and when a widget's own sheet set changes,
+    # cleared by `#collect_css_widget_sheets`. An attribute-only cascade (a
+    # hover/focus flip) reuses the list instead of re-walking every widget.
+    @css_widget_sheets_stale = true
+
+    # Per-rule matched node lists from the last cascade against the cached
+    # parsed document, keyed by `{sheet, rule index}` (see
+    # `CSS::Cascade.apply_sheets`). Valid only for `@css_rule_matches_doc`: a
+    # patch-only cascade re-matches just the rules that mention a changed
+    # attribute token and reuses the rest; a serializing cascade rebuilds it.
+    @css_rule_matches = Hash(Tuple(CSS::Stylesheet, Int32), Array(HTML5::Node)).new
+    @css_rule_matches_doc : HTML5::Node?
+
+    # Cascade counters: how many runs re-serialized the tree and how many took
+    # the patch-only route. Diagnostics for the invalidation contract (specs).
+    getter css_cascades_serialized = 0
+    getter css_cascades_patched = 0
+
     # Assigns a stylesheet from CSS source text.
     def stylesheet=(css : String) : String
       @css_stylesheet = CSS::Stylesheet.parse(css)
@@ -170,11 +196,16 @@ module Crysterm
     def css_widget_sheets_changed : Nil
       restyle
       @css_last_document = nil
+      @css_widget_sheets_stale = true
     end
 
-    # Rebuilds `@css_widget_sheets_cache` from the current tree.
+    # The `{sheet, owner}` pairs of every widget carrying its own stylesheet,
+    # rebuilt from the tree only when the set can have changed (a structural
+    # change, or `#css_widget_sheets_changed`).
     private def collect_css_widget_sheets : Array(Tuple(CSS::Stylesheet, Widget))
       list = @css_widget_sheets_cache
+      return list unless @css_widget_sheets_stale || @css_structural
+      @css_widget_sheets_stale = false
       list.clear
       @children.each do |top|
         top.self_and_each_descendant do |w|
@@ -307,6 +338,7 @@ module Crysterm
     # longer be patched (a node was added/removed), so it must be rebuilt.
     def restyle_structural(widget : Widget) : Nil
       @css_structural = true
+      @css_widget_sheets_stale = true
       restyle_subtree widget
     end
 
@@ -386,6 +418,8 @@ module Crysterm
         clear_css_dirty_scope
         return
       end
+      return if apply_stylesheet_patched(author, default, widget_sheets)
+      @css_cascades_serialized += 1
       document = to_html
       # The skip identity is compared field-wise against the previous run's
       # values, not folded into one string: prefixing the scalars onto the
@@ -419,26 +453,87 @@ module Crysterm
       # stylesheet change: the `stylesheet=` setters nil `@css_last_document`
       # and a default-sheet swap bumps the generation, so either way this
       # doesn't skip.
-      if document == prev_document && generation == prev_generation &&
+      if document == prev_document && !@css_last_document_stale && generation == prev_generation &&
          (!media || (prev_size == size && prev_tier == tier))
         clear_css_dirty
         return
       end
       @css_last_document = document
+      @css_last_document_stale = false
       scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       doc = css_parsed_document(document)
       variables, resolved = css_var_caches(author, default, generation)
       # Sheet list, lowest tier first: default (theme), then the window-level
       # author sheet plus any `add_stylesheet` layers, then each widget's own
       # sheets — the latter scoped to their owner's subtree.
+      CSS::Cascade.apply_sheets css_sheet_list(author, default, widget_sheets), self, doc, scope, variables, resolved
+      @css_widgets_styled = true
+      clear_css_dirty
+    end
+
+    # The sheet list a cascade resolves, lowest tier first: default (theme),
+    # then the window-level author sheet plus any `add_stylesheet` layers, then
+    # each widget's own sheets — the latter scoped to their owner's subtree.
+    private def css_sheet_list(author : CSS::Stylesheet?, default : CSS::Stylesheet,
+                               widget_sheets : Array(Tuple(CSS::Stylesheet, Widget))) : Array(Tuple(CSS::Stylesheet, Int32, Widget?))
       sheets = Array(Tuple(CSS::Stylesheet, Int32, Widget?)).new(2 + @css_extra_stylesheets.size + widget_sheets.size)
       sheets << {default, CSS::Cascade::TIER_DEFAULT, nil}
       author.try { |sheet| sheets << {sheet, CSS::Cascade::TIER_AUTHOR, nil} }
       @css_extra_stylesheets.each { |sheet| sheets << {sheet, CSS::Cascade::TIER_AUTHOR, nil} }
       widget_sheets.each { |(sheet, owner)| sheets << {sheet, CSS::Cascade::TIER_WIDGET, owner} }
-      CSS::Cascade.apply_sheets sheets, self, doc, scope, variables, resolved
+      sheets
+    end
+
+    # The patch-only cascade. Taken when everything that dirtied styling since
+    # the last run is an attribute change on tracked widgets (a hover/focus
+    # flip, a class or intrinsic attribute toggle) against an otherwise
+    # unchanged document: the tree is not serialized, the cached parsed nodes
+    # are patched in place, and only the rules whose selectors mention a
+    # changed token are re-matched. Returns whether it ran (or found nothing
+    # to do); `false` hands over to the serializing route, which is also the
+    # only one after a stylesheet/theme swap, a structural change, a media
+    # input change or a full `restyle`.
+    private def apply_stylesheet_patched(author : CSS::Stylesheet?, default : CSS::Stylesheet,
+                                         widget_sheets : Array(Tuple(CSS::Stylesheet, Widget))) : Bool
+      return false if @css_full || @css_structural || @css_patch_widgets.empty?
+      # A `nil` last document is a forced cascade (stylesheet or sheet-set
+      # change): the document string is stale and so is every match.
+      return false if @css_last_document.nil?
+      doc = @css_parsed_doc
+      return false unless doc && @css_node_index
+      generation = CSS.default_stylesheet_generation
+      return false unless generation == @css_last_default_generation
+      if css_media_active?
+        return false unless @css_last_size == {width, height} && @css_last_glyph_tier == glyph_tier
+      end
+      tokens = css_patch_nodes_diff
+      # A patch that changed nothing (a flip and its reversal in one frame)
+      # leaves the document exactly as last cascaded: nothing to do.
+      if tokens && tokens.empty?
+        clear_css_dirty
+        return true
+      end
+      @css_cascades_patched += 1
+      # The cached string no longer describes the patched document; the next
+      # serializing cascade must not skip against it.
+      @css_last_document_stale = true
+      scope = @css_dirty_roots.empty? ? nil : css_scope_widgets
+      variables, resolved = css_var_caches(author, default, generation)
+      CSS::Cascade.apply_sheets css_sheet_list(author, default, widget_sheets), self, doc, scope, variables, resolved, tokens
       @css_widgets_styled = true
       clear_css_dirty
+      true
+    end
+
+    # The rule-match cache for *doc* (see `@css_rule_matches`): the matches
+    # recorded against the same parsed document, or a freshly emptied cache
+    # when *doc* is a new parse. The cascade fills and reads it.
+    def css_rule_matches(doc : HTML5::Node) : Hash(Tuple(CSS::Stylesheet, Int32), Array(HTML5::Node))
+      unless doc.same?(@css_rule_matches_doc)
+        @css_rule_matches.clear
+        @css_rule_matches_doc = doc
+      end
+      @css_rule_matches
     end
 
     # The `{merged variables, var() resolution memo}` pair the cascade resolves
@@ -584,6 +679,87 @@ module Crysterm
           sub.attr.concat widget.css_sub_node_attributes(slot)
         end
       end
+    end
+
+    # `#css_patch_nodes` that also reports *what* changed: the selector tokens
+    # whose presence on a patched node differs from the cached document — a
+    # class as `.name` (and `[class`), an id as `#id` (and `[id`), any other
+    # attribute as `[name`. A rule mentioning none of them matches exactly the
+    # same nodes as before the patch. `nil` when a changed value can't be
+    # expressed as a token (every rule must then be re-matched).
+    private def css_patch_nodes_diff : Set(String)?
+      index = @css_node_index
+      return unless index
+      tokens = Set(String).new
+      exact = true
+      @css_patch_widgets.each do |widget|
+        node = index[widget.uid_s]?
+        next unless node
+        exact = false unless css_diff_node_attributes(node, widget.css_node_attributes, tokens)
+        widget.css_sub_elements.each do |slot|
+          sub = index["#{widget.uid_s}::#{slot}"]?
+          next unless sub
+          exact = false unless css_diff_node_attributes(sub, widget.css_sub_node_attributes(slot), tokens)
+        end
+      end
+      @css_patch_widgets.clear
+      exact ? tokens : nil
+    end
+
+    # Replaces *node*'s attributes with *attrs*, adding the tokens that differ
+    # to *tokens* (see `#css_patch_nodes_diff`). Returns `false` when a changed
+    # class or id isn't a plain identifier, so it can't be matched as a token.
+    private def css_diff_node_attributes(node : HTML5::Node, attrs : Array(HTML5::Attribute), tokens : Set(String)) : Bool
+      exact = true
+      old = node.attr
+      attrs.each do |a|
+        prev = old.find { |o| o.key == a.key }
+        next if prev && prev.val == a.val
+        exact = false unless css_diff_attribute_tokens(a.key, prev.try(&.val), a.val, tokens)
+      end
+      old.each do |o|
+        next if attrs.any? { |a| a.key == o.key }
+        exact = false unless css_diff_attribute_tokens(o.key, o.val, nil, tokens)
+      end
+      old.clear
+      old.concat attrs
+      exact
+    end
+
+    # Adds the tokens for one attribute's change from *before* to *after* (a
+    # `nil` side is absence).
+    private def css_diff_attribute_tokens(key : String, before : String?, after : String?, tokens : Set(String)) : Bool
+      case key
+      when "class"
+        tokens << "[class"
+        a = (before || "").split(' ', remove_empty: true)
+        b = (after || "").split(' ', remove_empty: true)
+        ok = true
+        (a | b).each do |cls|
+          next if a.includes?(cls) && b.includes?(cls)
+          ok = false unless css_token_ident?(cls)
+          tokens << ".#{cls}"
+        end
+        ok
+      when "id"
+        tokens << "[id"
+        ok = true
+        {before, after}.each do |id|
+          next unless id
+          ok = false unless css_token_ident?(id)
+          tokens << "##{id}"
+        end
+        ok
+      else
+        tokens << "[#{key}"
+        true
+      end
+    end
+
+    # Whether *name* is a plain CSS identifier (letters, digits, `-`, `_`), so
+    # it appears verbatim in a lowered selector.
+    private def css_token_ident?(name : String) : Bool
+      !name.empty? && name.each_char.all? { |c| c.ascii_alphanumeric? || c == '-' || c == '_' }
     end
 
     # Builds a `data-uid -> node` index over a parsed document.
