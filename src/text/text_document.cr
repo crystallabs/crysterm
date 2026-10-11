@@ -72,9 +72,94 @@ module Crysterm
     getter root_frame : TextFrame { TextFrame.new(self) }
 
     @cursors = [] of WeakRef(TextCursor)
-    @block_offsets : Array(Int32)?
-    # Memoized `to_plain_text`; must be dropped alongside `@block_offsets` on
-    # every structural edit.
+
+    # Cumulative block lengths (each block's size plus its separator) as a
+    # binary indexed tree: a block's document position is a prefix sum and a
+    # typing edit re-records one block's length, both O(log blocks) — the
+    # shape of Qt's `QFragmentMap`, whose block nodes carry `size_left` sums
+    # that `position()` adds up and `setSize()` adjusts. Rebuilt (O(blocks))
+    # only when blocks are inserted or removed.
+    private class BlockPositions
+      @tree : Array(Int32)
+      @lengths : Array(Int32)
+      getter count : Int32
+
+      # Sum of every length: the document size plus one.
+      getter total : Int32
+
+      def initialize(blocks : Array(TextBlock))
+        n = blocks.size
+        @count = n
+        lengths = Array(Int32).new(n)
+        tree = Array(Int32).new(n + 1, 0)
+        total = 0
+        # Linear build: each node adds its own range sum into its parent.
+        i = 1
+        while i <= n
+          len = blocks.unsafe_fetch(i - 1).size + 1
+          lengths << len
+          total += len
+          tree[i] += len
+          j = i + (i & -i)
+          tree[j] += tree[i] if j <= n
+          i += 1
+        end
+        @lengths = lengths
+        @tree = tree
+        @total = total
+      end
+
+      # Document position of block *index*: the lengths before it, summed.
+      def position(index : Int32) : Int32
+        sum = 0
+        i = index
+        tree = @tree
+        while i > 0
+          sum += tree.unsafe_fetch(i)
+          i -= i & -i
+        end
+        sum
+      end
+
+      # The block holding document position *pos*: the last block whose
+      # position is at most *pos* (the last block for a position past the end).
+      def find(pos : Int32) : Int32
+        tree = @tree
+        idx = 0
+        rem = pos
+        step = 1
+        while (step << 1) <= @count
+          step <<= 1
+        end
+        while step > 0
+          nxt = idx + step
+          if nxt <= @count && (len = tree.unsafe_fetch(nxt)) <= rem
+            idx = nxt
+            rem -= len
+          end
+          step >>= 1
+        end
+        Math.min(idx, @count - 1)
+      end
+
+      # Records block *index*'s current length (its size plus the separator).
+      def set_length(index : Int32, length : Int32) : Nil
+        delta = length - @lengths.unsafe_fetch(index)
+        return if delta == 0
+        @lengths.unsafe_put(index, length)
+        @total += delta
+        tree = @tree
+        i = index + 1
+        while i <= @count
+          tree.unsafe_put(i, tree.unsafe_fetch(i) + delta)
+          i += i & -i
+        end
+      end
+    end
+
+    @block_positions : BlockPositions?
+
+    # Memoized `to_plain_text`; dropped on every edit.
     @plain_cache : String?
     @last_block_count = 1
     @modified = false
@@ -198,7 +283,7 @@ module Crysterm
     # `QTextDocument::size()` — the latter is a layout (pixel) size, which a
     # cell-grid document has no analogue of.
     def size : Int32
-      block_offsets.last + blocks.last.size
+      block_positions.total - 1
     end
 
     # Alias of `#size`, under Qt's name for the same quantity
@@ -218,19 +303,10 @@ module Crysterm
     # block's end; the next block starts one position later (past the
     # separator), so the mapping is unambiguous.
     def block_at(pos : Int32) : BlockLocation
-      offs = block_offsets
-      lo = 0
-      hi = offs.size - 1
-      while lo < hi
-        mid = (lo + hi + 1) // 2
-        if offs[mid] <= pos
-          lo = mid
-        else
-          hi = mid - 1
-        end
-      end
-      off = (pos - offs[lo]).clamp(0, blocks[lo].size)
-      BlockLocation.new(lo, off)
+      bp = block_positions
+      index = bp.find(pos)
+      off = (pos - bp.position(index)).clamp(0, blocks[index].size)
+      BlockLocation.new(index, off)
     end
 
     # The block containing document position *pos* (Qt `findBlock`) — the
@@ -243,7 +319,7 @@ module Crysterm
 
     # Document position of block `index`'s first character.
     def block_position(index : Int32) : Int32
-      block_offsets[index]
+      block_positions.position(index)
     end
 
     # The index of the block rendered from source *line* (1-based,
@@ -533,7 +609,7 @@ module Crysterm
       adopt(bs)
       each_cursor &.rewind_to_start
       undo_stack.clear
-      @block_offsets = nil
+      @block_positions = nil
       finish_edit(0, old_size, size, kind: :replace)
       refresh_undo_state
     end
@@ -906,16 +982,32 @@ module Crysterm
       end
     end
 
-    private def block_offsets : Array(Int32)
-      @block_offsets ||= begin
-        bs = blocks
-        arr = Array(Int32).new(bs.size)
-        pos = 0
-        bs.each do |b|
-          arr << pos
-          pos += b.size + 1
-        end
-        arr
+    private def block_positions : BlockPositions
+      @block_positions ||= BlockPositions.new(blocks_mut)
+    end
+
+    # Keeps the block position tree current across an edit. An edit that left
+    # the block count alone re-records only the lengths of the blocks the
+    # edited range `[pos, pos + added]` spans — one block, for a keystroke;
+    # a format-only change touches no length; an edit that inserted or
+    # removed blocks drops the tree, rebuilt by the next position query.
+    private def sync_block_positions(pos : Int32, added : Int32, kind : ChangeKind) : Nil
+      bp = @block_positions
+      return unless bp
+      return if kind.format?
+      bs = blocks_mut
+      if kind.replace? || bp.count != bs.size
+        @block_positions = nil
+        return
+      end
+      # Positions before the edit are unchanged, so the tree still locates
+      # the block the edit started in.
+      i = bp.find(pos)
+      finish = pos + added
+      loop do
+        bp.set_length(i, bs.unsafe_fetch(i).size + 1)
+        i += 1
+        break if i >= bs.size || bp.position(i) >= finish
       end
     end
 
@@ -944,14 +1036,14 @@ module Crysterm
       end
     end
 
-    # Common tail of every raw edit: drop the position index, shift live
-    # cursors, emit change signals. Only `Edit` shifts cursors — `Format`
-    # reports a changed range but must not move cursors within it, and
-    # `Replace` has already rewound them. The kind rides on `ContentsChanged`
-    # so views can mirror the adjustment on their own carets.
+    # Common tail of every raw edit: bring the block positions up to date,
+    # shift live cursors, emit change signals. Only `Edit` shifts cursors —
+    # `Format` reports a changed range but must not move cursors within it,
+    # and `Replace` has already rewound them. The kind rides on
+    # `ContentsChanged` so views can mirror the adjustment on their own carets.
     private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit) : Nil
       @revision += 1
-      @block_offsets = nil
+      sync_block_positions(pos, added, kind)
       @plain_cache = nil
       if kind.edit? && (removed > 0 || added > 0)
         each_cursor &.adjust(pos, removed, added)
