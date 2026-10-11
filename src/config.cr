@@ -36,9 +36,17 @@ module Crysterm
   # the two file/dump built-ins are only recognized under their namespaced
   # spellings, `CONFIG_FLAG` and `DUMP_CONFIG_FLAG`: a bare `--config` /
   # `--dump-config` in `ARGV` belongs to the application and is passed over.
-  def self.configure!(file : String? = nil, *, env : Bool = true, args : Bool = true, argv : Array(String) = ARGV) : Nil
+  #
+  # `DUMP_CONFIG_FLAG` dumps the configuration and exits — at once, or, with
+  # *defer_dump*, once the first `Window` is created, by which time the
+  # application has registered its own options (`Superconf.dump_pending`).
+  # The load-time call below defers, so an application's options are in the
+  # dump without the application doing anything; an application that calls
+  # this again itself, after registering its options and loading its own
+  # file, gets the dump at that point.
+  def self.configure!(file : String? = nil, *, env : Bool = true, args : Bool = true, argv : Array(String) = ARGV, defer_dump : Bool = false) : Nil
     Superconf.configure! file, env: env, args: false
-    Superconf.load_args namespaced_argv(argv), consume: false if args
+    Superconf.load_args namespaced_argv(argv), consume: false, defer_dump: defer_dump if args
   end
 
   # A copy of *argv* speaking Superconf's built-in flag names: the namespaced
@@ -223,7 +231,10 @@ require "./config/builtins"
 # `CRYSTERM_*` env vars and CLI flags with no per-app `configure!` call. Must run
 # before any `Window` is constructed: many options are read as `Window` property
 # defaults at the start of `initialize`, too early for a later call to affect.
+# A `--crysterm-dump-config` is deferred to the first `Window`, so the options
+# an app registers after this point (its files load after Crysterm's) are in
+# the dump.
 #
 # Opt out via `CRYSTERM_NO_AUTO_CONFIGURE`. Apps may still call
 # `Crysterm.configure!` again themselves; it re-applies in precedence order.
-Crysterm.configure! unless ENV["CRYSTERM_NO_AUTO_CONFIGURE"]?.presence
+Crysterm.configure!(defer_dump: true) unless ENV["CRYSTERM_NO_AUTO_CONFIGURE"]?.presence

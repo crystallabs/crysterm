@@ -101,6 +101,7 @@ require "./reactive/computed"
 require "./reactive/observable_list"
 require "./reactive/bind_items"
 require "./reactive/bind_action"
+require "./reactive/config"
 
 require "./style/css/**"
 
@@ -204,9 +205,13 @@ module Crysterm
   # per-user cache file, `$XDG_CACHE_HOME/<app>/<app>.log` —
   # `~/.cache/<app>/<app>.log` when `XDG_CACHE_HOME` is unset — created as
   # needed. The default only fills an empty option: a file the user named
-  # (the config file, `CRYSTERM_LOG_FILE`, `--log-file`) is kept. Returns the
-  # path the option now holds, or `nil` when the directory could not be made,
-  # in which case the option stays empty and the standard log setup stands.
+  # (the config file, `CRYSTERM_LOG_FILE`, `--log-file`) is kept. It is set
+  # as the option's default (`Superconf.set_default`), not as a value: the
+  # option stays unconfigured, so a settings file that records what the user
+  # set leaves it out, and a file, variable or flag still overrides it.
+  # Returns the path the option now holds, or `nil` when the directory could
+  # not be made, in which case the option stays empty and the standard log
+  # setup stands.
   #
   # For an application that wants no backtrace ever written over its screen
   # without asking the user to configure anything; call it before the first
@@ -223,7 +228,7 @@ module Crysterm
     dir = File.join(base, app)
     Dir.mkdir_p dir
     path = File.join(dir, "#{app}.log")
-    Config.set "log.file", path
+    Config.set_default "log.file", path
     path
   rescue File::Error
     nil
