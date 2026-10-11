@@ -14,7 +14,9 @@ module Crysterm
     # a hidden widget away; shown again, it gets back the extent it had. The
     # panes grow and shrink with the splitter in proportion to their extents
     # (`#set_stretch_factor` exempts some, for a fixed column), and
-    # `#save_state`/`#restore_state` carry the layout across runs.
+    # `#save_state`/`#restore_state` carry the layout across runs. `#resizable
+    # = false` locks the dividers where they are, for a layout the user wants
+    # left alone.
     #
     # ```
     # sp = Widget::Splitter.new parent: window, width: 60, height: 20
@@ -72,10 +74,18 @@ module Crysterm
         end
 
         # Moves this divider, clamped so neither neighbor pane collapses below
-        # one cell, and re-lays the splitter out.
+        # one cell, and re-lays the splitter out. The programmatic move: it
+        # works on a locked splitter too (`Splitter#resizable`), as
+        # `QSplitter::moveSplitter` does with its handles disabled.
         def position=(pos : Int) : Int32
           @owner.move_divider @index, pos
           position
+        end
+
+        # A locked divider takes no focus, as a disabled `QSplitterHandle`
+        # takes none: there would be nothing for the arrow keys to do.
+        def focus
+          super if @owner.resizable?
         end
       end
 
@@ -113,6 +123,25 @@ module Crysterm
       # The extent each pane got from the last layout (0 while hidden); what
       # `#sizes` reports. Filled in place every frame, like `@positions`.
       @fitted = [] of Int32
+
+      # Whether the dividers can be moved by hand — with the mouse or the
+      # arrow keys — which they can by default. Qt has no flag of its own for
+      # this: a `QSplitterHandle` is disabled with `setEnabled(false)`, and
+      # that is what locking does to every divider, so a locked divider
+      # refuses a drag and the keys and takes no focus (`Divider#focus`),
+      # while the layout stays as it is. The programmatic moves — `#sizes=`,
+      # `#restore_state`, `Divider#position=` — still work, as Qt's do with
+      # the handles disabled.
+      getter? resizable = true
+
+      # :ditto:
+      def resizable=(value : Bool) : Bool
+        return value if value == @resizable
+        @resizable = value
+        @dividers.each { |div| div.enabled = value }
+        update!
+        value
+      end
 
       # Set for the duration of `#destroy`: guards `#rebuild_dividers` against
       # allocating fresh `Divider`s while the panes are being torn down one by
@@ -427,6 +456,7 @@ module Crysterm
         # application focusing it (`Divider#focus`), after which the arrow
         # keys move it.
         div.focus_policy = :click
+        div.enabled = @resizable
         wire_divider div, idx
         div
       end
@@ -448,7 +478,10 @@ module Crysterm
           end
         end
 
+        # A locked divider gets no keys from the window (it is disabled and
+        # holds no focus); the guard is for a key handed to it directly.
         div.on(Crysterm::Event::KeyPress) do |e|
+          next unless @resizable
           dec = horizontal? ? Tput::Key::Left : Tput::Key::Up
           inc = horizontal? ? Tput::Key::Right : Tput::Key::Down
           if e.key == dec
