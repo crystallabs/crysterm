@@ -20,6 +20,10 @@ module Crysterm
     # tv.on(Crysterm::Event::AnchorClick) { |e| tb.activate_link e.url }
     # ```
     #
+    # The view can also follow the reader the other way, highlighting the
+    # heading a caret or viewport position is under (`#track`) — the sidebar's
+    # "Synchronize with Editor", as IDE outline views call it.
+    #
     # Headings that skip a level (an `h1` straight to an `h3`) get a filler
     # node named for the level they skipped, so the tree keeps its shape
     # instead of flattening or dropping the entry.
@@ -98,6 +102,57 @@ module Crysterm
           emit Crysterm::Event::AnchorClick, "##{anchor}"
         end
         super
+      end
+
+      # Selects the entry of the heading document *position* (an absolute
+      # character position in `#document`) is under: the last outline entry
+      # whose block is at or before the position's block, so a position on a
+      # heading line selects that heading and one inside the text below it
+      # selects the heading above. When that entry's node is hidden under a
+      # collapsed ancestor, the nearest ancestor that is a visible row is
+      # selected instead, so collapsing a branch keeps the highlight on the
+      # branch rather than losing it. Selection only: nothing is expanded and
+      # no `Event::AnchorClick` is emitted — activating an entry jumps,
+      # tracking does not — which is what lets a caller hook it to every caret
+      # move without the two views chasing each other. Returns whether the
+      # selection moved. A position above the first heading, or a document
+      # with no outline, leaves the selection as it is and returns `false`.
+      #
+      # Cheap enough for a caret-move handler: the outline is the document's
+      # cached array, scanned backwards, and the node lookup walks the tree
+      # without building anything.
+      def track(position : Int32) : Bool
+        return false unless doc = @document
+        entries = doc.outline
+        return false if entries.empty?
+        block = doc.block_at(position).index
+        i = entries.size - 1
+        while i >= 0 && entries[i].block > block
+          i -= 1
+        end
+        return false if i < 0
+        return false unless node = find_node(@roots, entries[i].anchor)
+        row = @node_row[node]?
+        if row.nil? && (anc = nearest_visible_ancestor node)
+          row = @node_row[anc]?
+        end
+        return false unless row
+        before = current_index
+        self.current_index = row
+        current_index != before
+      end
+
+      # The node carrying *anchor* among *nodes* and their descendants, visible
+      # or not. A plain recursion rather than `#each_node` so the search can
+      # stop at the hit and allocates no closure.
+      private def find_node(nodes : Array(Node), anchor : String) : Node?
+        nodes.each do |n|
+          return n if n.data == anchor
+          if hit = find_node(n.children, anchor)
+            return hit
+          end
+        end
+        nil
       end
 
       # Whether *entries* still matches `@signature`, entry for entry —
