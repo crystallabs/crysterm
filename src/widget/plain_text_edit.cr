@@ -103,7 +103,7 @@ module Crysterm
       # base renderer, which asks per row; the row's buffer bounds come from
       # the wrap map, as `#selection_columns_for_row` derives them.
       protected def extra_selections_for_row(rl : Int32) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
-        return {nil, nil} if @extra_selections.empty? || rl < 0 || rl >= @wrapped_lines.size
+        return {nil, nil} if (@extra_selections.empty? && !@highlight_current_line) || rl < 0 || rl >= @wrapped_lines.size
         row_extra_selections(pos_from_rowcol(rl, 0), pos_from_rowcol(rl, line_display_width(rl)), row_text_x_offset(rl))
       end
 

@@ -424,14 +424,65 @@ module Crysterm
           list
         end
 
+        # Whether the display row(s) holding the caret are tinted
+        # (`#current_line_format`): the current-line highlight of code
+        # editors. Qt's code editor example builds it from a full-width
+        # `ExtraSelection` re-set on every caret move; here it is a view
+        # property, painted under the extra selections at render time, so
+        # `#extra_selections` stays the app's own and nothing is re-set.
+        getter? highlight_current_line : Bool = false
+
+        def highlight_current_line=(value : Bool) : Bool
+          return value if value == @highlight_current_line
+          @highlight_current_line = value
+          update
+          update! if window?
+          value
+        end
+
+        # The format of the caret's row while `#highlight_current_line?`;
+        # `nil` (the default) for a tint derived from the widget's own
+        # background — lighter on a dark one, darker on a light one, by
+        # `CURRENT_LINE_LIFT` — so it reads under any stylesheet.
+        getter current_line_format : TextCharFormat?
+
+        def current_line_format=(fmt : TextCharFormat?) : TextCharFormat?
+          @current_line_format = fmt
+          update
+          update! if window?
+          fmt
+        end
+
+        # Lightness step the derived `#current_line_format` takes off the
+        # widget's background.
+        CURRENT_LINE_LIFT = 0.14
+
+        # `#current_line_format`, or the derived tint.
+        protected def current_line_format_in_effect : TextCharFormat
+          @current_line_format || begin
+            bg = style.bg
+            surface = (bg.nil? || bg < 0) ? Colors.default_bg_rgb : bg
+            tint = if Colors.luminance(surface) < 0.5
+                     Colors.lighten(surface, CURRENT_LINE_LIFT)
+                   else
+                     Colors.darken(surface, CURRENT_LINE_LIFT)
+                   end
+            TextCharFormat.new(bg: tint)
+          end
+        end
+
         # Extra selections overlapping the row `[row_start, row_end]`:
         # `{ranges of viewport columns + format}` for ranged ones, and the
         # merged format of full-width ones touching the row (painted across the
-        # whole region width).
+        # whole region width) — over the current-line tint when the caret is
+        # on the row and `#highlight_current_line?`.
         protected def row_extra_selections(row_start : Int32, row_end : Int32, offset : Int32 = 0) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
-          return {nil, nil} if @extra_selections.empty?
+          return {nil, nil} if @extra_selections.empty? && !@highlight_current_line
           ranged = nil
           full_fmt = nil
+          if @highlight_current_line && @cursor_pos >= row_start && @cursor_pos <= row_end
+            full_fmt = current_line_format_in_effect
+          end
           @extra_selections.each do |xs|
             c = xs.cursor
             if c.selection?
