@@ -58,6 +58,57 @@ module Crysterm
         @status_bar
       end
 
+      # How long `#report_handler_errors`' notice stays in the status bar.
+      HANDLER_ERROR_TIMEOUT = 5.seconds
+
+      # Reports errors that escape event handlers in the status bar, so the
+      # app goes on with its state intact (unsaved text can still be saved)
+      # and the user sees what happened: subscribes to the application's
+      # `Event::HandlerError` — which opts the app into continuing past such
+      # errors, see `Application#handler_raised` — and on each one logs the
+      # error with its backtrace through `::Log` and shows a message for
+      # *timeout*. The message is *message*'s, given the error; by default
+      # `.handler_error_message`'s: the error and where the backtrace went.
+      # Call once the main window is in its window (the application is the
+      # window's, else `Application.global`).
+      #
+      # ```
+      # main.report_handler_errors
+      # main.report_handler_errors { |error| "Oops: #{error.message}" }
+      # ```
+      def report_handler_errors(timeout : Time::Span? = HANDLER_ERROR_TIMEOUT, &message : Exception -> String) : Nil
+        app = window?.try(&.application) || Application.global
+        app.on(::Crysterm::Event::HandlerError) { |e| report_handler_error(e.error, timeout, &message) }
+      end
+
+      # :ditto:
+      def report_handler_errors(timeout : Time::Span? = HANDLER_ERROR_TIMEOUT) : Nil
+        report_handler_errors(timeout) { |error| MainWindow.handler_error_message(error) }
+      end
+
+      # Reports one *error* as `#report_handler_errors` does: logged, then
+      # shown in the status bar for *timeout*. For an app reporting an error
+      # it caught itself the same way.
+      def report_handler_error(error : Exception, timeout : Time::Span? = HANDLER_ERROR_TIMEOUT, &message : Exception -> String) : Nil
+        ::Log.error(exception: error) { "Crysterm: event handler raised; continuing" }
+        status_bar.show_message message.call(error), timeout
+      end
+
+      # :ditto:
+      def report_handler_error(error : Exception, timeout : Time::Span? = HANDLER_ERROR_TIMEOUT) : Nil
+        report_handler_error(error, timeout) { |e| MainWindow.handler_error_message(e) }
+      end
+
+      # The default notice for *error*: its message, and where its backtrace
+      # went — the `log.file` option's file, or standard error when the
+      # option is unset (then the backtrace lands over the screen, which
+      # `Crysterm.default_log_file` prevents).
+      def self.handler_error_message(error : Exception) : String
+        where = Crysterm::Config.log_file
+        where = "stderr" if where.empty?
+        "Internal error: #{error.message} (see #{where})"
+      end
+
       # The widget filling the space left by the bars and docks. Unlike the bars,
       # this is not auto-created (nor is it in Qt): there is no sensible default
       # central widget.
