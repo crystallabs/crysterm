@@ -10,6 +10,12 @@ module Crysterm
     # with the mouse — or moving it with the arrow keys when focused — resizes the
     # two panes around it; divider offsets can also be set programmatically.
     #
+    # A hidden pane takes no room and shows no divider, as a `QSplitter` folds
+    # a hidden widget away; shown again, it gets back the extent it had. The
+    # panes grow and shrink with the splitter in proportion to their extents
+    # (`#set_stretch_factor` exempts some, for a fixed column), and
+    # `#save_state`/`#restore_state` carry the layout across runs.
+    #
     # ```
     # sp = Widget::Splitter.new parent: window, width: 60, height: 20
     # sp.add_widget Widget::Box.new(content: "a")
@@ -52,7 +58,8 @@ module Crysterm
       @[::Crysterm::DOM::Skip]
       class Divider < Box
         # The splitter this divider belongs to, and which split it marks
-        # (`#index` `i` separates pane `i` from pane `i + 1`).
+        # (`#index` `i` separates pane `i` from the next shown pane; the
+        # divider is hidden while pane `i` is, or while no shown pane follows).
         getter index : Int32
 
         def initialize(@owner : Splitter, @index : Int32, **box)
@@ -81,14 +88,31 @@ module Crysterm
       end
 
       # Divider offsets along the split axis, in content cells (sorted
-      # ascending); `#positions[i]` separates pane `i` from pane `i+1`.
+      # ascending), as the last layout placed them; `#positions[i]` separates
+      # pane `i` from the next shown pane. Derived from the panes' extents on
+      # every layout, not the other way round: what the panes want (`@wanted`)
+      # is the state, as in Qt.
       @positions = [] of Int32
 
-      # Whether the user has set a divider explicitly (drag, keys, or an explicit
-      # `dividers[i].position =`). Until then, panes re-even to the current span on every
-      # layout, so a splitter sized by a layout engine settles at its final size
-      # rather than an early, wrong distribution. Once adjusted, only clamps.
-      @user_positioned = false
+      # The extent each pane wants along the split axis, in content cells —
+      # Qt's per-pane `sizer`: what `#sizes=` asked for, or the extents as
+      # they stood after the last drag or key move (`#store_sizes`), so later
+      # layouts keep the proportions the user settled on. `0` is a pane never
+      # sized: it takes an even share, so a fresh splitter splits evenly and
+      # re-fits to its span on every layout until a divider is moved. A
+      # hidden pane keeps its entry, and gets the extent back when shown.
+      @wanted = [] of Int32
+
+      # Stretch factors (Qt's `QSplitter#setStretchFactor`), one per pane.
+      # With none set, every pane grows and shrinks with the splitter in
+      # proportion to its extent. With some set, only the panes with a factor
+      # do; the others keep the extent they want, a fixed column beside
+      # stretching ones.
+      @stretch = [] of Int32
+
+      # The extent each pane got from the last layout (0 while hidden); what
+      # `#sizes` reports. Filled in place every frame, like `@positions`.
+      @fitted = [] of Int32
 
       # Set for the duration of `#destroy`: guards `#rebuild_dividers` against
       # allocating fresh `Divider`s while the panes are being torn down one by
@@ -135,7 +159,8 @@ module Crysterm
       end
 
       # Appends a pane to the right/bottom, inserting a draggable divider before
-      # it (except for the first pane). Existing dividers are re-evened.
+      # it (except for the first pane). The new pane wants no extent yet, so it
+      # takes an even share of the span.
       #
       # Re-adding a pane the splitter already holds is a move: it is dropped
       # from its current slot first (rebuilding the divider set for the
@@ -156,9 +181,11 @@ module Crysterm
         # doesn't yet list it.
         append widget
         @panes << widget
+        @wanted << 0
+        @stretch << 0
+        @fitted << 0
         @dividers.each &.to_front
 
-        even_positions
         relayout
         self
       end
@@ -191,7 +218,7 @@ module Crysterm
       # Inserts *widget* as a pane at *index* (clamped to the end), like Qt's
       # `QSplitter#insertWidget`. Appending is the common case and keeps the
       # existing dividers untouched; a mid-list insert renumbers the dividers, so
-      # they are rebuilt and the panes re-evened.
+      # they are rebuilt.
       #
       # Re-inserting a pane the splitter already holds is a move: dropped from
       # its current slot first (see `#add_widget`), with *index* then clamped
@@ -203,13 +230,16 @@ module Crysterm
         return add_widget widget if i >= @panes.size
         append widget
         @panes.insert i, widget
+        @wanted.insert i, 0
+        @stretch.insert i, 0
+        @fitted.insert i, 0
         rebuild_dividers
         self
       end
 
       # Removes *widget* from the panes, detaching (not destroying) it, and
       # returns it — or `nil` when it is not a pane. The dividers are rebuilt
-      # and the remaining panes re-evened; the actual bookkeeping lives in the
+      # and the remaining panes re-fitted; the actual bookkeeping lives in the
       # `#remove` override so every detach path shares it.
       def remove_widget(widget : Widget) : Widget?
         return unless @panes.includes? widget
@@ -233,6 +263,9 @@ module Crysterm
         super
         if idx
           @panes.delete_at idx
+          @wanted.delete_at idx
+          @stretch.delete_at idx
+          @fitted.delete_at idx
           rebuild_dividers
         end
       end
@@ -240,7 +273,8 @@ module Crysterm
       # Recreates the divider boxes (one fewer than `#panes`) after a mid-list
       # insert renumbers them: each divider's drag/key handlers capture their
       # positional index, so keeping the old boxes would drive the wrong split.
-      # Positions are re-evened across the new arrangement.
+      # The panes keep the extents they want; the dividers are placed from
+      # them afresh.
       #
       # A no-op while the splitter itself is being torn down (`#destroy`):
       # each pane's own teardown detaches through `#remove`, and rebuilding
@@ -252,52 +286,94 @@ module Crysterm
         @dividers.each { |d| remove d }
         @dividers.clear
         @positions.clear
-        @user_positioned = false
         (@panes.size - 1).times do |idx|
           @dividers << make_divider(idx)
           @positions << 0
         end
         @dividers.each &.to_front
-        even_positions
         relayout
       end
 
       # --- Pane sizes (Qt's `QSplitter#sizes`) ---------------------------------
 
-      # Extent of each pane along the split axis, in content cells — one entry per
-      # pane, the dividers' own cells excluded.
+      # Extent of each pane along the split axis, in content cells, as laid
+      # out now — one entry per pane, the dividers' own cells excluded, `0`
+      # for a hidden pane (as Qt's `sizes` answers). Laid out on the spot, so
+      # the answer is current between frames.
       def sizes : Array(Int32)
-        n = @panes.size
-        return [] of Int32 if n == 0
-        total = total_span
-        Array(Int32).new(n) do |i|
-          start = i == 0 ? 0 : @positions[i - 1] + 1
-          stop = i == n - 1 ? total : @positions[i]
-          Math.max(1, stop - start)
-        end
+        relayout
+        @fitted.dup
       end
 
-      # Resizes the panes to *values* (Qt's `setSizes`): the divider offsets are
-      # the running sum of the wanted extents (plus one cell for each divider
-      # passed), then clamped so no pane collapses. Extra entries are ignored;
-      # missing ones leave that pane at its current extent. Like a drag, this
-      # counts as positioning the splitter by hand, so it stops re-evening its
-      # panes on every layout.
+      # Resizes the panes to *values* (Qt's `setSizes`): each becomes the
+      # extent its pane wants, and the layout fits them to the span — exactly
+      # when they add up to it, in proportion otherwise (`#fit`) — with no
+      # pane below one cell. A value of 0 or less asks for nothing in
+      # particular: an even share (Qt collapses such a pane; here panes do not
+      # collapse). Extra entries are ignored; the panes missing one share what
+      # the given extents leave of the span, in proportion to their extents
+      # now, so a short vector resizes the panes it names and the last pane
+      # takes up the slack. Hidden panes take their values too, for when they
+      # are shown.
       def sizes=(values : Enumerable(Int32)) : Nil
-        return if @panes.size < 2
+        return if @panes.empty?
         want = values.to_a
-        # Snapshot before mutating: the fallback for a missing entry is the
-        # pane's extent *now*.
-        cur = sizes
-        @user_positioned = true
-        pos = 0
-        @positions.each_index do |i|
-          pos += (want[i]? || cur[i]? || 1)
-          @positions[i] = pos
-          pos += 1 # the divider's own cell
+        relayout
+        left = available_span
+        rest = 0
+        @panes.each_index do |i|
+          if v = want[i]?
+            @wanted[i] = Math.max(0, v)
+            left -= @wanted[i] if shown?(i)
+          elsif shown?(i)
+            rest += @fitted[i]
+          end
         end
-        # Left-to-right, so each clamp sees the already-settled divider behind it.
-        @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
+        if rest > 0
+          @panes.each_index do |i|
+            next if want[i]? || !shown?(i)
+            @wanted[i] = Math.max(1, left * @fitted[i] // rest)
+          end
+        end
+        relayout
+        update!
+      end
+
+      # The extents the panes want, hidden ones included — what to keep across
+      # runs and hand to `#restore_state` next time (Qt's `saveState`, which
+      # also carries the orientation and handle width; here those are the
+      # caller's construction). A pane never sized has 0: no wish recorded.
+      def save_state : Array(Int32)
+        @wanted.dup
+      end
+
+      # Brings back a layout `#save_state` returned (Qt's `restoreState`):
+      # `#sizes=` with *state*, which the layout fits to the span as it is
+      # now, so a splitter wider or narrower than the one saved keeps the
+      # proportions. Returns false, and changes nothing, for a *state* that is
+      # not one entry per pane (another pane count, or data from elsewhere).
+      def restore_state(state : Enumerable(Int32)) : Bool
+        list = state.to_a
+        return false if list.empty? || list.size != @panes.size
+        self.sizes = list
+        true
+      end
+
+      # The stretch factor of pane *index*: 0 unless `#set_stretch_factor`
+      # gave it one.
+      def stretch_factor(index : Int) : Int32
+        @stretch[index]? || 0
+      end
+
+      # Gives pane *index* stretch factor *stretch* (Qt's `setStretchFactor`).
+      # Once any pane has one, the panes with a factor absorb the splitter's
+      # growth and shrinkage between them, in proportion to their extents, and
+      # the panes without keep the extent they want: the way to a fixed-width
+      # side column beside stretching main panes. The factor's size does not
+      # weigh, as in Qt; non-zero is what counts.
+      def set_stretch_factor(index : Int, stretch : Int) : Nil
+        return unless 0 <= index < @panes.size
+        @stretch[index] = stretch.to_i
         relayout
         update!
       end
@@ -310,12 +386,22 @@ module Crysterm
         @positions[i]? || 0
       end
 
-      # Sets divider *i*'s offset (clamped so neither neighbor pane collapses
-      # below one cell) and re-lays out. Reached through `Divider#position=`.
+      # Sets divider *i*'s offset and re-lays out: the panes on either side —
+      # pane *i* and the next shown one — trade cells, clamped so neither goes
+      # below one, and every shown pane's extent becomes what it wants
+      # (`#store_sizes`), so proportions set by hand outlive the next resize.
+      # Nothing moves for a hidden divider. Reached through `Divider#position=`.
       protected def move_divider(i : Int, pos : Int) : Nil
         return unless 0 <= i < @positions.size
-        @user_positioned = true
-        @positions[i] = clamp_position(i, pos.to_i)
+        relayout
+        a = i.to_i
+        return unless shown?(a) && (b = next_shown(a))
+        start = @positions[a] - @fitted[a]
+        stop = @positions[a] + 1 + @fitted[b]
+        pos = pos.to_i.clamp(start + 1, Math.max(start + 1, stop - 2))
+        @fitted[a] = pos - start
+        @fitted[b] = stop - pos - 1
+        store_sizes
         relayout
         update!
       end
@@ -336,6 +422,11 @@ module Crysterm
           top: 0, left: 0, width: 1, height: 1,
         )
         div.add_css_class "divider"
+        # Off the Tab chain (Qt's handles take no focus at all): Tab cycles
+        # the panes, and a divider is reached by clicking it or by the
+        # application focusing it (`Divider#focus`), after which the arrow
+        # keys move it.
+        div.focus_policy = :click
         wire_divider div, idx
         div
       end
@@ -381,69 +472,145 @@ module Crysterm
         Math.max(0, span)
       end
 
-      # Clamps divider *i*'s position so the layout stays valid regardless of
-      # its neighbors. Two constraints:
-      #
-      # * *Absolute room* — panes/dividers on either side need at least one
-      #   cell each, so *i* can't go below `1 + 2*i` nor above
-      #   `total - 2*(n-1-i)`. Depends only on `total`, so a shrinking span
-      #   pulls every divider back inside it.
-      # * *Non-crossing* — tightened against live neighbor offsets so a dragged
-      #   divider can't pass the one beside it.
-      private def clamp_position(i : Int, pos : Int32) : Int32
-        total = total_span
-        return pos if total <= 0
-        n = @panes.size
-        lo = 1 + 2*i
-        hi = total - 2*(n - 1 - i)
-        lo = Math.max(lo, @positions[i - 1] + 2) if i > 0
-        hi = Math.min(hi, @positions[i + 1] - 2) if i < @positions.size - 1
-        hi = lo if hi < lo
-        pos.clamp(lo, hi)
+      # The span left to the shown panes once their dividers took a cell each.
+      private def available_span : Int32
+        total_span - Math.max(0, shown_count - 1)
       end
 
-      # Distributes the dividers evenly across the available span.
-      private def even_positions
-        n = @panes.size
-        return if n < 2
-        total = total_span
-        return if total <= 0
-        w = Math.max(1, (total - (n - 1)) // n)
-        # Fill `@positions` in place: this runs every frame while
-        # `@user_positioned` is false, so a freshly mapped array would be
-        # per-frame garbage. Rebuild only on the rare size mismatch.
-        if @positions.size == n - 1
-          (0...n - 1).each { |i| @positions[i] = (i + 1) * w + i }
-        else
-          @positions.clear
-          (0...n - 1).each { |i| @positions << (i + 1) * w + i }
+      private def shown_count : Int32
+        count = 0
+        @panes.each { |pane| count += 1 unless pane.hidden? }
+        count
+      end
+
+      private def shown?(i : Int32) : Bool
+        !@panes[i].hidden?
+      end
+
+      # The index of the first shown pane after *i*, or nil.
+      private def next_shown(i : Int32) : Int32?
+        ((i + 1)...@panes.size).each { |j| return j if shown?(j) }
+        nil
+      end
+
+      # Makes the extent every shown pane has the one it wants (Qt's
+      # `storeSizes`), after a move by hand.
+      private def store_sizes : Nil
+        @panes.each_index { |i| @wanted[i] = @fitted[i] if shown?(i) }
+      end
+
+      # Whether pane *i* stretches: it has a factor, or no pane has one.
+      private def stretching?(i : Int32, stretch_all : Bool) : Bool
+        stretch_all || @stretch[i] != 0
+      end
+
+      # The weight of pane *i* in the fit: the extent it wants, or *even* for
+      # a pane never sized.
+      private def weight(i : Int32, even : Int32) : Int32
+        @wanted[i] > 0 ? @wanted[i] : even
+      end
+
+      # Fits the shown panes' wanted extents into *total* (Qt's `doResize`,
+      # in cells), into `@fitted`: the dividers take one cell each, a pane
+      # without a stretch factor the extent it wants, and the stretching panes
+      # share the rest in proportion to theirs — every pane at least one cell.
+      # With no factors set all panes stretch; when the fixed panes alone
+      # would not leave the stretching ones a cell each, all stretch too,
+      # shrinking in proportion rather than any collapsing. A pane never sized
+      # weighs as much as the average sized stretching pane, or one when there
+      # is none. The division's leftover goes to the last stretching pane.
+      private def fit(total : Int32) : Nil
+        @panes.each_index { |i| @fitted[i] = 0 }
+        shown = shown_count
+        return if shown == 0
+        available = Math.max(shown, total - (shown - 1))
+
+        stretch_all = @stretch.all?(&.zero?)
+        sum = 0
+        sized = 0
+        @panes.each_index do |i|
+          next unless shown?(i) && @wanted[i] > 0 && stretching?(i, stretch_all)
+          sum += @wanted[i]
+          sized += 1
         end
-        @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
+        even = sized > 0 ? Math.max(1, sum // sized) : 1
+
+        fixed = 0
+        weights = 0
+        stretching = 0
+        @panes.each_index do |i|
+          next unless shown?(i)
+          if stretching?(i, stretch_all)
+            weights += weight(i, even)
+            stretching += 1
+          else
+            fixed += weight(i, even)
+          end
+        end
+        if stretching == 0 || available - fixed < stretching
+          stretch_all = true
+          weights += fixed
+          fixed = 0
+        end
+
+        room = available - fixed
+        remainder = room
+        last = -1
+        @panes.each_index do |i|
+          next unless shown?(i)
+          if stretching?(i, stretch_all)
+            @fitted[i] = Math.max(1, room * weight(i, even) // weights)
+            remainder -= @fitted[i]
+            last = i
+          else
+            @fitted[i] = weight(i, even)
+          end
+        end
+        if remainder > 0
+          @fitted[last] += remainder
+        else
+          # The one-cell floors overdrew: the cells come off the widest panes.
+          while remainder < 0
+            widest = -1
+            @panes.each_index do |i|
+              next unless shown?(i) && stretching?(i, stretch_all) && @fitted[i] > 1
+              widest = i if widest < 0 || @fitted[i] > @fitted[widest]
+            end
+            break if widest < 0
+            @fitted[widest] -= 1
+            remainder += 1
+          end
+        end
       end
 
+      # Places the shown panes one after another, each at the extent `#fit`
+      # gave it, with a divider between neighbors; a hidden pane is skipped
+      # and its divider hidden, as is the last shown pane's.
       private def relayout
         return if @panes.empty?
         total = total_span
         return if total <= 0
+        fit total
+
         n = @panes.size
-
-        # Until the user pins a divider, keep panes evenly fitted to the current
-        # span (so a layout-driven resize always re-fits); afterwards just clamp
-        # the user's positions into the available space.
-        if @user_positioned && @positions.size == n - 1
-          @positions.each_index { |i| @positions[i] = clamp_position(i, @positions[i]) }
-        else
-          even_positions
-        end
-
+        last = -1
+        @panes.each_index { |i| last = i if shown?(i) }
+        cursor = 0
         @panes.each_with_index do |pane, i|
-          start = i == 0 ? 0 : @positions[i - 1] + 1
-          stop = i == n - 1 ? total : @positions[i]
-          place_pane pane, start, Math.max(1, stop - start), last: i == n - 1
-        end
-
-        @dividers.each_with_index do |div, i|
-          place_divider div, @positions[i]
+          if shown?(i)
+            place_pane pane, cursor, @fitted[i], last: i == last
+            cursor += @fitted[i]
+          end
+          next if i == n - 1
+          @positions[i] = cursor
+          div = @dividers[i]
+          if shown?(i) && i != last
+            place_divider div, cursor
+            div.show
+            cursor += 1
+          else
+            div.hide
+          end
         end
       end
 
