@@ -122,16 +122,17 @@ describe "CSS invalidation" do
     b.style.bg.should eq 0x000000
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.1.seconds # tween under way
+    wait_until { (c = b.style.bg) && 0x000000 < c < 0xffffff } # tween under way
 
     # Force a full recascade mid-tween (what a stylesheet hot-reload or an
     # ancestor-state restyle does) — the per-state Style objects are replaced.
     s.restyle
     s.apply_stylesheet
 
-    sleep 0.1.seconds # ~halfway; ticks must now write the *new* Style
-    mid = b.style.bg.not_nil!
-    (0x202020 <= mid <= 0xe0e0e0).should be_true # still mid-grey, not snapped to white
+    # The ticks must now write the *new* Style: it goes on through greys
+    # rather than standing snapped at white.
+    bgs = samples_until_settled(b) { b.style.bg }
+    bgs.any? { |c| c && 0x000000 < c < 0xffffff }.should be_true
 
     wait_until { b.style.bg == 0xffffff }
     b.style.bg.should eq 0xffffff # landed on target

@@ -20,10 +20,8 @@ describe "BUGS15 CSS transition" do
     b.style.bg.should eq 0x000000
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.1.seconds # ~halfway through the 0.2s tween
-    mid = b.style.bg.not_nil!
-    mid.should_not eq 0xffffff # actually tweening, not snapped instantly
-    (0x101010 <= mid <= 0xf0f0f0).should be_true
+    bgs = samples_until_settled(b) { b.style.bg }
+    bgs.any? { |c| c && 0x000000 < c < 0xffffff }.should be_true # actually tweening, not snapped instantly
 
     wait_until { b.style.bg == 0xffffff }
     b.style.bg.should eq 0xffffff # landed on target
@@ -56,20 +54,9 @@ describe "BUGS15 CSS transition" do
     s.repaint
 
     b.state = Crysterm::WidgetState::Hovered
-    # Sample the style while the tween runs rather than sleeping to its middle:
-    # a loaded machine carries a fixed sleep past the end of a 0.2s tween. The
-    # first read after the state change shows the target (the recomputed
-    # style, before the tween's first tick), so the loop ends with the tween,
-    # not with the first sight of the target.
-    bgs = [] of Int32
-    opacities = [] of Float64
-    wait_until do
-      b.style.bg.try { |c| bgs << c }
-      b.style.opacity.try { |o| opacities << o }
-      !b.transition_running?
-    end
-    bgs.any? { |c| 0x000000 < c < 0xffffff }.should be_true # bg tweened, not snapped
-    opacities.any? { |o| 0.0 < o < 1.0 }.should be_true     # opacity tweened too
+    samples = samples_until_settled(b) { {b.style.bg, b.style.opacity} }
+    samples.any? { |bg, _| bg && 0x000000 < bg < 0xffffff }.should be_true # bg tweened, not snapped
+    samples.any? { |_, op| op && 0.0 < op < 1.0 }.should be_true           # opacity tweened too
     b.style.bg.should eq 0xffffff
     (b.style.opacity.not_nil! < 0.05).should be_true
   end
@@ -106,8 +93,7 @@ describe "BUGS15 CSS transition" do
     b.style.opacity.should eq 1.0
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.15.seconds # opacity tweening 1.0 -> 0.5, still far from done (2s)
-    (0.5 < b.style.opacity.not_nil! < 1.0).should be_true
+    wait_until { (o = b.style.opacity) && 0.5 < o < 1.0 } # opacity tweening 1.0 -> 0.5, far from done (2s)
 
     b.state = Crysterm::WidgetState::Normal
     b.transition_running?.should be_false # tween stopped, not left in flight

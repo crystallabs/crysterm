@@ -171,10 +171,8 @@ describe "click flash via CSS transition" do
 
     # Release: the base transition tweens the red back out.
     s.dispatch_mouse ::Tput::Mouse::Event.new(::Tput::Mouse::Action::Up, ::Tput::Mouse::Button::Left, b.aleft, b.atop)
-    sleep 0.1.seconds # ~halfway through the 0.2s linear fade
-    mid = b.style.bg.not_nil!
-    (mid > 0x200000).should be_true # still visibly red-tinted
-    (mid < 0xff0000).should be_true # but no longer full red
+    bgs = samples_until_settled(b) { b.style.bg }
+    bgs.any? { |c| c && 0x000000 < c < 0xff0000 }.should be_true # fading: red-tinted, no longer full red
 
     wait_until { b.style.bg == 0x000000 }
     b.style.bg.should eq 0x000000

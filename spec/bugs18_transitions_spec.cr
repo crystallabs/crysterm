@@ -30,19 +30,17 @@ describe "B18-92 transition: tint eases the effective tint" do
     b.style.tint?.should be_nil # no tint in the normal state
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.1.seconds            # ~halfway through the 0.2s linear tween
-    mid = b.style.tint?.not_nil! # overlay already visible: color carried, strength easing
-    mid[0].should eq 0xff0000
-    (0.05 <= mid[1] <= 0.75).should be_true # mid-fade, not snapped to 0.8
+    tints = samples_until_settled(b) { b.style.tint? }
+    # The overlay is visible on the way: color carried, strength easing, not snapped to 0.8.
+    tints.any? { |t| t && t[0] == 0xff0000 && 0.0 < t[1] < 0.8 }.should be_true
 
     wait_until { b.style.tint? == {0xff0000, 0.8} }
     b.style.tint?.should eq({0xff0000, 0.8}) # landed on target
 
     b.state = Crysterm::WidgetState::Normal
-    sleep 0.1.seconds
-    out = b.style.tint?.not_nil! # fade-out keeps the color while strength eases down
-    out[0].should eq 0xff0000
-    (0.1 <= out[1] <= 0.7).should be_true
+    tints = samples_until_settled(b) { b.style.tint? }
+    # The fade-out keeps the color while the strength eases down.
+    tints.any? { |t| t && t[0] == 0xff0000 && 0.0 < t[1] < 0.8 }.should be_true
 
     wait_until { b.style.tint?.nil? }
     b.style.tint?.should be_nil # final tick lands on alpha 0.0: overlay inert again
@@ -58,10 +56,9 @@ describe "B18-92 transition: tint eases the effective tint" do
     b.style.tint?.should eq({0x0000ff, 0.5})
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.1.seconds
-    mid = b.style.tint?.not_nil! # equal strengths must not no-op the tween
-    mid[0].should_not eq 0x0000ff
-    mid[0].should_not eq 0xff0000 # mid-blend between blue and red
+    tints = samples_until_settled(b) { b.style.tint? }
+    # Equal strengths must not no-op the tween: a mid-blend between blue and red shows.
+    tints.any? { |t| t && t[0] != 0x0000ff && t[0] != 0xff0000 }.should be_true
 
     wait_until { b.style.tint? == {0xff0000, 0.5} }
     b.style.tint?.should eq({0xff0000, 0.5}) # landed exactly on target
@@ -79,11 +76,11 @@ describe "B18-94 transition_color and the -1 terminal-default sentinel" do
     b.style.fg.should eq 0xffffff
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.1.seconds
+    fgs = samples_until_settled(b) { b.style.fg }
     # Each tick must blend toward the configured default (0xc0c0c0), not
-    # mix(-1, #ffffff, v) = 0xFFFFFF (white-to-white), so the mid value is
-    # never pure white.
-    b.style.fg.should_not eq 0xffffff
+    # mix(-1, #ffffff, v) = 0xFFFFFF (white-to-white), so a mid value shows
+    # that is neither pure white nor the sentinel.
+    fgs.any? { |c| c && c != 0xffffff && c != -1 }.should be_true
 
     wait_until { b.style.fg == -1 }
     # Natural completion must restore the exact raw target — the sentinel -1 —
@@ -138,9 +135,13 @@ describe "B18-96 apply_keyframe carries a one-sided fg/bg constant" do
     s.stylesheet = "@keyframes tri { 0% { color: #0000ff; } 50% { opacity: 0.3; } 100% { color: #0000ff; } } " \
                    ".k96c { animation: tri 0.2s linear infinite; }"
     s.repaint
-    sleep 0.05.seconds
-    b.style.fg.should eq 0x0000ff # first segment: carry from the 0% stop
-    sleep 0.11.seconds
-    b.style.fg.should eq 0x0000ff # second segment: carry from the 100% stop
+    wait_until { b.style.fg == 0x0000ff } # first frame: carry from the 0% stop
+    # Every frame over more than a full 0.2s cycle keeps it: the first segment
+    # carries from the 0% stop, the second from the 100% stop.
+    deadline = Time.instant + 0.25.seconds
+    while Time.instant < deadline
+      b.style.fg.should eq 0x0000ff
+      sleep 5.milliseconds
+    end
   end
 end

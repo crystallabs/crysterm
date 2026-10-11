@@ -38,6 +38,21 @@ def wait_until(timeout : Time::Span = 2.seconds, poll : Time::Span = 2.milliseco
   end
 end
 
+# Samples the block every 2ms until *widget*'s transitions have stopped (or
+# *timeout* passes, raising), returning the samples in order. For a spec that
+# shows a tween passed through intermediate values: a fixed sleep to the
+# tween's middle overran a short tween on a loaded machine. The first sample
+# after a state change can be the target itself, since the recomputed style
+# shows it before the tween's first tick writes a value back.
+def samples_until_settled(widget, timeout : Time::Span = 2.seconds, &)
+  samples = [] of typeof(yield)
+  wait_until(timeout) do
+    samples << yield
+    !widget.transition_running?
+  end
+  samples
+end
+
 # Like `wait_until` but non-raising: returns whether the condition was met
 # within *timeout*. For outcomes that are legitimately racy (e.g. a zombie
 # fiber may or may not consume — and drop — the event before the deadline).

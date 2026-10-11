@@ -17,9 +17,8 @@ describe "CSS transition" do
     b.style.bg.should eq 0x000000
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.1.seconds # ~halfway through the 0.2s linear tween
-    mid = b.style.bg.not_nil!
-    (0x202020 <= mid <= 0xe0e0e0).should be_true # mid-transition grey, not yet white
+    bgs = samples_until_settled(b) { b.style.bg }
+    bgs.any? { |c| c && 0x000000 < c < 0xffffff }.should be_true # through greys, not a snap to white
 
     wait_until { b.style.bg == 0xffffff }
     b.style.bg.should eq 0xffffff # landed on target
@@ -33,8 +32,8 @@ describe "CSS transition" do
     s.repaint
 
     b.state = Crysterm::WidgetState::Hovered
-    sleep 0.1.seconds
-    (0.2 <= b.style.opacity.not_nil! <= 0.8).should be_true # mid-fade
+    opacities = samples_until_settled(b) { b.style.opacity }
+    opacities.any? { |o| o && 0.0 < o < 1.0 }.should be_true # through a fade, not a snap
 
     wait_until { b.style.opacity.not_nil! < 0.05 }
     (b.style.opacity.not_nil! < 0.05).should be_true # ~fully faded
@@ -59,9 +58,8 @@ describe "CSS @keyframes / animation" do
     s.stylesheet = "@keyframes glow { from { background-color: #000000; } to { background-color: #ffffff; } } " \
                    ".glow { background-color: #000000; animation: glow 0.2s linear infinite; }"
     s.repaint # starts the animation
-    sleep 0.1.seconds
-    mid = b.style.bg.not_nil!
-    (0x303030 <= mid <= 0xd0d0d0).should be_true # interpolating between black and white
+    # The loop never settles: a frame between the stops shows it interpolating.
+    wait_until { (c = b.style.bg) && 0x000000 < c < 0xffffff }
   end
 
   it "settles on the final frame for a finite (1-iteration) animation" do
