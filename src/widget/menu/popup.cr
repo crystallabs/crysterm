@@ -319,8 +319,9 @@ module Crysterm
       end
 
       # Whether this menu is *menu* itself or one of its submenus, at any
-      # depth.
-      def in_chain_of?(menu : Menu) : Bool
+      # depth (the ancestry, where `#in_chain?` is a point in the open
+      # chain below).
+      def submenu_of?(menu : Menu) : Bool
         m = self
         while m
           return true if m.same?(menu)

@@ -100,6 +100,10 @@ module Crysterm
         on(::Crysterm::Event::Attached) { install_activation_key }
         on(::Crysterm::Event::Detached) { uninstall_activation_key }
         install_activation_key
+        # A bar hidden with a menu up (an application's full-screen key)
+        # takes the menu down with it: nothing should stay open under
+        # nothing.
+        on(::Crysterm::Event::Hide) { close }
       end
 
       # Subscribes the `#activation_key` watcher on the bar's window. Installed
@@ -129,10 +133,14 @@ module Crysterm
       # (`Window#focus_region`/`#focus_central`), shared with F6 cycling.
       private def on_activation_key(e : ::Crysterm::Event::KeyPress) : Nil
         return if e.accepted?
-        # A hidden bar (an application's full-screen view) does not answer:
-        # its menus would open under nothing. The actions' own shortcuts are
-        # the window's and keep working, as in Qt.
-        return unless visible?
+        # A hidden bar (an application's full-screen view), or one in a
+        # hidden container, does not answer: its menus would open under
+        # nothing (Qt's `QMenuBar` gates on `isVisible()` the same way). The
+        # actions' own shortcuts are the window's and keep working — unlike
+        # Qt, whose hidden bar silences its menus' shortcuts too
+        # (`correctWidgetContext`): an application's "bring the bars back"
+        # key has to stay live.
+        return unless visible_in_tree?
         w = window? || return
         if (key = @activation_key) && e.key == key
           e.accept
@@ -375,7 +383,7 @@ module Crysterm
         nf = e.next_focused
         # Focus moved into this menu's own submenu chain, at any depth (a
         # third-level menu's parent is the second, not *menu*) — still active.
-        return if nf.is_a?(Menu) && (nf.in_chain_of?(menu) || @menus.includes?(nf))
+        return if nf.is_a?(Menu) && (nf.submenu_of?(menu) || @menus.includes?(nf))
         # Focus returned to the bar itself — keep the menu open.
         return if nf == self
         close

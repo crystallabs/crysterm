@@ -670,9 +670,8 @@ module Crysterm
       # Opens *act*'s submenu the keyboard way — with its first child selected
       # (Qt), unlike hover-opened ones — shared by Right, Enter and Space on a
       # submenu row, so the three behave identically. Invoked while *act*'s
-      # submenu is already open, it just re-selects the first child instead of
-      # reopening (or click-style toggling it closed: with focus already inside
-      # the child, a repeat press of these keys never lands back here anyway).
+      # submenu is already open, it only re-selects the first child — the
+      # same stay-open rule a click follows in `#activate_index`.
       private def open_submenu_selected(act : Action) : Nil
         open_submenu act unless @submenu_open && @submenu_action == act
         @submenu_open.try &.select_first_action
