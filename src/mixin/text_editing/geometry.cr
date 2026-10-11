@@ -388,11 +388,34 @@ module Crysterm
       # The caret's display row: its index among the wrapped content rows,
       # the same row space `#scroll_position` counts in — so
       # `cursor_row - scroll_position` is where on the viewport the caret
-      # sits, and `scroll_to(cursor_row - n)` puts it on the viewport's n-th
-      # row. Measured against the layout last painted (or refreshed by
+      # sits (`#cursor_viewport_row`), and `scroll_to(cursor_row - n)` puts
+      # it on the viewport's n-th row (`#scroll_cursor_to_row`). Measured
+      # against the layout last painted (or refreshed by
       # `TextEdit#text_cursor=`).
       def cursor_row : Int32
         cursor_rowcol[0]
+      end
+
+      # The viewport row the caret sits on: 0 for the top row; negative, or
+      # past the viewport's height, while the view is scrolled away from it.
+      def cursor_viewport_row : Int32
+        cursor_row - scroll_position
+      end
+
+      # Scrolls so the caret sits on viewport *row* (0 the top row), as far
+      # as the content allows at the document's ends. `#ensure_cursor_visible`
+      # only brings the caret to the nearest edge; this puts it on a chosen
+      # row — for a view aligning with another's
+      # (`b.scroll_cursor_to_row a.cursor_viewport_row`) or `#center_cursor`.
+      # Doesn't render itself, like the other scroll calls.
+      def scroll_cursor_to_row(row : Int32) : Nil
+        scroll_to cursor_row - row
+      end
+
+      # Scrolls so the caret is on the middle row of the viewport (Qt
+      # `QPlainTextEdit::centerCursor`), as far as the content allows.
+      def center_cursor : Nil
+        scroll_cursor_to_row visible_content_rows // 2
       end
 
       # Maps `@cursor_pos` (a buffer position) to `{real_line, column}` in
