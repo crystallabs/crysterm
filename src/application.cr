@@ -265,6 +265,10 @@ module Crysterm
       # Back-link the device so its input read fiber can route up to this
       # dispatcher.
       window.screen.application = self
+      # A window joining a running `#exec` — `#show`n, or added by
+      # `Window#start_input` or a revived window's reconnect — is watched
+      # for an output failure as the loop's own are.
+      watch_output window if @exec_running
       emit ::Crysterm::Event::ScreenAdded, window.screen if new_device
       window
     end
@@ -303,7 +307,6 @@ module Crysterm
     # reading (a program driving windows by hand). Returns *window*.
     def show(window : Window) : Window
       add window
-      watch_output window if @exec_running
       window.update
       window.start_input
       window
@@ -360,8 +363,8 @@ module Crysterm
       end
 
       # Every window registered so far — this one, and any `#add`ed before
-      # the loop — is watched for an output failure; one `#show`n later is
-      # watched as it joins.
+      # the loop — is watched for an output failure; one added later (`#add`,
+      # `#show`) is watched as it joins.
       @windows.each { |w| watch_output w }
       begin
         begin
