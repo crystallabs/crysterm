@@ -65,4 +65,75 @@ describe "Crysterm::TextDocument#find" do
     doc.find("").should be_nil
     doc.find("zzz").should be_nil
   end
+
+  describe "empty matches" do
+    it "selects nothing where the match is, the document end included" do
+      doc = TextDocument.new("ab\ncd")
+      c = doc.find(/x*/).not_nil!
+      {c.selection_start, c.selection_end, c.selection?}.should eq({0, 0, false})
+      c = doc.find(/x*/, from: doc.size).not_nil!
+      {c.selection_start, c.selection_end}.should eq({5, 5})
+    end
+
+    it "finds nothing forward from past the end, so a walk stepping past a match at the end stops" do
+      doc = TextDocument.new("ab\ncd")
+      doc.find(/x*/, from: doc.size + 1).should be_nil
+      doc.find("d", from: doc.size + 1).should be_nil
+      doc.find(/d/, from: doc.size).should be_nil
+    end
+
+    it "lets a forward walk that moves at least one position visit each match once" do
+      doc = TextDocument.new("axb")
+      seen = [] of {Int32, Int32}
+      from = 0
+      while c = doc.find(/x*/, from: from)
+        seen << {c.selection_start, c.selection_end}
+        from = Math.max(c.selection_end, c.selection_start + 1)
+      end
+      seen.should eq [{0, 0}, {1, 2}, {2, 2}, {3, 3}]
+    end
+
+    it "does not count an empty match at from backward, so a backward walk always moves" do
+      doc = TextDocument.new("axx")
+      seen = [] of {Int32, Int32}
+      from = doc.size
+      while c = doc.find(/x*/, from: from, flags: :backward)
+        seen << {c.selection_start, c.selection_end}
+        from = c.selection_start
+      end
+      seen.should eq [{1, 3}, {0, 0}]
+    end
+
+    it "finds nothing backward from the start" do
+      doc = TextDocument.new("abc")
+      doc.find(/x*/, from: 0, flags: :backward).should be_nil
+      doc.find(/^/, from: 0, flags: :backward).should be_nil
+      doc.find("a", from: 0, flags: :backward).should be_nil
+    end
+  end
+
+  describe "block boundaries" do
+    it "counts the block separator as one position" do
+      doc = TextDocument.new("ab\ncd")
+      c = doc.find(/b\nc/).not_nil!
+      {c.selection_start, c.selection_end, c.selected_text}.should eq({1, 4, "b\nc"})
+      c = doc.find(/b\n/, from: doc.size, flags: :backward).not_nil!
+      {c.selection_start, c.selection_end}.should eq({1, 3})
+    end
+
+    it "starts a match at a block's end on the separator" do
+      doc = TextDocument.new("ab\ncd")
+      c = doc.find(/\n/).not_nil!
+      {c.selection_start, c.selection_end}.should eq({2, 3})
+      doc.find_block(c.selection_start).text.should eq "ab"
+      c.block.text.should eq "cd"
+    end
+
+    it "finds the line anchors of a multiline regex at block starts and ends" do
+      doc = TextDocument.new("ab\ncd")
+      doc.find(/^/m, from: 1).not_nil!.selection_start.should eq 3
+      doc.find(/$/m).not_nil!.selection_start.should eq 2
+      doc.find(/^/m, from: doc.size, flags: :backward).not_nil!.selection_start.should eq 3
+    end
+  end
 end

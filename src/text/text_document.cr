@@ -802,10 +802,24 @@ module Crysterm
     # === Search ===
 
     # Finds `subject` from position `from`, returning a cursor selecting the
-    # match (anchor at start) or nil. `Backward` finds the last match ending
-    # at or before `from`. Matches may span blocks (the separator is `'\n'`).
+    # match (anchor at start) or nil. Forward, the first match starting at or
+    # after `from`; a `from` past the end finds nothing (it is not pulled back
+    # to the end, so a caller stepping past a match at the end stops).
+    # `Backward` finds the last match ending at or before `from` and starting
+    # before it. Matches may span blocks (the separator is `'\n'`, one
+    # position like any character).
+    #
+    # A `Regex` may match the empty string (`/x*/`, `/^/`, `/$/m`): the
+    # cursor then selects nothing and sits where the match is, as Qt's does.
+    # A caller walking the matches resumes at the match's end or one past
+    # its start, whichever is further — moving at least one position, or an
+    # empty match would be found again where it is. Backward the step is
+    # built in: an empty match at `from` itself does not count, so searching
+    # back from a match's start always moves (from 0 it finds nothing, like
+    # Qt's backward search from the start).
     def find(subject : String, from : Int32 = 0, flags : FindFlag = FindFlag::None) : TextCursor?
       return if subject.empty?
+      return if from > size && !flags.backward?
       text = to_plain_text
       # Length-preserving 1:1 case fold: `String#downcase` applies Unicode
       # full case mappings (e.g. 'İ' → two codepoints), which would shift the
@@ -837,6 +851,8 @@ module Crysterm
     def find(subject : Regex, from : Int32 = 0, flags : FindFlag = FindFlag::None) : TextCursor?
       text = to_plain_text
       if flags.backward?
+        from = Math.min(from, text.size)
+        return if from <= 0
         best = nil
         pos = 0
         # Enumerate over the `from`-truncated prefix so a match straddling
@@ -848,18 +864,20 @@ module Crysterm
         # wrongly accept it). Anchors/lookaheads ($, \z, (?=...)) evaluate
         # against the prefix end rather than the document end — the coherent
         # choice given Crystal's Regex API has no endpos/match-limit param.
-        hay = from >= text.size ? text : text[0, from.clamp(0, text.size)]
+        hay = from == text.size ? text : text[0, from]
         while (m = subject.match(hay, pos))
           s = m.begin(0)
           e = s + m[0].size
-          best = {s, e} if word_boundaries_ok?(text, s, e - s, flags)
+          # An empty match at `from` itself is where a backward walk stands.
+          best = {s, e} if s < from && word_boundaries_ok?(text, s, e - s, flags)
           # Standard non-overlapping enumeration: continue past the match (a
           # `s + 1` restart would re-match suffixes, e.g. "3" inside "333").
           pos = e > s ? e : s + 1
         end
         best.try { |(s, e)| selection_cursor(s, e) }
       else
-        pos = from.clamp(0, size)
+        return if from > text.size
+        pos = Math.max(from, 0)
         while (m = subject.match(text, pos))
           s = m.begin(0)
           e = s + m[0].size
