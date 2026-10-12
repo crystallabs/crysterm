@@ -616,7 +616,7 @@ module Crysterm
       private def mnemonic_pressed(e) : Bool
         c = e.char
         return false if c == '\0' || e.key || e.alt? || e.ctrl?
-        return false unless nav_intent(e).none?
+        return false if selection_key?(e) # `vi_keys`' `j`/`k`/`g`/`G` and `H`/`M`/`L` too
         down = c.downcase
         acts = visible_actions
         i = acts.index { |a| !a.separator? && a.enabled? && a.mnemonic == down }
