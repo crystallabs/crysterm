@@ -456,9 +456,14 @@ module Crysterm
         # Sixel/ReGIS get overdrawn by the cells Crysterm flushes each frame, so
         # they must be re-emitted every render. A Kitty image is a separate
         # layer the cells don't touch, so it's emitted only when it actually
-        # changes (new frame/move/resize), avoiding flicker and re-transmits.
+        # changes (new frame/move/resize), avoiding flicker and re-transmits —
+        # or when the terminal may have lost it since: cells written over its
+        # rectangle (a terminal keeping images in its cells erases them, and the
+        # full re-emission once the terminal's colors are known writes every
+        # cell, blanks included) or a screen clear (`ED 2` deletes kitty's
+        # images), which left the picture covered until it moved (`#overdrawn?`).
         unless repaint_every_frame?
-          if @emitted_key == @payload_key
+          if @emitted_key == @payload_key && !s.overdrawn?(xi, yi, cols, rows)
             @last_drawn = {xi, yi, cols, rows}
             return
           end

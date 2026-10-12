@@ -147,6 +147,7 @@ module Crysterm
 
     # Erases physical rows `[from, to)` (whole lines).
     private def erase_physical_rows(from : Int32, to : Int32) : Nil
+      note_overdraw_all
       term_h = tput.screen.height
       from.upto(to - 1) do |py|
         next if py < 0 || py >= term_h

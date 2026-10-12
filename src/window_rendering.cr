@@ -949,6 +949,8 @@ module Crysterm
       @renders += 1
 
       emit Crysterm::Event::Rendered
+      # The listeners above have consulted `#overdrawn?` for this frame.
+      reset_overdraw
 
       # Record this frame's performance figures — only when observed (see the
       # split-clock note above). The arithmetic feeds the metric getters, which

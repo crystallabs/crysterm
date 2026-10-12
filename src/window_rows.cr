@@ -501,6 +501,7 @@ module Crysterm
       # anyway, so it never needs the physical clear; the buffer resets above
       # stay unconditional.
       if do_clear && device_active_window?
+        note_overdraw_all
         if @alternate
           tput.clear
         else

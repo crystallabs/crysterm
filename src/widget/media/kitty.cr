@@ -289,8 +289,10 @@ module Crysterm
         {literals, keys}
       end
 
-      # A Kitty image is a separate layer the terminal's cells never overdraw, so
-      # it only needs (re)emitting on actual change (frame/move/resize).
+      # A Kitty image is a separate layer kitty's cells never overdraw, so it
+      # only needs (re)emitting on actual change (frame/move/resize) or after
+      # the terminal may have lost it (`Window#overdrawn?`: a clear, or cells
+      # written over it on a terminal that keeps images in its cells).
       protected def repaint_every_frame? : Bool
         false
       end

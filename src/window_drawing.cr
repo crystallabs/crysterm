@@ -365,6 +365,9 @@ module Crysterm
       if @_buf.size > 0
         @main.print @_buf
         @_buf.clear
+        # Insert/delete-line ops scroll what the terminal shows, pictures
+        # painted outside the cell buffer with it (see `#overdrawn?`).
+        note_overdraw_all
       end
 
       ::Log.trace { "Drawing #{start}..#{stop}" }
@@ -469,6 +472,10 @@ module Crysterm
         line.dirty = false
 
         @outbuf.clear
+
+        # The first and last column this row writes, for `#overdrawn?`.
+        row_lo = -1
+        row_hi = -1
 
         # Terminal SGR state entering this row. Every emitted row leaves the
         # terminal reset (see the end-of-row reset), and a row that emits
@@ -610,6 +617,8 @@ module Crysterm
               # Clear to end of line at (x, y).
               emit_cursor_position(@outbuf, ansi_cursor, y, x)
               @outbuf.write el
+              row_lo = x if row_lo < 0
+              row_hi = line_size - 1
 
               # Mirror the cleared run into `@flushed_lines` through the hoisted backing
               # arrays. Overlay cleanup is needed only when the old row carries one;
@@ -698,6 +707,10 @@ module Crysterm
               o.set_link(x, lid)
             end
           end
+
+          # This cell is written (an unchanged one took `next` above).
+          row_lo = x if row_lo < 0
+          row_hi = x
 
           if desired_attr != attr
             # `attr` is re-synced with `desired_attr` at the end of this cell's
@@ -798,6 +811,7 @@ module Crysterm
                 oc.attr = desired_attr
                 oc.continuation!
                 skip_next = true
+                row_hi = x + 1
                 # An ASCII-reduced 2-column glyph printed only ONE column, but
                 # `skip_next` advances the cell index by two. Pad so the terminal
                 # cursor advances two columns and stays in step. Likewise a
@@ -836,6 +850,7 @@ module Crysterm
           emit_cursor_position(@main, ansi_cursor, y, 0)
           @main.write @outbuf.to_slice
         end
+        note_overdraw y, row_lo, row_hi if row_lo >= 0
       end
 
       # Close any hyperlink left open by the last emitted run, so link state
