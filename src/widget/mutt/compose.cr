@@ -217,7 +217,13 @@ module Crysterm
           @header_box.height = @fields.size
           @divider.content = separator
           @attachments_menu.items = @attachments.map_with_index { |a, i| format_attachment(a, i) }
-          @active = RowKind::Header if @attachments.empty?
+          # The highlight cannot stay in an emptied attachment list: it goes
+          # back to the headers, and so does the keyboard when the list held
+          # it, or the arrow keys would move nothing.
+          if @attachments.empty? && @active.attachment?
+            @active = RowKind::Header
+            @headers_menu.focus if @attachments_menu.focused?
+          end
         end
 
         # Moves the highlight for a navigation key, crossing the divider at
