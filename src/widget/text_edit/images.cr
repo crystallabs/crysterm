@@ -178,9 +178,13 @@ module Crysterm
       # image's size stays: `Media.decode` holds a URL's bytes for the
       # process, so measuring it again could only say the same, and would
       # first lay the rows out without the picture for a frame — a flicker
-      # on every re-render of a live preview.
+      # on every re-render of a live preview. A remote image that could not
+      # be fetched goes too: `Media.decode` remembers that failure only for
+      # `Media.remote_failure_ttl`, so a picture a network blip kept out
+      # comes in with a later re-render rather than never; within the TTL
+      # the retry is answered from that memory, without the network.
       private def forget_local_image_sizes : Nil
-        @image_sizes.reject! { |src, _| !remote_image?(src) }
+        @image_sizes.reject! { |src, size| size.nil? || !remote_image?(src) }
       end
 
       # The `Media` children drawing block images this frame, one per
@@ -261,7 +265,9 @@ module Crysterm
           win.post do
             @image_sizes[src] = size
             @image_loading.delete src
-            invalidate_images
+            # An image without a size reserves no rows, as one still
+            # loading does: the layout stands.
+            invalidate_images if size
           end
         end
       end

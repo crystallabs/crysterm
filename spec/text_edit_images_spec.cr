@@ -287,21 +287,15 @@ describe "TextEdit block images" do
     s.destroy
   end
 
-  it "measures a local file again after a whole-content replacement, but keeps a remote image's size" do
+  # A remote image's share of a replacement: text_edit_remote_image_retry_spec.cr.
+  it "measures a local file again after a whole-content replacement" do
     s = headless_screen
     tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: s.awidth, height: s.aheight
     tb.document.base_url = IMAGE_DIR
-    remote = "https://example.invalid/pic.png"
-    # Measured once already (as unusable, so nothing is drawn or fetched);
-    # `Media.decode` would answer a URL from its own cache anyway, so a
-    # re-measure could only cost a frame without the picture.
-    tb.@image_sizes[remote] = nil
-    tb.set_markdown "![r](#{remote})\n\n![Matterhorn](matterhorn.png)"
+    tb.set_markdown "![Matterhorn](matterhorn.png)"
     s.repaint
     tb.@image_sizes.has_key?(IMAGE).should be_true
-    tb.set_markdown "![r](#{remote})\n\n![Matterhorn](matterhorn.png)\n\nmore"
-    tb.@image_sizes.has_key?(remote).should be_true
-    tb.@image_loading.should be_empty
+    tb.set_markdown "![Matterhorn](matterhorn.png)\n\nmore"
     tb.@image_sizes.has_key?(IMAGE).should be_false
     s.repaint
     tb.@image_sizes.has_key?(IMAGE).should be_true
