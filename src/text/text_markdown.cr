@@ -692,9 +692,15 @@ module Crysterm
           next_source_line
         when .line_break?
           # Hard break: new block in the same paragraph flow (no separator).
+          # Inside a heading (a setext one, the only kind spanning lines) the
+          # continuation stays a heading of the same level, as `<h2>a<br>b`
+          # does through the HTML importer. Only the level carries over: the
+          # rest of the format is the closed block's own (an image, a top
+          # margin) or is stamped again by `start_block` (quote level).
+          level = @block_format.heading_level
           end_block
           next_source_line
-          start_block
+          start_block(level > 0 ? TextBlockFormat.new(heading_level: level) : TextBlockFormat.default)
         when .html_inline?
           append_text node.text
         else
