@@ -1619,6 +1619,23 @@ runs on the input fiber — so a key handler that wants to ask a question spawns
   defaulting on, plus a `Float64` range, an inline label and stacked segments.
 - Scroll-bar visibility is `scrollbar_policy` alone, which accepts symbols:
   `w.scrollbar_policy = :as_needed`.
+- Vi editing on any of the three text widgets is a `Neovim::Handler` attached
+  to it (Qt Creator's FakeVim handler, with an embedded `nvim` as the engine):
+  the keys go to Neovim, except the function keys and the `Alt` combinations
+  (`#pass_through`), and the widget mirrors Neovim's text, cursor and Visual
+  selection while keeping its own document, formats and undo stack. An
+  application shows `#mode` and `#command_line` from `Event::ViModeChanged`
+  and `ViCommandLineChanged`, and saves and quits on `Event::ViWriteRequested`
+  and `ViQuitRequested` (`:w`, `:q`). `#attach` returns false when `nvim`
+  cannot run, and the widget edits on its own.
+
+  ```crystal
+  vi = Neovim::Handler.new
+  if vi.attach editor
+    vi.on(Event::ViModeChanged) { |e| mode_label.text = e.mode.label }
+    vi.on(Event::ViWriteRequested) { save }
+  end
+  ```
 
 ### 10.3 Bars, tabs, and item handles
 

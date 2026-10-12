@@ -78,6 +78,7 @@ require "./neovim/keys"
 
 require "./widget"
 require "./widget/**"
+require "./neovim/handler"
 # The cursor-anchor abstraction references `Widget::Terminal`, so require it
 # after the widgets are defined.
 require "./cursor_anchor"

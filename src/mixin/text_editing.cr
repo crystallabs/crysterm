@@ -273,6 +273,64 @@ module Crysterm
         _update_cursor if changed
       end
 
+      # Runs buffer edits made by an editing engine outside the widget — the
+      # block's `#buf_insert`/`#buf_delete` calls, at positions it computed
+      # itself — as one undo step (`#buf_edit_group`, Qt's edit block), and
+      # tells of them as a keystroke's are told of: `Event::TextChanged` and
+      # `TextEdited`, the caret events, a repaint, the caret kept on window.
+      # The caller makes a change in the block (an empty edit is still told
+      # of); the caret and the selection are clamped to the new text, and the
+      # engine places them itself afterwards (`#set_caret`).
+      # `Neovim::Handler` mirrors Neovim's edits through it.
+      def apply_external_edit(&) : Nil
+        buf_edit_group { yield }
+        size = buf_size
+        @cursor_pos = @cursor_pos.clamp(0, size)
+        if a = @selection_anchor
+          a = a.clamp(0, size)
+          @selection_anchor = a == @cursor_pos ? nil : a
+        end
+        @goal_col = nil
+        ensure_cursor_visible
+        ensure_cursor_visible_x
+        if text_change_observed?
+          after = buf_text
+          emit Crysterm::Event::TextChanged, after
+          emit Crysterm::Event::TextEdited, after
+        end
+        emit_caret_events
+        update!
+        _update_cursor
+      end
+
+      # Puts the caret on *pos* and the selection's fixed end on *anchor*
+      # (`nil` for no selection) together, both clamped to the buffer — Qt's
+      # `setTextCursor` with a cursor that has (or has no) selection — and
+      # keeps the caret on window, repainting and telling of what changed
+      # (`Event::CursorPositionChanged`, `Event::SelectionChanged`).
+      def set_caret(pos : Int32, anchor : Int32? = nil) : Nil
+        size = buf_size
+        pos = pos.clamp(0, size)
+        anchor = anchor.try &.clamp(0, size)
+        anchor = nil if anchor == pos
+        return if pos == @cursor_pos && anchor == @selection_anchor
+        @selection_anchor = anchor
+        @cursor_pos = pos
+        @goal_col = nil
+        ensure_cursor_visible
+        ensure_cursor_visible_x
+        emit_caret_events
+        update!
+        _update_cursor
+      end
+
+      # Whether the widget holds one line of text, never a line break
+      # (`Widget::LineEdit`) — what an editing engine driving the buffer
+      # (`Neovim::Handler`) keeps to. False for the multi-line editors.
+      def single_line? : Bool
+        false
+      end
+
       # While this widget is reading, Up/Down/Ctrl-U/Ctrl-D/PageUp/PageDown/Home/End
       # are editing keys routed to `#_listener`, so the `Mixin::Interactive` scroll
       # handler must stand down to avoid double-handling them (scrolling the
@@ -359,7 +417,11 @@ module Crysterm
         # A paste (bracketed paste, routed by the window to the focused widget)
         # inserts at the cursor exactly as typing it would. A read-only widget
         # leaves the event unaccepted, so it still propagates/falls back.
+        # A handler installed ahead of this one that took the paste (an editing
+        # engine driving the buffer, `Neovim::Handler`) keeps it from landing
+        # twice.
         on(Crysterm::Event::Paste) do |e|
+          next if e.accepted?
           next if read_only?
           insert_text sanitize_paste(e.content)
           e.accept

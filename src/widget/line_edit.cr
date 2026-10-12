@@ -132,6 +132,11 @@ module Crysterm
         super
       end
 
+      # One line of text, never a line break (`Mixin::TextEditing#single_line?`).
+      def single_line? : Bool
+        true
+      end
+
       # Single-line: a pasted trailing line ending is dropped and interior
       # line breaks (LF, CRLF, or bare CR — terminals translate LF to any of
       # these on paste) collapse to single spaces (the Qt `QLineEdit`
