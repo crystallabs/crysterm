@@ -49,4 +49,17 @@ describe "MainWindow#status_tips=" do
     main.status_tips = false # no change: nothing happens
     main.status_bar.message.should eq "Saved"
   end
+
+  it "stops hearing a menu bar taken out of the slot" do
+    s = headless_screen(80, 24)
+    main, _file = tipped_window(s)
+    old = main.menu_bar
+    main.menu_bar = Widget::MenuBar.new
+    old.emit Event::StatusTip, "stale"
+    main.status_bar.message.should eq ""
+    main.menu_bar.emit Event::StatusTip, "fresh"
+    main.status_bar.message.should eq "fresh"
+    main.menu_bar = nil
+    main.status_bar.message.should eq "fresh" # the slot emptied, nothing is heard
+  end
 end

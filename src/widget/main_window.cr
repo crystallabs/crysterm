@@ -212,10 +212,16 @@ module Crysterm
       end
 
       # Hears a newly set menu bar's status tips (from the `#menu_bar=` slot
-      # setter).
+      # setter), and stops hearing the bar it replaces: a detached bar's
+      # torn-off menus go on highlighting, and their tips are not this
+      # window's to show.
       private def watch_status_tips(bar : MenuBar?) : Nil
-        bar.try &.on(::Crysterm::Event::StatusTip) { |e| status_tip e.text }
+        @status_tip_sub.try &.off
+        @status_tip_sub = bar.try &.on(::Crysterm::Event::StatusTip) { |e| status_tip e.text }
       end
+
+      # The `StatusTip` subscription on the menu bar in the slot.
+      @status_tip_sub : ::EventHandler::Subscription?
 
       # Defines a `<name>=` setter for one of the singular top-level slots
       # (menu/status bar, central widget): detaches the slot's previous
