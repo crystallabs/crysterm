@@ -207,11 +207,11 @@ module Crysterm
           (t = type) ? Media.available?(t, tput) : true
         end
 
-        # A human-readable name for a menu or a notice: "Auto-detect", "Kitty
+        # A human-readable name for a menu or a notice: "Auto", "Kitty
         # graphics", "Unicode half blocks", …
         def label : String
           case self
-          in .auto?            then "Auto-detect"
+          in .auto?            then "Auto"
           in .ansi?            then "ANSI, one cell per pixel"
           in .ansi_true_color? then "ANSI, true color"
           in .ansi_c256?       then "ANSI, 256 colors"
@@ -329,7 +329,7 @@ module Crysterm
       # The backend `Type` automatic selection picks for *content* — step (2)
       # of `.resolve` — whatever `media.backend` pins: what `Backend::Auto`
       # would resolve to here, for a UI that names it beside the pinned
-      # choice ("Auto-detect (Kitty graphics)", through `Type#backend`'s
+      # choice ("Auto (Kitty graphics)", through `Type#backend`'s
       # `Backend#label`). Walks the ranked candidates for *content*, skips
       # those `media.exclude` names, and returns the first the terminal
       # *tput* (the global window's by default) supports, else the universal

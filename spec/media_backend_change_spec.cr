@@ -127,7 +127,7 @@ describe "Widget::Media::Backend" do
   end
 
   it "names each member for a menu" do
-    Widget::Media::Backend::Auto.label.should eq "Auto-detect"
+    Widget::Media::Backend::Auto.label.should eq "Auto"
     Widget::Media::Backend::Kitty.label.should eq "Kitty graphics"
     Widget::Media::Backend::GlyphHalf.label.should eq "Unicode half blocks"
     Widget::Media::Backend.values.map(&.label).uniq!.size.should eq Widget::Media::Backend.values.size
