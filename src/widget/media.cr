@@ -503,9 +503,21 @@ module Crysterm
         end
       end
 
-      # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
-      # A generic network fetch shared by every backend that accepts URLs.
+      # Fetches *url* through `.fetcher`, returning the raw bytes; raises when
+      # it cannot be fetched. The one network fetch every backend that accepts
+      # URLs shares.
       def self.fetch(url : String) : Bytes
+        fetcher.call url
+      end
+
+      # What `.fetch` fetches a URL with: `.fetch_with_downloader` (`curl`, then
+      # `wget`) unless an application puts its own client there — a proxy, an
+      # authenticated session — or a spec one that fetches nothing. It raises
+      # for a URL it cannot fetch.
+      class_property fetcher : Proc(String, Bytes) = ->(url : String) { fetch_with_downloader url }
+
+      # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
+      def self.fetch_with_downloader(url : String) : Bytes
         [{"curl", ["-s", "-A", "", url]}, {"wget", ["-U", "", "-O", "-", url]}].each do |cmd, args|
           io = IO::Memory.new
           status = Process.run(cmd, args, output: io, error: Process::Redirect::Close)
@@ -591,6 +603,17 @@ module Crysterm
         file =~ /^https?:/ ? Media.fetch(file) : file
       end
 
+      # How long a remote URL's failed fetch or decode is remembered
+      # (`.remote_failure_ttl`) before the URL is tried again: long enough
+      # that a broken link costs one download attempt per interval, not one
+      # per frame; short enough that a transient network error does not hide
+      # the picture for the rest of the process.
+      class_property remote_failure_ttl : Time::Span = 30.seconds
+
+      # When each remote URL's decode last failed, by cache key — the negative
+      # cache for URLs, kept apart from the LRU so it expires (see `.decode`).
+      @@remote_failures = {} of String => Time::Instant
+
       # Decodes *file* (a local path or `http(s)` URL) once, caching the result
       # keyed on path + size + mtime (so an on-disk change invalidates it).
       # Returns `nil` on failure.
@@ -598,37 +621,61 @@ module Crysterm
       # Failures must be cached too: `source` is called every render pass, so
       # without negative caching a file that fails to decode — especially a video
       # whose ffprobe/ffmpeg pipeline errors — re-spawns the subprocess pipeline
-      # every frame and stalls the UI.
+      # every frame and stalls the UI. A local file's failure is cached for
+      # good under its size and mtime, which a fix on disk changes; a remote
+      # URL has no such stamp, so its failure — as likely a network blip as a
+      # broken link — is remembered for `.remote_failure_ttl` and then tried
+      # again, rather than hiding the image for the whole process.
       def self.decode(file : String) : PNGGIF::PNG?
         key = file
-        unless file =~ /^https?:/
+        remote = !(file =~ /^https?:/).nil?
+        unless remote
           if info = File.info?(file)
             key = "#{file}\u{0}#{info.size}\u{0}#{info.modification_time.to_unix}"
           end
         end
         # ANSI-art decoding depends on the detail setting, so key on it too.
         key += "\u{0}d#{Crysterm::Config.media_ansi_art_detail}" if file =~ ANSI_ART_RE
-        # `fetch` caches the result — including a `nil` failure — and only runs
-        # the block on a miss.
-        @@decode_cache.fetch(key) do
-          if file =~ ANSI_ART_RE
-            # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap.
-            raw = file =~ /^https?:/ ? Media.fetch(file) : File.open(file, &.getb_to_end)
-            decode_ansi(raw)
-          elsif VideoSource.video? file
-            # Decoded to animation frames via ffmpeg; nil if missing/failed.
-            VideoSource.decode file
+        return @@decode_cache.fetch(key) { decode_uncached file } unless remote
+
+        if failed_at = @@remote_failures[key]?
+          return if Time.instant - failed_at < remote_failure_ttl
+          @@remote_failures.delete key
+        end
+        # Only successes go into the LRU for a URL, so a hit is never a stale
+        # failure.
+        @@decode_cache[key]? || begin
+          png = decode_uncached file
+          if png
+            @@decode_cache[key] = png
           else
-            PNGGIF::PNG.new(source_data(file))
+            @@remote_failures[key] = Time.instant
           end
-        rescue
-          nil
+          png
         end
       end
 
-      # Empties the decode cache (e.g. to reclaim memory).
+      # Decodes *file* without consulting or filling any cache; `nil` on failure.
+      private def self.decode_uncached(file : String) : PNGGIF::PNG?
+        if file =~ ANSI_ART_RE
+          # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap.
+          raw = file =~ /^https?:/ ? Media.fetch(file) : File.open(file, &.getb_to_end)
+          decode_ansi(raw)
+        elsif VideoSource.video? file
+          # Decoded to animation frames via ffmpeg; nil if missing/failed.
+          VideoSource.decode file
+        else
+          PNGGIF::PNG.new(source_data(file))
+        end
+      rescue
+        nil
+      end
+
+      # Empties the decode cache (e.g. to reclaim memory), remembered remote
+      # failures included.
       def self.clear_decode_cache
         @@decode_cache.clear
+        @@remote_failures.clear
       end
     end
   end
