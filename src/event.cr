@@ -637,6 +637,20 @@ module Crysterm
     # Emitted when a Widget or Action are hovered
     event Hovered
 
+    # Emitted by a `Widget::Menu` when its highlighted action changes — by a
+    # hover, an arrow key, the first reveal of the highlight or a submenu
+    # opened by the keyboard (Qt's `QMenu::hovered(QAction*)`). `action` is
+    # the newly highlighted action, or `nil` when the highlight left: the
+    # menu closed or its highlight was cleared.
+    event ActionHovered, action : Crysterm::Action?
+
+    # A status tip to show (Qt's `QStatusTipEvent`): a `Widget::Menu` emits
+    # its highlighted action's `Action#status_tip` as the highlight moves
+    # there, and `""` when the highlight leaves or the menu closes; a
+    # `Widget::MenuBar` re-emits its menus' on itself, and a
+    # `Widget::MainWindow` shows the text in its status bar (`#status_tips?`).
+    event StatusTip, text : String
+
     # Emitted when an `Action`'s checked state changes — programmatically or via
     # activation (Qt's `QAction::toggled(bool)`). `checked` is the new state.
     # Unlike `Triggered`, this fires on *any* checked change, not just activation.

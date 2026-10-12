@@ -156,6 +156,8 @@ module Crysterm
         # Enter (or a click on the already-selected row) emits `ItemActivated`;
         # activate the corresponding action.
         on(::Crysterm::Event::ItemActivated) { |e| activate_index e.index }
+        # The highlight leaves with the menu (`menu/tips.cr`).
+        wire_tips
       end
 
       # Adds *action* to the menu (no-op if already present). `#watch_action`
@@ -485,6 +487,8 @@ module Crysterm
         if !@syncing_items && @submenu_open && selected_action != @submenu_action
           close_submenu
         end
+        # The highlight may be on another action now: its tips (`menu/tips.cr`).
+        highlight_changed unless @syncing_items
       end
 
       # A click lands on a *raw* row index, so a click on a separator row would
@@ -527,10 +531,12 @@ module Crysterm
             edge_selectable(1).try { |i| self.current_index = i }
           end
           update!
+          highlight_changed # the revealed row's tips (`menu/tips.cr`)
           e.accept
           return
         end
 
+        return if whats_this_pressed e # `F1` (`menu/tips.cr`)
         return if space_pressed e
         return if enter_on_submenu e
 
@@ -691,6 +697,7 @@ module Crysterm
         return if @item_boxes.empty?
         close_submenu if @submenu_open
         @show_highlight = false
+        highlight_changed # the highlight left (`menu/tips.cr`)
         emit ::Crysterm::Event::ItemCancelled, @item_boxes[current_index], current_index
         update!
       end
@@ -698,6 +705,7 @@ module Crysterm
       def destroy
         hide_popup
         close_submenu
+        drop_tips
         # Drop every per-action `Changed` handler and association, so destroying
         # this menu (including submenus rebuilt on each open/close) leaves no
         # stale handler running against a destroyed widget, nor a dead `Menu`
@@ -713,3 +721,4 @@ end
 
 require "./menu/popup"
 require "./menu/rows"
+require "./menu/tips"

@@ -169,12 +169,49 @@ module Crysterm
         value
       end
 
+      # Whether the menu bar's status tips show in the status bar: the
+      # highlighted menu entry's `Action#status_tip`, for as long as it is
+      # highlighted (Qt's `QMainWindow` shows every `QStatusTipEvent` in its
+      # status bar; the switch is for an application that keeps its bar for
+      # its own fields, or offers the choice). On by default.
+      property? status_tips : Bool = true
+
+      # The status tip last put in the status bar, while it may still be
+      # there; what a clearing tip is allowed to take down.
+      @status_tip_shown : String?
+
+      # Shows *text* in the status bar as `QMainWindow` shows a
+      # `QStatusTipEvent`'s: `show_message` without a timeout, so it stays
+      # while the entry is highlighted and replaces a message that was up —
+      # a timed notice included, which does not come back. An empty *text*
+      # (the highlight left) clears the message only while the message is
+      # the tip's own: a notice the application put up meanwhile is the
+      # newer word and stays. Without a status bar the tip is dropped, as
+      # Qt ignores the event then — none is created for it.
+      private def status_tip(text : String) : Nil
+        return unless @status_tips
+        bar = status_bar? || return
+        if text.empty?
+          bar.clear_message if (shown = @status_tip_shown) && bar.message == shown
+          @status_tip_shown = nil
+        else
+          @status_tip_shown = text
+          bar.show_message text
+        end
+      end
+
+      # Hears a newly set menu bar's status tips (from the `#menu_bar=` slot
+      # setter).
+      private def watch_status_tips(bar : MenuBar?) : Nil
+        bar.try &.on(::Crysterm::Event::StatusTip) { |e| status_tip e.text }
+      end
+
       # Defines a `<name>=` setter for one of the singular top-level slots
       # (menu/status bar, central widget): detaches the slot's previous
       # occupant, stores and appends the new widget (stamping the strip's
-      # carve hint, when given), and returns it. `nil` clears the slot, so a
-      # bar can be taken away again.
-      private macro def_slot_setter(name, type, region = nil, size = nil)
+      # carve hint, when given), calls *hook* with it when one is named, and
+      # returns it. `nil` clears the slot, so a bar can be taken away again.
+      private macro def_slot_setter(name, type, region = nil, size = nil, hook = nil)
         def {{ name.id }}=(w : {{ type.id }}?) : {{ type.id }}?
           @{{ name.id }}.try &.remove_from_parent
           @{{ name.id }} = w
@@ -184,11 +221,14 @@ module Crysterm
               w.layout_hint = Layout::Dock::Hint.new({{ region }}, size: {{ size.id }})
             {% end %}
           end
+          {% if hook %}
+            {{ hook.id }} w
+          {% end %}
           w
         end
       end
 
-      def_slot_setter menu_bar, MenuBar, :top, @menu_height
+      def_slot_setter menu_bar, MenuBar, :top, @menu_height, hook: watch_status_tips
       def_slot_setter status_bar, StatusBar, :bottom, @status_height
       def_slot_setter central_widget, Widget
 

@@ -224,6 +224,11 @@ module Crysterm
         # `on_press_outside`). Diving into a submenu or moving to the bar/another
         # menu is an internal move and is ignored.
         menu.on(::Crysterm::Event::FocusOut) { |e| on_menu_blur menu, e }
+        # The menu's status tips — its own and its submenus', which it emits
+        # for its chain — go out on the bar, the one widget a `MainWindow`
+        # listens to (Qt's `QStatusTipEvent` travels up to the top-level
+        # widget the same way).
+        menu.on(::Crysterm::Event::StatusTip) { |e| emit ::Crysterm::Event::StatusTip, e.text }
 
         index = @menus.size
         @menus << menu

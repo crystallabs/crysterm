@@ -191,6 +191,11 @@ module Superconf
   option "loading.interval", 0.2.seconds,
     description: "Default Widget::Loading spinner frame interval",
     validate: ->(t : Time::Span) { t > Time::Span.zero }
+  option "menu.tool_tips", false,
+    description: "Pop a highlighted menu entry's tool_tip up beside its row after tool_tip.delay (the default of Widget::Menu#tool_tips_visible, which a menu may override; Qt's QMenu::toolTipsVisible, off by default). The entry's status_tip shows in the main window's status bar regardless"
+  option "tool_tip.delay", 0.7.seconds,
+    description: "How long a menu entry stays highlighted before its tooltip pops up (Qt's SH_ToolTip_WakeUpDelay, 700 ms)",
+    validate: ->(t : Time::Span) { t >= Time::Span.zero }
 
   # -- Input -----------------------------------------------------------------
   option "input.readline_keys", true,
