@@ -731,16 +731,20 @@ module Crysterm
       # Full-screen mode takes over the terminal via the alternate buffer and
       # owns the whole screen; inline mode stays in the normal buffer and only
       # reserves/anchors its own `height`-row region.
+      # Whether this `enter` is the one switching the device to the alternate
+      # screen — not a sibling window's `enter` on a device already there.
+      fresh_alternate = @alternate && !tput.is_alt
       tput.alternate_buffer if @alternate
-      # The VS16 width is measured again here, in whichever buffer the window
-      # draws in — the alternate screen just entered, or the normal buffer an
-      # inline window stays in: the answer can differ between the two (iTerm2
-      # advances two columns for a VS16 cluster on the normal buffer, one on
-      # the alternate screen), and the device probe ran before the choice. A
-      # synchronous read, so only while no input fiber could race it. (A
-      # `Direct` session draws in the normal buffer right after its own
-      # probe, which already measured there.)
-      @screen.measure_vs16_width unless @screen.listening?
+      # The VS16 width is measured again on the alternate screen just entered:
+      # the answer can differ from the normal buffer's (iTerm2 advances two
+      # columns for a VS16 cluster on the normal buffer, one on the alternate
+      # screen), and the device probe ran there, before the choice. An inline
+      # window draws in the normal buffer the probe measured in, so it needs
+      # no second look. The measurement's cleanup erases from the cursor to
+      # the end of the display, so only on a screen nothing is drawn on yet —
+      # the one just switched, never a sibling's — and, a synchronous read,
+      # only while no input fiber could race it.
+      @screen.measure_vs16_width if fresh_alternate && !@screen.listening?
       tput.enable_keypad
       tput.set_scroll_region(0, aheight - 1) if @alternate
       # Hide the terminal's own cursor for the setup/first paint (the per-frame
