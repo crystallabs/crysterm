@@ -45,22 +45,28 @@ module Crysterm
             width: zone_width(right),
             align: {:vcenter, :right},
             style: Style.new(reverse: true, fill_char: '-'),
+            parse_tags: parse_tags?,
             content: right,
             layout_hint: Crysterm::Layout::Dock::Hint.new(:right),
           )
           append @right_zone
         end
 
-        # Replaces the left and right zone text.
+        # Replaces the left and right zone text. The right zone parses the
+        # tags the bar does at the time, so a `parse_tags=` after the build
+        # reaches it with the next text.
         def set_text(left : String, right : String = "")
           self.content = left
+          @right_zone.parse_tags = parse_tags?
           @right_zone.content = right
           @right_zone.width = zone_width(right)
         end
 
-        # The right zone's width: its text, at least one dash wide.
+        # The right zone's width: its text as shown — with the `{…}` tags
+        # out of the count when the bar parses them (the zone parses what
+        # the bar does) — at least one dash wide.
         private def zone_width(text : String) : Int32
-          Math.max(1, str_width(text))
+          Math.max(1, str_width(parse_tags? ? clean_tags(text) : text))
         end
       end
     end

@@ -22,4 +22,17 @@ describe "Mutt::StatusBar" do
   ensure
     s.try &.destroy
   end
+
+  it "measures the right zone's text without its tags when the bar parses them" do
+    s = headless_screen(40, 3)
+    bar = Crysterm::Widget::Mutt::StatusBar.new parent: s, top: 0, width: 40, parse_tags: true
+    bar.set_text "-*-Mutt: INBOX", "{bold}-(a)-{/bold}"
+    s.repaint
+    bar.right_zone.width.should eq 5
+    row = (s.dump(0, 40, 0, 1) || "").lines[2]
+    row.should start_with("|-*-Mutt: INBOX---")
+    row.should end_with("---(a)-|")
+  ensure
+    s.try &.destroy
+  end
 end
