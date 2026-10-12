@@ -36,6 +36,17 @@ module Crysterm
       # this false so finishing leaves focus put.
       property? rewind_on_done : Bool = true
 
+      # Whether `Escape` ends the read session, cancelling it (`Event::Cancelled`,
+      # the focus rewound as `#rewind_on_done?` says). True for a one-shot
+      # field (`LineEdit`: a prompt given up), where it is the session model's
+      # cancel. A multi-line editor or viewer (`TextEdit`, `PlainTextEdit`)
+      # sets it false: as Qt's `QTextEdit` ignores the key, `Escape` is then
+      # not consumed and goes on to the window — a dialog's reject, an
+      # application's own key — and the pane keeps the focus, where ending the
+      # session would have rewound it to whatever was focused before, or to
+      # nothing.
+      property? escape_cancels : Bool = true
+
       # Greyed-out prompt shown while the buffer is empty, like Qt's
       # `QLineEdit#placeholderText` / `QPlainTextEdit#placeholderText`. It is
       # purely visual: `#value` stays empty. Honored by every text widget

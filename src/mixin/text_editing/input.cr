@@ -199,7 +199,7 @@ module Crysterm
 
           # Track whether one of the editing keys below consumed the keystroke.
           edited = true
-          if k == Tput::Key::Escape
+          if k == Tput::Key::Escape && escape_cancels?
             done.try &.call nil
           elsif clipboard && k == Tput::Key::CtrlC # copy selection
             # With nothing selected there is nothing to copy, and the key goes

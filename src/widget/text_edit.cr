@@ -232,6 +232,9 @@ module Crysterm
 
         super **(input.merge({keys: true}))
 
+        # `Escape` is not this widget's to consume (Qt's text edits ignore
+        # it): the pane keeps the focus and the key goes on to the window.
+        @escape_cancels = false
         placeholder_text.try { |v| @placeholder_text = v }
 
         finish_document_setup input_on_focus: input_on_focus, install_enter: !!input["keys"]?
