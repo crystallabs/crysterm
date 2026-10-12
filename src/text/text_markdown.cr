@@ -1747,7 +1747,7 @@ module Crysterm
       # (CommonMark's form for one), the title quoted when there is one.
       private def write_image(io : IO, img : TextImageFormat) : Nil
         io << "![" << escape_md(img.alt) << "]("
-        name = img.name
+        name = decode_utf8_escapes(img.name)
         if name.includes?(' ') || name.includes?('(') || name.includes?(')')
           io << '<' << name.gsub('<', "\\<").gsub('>', "\\>") << '>'
         else
@@ -1885,8 +1885,11 @@ module Crysterm
 
       # Percent-encodes the characters that break a bare CommonMark link
       # destination: whitespace, parentheses (unbalanced ones end the
-      # link), angle brackets and control chars.
+      # link), angle brackets and control chars. Escapes of non-ASCII
+      # characters are written back as the characters first
+      # (`#decode_utf8_escapes`).
       private def encode_url(url : String) : String
+        url = decode_utf8_escapes(url)
         return url unless url.matches?(/[\s()<>\x00-\x1f]/)
         String.build do |io|
           url.each_char do |c|
@@ -1894,6 +1897,40 @@ module Crysterm
               c.to_s.each_byte { |b| io << '%' << b.to_s(16, upcase: true).rjust(2, '0') }
             else
               io << c
+            end
+          end
+        end
+      end
+
+      # A run of percent-escapes of bytes 0x80 and up — what a non-ASCII
+      # character is in a destination markd has normalized.
+      HIGH_ESCAPES = /(?:%[89A-Fa-f][0-9A-Fa-f])+/
+
+      # *url* with the percent-escapes that spell non-ASCII UTF-8 written as
+      # the characters: markd percent-encodes every non-ASCII byte of a link
+      # or image destination at parse time, so an author's `ćevapi.png`
+      # would otherwise come back as `%C4%87evapi.png`. The two are one URL
+      # (markd encodes `ć` to exactly those escapes on the way back in, so
+      # the destination re-imports byte for byte), which also makes a
+      # destination the author wrote as `%C4%87` come back as `ć` — the same
+      # URL in its readable form. Escapes of ASCII bytes stay (a `%20` is a
+      # space, a `%25` a percent sign, and either decoded changes or breaks
+      # the destination), as do a run that is not valid UTF-8 and the
+      # characters that are invisible or unsafe to read raw: Unicode
+      # whitespace (a no-break space) and control, format and unassigned
+      # characters (a bidi override, a zero-width space).
+      private def decode_utf8_escapes(url : String) : String
+        return url unless url.includes?('%')
+        url.gsub(HIGH_ESCAPES) do |run|
+          decoded = String.new(Bytes.new(run.size // 3) { |k| run[k * 3 + 1, 2].to_u8(16) })
+          next run unless decoded.valid_encoding?
+          String.build do |io|
+            decoded.each_char do |c|
+              if c.whitespace? || c.control?
+                c.to_s.each_byte { |b| io << '%' << b.to_s(16, upcase: true).rjust(2, '0') }
+              else
+                io << c
+              end
             end
           end
         end
