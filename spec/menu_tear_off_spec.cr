@@ -106,7 +106,7 @@ describe "Menu tear-off" do
     end
   end
 
-  it "forces a top border on a menu whose style has none, for the strip alone" do
+  it "forces a top and a bottom border on a menu whose style has none, for the strips alone" do
     with_tear_off true do
       s = headless_screen(80, 24)
       m = Widget::Menu.new(parent: s, style: Style.new(border: false))
@@ -115,9 +115,10 @@ describe "Menu tear-off" do
       s.repaint
       m.style.border_view.top.should eq 1
       m.style.border_view.left.should eq 0
-      m.style.border_view.bottom.should eq 0
+      m.style.border_view.bottom.should eq 1
       m.itop.should eq 1
       handle_of(m).not_nil!.atop.should eq m.atop
+      m.tear_off_handle?(Crysterm::Side::Bottom).not_nil!.atop.should eq m.atop + m.aheight - 1
     end
     with_tear_off false do
       s = headless_screen(80, 24)

@@ -6,17 +6,23 @@ module Crysterm
       # GNOME 2's detachable menus, Qt's `QMenu#tearOffEnabled`. With the
       # feature on — the `menu.tear_off` option, or `#tear_off_enabled=` on one
       # menu — every pop-up menu and submenu carries a grab strip in the middle
-      # of its top border row (`Glyphs::Role::TearOffHandle`, `⠿⠿⠿`). A theme
-      # that draws the menu's border already has that row; one that gives the
-      # menu no border (qdarkstyle's `QMenu { border: 0 }`) gets a one-cell top
-      # border forced for the strip, and nothing else.
+      # of its top border row and another in the middle of its bottom one
+      # (`Glyphs::Role::TearOffHandle`, `⠿⠿⠿`), so the menu can be grabbed at
+      # either end. A theme that draws the menu's border already has those rows;
+      # one that gives the menu no border (qdarkstyle's `QMenu { border: 0 }`)
+      # gets a one-cell top and bottom border forced for the strips, and nothing
+      # else. The two strips are the same strip on two edges: one geometry
+      # (`#tear_off_strip_top`, `#tear_off_strip_left`) queried per edge, and
+      # either one's drag or click does the same.
       #
-      # Dragging the strip tears the menu off: a *torn-off menu* — Qt's
+      # Dragging a strip tears the menu off: a *torn-off menu* — Qt's
       # `QTornOffMenu` — is a new `Menu` on the same window holding the SAME
       # `Action` objects as the original, so checks, enabled states and texts
       # stay in step on both and an entry fired on either does the same thing.
       # It appears where the original is, follows the pointer for the rest of
-      # the drag and stays where the button is released; a click on the strip
+      # the drag — keeping the point grabbed under the pointer, so a copy torn
+      # by the bottom strip hangs from it as one torn by the top strip hangs
+      # below it — and stays where the button is released; a click on a strip
       # without any motion tears the menu off in place, as Qt's tear-off item
       # tears on a click. Tearing off dismisses the original menu chain the way
       # a leaf activation does (a `MenuBar` deactivates and focus returns to the
@@ -29,7 +35,7 @@ module Crysterm
       # does not dismiss it, firing one of its entries leaves it up (a leaf
       # fired inside one of its submenus closes that submenu chain back to it),
       # and Escape takes the keyboard back to the window's central area rather
-      # than closing it. Its own strip moves it (a reposition drag), and the
+      # than closing it. Its own strips move it (a reposition drag), and the
       # close mark at the right end of its top row (`Glyphs::Role::CloseButton`,
       # `✕`) destroys it. A press anywhere on it brings it to the front. It
       # takes keys once focused — a click on a row focuses it — and, like a
@@ -115,16 +121,20 @@ module Crysterm
         window.children.compact_map { |w| w.as?(Menu).try { |m| m if m.torn_off? } }
       end
 
-      # The grab strip on the top border row, and the close mark a torn-off menu
-      # adds beside it: chrome children glued to the border row the way a `#title`
-      # label is (`Widget#set_label`), created at the first paint that wants them.
-      @tear_off_handle : TearOffHandle?
+      # The edges that carry a grab strip, in building (and hit-list) order.
+      TEAR_OFF_EDGES = {::Crysterm::Side::Top, ::Crysterm::Side::Bottom}
+
+      # The grab strips on the top and bottom border rows, and the close mark a
+      # torn-off menu adds beside the top one: chrome children glued to the
+      # border rows the way a `#title` label is (`Widget#set_label`), created at
+      # the first paint that wants them.
+      @tear_off_handle_top : TearOffHandle?
+      @tear_off_handle_bottom : TearOffHandle?
       @tear_off_close : Box?
 
-      # The glyphs the strip and the close mark were last built from: a steady
-      # frame compares a `Char` instead of building their texts anew to find
-      # them unchanged (`#place_tear_off_handle`, `#place_tear_off_close`).
-      @tear_off_handle_glyph : Char?
+      # The glyph the close mark was last built from: a steady frame compares a
+      # `Char` instead of building its text anew to find it unchanged
+      # (`#place_tear_off_close`; a strip keeps its own, `TearOffHandle#glyph`).
       @tear_off_close_glyph : Char?
 
       # The copy torn off by the drag of this menu's strip now under way, from the
@@ -144,13 +154,14 @@ module Crysterm
       # with it.
       @torn_subs : ::Crysterm::Subscriptions?
 
-      # The top border `#ensure_tear_off_border` forced, for
+      # The top and bottom border `#ensure_tear_off_border` forced, for
       # `#restore_tear_off_border`: the style written to, the border left on it,
-      # its top width before (or the frozen border it replaced).
+      # its top and bottom widths before (or the frozen border it replaced).
       @tear_off_forced_style : Style?
       @tear_off_forced_border : Border?
       @tear_off_forced_replaced : Border?
       @tear_off_forced_top : Int32 = 0
+      @tear_off_forced_bottom : Int32 = 0
 
       # Whether the `menu.tear_off` watcher below is installed.
       @@tear_off_watched = false
@@ -346,7 +357,8 @@ module Crysterm
 
       # Grab offset of a strip drag, measured against this menu rather than the
       # strip: the copy (or the torn-off menu itself) keeps the grabbed point
-      # under the pointer, so it appears exactly where the original was grabbed.
+      # under the pointer, so it appears exactly where the original was grabbed
+      # — by its bottom strip as by its top one, the copy being the same size.
       protected def tear_off_grab_offset(x : Int32, y : Int32) : Tuple(Int32, Int32)
         drag_grab_offset x, y
       end
@@ -354,7 +366,8 @@ module Crysterm
       # One motion of a strip drag. On a torn-off menu it is a reposition drag:
       # the menu follows the pointer. On any other menu the first motion tears
       # the copy off, over this menu, moves it under the pointer and hands the
-      # drag to the copy's strip (`Window#hand_over_drag`), which carries it to
+      # drag to the copy's strip on the same edge (`Window#hand_over_drag`), so
+      # its grab offset stays the one taken on this menu, which carries it to
       # the release — or, in two-click mode, to the dropping press — as a
       # reposition drag of the copy; the original's strip gets its `DragEnd`
       # there and then, closing the original chain at once (`#tear_off_finished`).
@@ -365,17 +378,31 @@ module Crysterm
         copy.drag_move_to x, y, dx, dy
         return unless fresh
         win = window
-        if (sess = win.drag_session) && (h = @tear_off_handle) && sess.source.same?(h)
-          win.hand_over_drag sess, copy.tear_off_handle!
+        if (sess = win.drag_session) && (h = sess.source.as?(TearOffHandle)) &&
+           tear_off_handle?(h.edge).same?(h)
+          win.hand_over_drag sess, copy.tear_off_handle!(h.edge)
         end
       end
 
-      # The copy's grab strip, built and placed now if no frame has yet — a drag
-      # handed to it on the motion that tore the copy off comes before its first
-      # paint.
-      protected def tear_off_handle! : TearOffHandle
+      # The grab strip on *edge* (`Side::Top` or `Side::Bottom`), if built.
+      def tear_off_handle?(edge : ::Crysterm::Side) : TearOffHandle?
+        edge.bottom? ? @tear_off_handle_bottom : @tear_off_handle_top
+      end
+
+      private def set_tear_off_handle(edge : ::Crysterm::Side, handle : TearOffHandle?) : Nil
+        if edge.bottom?
+          @tear_off_handle_bottom = handle
+        else
+          @tear_off_handle_top = handle
+        end
+      end
+
+      # The copy's grab strip on *edge*, built and placed now if no frame has
+      # yet — a drag handed to it on the motion that tore the copy off comes
+      # before its first paint.
+      protected def tear_off_handle!(edge : ::Crysterm::Side) : TearOffHandle
         sync_tear_off_chrome
-        @tear_off_handle ||= build_tear_off_handle
+        tear_off_handle?(edge) || build_tear_off_handle(edge)
       end
 
       # A click on the strip with no motion in between: tears the menu off in
@@ -410,37 +437,41 @@ module Crysterm
         torn_off? || tear_off_enabled?
       end
 
-      # From `#paint`, before the box is re-fitted: builds, places and colors the
-      # strip (and a torn-off menu's close mark) when the chrome is wanted, and
-      # drops the strip of a menu the feature was turned off under — the chrome
-      # follows the option and the override frame by frame, as the rows follow
-      # their theme.
+      # From `#paint`: builds, places and colors the strips (and a torn-off
+      # menu's close mark) when the chrome is wanted, and drops the strips of a
+      # menu the feature was turned off under — the chrome follows the option
+      # and the override frame by frame, as the rows follow their theme. The box
+      # is re-fitted to the forced border rows first (`#autosize`, a no-op once
+      # it fits), so the bottom strip lands on the bottom row of this frame.
       private def sync_tear_off_chrome : Nil
         Menu.watch_tear_off_config
         if tear_off_chrome?
           ensure_tear_off_border
-          handle = @tear_off_handle ||= build_tear_off_handle
-          place_tear_off_handle handle
+          autosize
+          TEAR_OFF_EDGES.each do |edge|
+            place_tear_off_handle tear_off_handle?(edge) || build_tear_off_handle(edge)
+          end
           if torn_off?
             close = @tear_off_close ||= build_tear_off_close
             place_tear_off_close close
           end
         else
           restore_tear_off_border
-          if handle = @tear_off_handle
-            @tear_off_handle = nil
+          TEAR_OFF_EDGES.each do |edge|
+            next unless handle = tear_off_handle?(edge)
+            set_tear_off_handle edge, nil
             handle.destroy
           end
         end
       end
 
-      # Gives the menu a top border row for the strip when its resolved style has
-      # none (a theme's `Menu { border: 0 }`, an inline `border: false`): the top
-      # side alone, set in place on the backing per-state style the way
+      # Gives the menu a top and a bottom border row for the strips when its
+      # resolved style has none (a theme's `Menu { border: 0 }`, an inline
+      # `border: false`): those sides alone, each only where it is missing, set in place on the backing per-state style the way
       # `#strip_item_box_model` zeroes the rows' — the cascade mints fresh style
       # objects on every re-run, so this runs again from the next paint. A menu
-      # that already draws a top border, from its theme or the unstyled floor,
-      # reuses that row as is. Also run from `#fit_to_content`, so a pop-up is
+      # that already draws a top or bottom border, from its theme or the unstyled
+      # floor, reuses that row as is. Also run from `#fit_to_content`, so a pop-up is
       # sized with the row before its first frame.
       #
       # The write in place touches this menu alone. The style it lands on is
@@ -460,18 +491,24 @@ module Crysterm
       # border it left there and what it replaced — and `#restore_tear_off_border`
       # undoes it when the strip is no longer wanted.
       private def ensure_tear_off_border : Nil
-        return if style.border_view.top > 0
+        bv = style.border_view
+        has_top = bv.top > 0
+        has_bottom = bv.bottom > 0
+        return if has_top && has_bottom
         st = state_style
         b = st.border
         @tear_off_forced_style = st
         @tear_off_forced_replaced = nil
         if b.frozen?
           @tear_off_forced_replaced = b
-          @tear_off_forced_border = st.border = ::Crysterm::Border.from({1, 0, 0, 0}) # top, right, bottom, left
+          @tear_off_forced_border = st.border = ::Crysterm::Border.from(
+            {has_top ? b.top : 1, b.right, has_bottom ? b.bottom : 1, b.left}) # top, right, bottom, left
         else
           @tear_off_forced_top = b.top
+          @tear_off_forced_bottom = b.bottom
           @tear_off_forced_border = b
-          b.top = 1
+          b.top = 1 unless has_top
+          b.bottom = 1 unless has_bottom
         end
         # The insets are derived from the resolved style, and an in-place write
         # is invisible to damage tracking.
@@ -479,8 +516,8 @@ module Crysterm
         update!
       end
 
-      # Gives back the top border `#ensure_tear_off_border` forced, once the strip
-      # is no longer wanted: the original top width put back in place, or the
+      # Gives back the top and bottom border `#ensure_tear_off_border` forced,
+      # once the strips are no longer wanted: the original widths put back in place, or the
       # frozen `Border` that was replaced assigned again. Only while the forced
       # border is still the style's own (a cascade or a program that replaced it
       # since has already settled the matter), so a border the program has
@@ -495,6 +532,7 @@ module Crysterm
           st.border = replaced
         else
           forced.top = @tear_off_forced_top
+          forced.bottom = @tear_off_forced_bottom
         end
         @tear_off_forced_replaced = nil
         invalidate_frame_style
@@ -504,11 +542,12 @@ module Crysterm
       # The texts come from the placement that follows every build
       # (`#sync_tear_off_chrome`), which sets them whenever the glyph differs
       # from the one last used — on a fresh box, always.
-      private def build_tear_off_handle : TearOffHandle
-        @tear_off_handle_glyph = nil
-        handle = TearOffHandle.new(self, parent: self,
-          top: -itop, height: 1, width: TEAR_OFF_HANDLE_WIDTH, style: Style.new)
+      private def build_tear_off_handle(edge : ::Crysterm::Side) : TearOffHandle
+        handle = TearOffHandle.new(self, edge, parent: self,
+          top: tear_off_strip_top(edge), left: tear_off_strip_left,
+          height: 1, width: TEAR_OFF_HANDLE_WIDTH, style: Style.new)
         border_chrome handle
+        set_tear_off_handle edge, handle
         handle
       end
 
@@ -529,19 +568,34 @@ module Crysterm
         box.layout_chrome = true
       end
 
-      # Centers the strip on the top border row, re-reading the glyph (a tier
-      # switch, `Glyphs.set`) and the width (an auto-sized menu grows with its
+      # The strip's geometry, for either edge: the row of *edge*'s border in
+      # the menu's child coordinates — the top row is `@child_base - itop`, as
+      # `Widget#reposition_label` keeps a label there when the content scrolls,
+      # and the bottom row is the menu's last, `aheight - 1` rows below it.
+      private def tear_off_strip_top(edge : ::Crysterm::Side) : Int32
+        top = @child_base - itop
+        edge.bottom? ? top + Math.max(aheight - 1, 0) : top
+      end
+
+      # The strip's column in the menu's child coordinates: centered on the
+      # menu's full width, the same for both edges.
+      private def tear_off_strip_left : Int32
+        Math.max((awidth - TEAR_OFF_HANDLE_WIDTH) // 2, 0) - ileft
+      end
+
+      # Centers a strip on its border row, re-reading the glyph (a tier switch,
+      # `Glyphs.set`) and the menu's size (an auto-sized menu grows with its
       # rows) each frame; a change-guarded no-op on the steady frame, which
       # builds no text: the glyph is compared as a `Char`.
       private def place_tear_off_handle(handle : TearOffHandle) : Nil
         g = glyph(Glyphs::Role::TearOffHandle)
-        unless g == @tear_off_handle_glyph
-          @tear_off_handle_glyph = g
+        unless g == handle.glyph
+          handle.glyph = g
           handle.set_content g.to_s * TEAR_OFF_HANDLE_WIDTH
         end
-        left = Math.max((awidth - TEAR_OFF_HANDLE_WIDTH) // 2, 0) - ileft
+        left = tear_off_strip_left
         handle.left = left unless handle.left == left
-        pin_border_chrome handle
+        pin_border_chrome handle, handle.edge
       end
 
       # Puts the close mark at the right end of the top border row, just inside
@@ -557,15 +611,16 @@ module Crysterm
         pin_border_chrome close
       end
 
-      # Keeps a border-row chrome box on the top border row — `@child_base - itop`,
-      # as `Widget#reposition_label` keeps a label there when the content scrolls
-      # — drawn in the border's colors on the menu's surface, so it reads as part
-      # of the frame under any theme. The colors go onto the box's backing style
-      # in place and are re-asserted each frame, since a cascade resets them.
-      private def pin_border_chrome(box : Box) : Nil
-        top = @child_base - itop
+      # Keeps a border-row chrome box on *edge*'s border row
+      # (`#tear_off_strip_top`), drawn in that border's colors on the menu's
+      # surface, so it reads as part of the frame under any theme. The colors go
+      # onto the box's backing style in place and are re-asserted each frame,
+      # since a cascade resets them.
+      private def pin_border_chrome(box : Box, edge : ::Crysterm::Side = ::Crysterm::Side::Top) : Nil
+        top = tear_off_strip_top(edge)
         box.top = top unless box.top == top
-        fg = style.border_view.top_fg || style.fg
+        bv = style.border_view
+        fg = (edge.bottom? ? bv.bottom_fg : bv.top_fg) || style.fg
         bg = style.bg
         st = box.state_style
         unless st.fg == fg && st.bg == bg
@@ -585,8 +640,9 @@ module Crysterm
         @tear_off_pending = nil
       end
 
-      # The grab strip on a menu's top border row: a draggable chrome box whose
-      # drag is the menu's tear-off (or, on a torn-off menu, its move). It uses
+      # A grab strip on a menu's top or bottom border row (`#edge`): a draggable
+      # chrome box whose drag is the menu's tear-off (or, on a torn-off menu,
+      # its move), the same on either edge. It uses
       # the standard reposition drag machinery (`Widget#draggable=`) and redirects
       # its two geometry hooks to the menu — the grab offset is measured against
       # the menu and each motion moves the torn-off copy — so there is no drag
@@ -594,7 +650,13 @@ module Crysterm
       # keyboard focus (not keyable), and sits inside the menu's rectangle, so
       # the menu's modal grab counts a press on it as inside.
       class TearOffHandle < Box
-        def initialize(@menu : Menu, **box)
+        # The menu border this strip sits on: `Side::Top` or `Side::Bottom`.
+        getter edge : ::Crysterm::Side
+
+        # The glyph the strip's text was last built from (`Menu#place_tear_off_handle`).
+        property glyph : Char?
+
+        def initialize(@menu : Menu, @edge : ::Crysterm::Side = ::Crysterm::Side::Top, **box)
           super(**box)
           self.draggable = true
           on(::Crysterm::Event::Click) { @menu.tear_off_clicked }

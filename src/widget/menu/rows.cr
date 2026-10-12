@@ -152,15 +152,20 @@ module Crysterm
       end
 
       # The height that fits the rows: one row per visible action plus the menu's
-      # own `ivertical` (top/bottom border + vertical padding). Derived from
-      # `ivertical` rather than a hardcoded `+ 2` so a borderless theme (e.g.
-      # qdarkstyle's `QMenu { border: 0px }`) doesn't leave blank rows.
+      # own top/bottom border and vertical padding. Derived from the style rather
+      # than a hardcoded `+ 2` so a borderless theme (e.g. qdarkstyle's
+      # `QMenu { border: 0px }`) doesn't leave blank rows — and from the style,
+      # not `ivertical`, which drops a border too tall for the box as it is now:
+      # a one-row menu given a top and a bottom border (the tear-off strips'
+      # forced rows) would otherwise never grow to fit them.
       private def fit_height : Int32
         rows = visible_actions.size
         if mv = @max_visible_rows
           rows = Math.min(rows, mv)
         end
-        rows + ivertical
+        b = style.border_view
+        p = padding_with_viewport_margins
+        rows + b.top + b.bottom + p.top + p.bottom
       end
 
       # Sizes a popup/submenu to fit its content. Marks the menu auto-sizing so
