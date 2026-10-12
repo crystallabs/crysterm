@@ -139,6 +139,13 @@ module Crysterm
           else                                         Family::Cells
           end
         end
+
+        # The `Backend` member that pins this type — what an application
+        # labels it by (`Backend#label`): `Media.auto_type.backend.label`
+        # names what auto-detection picks.
+        def backend : Backend
+          Backend.parse(to_s)
+        end
       end
 
       # How a backend's pixels reach the window — the four groups the class
@@ -316,7 +323,20 @@ module Crysterm
           return pinned if backend_applicable?(pinned, content)
         end
 
-        # (2) Auto: rank by content, honor `media.exclude`, gate on capability.
+        auto_type content, tput
+      end
+
+      # The backend `Type` automatic selection picks for *content* — step (2)
+      # of `.resolve` — whatever `media.backend` pins: what `Backend::Auto`
+      # would resolve to here, for a UI that names it beside the pinned
+      # choice ("Auto-detect (Kitty graphics)", through `Type#backend`'s
+      # `Backend#label`). Walks the ranked candidates for *content*, skips
+      # those `media.exclude` names, and returns the first the terminal
+      # *tput* (the global window's by default) supports, else the universal
+      # cell grid (`Ansi`); with no terminal handle, the last non-excluded
+      # candidate. `Glyph` is reported as such, not as a concrete mode:
+      # the mode is the `Media::Glyph` widget's own (`Glyph#mode`).
+      def self.auto_type(content : Content = Content::Image, tput : ::Tput? = nil) : Type
         tput ||= (Crysterm::Window.global?.try(&.tput))
         excluded = excluded_types
         candidates = candidates_for(content).reject { |t| excluded.includes?(t) }
