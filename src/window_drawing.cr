@@ -146,11 +146,11 @@ module Crysterm
     end
 
     # Whether the terminal is light: its probed default background (OSC 11)
-    # has a relative luminance above one half; unknown counts as dark. The
+    # reads as light (`Colors.light?`); unknown counts as dark. The
     # monochrome depth draws against this polarity (`SGR.monochrome`).
     def light_terminal? : Bool
       bg = tput.features.default_background || return false
-      Colors.luminance(Colors.rgb(bg.r, bg.g, bg.b)) > 0.5
+      Colors.light? Colors.rgb(bg.r, bg.g, bg.b)
     end
 
     # Whether this window's output is a real terminal (an IO that can't report

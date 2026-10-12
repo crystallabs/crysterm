@@ -3,9 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # `TextEdit#links_enabled?` (the plain-boolean stand-in for Qt's
-# `Qt::LinksAccessibleByMouse`/`ByKeyboard`) and `TextBrowser#link_clicks`:
+# `Qt::LinksAccessibleByMouse`/`ByKeyboard`) and `TextBrowser#double_click_links?`:
 # off, anchors paint as the surrounding text, emit no OSC 8 and neither the
-# keys nor the mouse follow them; `link_clicks = 2` wants a double click.
+# keys nor the mouse follow them; `double_click_links` wants a double click.
 
 private def ctl(k : ::Tput::Key)
   Crysterm::Event::KeyPress.new '\0', k
@@ -127,16 +127,16 @@ describe "TextEdit#links_enabled?" do
   end
 end
 
-describe "TextBrowser#link_clicks" do
+describe "TextBrowser#double_click_links?" do
   it "defaults to a single click" do
     s = headless_screen(40, 8)
-    linked_tb(s).link_clicks.should eq 1
+    linked_tb(s).double_click_links?.should be_false
   end
 
-  it "with 2, a single click does not follow and a double click does" do
+  it "on, a single click does not follow and a double click does" do
     s = headless_screen(40, 8)
     tb = linked_tb s
-    tb.link_clicks = 2
+    tb.double_click_links = true
     clicked = [] of String
     tb.on(Crysterm::Event::AnchorClick) { |e| clicked << e.url }
     click s, 4, 0
@@ -146,16 +146,6 @@ describe "TextBrowser#link_clicks" do
     click s, 4, 0
     s.click_count.should eq 2
     clicked.should eq ["u://1"]
-  end
-
-  it "accepts 1 or 2 only" do
-    s = headless_screen(40, 8)
-    tb = linked_tb s
-    tb.link_clicks = 2
-    tb.link_clicks = 1
-    expect_raises(ArgumentError) { tb.link_clicks = 3 }
-    expect_raises(ArgumentError) { tb.link_clicks = 0 }
-    tb.link_clicks.should eq 1
   end
 
   describe "TextBrowser links off and double clicks, with the rest of the row" do
@@ -174,7 +164,7 @@ describe "TextBrowser#link_clicks" do
     it "leaves no word selected after the double click that followed a link" do
       s = headless_screen(40, 8)
       tb = linked_tb s
-      tb.link_clicks = 2
+      tb.double_click_links = true
       clicked = [] of String
       tb.on(Crysterm::Event::AnchorClick) { |e| clicked << e.url }
       click s, 4, 0

@@ -1092,12 +1092,11 @@ module Crysterm
       # `&…;` tail — repeatedly, as `https://x.io/a).` sheds both.
       def self.autolink_end(run : String) : Int32
         stop = run.size
-        loop do
-          break if stop == 0
+        while stop > 0
           last = run[stop - 1]
           if AUTOLINK_TRAIL.includes?(last)
             stop -= 1
-          elsif last == ')' && run[0, stop].count(')') > run[0, stop].count('(')
+          elsif last == ')' && (kept = run[0, stop]) && kept.count(')') > kept.count('(')
             stop -= 1
           elsif last == ';' && (m = run[0, stop].match(/&[A-Za-z0-9]+;\z/))
             stop -= m[0].size
@@ -1111,6 +1110,9 @@ module Crysterm
       # A URL's host, for `AUTOLINK`: a dot somewhere before the path.
       AUTOLINK_HOST = /\A(?:https?:\/\/|www\.)[^\/]*\./i
 
+      # A `www.`, in any case, as `AUTOLINK` matches it.
+      WWW = /www\./i
+
       # Whether *url* is a `www.` one, in any case, as `AUTOLINK` matches it.
       def self.www?(url : String) : Bool
         url.size >= 4 && url[0, 4].compare("www.", case_insensitive: true) == 0
@@ -1120,10 +1122,7 @@ module Crysterm
       # scheme (which markd hands over as one node) or a `www.`; the cheap
       # gate before the runs are joined and scanned.
       private def autolink_candidate?(frags : Array(TextFragment)) : Bool
-        frags.any? do |f|
-          t = f.text
-          t.includes?("//") || t.includes?("www.") || t.includes?("WWW.") || t.includes?("Www.")
-        end
+        frags.any? { |f| (t = f.text).includes?("//") || t.matches?(WWW) }
       end
 
       # Commits the block with its bare URLs linked (`#autolink_frags`).
@@ -1668,6 +1667,24 @@ module Crysterm
       # the other SGR flags have no markdown form and are dropped. Fragment-
       # edge whitespace moves *outside* the markers — `**bold **` is not
       # right-flanking and would re-import as literal asterisks.
+
+      private def write_emphasis(io : IO, text : String, fmt : TextCharFormat, lead : Bool = false) : Nil
+        em = fmt.bold? ? (fmt.italic? ? "***" : "**") : (fmt.italic? ? "*" : "")
+        if em.empty? && !fmt.strike?
+          io << escape_md(text, lead: lead)
+          return
+        end
+        lstripped = text.lstrip
+        head = text[0, text.size - lstripped.size]
+        core = lstripped.rstrip
+        io << head
+        return if core.empty? # whitespace-only: no markers at all
+        io << "~~" if fmt.strike?
+        io << em << escape_md(core) << em
+        io << "~~" if fmt.strike?
+        io << lstripped[core.size..]
+      end
+
       # Whether a fragment *text* linked to *url* is a bare URL the importer
       # autolinked: the plain, unformatted URL itself, or a `www.` one with
       # the `http://` the importer put before it.
@@ -1690,23 +1707,6 @@ module Crysterm
         after = frags[i + 1]?.try(&.text[0]?)
         (before.nil? || before.whitespace? || "*_~(".includes?(before)) &&
           (after.nil? || after.whitespace? || after == ')' || Importer::AUTOLINK_TRAIL.includes?(after))
-      end
-
-      private def write_emphasis(io : IO, text : String, fmt : TextCharFormat, lead : Bool = false) : Nil
-        em = fmt.bold? ? (fmt.italic? ? "***" : "**") : (fmt.italic? ? "*" : "")
-        if em.empty? && !fmt.strike?
-          io << escape_md(text, lead: lead)
-          return
-        end
-        lstripped = text.lstrip
-        head = text[0, text.size - lstripped.size]
-        core = lstripped.rstrip
-        io << head
-        return if core.empty? # whitespace-only: no markers at all
-        io << "~~" if fmt.strike?
-        io << em << escape_md(core) << em
-        io << "~~" if fmt.strike?
-        io << lstripped[core.size..]
       end
 
       # A code span, carrying a strike flag as `~~` around the span (the

@@ -67,6 +67,13 @@ module Crysterm
     # not constants, hence the explicit constant alias:
     HSV_LUT = ::TermColors::HSV_LUT
 
+    # Whether *rgb* reads as light: its relative luminance is above one half
+    # — the line the monochrome depth (`SGR.monochrome`) and the terminal's
+    # probed polarity (`Window#light_terminal?`) are judged by.
+    def self.light?(rgb : Int32) : Bool
+      luminance(rgb) > 0.5
+    end
+
     # Neutral RGB values substituted for a "default" color when it has to be
     # mixed with a concrete one (the real terminal default is unknown to us).
     def self.default_fg_rgb : Int32

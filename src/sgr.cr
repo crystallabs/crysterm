@@ -388,7 +388,7 @@ module Crysterm
     # `Attr::REVERSE` flag is flipped (XOR, so a cell already reversed by its
     # style comes out un-reversed) when the cell's polarity is the opposite of
     # the terminal's: a light cell (a concrete background with
-    # `Colors.luminance > 0.5`) on a dark terminal, or a dark cell on a light
+    # `Colors.light?`) on a dark terminal, or a dark cell on a light
     # one. A light theme — dark text on a light background — therefore renders
     # as reverse video on a dark terminal, black on white, instead of
     # vanishing into the terminal's own white-on-dark defaults; on a light
@@ -398,7 +398,7 @@ module Crysterm
     # foreground alone never flips.
     def self.monochrome(code : Int64, light_terminal : Bool) : Int64
       bg = Attr.unpack_color(Attr.bg(code))
-      light_cell = bg != -1 ? Colors.luminance(bg) > 0.5 : light_terminal
+      light_cell = bg != -1 ? Colors.light?(bg) : light_terminal
       flags = Attr.flags(code)
       flags ^= Attr::REVERSE if light_cell != light_terminal
       Attr.pack(flags, Attr::COLOR_DEFAULT, Attr::COLOR_DEFAULT)

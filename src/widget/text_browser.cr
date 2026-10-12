@@ -44,19 +44,12 @@ module Crysterm
       # `openLinks`). The `AnchorClick` event is emitted either way.
       property? open_links = true
 
-      # How many clicks on an anchor follow it: 1 (the default) a single
-      # click, 2 a double click — the single/double-click choice desktop
-      # environments offer, which Qt has not. With 2, the first click lands
-      # as on ordinary text (caret placement, selection) and only the second
-      # within `Config.mouse_double_click_interval` activates. Any other
-      # value raises `ArgumentError`.
-      getter link_clicks : Int32 = 1
-
-      # :ditto:
-      def link_clicks=(n : Int32) : Int32
-        raise ArgumentError.new("link_clicks must be 1 or 2, got #{n}") unless n == 1 || n == 2
-        @link_clicks = n
-      end
+      # Whether a double click, rather than a single one, follows an anchor —
+      # the single/double-click choice desktop environments offer, which Qt
+      # has not. On, the first click lands as on ordinary text (caret
+      # placement) and the second within `Config.mouse_double_click_interval`
+      # activates, the word selection it would have made cleared.
+      property? double_click_links : Bool = false
 
       getter source : String?
 
@@ -71,18 +64,19 @@ module Crysterm
       def initialize(input_on_focus = false, read_only = true, document : TextDocument? = nil, **input)
         super(**input, input_on_focus: input_on_focus, read_only: read_only, document: document)
 
-        # Pointer activation: the `#link_clicks`-th click on an anchor follows
-        # it, when links are enabled. Not `#accept`ed, so click-to-focus
+        # Pointer activation: a click on an anchor — the second of a double
+        # click under `#double_click_links?` — follows it, when links are
+        # enabled. Not `#accept`ed, so click-to-focus
         # still works. `text_hit?` must gate first: `position_at` *clamps*
         # and `anchor_at` resolves a line-end position to the preceding
         # char's format, so without the exact hit-test a click on empty space
         # would activate a trailing link.
         on(Crysterm::Event::Mouse) do |e|
-          if e.action.down? && links_enabled? && (window?.try(&.click_count) || 1) == @link_clicks
+          if e.action.down? && links_enabled? && (window?.try(&.click_count) || 1) == (@double_click_links ? 2 : 1)
             if text_hit?(e.x, e.y) && (url = anchor_at(position_at(e.x, e.y)))
               # A double click is also the text's word selection, which ran
               # first; the click was the link's, so the selection goes.
-              clear_selection if @link_clicks == 2
+              clear_selection if @double_click_links
               activate_link url
             end
           end

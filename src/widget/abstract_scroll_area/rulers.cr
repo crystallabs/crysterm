@@ -32,15 +32,17 @@ module Crysterm
       # View menu entry bound to it. The two are also switched one at a
       # time (`#column_ruler=`, `#row_ruler=`), for a view that wants the
       # column count without a band down its left, or the other way round.
-      getter? column_ruler : Bool = false
-
-      # Whether the row ruler is shown; see `#rulers=`.
-      getter? row_ruler : Bool = false
-
+      #
       # Whether either ruler is shown.
       def rulers? : Bool
         @column_ruler || @row_ruler
       end
+
+      # Whether the column ruler is shown; see `#rulers?`.
+      getter? column_ruler : Bool = false
+
+      # Whether the row ruler is shown; see `#rulers?`.
+      getter? row_ruler : Bool = false
 
       # Shows or hides both rulers — the band is reserved (or released) at
       # once, so the next frame already lays the text out beside it.
@@ -174,7 +176,7 @@ module Crysterm
         vw = @vertical_ruler_width
         ruler_x0 = x0 + @viewport_margins.left
         if @column_ruler && y0 >= 0 && (row = rows[y0]?)
-          (ruler_x0 + vw...xl).each do |x|
+          (tape_x0(x0)...xl).each do |x|
             next if x < 0
             cell = row[x]? || break
             cell.set_if_changed attr, column_ruler_glyph(text_column_at(x, text_x0))
@@ -189,6 +191,14 @@ module Crysterm
           r = lp.base + (y - content_top) + 1
           paint_row_ruler_cells row, ruler_x0, vw, (r <= total ? r : 0), numbers, row_ruler_attr(r - 1, attr)
         end
+      end
+
+      # The screen column the column ruler's tape starts at, given the band's
+      # first column *x0*: past the subclass's own margin (a gutter) and the
+      # row ruler — the one place the band's order, gutter then ruler then
+      # text, is spelled for the chrome and its hit tests.
+      private def tape_x0(x0 : Int32) : Int32
+        x0 + @viewport_margins.left + @vertical_ruler_width
       end
 
       # The attr the row ruler's cells on display row *rl* (0-based) are

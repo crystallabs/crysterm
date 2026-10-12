@@ -190,7 +190,7 @@ module Crysterm
         # The tape starts past the subclass's own margin and the row ruler
         # (`#paint_rulers`); a press on the blank above a gutter is no press
         # on the ruler.
-        return unless y == y0 && x >= x0 + @viewport_margins.left + @vertical_ruler_width && x < xl
+        return unless y == y0 && x >= tape_x0(x0) && x < xl
         text_column_at x, text_x0
       end
 
@@ -200,8 +200,7 @@ module Crysterm
       # ticks), else the band's own first column, so the left bound may run
       # down a gutter's gap column.
       private def guides_first_x(x0 : Int32) : Int32
-        vw = @vertical_ruler_width
-        vw > 0 ? x0 + @viewport_margins.left + vw : x0
+        @vertical_ruler_width > 0 ? tape_x0(x0) : x0
       end
 
       # Takes the guide at *column* in hand — the user's one there, lifted out
