@@ -32,3 +32,27 @@ describe TextUndoStack do
     doc.to_plain_text.should eq after
   end
 end
+
+private def table2_of(doc : TextDocument) : TextTable
+  TextTable.new(doc, doc.blocks.find!(&.block_format.table_format).block_format.table_format.not_nil!)
+end
+
+describe TextTable do
+  it "makes a space typed at a word's mid-way break an undoable change that marks the document modified" do
+    doc = TextDocument.new
+    doc.text_width = 12
+    doc.set_markdown "| A | B |\n| --- | --- |\n| abcdefghijkl | x |"
+    doc.modified?.should be_false
+    tbl = table2_of(doc)
+    spaced = TextTable.split_data_row(tbl.row_block(1).not_nil!.text)[0]
+    tbl.set_cell_text(1, 0, spaced).should be_true
+    tbl.cell_text(1, 0).should eq spaced
+    doc.modified?.should be_true
+    doc.undo_available?.should be_true
+    doc.undo.should be_true
+    tbl.cell_text(1, 0).should eq "abcdefghijkl"
+    doc.modified?.should be_false
+    doc.redo.should be_true
+    tbl.cell_text(1, 0).should eq spaced
+  end
+end

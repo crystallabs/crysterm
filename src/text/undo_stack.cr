@@ -208,6 +208,22 @@ module Crysterm
       end
     end
 
+    # A wrapped table row read as other cells though its rendering stays
+    # (`TextDocument#change_wrapped_cells`).
+    class WrappedCellsCommand < Command
+      def initialize(@pos : Int32, @format : TextTableFormat, @text : String,
+                     @was : Array(String)?, @now : Array(String)?)
+      end
+
+      def undo(doc : TextDocument) : Nil
+        doc.raw_set_wrapped_cells(@pos, @format, @text, @was)
+      end
+
+      def redo(doc : TextDocument) : Nil
+        doc.raw_set_wrapped_cells(@pos, @format, @text, @now)
+      end
+    end
+
     # An edit block (Qt `beginEditBlock`): children undo in reverse as one step.
     class MacroCommand < Command
       getter children = [] of Command

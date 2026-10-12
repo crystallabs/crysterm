@@ -313,6 +313,16 @@ module Crysterm
       first_block = doc.blocks[first_bi]
       base_bf = first_block.block_format
       bf = new_format ? base_bf.merge(TextBlockFormat.new(table_format: tf)) : base_bf
+      # The cells the wrapped rows are remembered as before the build, which
+      # remembers its own: a row whose rendering stays can still stand for
+      # other cells (a space typed where a word was broken mid-way).
+      remembered = {} of String => Array(String)?
+      unless new_format
+        doc.blocks[first_bi, old_count].each do |b|
+          text = b.text
+          remembered[text] = @format.wrapped_cells[text]? if text.includes?(TextTable::LINE_SEAM)
+        end
+      end
       fresh = TextTable.build_blocks(header, body, tf.alignments, tf.columns, bf, TextTable.border_char_format(first_block),
         TextTable.available_width(doc.text_width, base_bf))
       doc.edit do
@@ -321,7 +331,15 @@ module Crysterm
           bi = first_bi + k
           b = doc.blocks[bi]
           nb = fresh[k]
-          next if b.text == nb.text
+          if b.text == nb.text
+            text = b.text
+            if remembered.has_key?(text)
+              was = remembered[text]
+              now = @format.wrapped_cells[text]?
+              doc.change_wrapped_cells(doc.block_position(bi), @format, text, was, now) unless was == now
+            end
+            next
+          end
           bp = doc.block_position(bi)
           doc.remove(bp, b.size) if b.size > 0
           acc = bp
@@ -974,6 +992,26 @@ module Crysterm
         raw_rerender_block_run(r.first, to)
       end
       true
+    end
+
+    # Records, as an undo step, that *format* now reads its row at *pos*,
+    # rendered *text*, as *now* rather than *was* (`TextTableFormat#wrapped_cells`,
+    # nil for its plain reading): the cells changed though the text did not.
+    protected def change_wrapped_cells(pos : Int32, format : TextTableFormat, text : String, was : Array(String)?, now : Array(String)?) : Nil
+      raw_set_wrapped_cells(pos, format, text, now)
+      record_undo TextUndoStack::WrappedCellsCommand.new(pos, format, text, was, now)
+    end
+
+    # Makes *format* read its row at *pos*, rendered *text*, as *cells* (nil
+    # for its plain reading), announced as a format change of the row: its
+    # cells are new, its text and positions are not.
+    protected def raw_set_wrapped_cells(pos : Int32, format : TextTableFormat, text : String, cells : Array(String)?) : Nil
+      if cells
+        format.wrapped_cells[text] = cells.dup
+      else
+        format.wrapped_cells.delete(text)
+      end
+      finish_edit(pos, text.size, text.size, kind: :format)
     end
 
     # Gives the blocks from index *first* on the fragments of *fresh*, a
