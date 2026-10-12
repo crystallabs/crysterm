@@ -26,6 +26,14 @@ module Crysterm
       @color_count
     end
 
+    # What the `Auto` depth of the `colors.depth` option resolves to on the
+    # connected terminal, whatever the option is now: the terminal-detected
+    # count under the `screen.color_force` policy. An application offering
+    # the depths names the detection beside its Auto choice with this.
+    def detected_color_count : Int32
+      self.class.resolve_color_depth(tput.features.number_of_colors, ColorDepth::Auto)
+    end
+
     # Memo for `#color_count` and the input triple it was computed against.
     @color_count : Int32 = 0
     @color_count_key : Tuple(ColorDepth, ColorForce, Int32)? = nil
@@ -36,9 +44,10 @@ module Crysterm
     # back to the terminal-detected count. `1` means monochrome: no color is
     # emitted, a cell's polarity against the terminal's goes through reverse
     # video instead (`SGR.monochrome`), and styles still apply.
-    def self.resolve_color_depth(detected : Int32) : Int32
+    # `depth` stands in for the option, as `#detected_color_count` has it.
+    def self.resolve_color_depth(detected : Int32, depth : ColorDepth = Config.colors_depth) : Int32
       # An explicit config depth wins outright.
-      if forced = Config.colors_depth.to_count
+      if forced = depth.to_count
         return forced
       end
       case Config.screen_color_force

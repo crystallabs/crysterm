@@ -126,7 +126,7 @@ module Crysterm
     # the device size — a `Window` is full-screen, so its surface size *is*
     # its screen's size.
     delegate input, output, error,
-      tput, draw_caps, color_count, truecolor?,
+      tput, draw_caps, color_count, detected_color_count, truecolor?,
       force_unicode?, full_unicode?, full_unicode_effective?,
       glyph_tier, glyph_octants?, vs16_widens?,
       width, height,
