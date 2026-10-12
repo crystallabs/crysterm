@@ -85,8 +85,11 @@ module Crysterm
 
         @popup_mode = true
         # A (re)opened menu starts with no row highlighted — it's transient
-        # interaction state, not carried across opens.
+        # interaction state, not carried across opens. A menu popped up again
+        # while open (the bar's mnemonic pressed twice) had a highlight to
+        # announce the end of (`menu/tips.cr`).
         @show_highlight = false
+        highlight_changed
         # A menu created with only `window:` (not `parent:`) sets `@window` but is
         # not in the window's `children`, so `to_front`/`stack_index=` find no index
         # and it never renders, even though `popup` opens a modal grab.
@@ -218,6 +221,10 @@ module Crysterm
         return unless subs && !subs.empty?
 
         close_submenu # replace any already-open child
+        # The row's tooltip would sit where the submenu goes — right of the
+        # menu, at the row — so the submenu takes its place, and a pending
+        # wake-up is forgotten (`menu/tips.cr`).
+        hide_tip_popup
 
         # Inherit this menu's own (inline) style so the child is bordered/colored
         # identically *from its first frame*: the theme alone leaves a
@@ -288,6 +295,7 @@ module Crysterm
             window, grab_owner: nil, inside: inside) do
             close_submenu
             @show_highlight = false
+            highlight_changed # the highlight left (`menu/tips.cr`)
             update!
           end
           s.open

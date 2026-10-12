@@ -354,6 +354,41 @@ describe "Menu tear-off" do
     end
   end
 
+  it "relays its hovered actions to the bar it was torn off, through a copy torn off its own submenu too" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, sync, _ = build(s)
+      main.status_bar
+      horizontal = view.actions.last.menu.not_nil!.first
+      horizontal.status_tip = "Rulers across the top"
+      on_bar = [] of Action?
+      main.menu_bar.on(Event::ActionHovered) { |e| on_bar << e.action }
+      main.menu_bar.open_menu 0
+      s.repaint
+      drag_handle s, handle_of(view).not_nil!, 20, 4
+      t = Widget::Menu.torn_off_menus(s).first
+      x, y = row_of(t, "S&ync Cursor")
+      mouse_move s, x, y
+      on_bar.last.should eq sync
+
+      # The copy's submenu, torn off in turn: its chain ends at the copy, whose
+      # own chain ends at the bar's menu.
+      x, y = row_of(t, "Ru&lers")
+      mouse_move s, x, y
+      s.repaint
+      sub = open_menus(s).find! { |m| m.parent_menu == t }
+      drag_handle s, handle_of(sub).not_nil!, 0, 6
+      t2 = (Widget::Menu.torn_off_menus(s) - [t]).first
+      t2.torn_source.should be_nil # the submenu went with the close of the copy's chain
+      t.visible?.should be_true    # the copy stays, its submenu closed
+      open_menus(s).should eq [t, t2]
+      x, y = row_of(t2, "&Horizontal")
+      mouse_move s, x, y
+      main.status_bar.message.should eq "Rulers across the top"
+      on_bar.last.should eq horizontal
+    end
+  end
+
   it "follows actions added to the original while it lives" do
     with_tear_off true do
       s = headless_screen(80, 24)

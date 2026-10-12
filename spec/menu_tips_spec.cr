@@ -63,6 +63,50 @@ describe "Widget::Menu tips" do
     hovered.last.should be_nil
   end
 
+  it "relays a submenu's hovered action up its chain and onto the bar; the leaving highlight stays on its menu" do
+    s = headless_screen(80, 24)
+    main, file = tipped_window(s)
+    on_file = [] of Crysterm::Action?
+    on_bar = [] of Crysterm::Action?
+    file.on(Event::ActionHovered) { |e| on_file << e.action }
+    main.menu_bar.on(Event::ActionHovered) { |e| on_bar << e.action }
+    main.menu_bar.open_menu 0
+    s.repaint
+    file.select_last_action # Recent
+    on_bar.map(&.try &.text).should eq ["Recent"]
+    press file, Tput::Key::Right # opens Recent with old-1 selected
+    sub = file.@submenu_open.should_not be_nil
+    on_sub = [] of Crysterm::Action?
+    sub.on(Event::ActionHovered) { |e| on_sub << e.action }
+    on_file.map(&.try &.text).should eq ["Recent", "old-1"]
+    on_bar.map(&.try &.text).should eq ["Recent", "old-1"]
+    press sub, Tput::Key::Left # the submenu closes: its highlight left, the parent's row is still Recent
+    on_sub.should eq [nil]
+    on_file.last.try(&.text).should eq "old-1"
+    on_bar.last.try(&.text).should eq "old-1"
+    press file, Tput::Key::Escape
+    on_file.last.should be_nil
+    on_bar.last.should be_nil
+  end
+
+  it "ends the highlight's tip when the open menu is popped up again" do
+    s = headless_screen(80, 24)
+    main, file = tipped_window(s)
+    hovered = [] of Crysterm::Action?
+    file.on(Event::ActionHovered) { |e| hovered << e.action }
+    main.menu_bar.open_menu 0
+    s.repaint
+    file.select_first_action
+    main.status_bar.message.should eq "Open a file"
+    main.menu_bar.open_menu 0 # the bar's mnemonic pressed again: the menu reopens unhighlighted
+    s.repaint
+    file.visible?.should be_true
+    main.status_bar.message.should eq ""
+    hovered.last.should be_nil
+    file.select_first_action # announced afresh
+    main.status_bar.message.should eq "Open a file"
+  end
+
   it "takes the tip from a hovered row too" do
     s = headless_screen(80, 24)
     main, file = tipped_window(s)
@@ -195,6 +239,24 @@ describe "Widget::Menu tips" do
     visible_tool_tip(s).not_nil!.content.should eq " Open old-1 again"
     press file.@submenu_open.not_nil!, Tput::Key::Left # the submenu closes with its tooltip
     visible_tool_tip(s).should be_nil
+  ensure
+    Crysterm::Config.reset "tool_tip.delay"
+  end
+
+  it "shows no tooltip for a row whose submenu a hover opened: the submenu sits where the tooltip would" do
+    Crysterm::Config.set "tool_tip.delay", 20.milliseconds
+    s = headless_screen(80, 24)
+    main, file = tipped_window(s)
+    file.actions.last.tool_tip = "The files opened before"
+    main.menu_bar.open_menu 0
+    s.repaint
+    file.tool_tips_visible = true
+    lp = file.lpos.not_nil!
+    hover s, lp.xi + 2, lp.yi + file.itop + 2 # the Recent row
+    file.@submenu_open.should_not be_nil
+    sleep 80.milliseconds
+    visible_tool_tip(s).should be_nil
+    main.status_bar.message.should eq "" # Recent has no status tip; the bar is the submenu's to fill
   ensure
     Crysterm::Config.reset "tool_tip.delay"
   end

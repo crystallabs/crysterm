@@ -7,8 +7,10 @@ module Crysterm
       # Every change of the highlight — a hover, an arrow key, the first
       # reveal, a submenu opened by the keyboard with its first row selected
       # — is one `#highlight_changed`, which `#hover`s the action (its
-      # `Event::Hovered`), emits `Event::ActionHovered` on the menu (Qt's
-      # `QMenu::hovered(QAction*)`), and then tells of the action three ways:
+      # `Event::Hovered`), emits `Event::ActionHovered` on the menu and every
+      # menu above it (Qt's `QMenu::hovered(QAction*)` up the caused stack; a
+      # `MenuBar` re-emits its menus' as `QMenuBar::hovered`), and then tells
+      # of the action three ways:
       #
       # * The action's `Action#status_tip` goes out as `Event::StatusTip` on
       #   the chain's *root* menu (Qt's `QStatusTipEvent`, sent up to the
@@ -32,17 +34,24 @@ module Crysterm
 
       # Whether the highlighted action's tooltip pops up beside its row (Qt's
       # `QMenu::toolTipsVisible`). Unset (`nil`), a submenu follows its parent
-      # menu and a top-level menu the `menu.tool_tips` option, which is off by
-      # default: Qt's menus show no tooltips unless asked, since the status tip
-      # is the quieter place for a description.
+      # menu, a torn-off menu the menu it was torn off while that lives
+      # (`menu/tear_off.cr`), and a top-level menu the `menu.tool_tips` option,
+      # which is off by default: Qt's menus show no tooltips unless asked, since
+      # the status tip is the quieter place for a description.
       @tool_tips_visible : Bool?
 
       def tool_tips_visible? : Bool
-        if (explicit = @tool_tips_visible).nil?
-          (pm = parent_menu) ? pm.tool_tips_visible? : Config.menu_tool_tips
-        else
-          explicit
-        end
+        v = tool_tips_override
+        v.nil? ? Config.menu_tool_tips : v
+      end
+
+      # The nearest explicit `#tool_tips_visible=` up the chain this menu
+      # follows — its own, its parent menu's, its torn-off source's — or `nil`
+      # for the option.
+      protected def tool_tips_override : Bool?
+        v = @tool_tips_visible
+        return v unless v.nil?
+        (parent_menu || @torn_source).try &.tool_tips_override
       end
 
       # Sets whether tooltips pop up, or `nil` to follow the parent menu and
@@ -105,12 +114,28 @@ module Crysterm
           # row takes down the parent row's popup, and its pending wake-up.
           parent_menu.try &.hide_tip_popup
           act.hover
-          emit ::Crysterm::Event::ActionHovered, act
+          relay_hovered act
           tip_root.emit ::Crysterm::Event::StatusTip, (act.status_tip || "")
           arm_tool_tip act
         else
           emit ::Crysterm::Event::ActionHovered, nil
           tip_root.emit ::Crysterm::Event::StatusTip, ""
+        end
+      end
+
+      # Emits `Event::ActionHovered` for *act* on this menu and on every menu
+      # above it — the parent menus up to the chain's root, then the root the
+      # chain was torn off while it lives — as Qt fires `QMenu::hovered` on each
+      # menu of the caused stack (and `QMenuBar::hovered` on the bar, which a
+      # `MenuBar` does by re-emitting its menus'), so a listener on the root
+      # menu or the bar hears a hover at any depth. The leaving highlight (a
+      # `nil`) is this menu's alone: above it, the row the submenu hangs off is
+      # still the highlighted one.
+      private def relay_hovered(act : Action) : Nil
+        m = self
+        while m
+          m.emit ::Crysterm::Event::ActionHovered, act
+          m = m.parent_menu || m.@torn_tip_root
         end
       end
 
@@ -127,19 +152,24 @@ module Crysterm
       # root — or, under a torn-off menu, the root of the chain it was torn off
       # while that lives (`menu/tear_off.cr`), so a torn-off palette's tips
       # still reach the `MenuBar` and the status bar as Qt's reach the main
-      # window through the `QTornOffMenu`'s caused stack.
+      # window through the `QTornOffMenu`'s caused stack. Followed as far as
+      # it goes: a copy torn off a torn-off menu's submenu reports through the
+      # first copy to the bar's menu.
       private def tip_root : Menu
         root = root_menu
-        root.@torn_tip_root || root
+        while up = root.@torn_tip_root
+          root = up
+        end
+        root
       end
 
       # Starts the wake-up for *act*'s tooltip, when tooltips are on and the
       # action has one that says more than its label (Qt's `QAction#toolTip`
       # falls back to the text, and a tooltip repeating the row is noise —
       # the label as the row shows it, its `&` marker resolved). The timer's
-      # block checks that *act* is still the one highlighted: a highlight
-      # that moved meanwhile stopped the timer, but the tick may already be
-      # in flight.
+      # block checks that *act* is still the one highlighted and tooltips
+      # still on: a highlight that moved meanwhile stopped the timer, but the
+      # tick may already be in flight.
       private def arm_tool_tip(act : Action) : Nil
         return unless tool_tips_visible?
         text = act.tool_tip
@@ -147,7 +177,9 @@ module Crysterm
         win = window? || return
         @tip_timer = win.after(Config.tool_tip_delay) do
           @tip_timer = nil
-          show_tip_popup text if @tip_action.same?(act) && visible?
+          # Tooltips turned off meanwhile — the `menu.tool_tips` option, which
+          # no setter of this menu's sees — leave the wake-up without a tip.
+          show_tip_popup text if @tip_action.same?(act) && visible? && tool_tips_visible?
         end
       end
 

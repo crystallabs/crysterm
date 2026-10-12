@@ -229,6 +229,9 @@ module Crysterm
         # listens to (Qt's `QStatusTipEvent` travels up to the top-level
         # widget the same way).
         menu.on(::Crysterm::Event::StatusTip) { |e| emit ::Crysterm::Event::StatusTip, e.text }
+        # So does the highlighted action — the menu relays its submenus' up to
+        # itself (Qt's `QMenuBar::hovered`, fired for every menu of the bar).
+        menu.on(::Crysterm::Event::ActionHovered) { |e| emit ::Crysterm::Event::ActionHovered, e.action }
 
         index = @menus.size
         @menus << menu

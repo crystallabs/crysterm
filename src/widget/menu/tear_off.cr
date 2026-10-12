@@ -234,6 +234,7 @@ module Crysterm
         return false unless torn_off?
         close_submenu if @submenu_open
         @show_highlight = false
+        highlight_changed # the highlight left (`menu/tips.cr`)
         update!
         window.focus_central
         e.accept
