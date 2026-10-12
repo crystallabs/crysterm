@@ -246,6 +246,14 @@ module Crysterm
       # window (several handlers sharing one client).
       @@shown = {} of UInt64 => Int64
 
+      # One lock per client, held by a handler while it sends Neovim a change
+      # and then keys. `nvim_input` is a fast call: its keys reach Neovim's
+      # typeahead at once, ahead of a call sent before them still waiting in
+      # Neovim's event queue (a buffer switch, the widget's lines). So such a
+      # call is a request, its answer awaited before any key is sent, and the
+      # lock keeps a handler sharing the client from sending keys meanwhile.
+      @@locks = {} of UInt64 => Mutex
+
       # *client* is a Neovim to share (never ended by the handler); without
       # one the handler starts its own at `#attach` with *args*.
       def initialize(@client : Client? = nil, @args : Array(String) = Handler.default_args.dup,
@@ -301,10 +309,12 @@ module Crysterm
       # they did (at most `#sync_timeout`).
       def input(keys : String) : Nil
         client = @client || return
-        flush_external
-        show_buffer client
-        sync_read_only client
-        client.notify "nvim_input", keys
+        exclusive(client) do
+          flush_pending
+          show_buffer client
+          sync_read_only client
+          client.notify "nvim_input", keys
+        end
         sync
       rescue Error
         gone
@@ -369,6 +379,7 @@ module Crysterm
         if client
           @@shown.delete(client.object_id) if @@shown[client.object_id]? == @buffer
           if @owns_client
+            @@locks.delete client.object_id
             client.close
             @client = nil
           elsif client.running? && (buf = @buffer)
@@ -458,9 +469,11 @@ module Crysterm
         client = @client || return
         return if @target.try &.read_only?
         e.accept
-        flush_external
-        show_buffer client
-        client.notify "nvim_paste", e.content, true, -1
+        exclusive(client) do
+          flush_pending
+          show_buffer client
+          client.request "nvim_paste", e.content, true, -1
+        end
         sync
       rescue Error
         gone
@@ -472,7 +485,7 @@ module Crysterm
         buf = @buffer || return
         return if @@shown[client.object_id]? == buf
         @@shown[client.object_id] = buf
-        client.notify "nvim_win_set_buf", 0_i64, buf
+        client.request "nvim_win_set_buf", 0_i64, buf
         if t = @target
           push_caret client, t, @mode
           resized
@@ -485,13 +498,13 @@ module Crysterm
         ro = t.read_only?
         return if ro == @read_only
         @read_only = ro
-        client.notify "nvim_exec_lua", "vim.bo[...].modifiable = select(2, ...)", [buf, !ro]
+        client.request "nvim_exec_lua", "vim.bo[...].modifiable = select(2, ...)", [buf, !ro]
       end
 
       private def focused : Nil
         apply_cursor_shape
         if c = @client
-          show_buffer c
+          exclusive(c) { show_buffer c }
         end
       rescue Error
         gone
@@ -566,8 +579,9 @@ module Crysterm
         vrow = params[5].as(Int).to_i32 - 1
         vcol = params[6].as(Int).to_i32
         set_mode mode
-        # An outside change not yet sent wins over where Neovim was.
-        if (target = @target) && !@text_dirty && !@caret_dirty
+        # An outside change not yet sent wins over where Neovim was; a
+        # buffer not in Neovim's window has no cursor to follow.
+        if (target = @target) && !@text_dirty && !@caret_dirty && params[7]? == true
           caret_from_nvim target, mode, row, col, vrow, vcol
         end
         if (w = @waiter) && seq >= w[0]
@@ -814,20 +828,37 @@ module Crysterm
       private def flush_external : Nil
         @flush_scheduled = false
         client = @client || return
+        exclusive(client) { flush_pending }
+      rescue Error
+        gone
+      end
+
+      # Holds *client*'s lock (`@@locks`) for the block.
+      private def exclusive(client : Client, &)
+        (@@locks[client.object_id] ||= Mutex.new).synchronize { yield }
+      end
+
+      # Sends what changed outside Neovim; under the client's lock.
+      private def flush_pending : Nil
+        client = @client || return
         target = @target || return
         return unless @text_dirty || @caret_dirty
-        show_buffer client
+        # The text goes to the widget's own buffer, shown or not; the caret
+        # only to the window showing it, which a handler sharing the Neovim
+        # may have taken: it is sent when the buffer is shown again
+        # (`#show_buffer`), as switching here would move the other
+        # handler's keys, still in Neovim's queue, to this buffer.
         if @text_dirty
           @text_dirty = false
           push_text client, target
         end
         if @caret_dirty
           @caret_dirty = false
-          push_caret client, target, @mode
-          request_state wait: false
+          if @@shown[client.object_id]? == @buffer
+            push_caret client, target, @mode
+            request_state wait: false
+          end
         end
-      rescue Error
-        gone
       end
 
       # Sends Neovim the lines that differ between its buffer and the widget.
@@ -838,7 +869,7 @@ module Crysterm
         return if new == old
         p, q = common_ends(old, new)
         @lines = new
-        client.notify "nvim_exec_lua", "crysterm_vi.set_lines(...)", [buf, p, old.size - q, new[p...(new.size - q)]]
+        client.request "nvim_exec_lua", "crysterm_vi.set_lines(...)", [buf, p, old.size - q, new[p...(new.size - q)]]
       end
 
       # Puts Neovim's cursor on the widget's caret, and its Visual selection
@@ -1039,11 +1070,12 @@ module Crysterm
           local m = vim.api.nvim_get_mode().mode
           local c = vim.api.nvim_win_get_cursor(0)
           local v = vim.fn.getpos('v')
-          if vim.api.nvim_get_current_buf() ~= buf then
+          local shown = vim.api.nvim_get_current_buf() == buf
+          if not shown then
             c = { 1, 0 }
             v = { 0, 1, 1, 0 }
           end
-          vim.rpcnotify(C.chan, 'crysterm_vi_state', buf, seq, m, c[1], c[2], v[2], v[3] - 1)
+          vim.rpcnotify(C.chan, 'crysterm_vi_state', buf, seq, m, c[1], c[2], v[2], v[3] - 1, shown)
         end
         LUA
     end
