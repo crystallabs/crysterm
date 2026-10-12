@@ -318,10 +318,27 @@ module Crysterm
     # Records *reflows*, tables just re-rendered to a new
     # `TextDocument#text_width` (see the class docs); nothing coalesces
     # across them. With no history there is nothing to replay.
+    #
+    # A table re-rendered again is kept as one re-rendering, from its
+    # rendering at the last move to the latest, and dropped when that is
+    # where it started (a resize back and forth), so a drag through many
+    # widths holds one copy per table. The tables are apart and each
+    # re-rendering keeps the block count, so they need no order among them.
     def reflowed(reflows : Array(TextDocument::TableReflow)) : Nil
       return if reflows.empty? || !(undo_available? || redo_available?)
       seal_last
-      @reflows.concat(reflows)
+      reflows.each do |r|
+        if i = @reflows.index { |q| q.first == r.first && q.new.size == r.old.size }
+          q = @reflows[i]
+          if q.old.map(&.text) == r.new.map(&.text)
+            @reflows.delete_at(i)
+          else
+            @reflows[i] = TextDocument::TableReflow.new(q.first, q.old, r.new)
+          end
+        else
+          @reflows << r
+        end
+      end
     end
 
     # Forgets every step, keeping `#clean?` false when it was — the last

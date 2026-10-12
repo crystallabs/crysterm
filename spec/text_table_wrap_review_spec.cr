@@ -106,6 +106,23 @@ describe TextUndoStack do
     w.should eq [30]
   end
 
+  it "keeps one re-rendering per table however many widths it goes through" do
+    doc = TextDocument.new
+    doc.set_markdown GFM + "\n\n" + GFM + "\n\npara"
+    doc.cursor(doc.size).insert_text("!")
+    typed = doc.to_plain_text
+    stack = doc.@undo_stack.not_nil!
+    (20..60).each { |w| doc.text_width = w }
+    stack.@reflows.size.should eq 2
+    doc.text_width = nil
+    stack.@reflows.should be_empty
+    doc.to_plain_text.should eq typed
+    (20..60).each { |w| doc.text_width = w }
+    doc.undo.should be_true
+    doc.text_width = nil
+    doc.to_plain_text.should eq typed.rchop("!")
+  end
+
   it "still drops the history for a reflow inside an edit block" do
     doc = TextDocument.new
     doc.set_markdown GFM + "\n\npara"
