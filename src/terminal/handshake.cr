@@ -123,8 +123,8 @@ module Crysterm
         tty = line[4..].strip
 
         begin
-          input = File.open(tty, "r")
-          output = File.open(tty, "w")
+          input = open_tty(tty, LibC::O_RDONLY)
+          output = open_tty(tty, LibC::O_WRONLY)
         rescue ex
           input.try &.close rescue nil
           socket.close rescue nil
@@ -142,6 +142,22 @@ module Crysterm
           File.delete(path) rescue nil
         end
       end
+    end
+
+    # Opens the window's TTY at *path* with *flags* (`O_RDONLY`, `O_WRONLY`)
+    # as `Screen.controlling_terminal` opens the process's own: a descriptor
+    # wrapped by `IO::FileDescriptor.new`, which puts a character device in
+    # non-blocking mode, so the window's reads and writes park their fiber in
+    # the event loop. `File.open` will not do: on macOS it opens every path
+    # blocking, and the window's input fiber, waiting in `read()`, would
+    # stall the whole process — every other window's input and rendering
+    # with it — until a key arrives in the new window.
+    #
+    # :nodoc:
+    def self.open_tty(path : String, flags : Int32) : IO::FileDescriptor
+      fd = LibC.open(path, flags | LibC::O_CLOEXEC)
+      raise IO::Error.from_errno("open #{path}") if fd == -1
+      IO::FileDescriptor.new(fd)
     end
 
     # Resolves the spawned window's size: explicit values win; a `nil` axis
