@@ -25,6 +25,22 @@ private def click(s, x, y)
     ::Tput::Mouse::Action::Up, ::Tput::Mouse::Button::Left, x, y, source: :test)
 end
 
+# A browser whose row count crosses a digit back and forth with the gutter's
+# width, as a picture shrunk to the text width can make it: 100 rows beside a
+# three-column gutter, 99 beside a four-column one.
+private class FlippingRowsBrowser < Widget::TextBrowser
+  getter layouts = 0
+
+  protected def line_number_count : Int32
+    @line_number_width <= 3 ? 100 : 99
+  end
+
+  private def rebuild_layout(colwidth : Int32, key : Tuple(Int32, Int32, Bool, Int32)) : Nil
+    @layouts += 1
+    super
+  end
+end
+
 describe "TextEdit line numbers" do
   it "is off by default and reserves nothing" do
     s = headless_screen(30, 8, default_quit_keys: true)
@@ -149,6 +165,21 @@ describe "TextEdit line numbers" do
     s.repaint
     row_text(s, 0).should eq " │one"
     seen.should eq [true, false]
+  end
+
+  it "settles on the wider gutter when the row count flips across a digit with its width" do
+    s = headless_screen(30, 6, default_quit_keys: true)
+    tb = FlippingRowsBrowser.new parent: s, left: 0, top: 0, width: 30, height: 6
+    tb.set_markdown "one"
+    tb.line_numbers = true
+    s.repaint
+    tb.line_number_area_width.should eq 4
+    # Steady: no layout on the frames after.
+    n = tb.layouts
+    s.repaint
+    s.repaint
+    tb.layouts.should eq n
+    tb.line_number_area_width.should eq 4
   end
 
   it "is reachable on a MarkdownViewer's browser" do

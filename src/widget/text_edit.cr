@@ -414,9 +414,11 @@ module Crysterm
         sync_palette
         # The margin chrome's widths from the last layout's rows (the base
         # `AbstractScrollArea#process_content` does the same), the gutter's
-        # checked again below against the rows this layout makes.
+        # checked again below against the rows this layout makes — widened
+        # only here, so a gutter left a column wider than its rows need (see
+        # below) doesn't lay the view out again on every frame.
         sync_ruler_width if @row_ruler
-        sync_line_number_width if @line_numbers
+        sync_line_number_width(shrink: false) if @line_numbers
         # The column's insets first (`AbstractScrollArea#process_content`
         # does the same for the base pipeline): the wrap width below is the
         # width left inside them.
@@ -448,11 +450,26 @@ module Crysterm
         end
         # The gutter numbers the rows (`AbstractScrollArea#line_numbers=`):
         # a row count that gained or lost a digit lays out once more at the
-        # gutter's new width — monotonic too, a wider gutter leaving no
-        # fewer rows.
-        return process_content(no_tags, awidth_hint) || true if @line_numbers && sync_line_number_width
+        # gutter's new width. A wider gutter leaves no fewer rows of text,
+        # but a picture shrunk to the text width loses rows with it, so the
+        # count can flip back across the digit: the gutter narrows only on
+        # this layout's first check, widening after, which ends — a gutter a
+        # column wider than its rows need rather than a layout without end.
+        if @line_numbers && sync_line_number_width(shrink: !@_gutter_relayout)
+          was = @_gutter_relayout
+          @_gutter_relayout = true
+          begin
+            process_content(no_tags, awidth_hint)
+          ensure
+            @_gutter_relayout = was
+          end
+        end
         true
       end
+
+      # Whether `#process_content` is laying out again for the gutter's new
+      # width, when the gutter no longer narrows.
+      @_gutter_relayout = false
 
       # Gives the document the width this view lays it out to (Qt's
       # `QTextEdit` setting `QTextDocument::textWidth` in `WidgetWidth` wrap

@@ -118,10 +118,14 @@ module Crysterm
       # example's `updateLineNumberAreaWidth`, which it runs on
       # `blockCountChanged`): on the toggle, before each layout and after
       # one that changed the count's digits. Returns whether the width
-      # changed — a no-op otherwise, which is nearly every frame.
-      protected def sync_line_number_width : Bool
+      # changed — a no-op otherwise, which is nearly every frame. With
+      # *shrink* false the gutter only widens: a layout whose row count
+      # depends on its width both ways (a picture shrunk to the text width
+      # grows with it) can otherwise flip between two widths for good.
+      protected def sync_line_number_width(shrink : Bool = true) : Bool
         w = @line_numbers ? Math.max(decimal_digits(line_number_count), LINE_NUMBER_MIN_DIGITS) + 1 : 0
         return false if w == @line_number_width
+        return false if !shrink && @line_numbers && w < @line_number_width
         @line_number_width = w
         self.viewport_margins = w.zero? ? Padding::ZERO : Padding.left(w)
         true
