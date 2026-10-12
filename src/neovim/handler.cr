@@ -380,8 +380,11 @@ module Crysterm
           @@shown.delete(client.object_id) if @@shown[client.object_id]? == @buffer
           if @owns_client
             @@locks.delete client.object_id
-            client.close
+            # Let go of the client first: its exit, reported while `#close`
+            # waits for it, is then no Neovim ending under the widget
+            # (`#exited`), and emits no `Event::ProcessExited`.
             @client = nil
+            client.close
           elsif client.running? && (buf = @buffer)
             client.notify("nvim_buf_delete", buf, {"force" => true}) rescue nil
           end
