@@ -92,6 +92,41 @@ describe "Application#show" do
   end
 end
 
+describe "Application#exec watching for output failures" do
+  it "watches each window once, however often it is shown, and a window added before the loop from its start" do
+    app = Crysterm::Application.new
+    first = headless_window
+    early = headless_window
+    late = headless_window
+    begin
+      app.add early
+      early.handlers(Crysterm::Event::OutputFailed).size.should eq 0
+      status = exec_in_fiber app, first
+      # Every window registered when the loop started is watched.
+      first.handlers(Crysterm::Event::OutputFailed).size.should eq 1
+      early.handlers(Crysterm::Event::OutputFailed).size.should eq 1
+      # Showing a window again adds no second watch.
+      app.show late
+      app.show late
+      app.show first
+      late.handlers(Crysterm::Event::OutputFailed).size.should eq 1
+      first.handlers(Crysterm::Event::OutputFailed).size.should eq 1
+      # A window removed from the application is unwatched with it.
+      app.remove late
+      late.handlers(Crysterm::Event::OutputFailed).size.should eq 0
+
+      app.quit 0
+      ended_with(status).should eq 0
+      # The loop's end took every watch down.
+      early.handlers(Crysterm::Event::OutputFailed).size.should eq 0
+    ensure
+      first.destroy
+      early.destroy
+      late.destroy
+    end
+  end
+end
+
 describe "Window#try_close" do
   it "closes when no handler objects, and tells" do
     w = headless_window

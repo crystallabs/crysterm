@@ -273,6 +273,7 @@ module Crysterm
     # any remaining window ↔ `QGuiApplication::screenRemoved`.
     def remove(window : Window) : Nil
       return unless @windows.delete window
+      @output_watches.delete(window).try &.off
       device = window.screen
       emit ::Crysterm::Event::ScreenRemoved, device unless device_in_use?(device)
       # Losing the last window ends a blocked `#exec` loop (Qt's
@@ -302,11 +303,29 @@ module Crysterm
     # reading (a program driving windows by hand). Returns *window*.
     def show(window : Window) : Window
       add window
-      # Ended with the window, whose teardown drops its handlers.
-      window.on(::Crysterm::Event::OutputFailed) { |e| fail_exec e.error } if @exec_running
+      watch_output window if @exec_running
       window.update
       window.start_input
       window
+    end
+
+    # The `Event::OutputFailed` subscription `#exec` keeps on each window it
+    # drives, by window, so a window is watched once however many times it
+    # is `#show`n, and every one is unwatched when the loop ends.
+    @output_watches = {} of Window => ::EventHandler::Subscription
+
+    # Has an output failure on *window*'s render fiber end the running loop
+    # (`#fail_exec`): that fiber alone would otherwise die with the error,
+    # leaving `#exec` blocked on a terminal nobody restores. Once per window.
+    private def watch_output(window : Window) : Nil
+      return if @output_watches.has_key? window
+      @output_watches[window] = window.on(::Crysterm::Event::OutputFailed) { |e| fail_exec e.error }
+    end
+
+    # Drops every `#watch_output` subscription: the loop has ended.
+    private def unwatch_outputs : Nil
+      @output_watches.each_value &.off
+      @output_watches.clear
     end
 
     # Renders *window* and runs the main loop — the `QApplication::exec()` entry.
@@ -340,9 +359,10 @@ module Crysterm
         return 0
       end
 
-      # An output failure on the window's render fiber would otherwise end only
-      # that fiber, leaving this loop blocked on a terminal nobody restores.
-      failed = window.on(::Crysterm::Event::OutputFailed) { |e| fail_exec e.error }
+      # Every window registered so far — this one, and any `#add`ed before
+      # the loop — is watched for an output failure; one `#show`n later is
+      # watched as it joins.
+      @windows.each { |w| watch_output w }
       begin
         begin
           window.update
@@ -355,7 +375,7 @@ module Crysterm
 
         status = @quit_channel.receive
       ensure
-        failed.off
+        unwatch_outputs
         @exec_running = false
         # Re-arm so a fresh window can be `exec`ed again after a quit (Qt allows
         # re-entering the loop).
