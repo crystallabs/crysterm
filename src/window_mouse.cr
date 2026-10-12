@@ -562,10 +562,21 @@ module Crysterm
         # would commit the Drop at the pointer mid-gesture. Non-matching ups/downs
         # (and any other buttons' presses) are swallowed with the rest of the
         # pointer stream.
+        in_place = false
         if drag.discrete?
           retarget_over drag, widget_at(ev.x, ev.y, skip: drag.source)
+          # Lifted and dropped on the same cell with the pointer never moved
+          # between: the two presses were a click on the widget after all.
+          in_place = !drag.moved? && ev.x == drag.x && ev.y == drag.y
         end
+        source = drag.source
         drag_release drag
+        # A two-click drag has no release to defer the click to (the lifting
+        # press's release is swallowed above), so a drop in place stands for
+        # the click — else a motionless press on a draggable widget could
+        # never click it in two-click mode (a menu's tear-off strip, torn off
+        # by a click as well as by a drag).
+        source.emit ::Crysterm::Event::Click if in_place && source.attached? && !source.disabled?
       end
       true
     end

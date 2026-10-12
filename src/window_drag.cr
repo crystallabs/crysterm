@@ -45,7 +45,10 @@ module Crysterm
     end
 
     # Two-click mouse fallback for terminals that do not report motion: a press
-    # on a draggable widget lifts it, the next press drops it. Off by default.
+    # on a draggable widget lifts it, the next press drops it — on the same
+    # cell, with no motion between, that is the widget's `Event::Click` (the
+    # lifting press cannot click, since only motion would tell it from a
+    # drag's start). Off by default.
     property? drag_two_click : Bool = false
 
     # Whether to float a ghost label under the pointer during a (mouse) transfer
@@ -115,6 +118,7 @@ module Crysterm
     # reposition), float the ghost, then re-evaluate and re-ask the drop target.
     def drag_motion(sess : DragSession, x : Int32, y : Int32, shift = false, ctrl = false) : Nil
       sess.data.action = drag_action_for shift, ctrl, default_supported_action(sess.data.supported)
+      sess.moved = true if x != sess.x || y != sess.y
       sess.x = x
       sess.y = y
       sess.source.emit ::Crysterm::Event::Drag, pooled_drag_event(sess)

@@ -397,6 +397,40 @@ describe "drag-and-drop" do
       received.should eq("p")
       s.drag_session.should be_nil
     end
+
+    it "takes a second press on the pickup cell, with no motion between, as a click" do
+      s = headless_screen(default_quit_keys: true)
+      s.drag_two_click = true
+      box = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3, draggable: true
+      clicks = 0
+      box.on(Event::Click) { clicks += 1 }
+
+      mouse_down s, 1, 1 # lift
+      mouse_up s, 1, 1   # the lifting press's release: swallowed, no click yet
+      clicks.should eq 0
+      s.drag_session.should_not be_nil
+      mouse_down s, 1, 1 # dropped where it was lifted: the click
+      clicks.should eq 1
+      s.drag_session.should be_nil
+      box.left.should eq 0
+      mouse_up s, 1, 1 # the dropping press's release clicks nothing more
+      clicks.should eq 1
+    end
+
+    it "does not click when the pointer wandered and came back to the pickup cell" do
+      s = headless_screen(default_quit_keys: true)
+      s.drag_two_click = true
+      box = Widget::Box.new parent: s, left: 0, top: 0, width: 6, height: 3, draggable: true
+      clicks = 0
+      box.on(Event::Click) { clicks += 1 }
+
+      mouse_down s, 1, 1
+      mouse_move s, 10, 5
+      mouse_move s, 1, 1
+      mouse_down s, 1, 1 # a drop, back where it started
+      clicks.should eq 0
+      s.drag_session.should be_nil
+    end
   end
 
   describe "desktop-edge bridges" do

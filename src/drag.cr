@@ -103,6 +103,11 @@ module Crysterm
     # don't report motion. (A continuous mouse drag is press-move-release.)
     property? discrete : Bool = false
 
+    # Whether the pointer has moved since the pickup (`Window#drag_motion`):
+    # tells a two-click drop on the pickup cell with no motion between — a
+    # click on the source — from a drag that wandered and came back to it.
+    property? moved : Bool = false
+
     def initialize(@source, @data, @x, @y, @sensor)
     end
   end
