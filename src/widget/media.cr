@@ -631,8 +631,11 @@ module Crysterm
       class_property remote_failure_ttl : Time::Span = 30.seconds
 
       # When each remote URL's decode last failed, by cache key — the negative
-      # cache for URLs, kept apart from the LRU so it expires (see `.decode`).
-      @@remote_failures = {} of String => Time::Instant
+      # cache for URLs, kept apart from the LRU so it expires (see `.decode`),
+      # and bounded like it, since an expired entry goes only when its URL is
+      # asked for again and a program meeting ever new broken links would
+      # otherwise keep every one.
+      @@remote_failures = Cache::Bounded(String, Time::Instant).new(Cache::IMAGE_DECODE_CAPACITY, "image_remote_failures", register: true)
 
       # Decodes *file* (a local path or `http(s)` URL) once, caching the result
       # keyed on path + size + mtime (so an on-disk change invalidates it).
