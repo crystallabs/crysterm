@@ -111,7 +111,9 @@ module Crysterm
 
           # Cursor movement. Left/Right step over a whole grapheme cluster under
           # `full_unicode?` (a single codepoint otherwise). Home/End jump to the
-          # start/end of the current line. Up/Down move one visual row,
+          # start/end of the current line, Ctrl+Home/End to the start/end of the
+          # whole text (Qt's `QKeySequence::MoveToStartOfDocument`/
+          # `MoveToEndOfDocument`). Up/Down move one visual row,
           # remembering the goal column (`@goal_col`) so a detour across shorter
           # lines keeps the column. Page Up/Down turn the viewport by a page and
           # move the caret with it, keeping its viewport row (`page_cursor`).
@@ -137,6 +139,12 @@ module Crysterm
           elsif k == Tput::Key::End
             @goal_col = nil
             @cursor_pos = line_end_pos
+          elsif k == Tput::Key::CtrlHome # Qt's `MoveToStartOfDocument`
+            @goal_col = nil
+            @cursor_pos = 0
+          elsif k == Tput::Key::CtrlEnd # Qt's `MoveToEndOfDocument`
+            @goal_col = nil
+            @cursor_pos = buf_size
           elsif !rl && k == Tput::Key::CtrlA # GUI: select all (readline off)
             @goal_col = nil
             @selection_anchor = 0
