@@ -52,7 +52,7 @@ module Crysterm
 
       # Indent cells per list nesting level (`TextListFormat#indent - 1`
       # levels deep) — the terminal stand-in for Qt's per-level pixel indent.
-      LIST_INDENT_CELLS = 2
+      LIST_INDENT_CELLS = TextBlockFormat::LIST_INDENT_CELLS
 
       # Per-kind icon glyph for a GFM alert block's title chip (see
       # `#alert_chip`) — the "distinct per kind" look GitHub's alert
@@ -413,6 +413,7 @@ module Crysterm
         sync_line_wrap_column(awidth_hint || awidth)
         colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
+        sync_text_width(key) if key != @layout_key
         if key == @layout_key && @layout_revision == @doc_revision && images_current? && !@wrapped_lines.empty?
           # Steady frame. Keep the cached base attr fresh (a style change
           # recolors the background) — mirrors the base `process_content`. The
@@ -431,8 +432,25 @@ module Crysterm
         # produced rows flipped the bar's presence, re-wrap once — monotonic,
         # so two passes always suffice.
         key2 = layout_cache_key(colwidth)
-        rebuild_layout(colwidth, key2) if key2 != key
+        if key2 != key
+          sync_text_width(key2)
+          rebuild_layout(colwidth, key2)
+        end
         true
+      end
+
+      # Gives the document the width this view lays it out to (Qt's
+      # `QTextEdit` setting `QTextDocument::textWidth` in `WidgetWidth` wrap
+      # mode): the wrap width of an undecorated block — the column width
+      # less the scroll bar's reservation — when wrapping, nil otherwise.
+      # Its tables re-render to fit it (`TextDocument#text_width`), their
+      # blocks then laid out below. Run when the layout's inputs change,
+      # never for a document change, so a re-rendering does not come back
+      # here, and of two views sharing a document the one resized last sets
+      # it.
+      private def sync_text_width(key : Tuple(Int32, Int32, Bool, Int32)) : Nil
+        colwidth, _, wrap, margin = key
+        document.text_width = wrap ? Math.max(colwidth > margin ? colwidth - margin : colwidth, 1) : nil
       end
 
       private def layout_cache_key(colwidth : Int32) : Tuple(Int32, Int32, Bool, Int32)
@@ -607,32 +625,36 @@ module Crysterm
       # non-wrap `_hslice` viewport window. `wrap_width` is the column width left
       # after the block's decorations. TABs must be pre-expanded to match the
       # tab-expanded column units all the shared caret math runs in.
+      #
+      # A table row is cut into its display lines (`TextTable.display_lines`:
+      # a wrapped row is its lines one after another, each the table's
+      # width) — rows of the grid, not of prose.
       private def wrap_block(blk : TextBlock, wrap_width : Int32) : CLines
         text = blk.text
         text = text.gsub('\t', style.tab_char * style.tab_size) if text.includes?('\t')
+        if blk.block_format.table_format && text.includes?(TextTable::LINE_SEAM)
+          text = TextTable.display_lines(text).join('\n')
+        end
         wrap_lines(text, wrap_width)
       end
 
       # Decoration cells left of a block's text: frame insets (borders +
       # margins, outermost first), quote bars (2 per level), list nesting
       # indent, plain block indent, and the list marker.
+      # The model's rule (`TextBlockFormat#leading_inset_cells`, which a
+      # table fitting the document's text width also follows) plus the marker.
       private def block_deco_cells(bf : TextBlockFormat, marker : String?) : Int32
-        deco = frame_inset(bf) + bf.quote_level * 2 + bf.indent
-        if lf = bf.list_format
-          deco += (lf.indent - 1) * LIST_INDENT_CELLS
-        end
+        deco = bf.leading_inset_cells
         deco += str_width(marker) if marker
         deco
       end
 
       # Horizontal inset one side of a block's frame nesting consumes: 2
       # cells per bordered level (bar + gap) plus each level's margin. Frames
-      # are symmetric, so this is both the left and the right inset.
+      # are symmetric, so this is both the left and the right inset
+      # (`TextBlockFormat#frame_inset_cells`).
       private def frame_inset(bf : TextBlockFormat) : Int32
-        path = bf.frame_formats || return 0
-        w = 0
-        path.each { |f| w += (f.border? ? 2 : 0) + f.margin }
-        w
+        bf.frame_inset_cells
       end
 
       # === Geometry hooks (see `Mixin::TextEditing`) ===

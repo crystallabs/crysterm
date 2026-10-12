@@ -1521,7 +1521,7 @@ module Crysterm
         prefix = "> " * run.first.block_format.quote_level
         # A literal `|` in a cell must not read back as a cell boundary,
         # and a literal `&` must not entity-decode on re-import.
-        rows = data.map { |b| TextTable.split_data_row(b.text).map(&.gsub("|", "\\|").gsub("&", "\\&")) }
+        rows = data.map { |b| TextTable.split_data_row(b.text, tf).map(&.gsub("|", "\\|").gsub("&", "\\&")) }
         io << prefix << "| " << rows[0].join(" | ") << " |"
         io << '\n' << prefix << '|'
         tf.columns.times do |c|

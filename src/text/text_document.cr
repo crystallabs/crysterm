@@ -647,6 +647,7 @@ module Crysterm
     # undo stack cleared, cursors rewound, document unmodified. The blocks are
     # adopted, not copied — callers must hand over freshly built ones.
     protected def replace_content(new_blocks : Array(TextBlock)) : Nil
+      TextTable.fit_blocks(new_blocks, @text_width)
       old_size = size
       bs = blocks_mut
       bs.clear
@@ -715,6 +716,12 @@ module Crysterm
     protected def insert_fragment(pos : Int32, frag : TextDocumentFragment) : Int32
       return 0 if frag.size == 0
       pos = pos.clamp(0, size)
+      # Its tables at this document's width — on copies, the fragment being
+      # the caller's.
+      if frag.blocks.any?(&.block_format.table_format)
+        copy = frag.blocks.map(&.clone)
+        frag = TextDocumentFragment.new(copy) if TextTable.fit_blocks(copy, @text_width)
+      end
       # A multi-block insertion at a block start replaces the head block's
       # format with the fragment's; record the original so undo restores it.
       loc = block_at(pos)
@@ -1107,18 +1114,47 @@ module Crysterm
     # `Format` reports a changed range but must not move cursors within it,
     # and `Replace` has already rewound them. The kind rides on
     # `ContentsChanged` so views can mirror the adjustment on their own carets.
-    private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit) : Nil
+    #
+    # *remap*, when given, is where each position goes instead of the shift
+    # (a table's re-rendering, `#raw_rerender_block_run`); handlers of the
+    # change read it through `#position_after_change`.
+    private def finish_edit(pos : Int32, removed : Int32, added : Int32, kind : ChangeKind = :edit, remap : Proc(Int32, Int32)? = nil) : Nil
       @revision += 1
       sync_block_positions(pos, added, kind)
       @plain_cache = nil
       if kind.edit? && (removed > 0 || added > 0)
-        each_cursor &.adjust(pos, removed, added)
+        if remap
+          each_cursor &.remap(remap)
+        else
+          each_cursor &.adjust(pos, removed, added)
+        end
       end
       if block_count != @last_block_count
         @last_block_count = block_count
         emit Crysterm::Event::BlockCountChanged, block_count
       end
-      emit Crysterm::Event::ContentsChanged, pos, removed, added, kind
+      @position_remap = remap
+      begin
+        emit Crysterm::Event::ContentsChanged, pos, removed, added, kind
+      ensure
+        @position_remap = nil
+      end
+    end
+
+    @position_remap : Proc(Int32, Int32)?
+
+    # Where position *p* goes in the `ChangeKind::Edit` change
+    # `Event::ContentsChanged` is reporting (*pos*, *removed*, *added*):
+    # `.shift_position`, except for a table's re-rendering to a new
+    # `#text_width`, where a position in a cell stays in that cell. For a
+    # view keeping its own caret, as `TextCursor`s are kept; valid while the
+    # change is being reported.
+    def position_after_change(p : Int32, pos : Int32, removed : Int32, added : Int32) : Int32
+      if remap = @position_remap
+        remap.call(p)
+      else
+        TextDocument.shift_position(p, pos, removed, added)
+      end
     end
 
     private def word_boundaries_ok?(text : String, i : Int32, len : Int32, flags : FindFlag) : Bool

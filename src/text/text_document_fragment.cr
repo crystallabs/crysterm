@@ -31,8 +31,22 @@ module Crysterm
       size == 0
     end
 
+    # The text, block separators as `'\n'` — and, as it reads, a table row
+    # whose cells wrap as its display lines (`TextTable.display_lines`),
+    # where a document's positions take such a row as one line. What a copy
+    # gives a plain-text clipboard.
     def to_plain_text : String
-      @blocks.join('\n', &.text)
+      String.build do |io|
+        @blocks.each_with_index do |b, i|
+          io << '\n' if i > 0
+          text = b.text
+          if b.block_format.table_format && text.includes?(TextTable::LINE_SEAM)
+            TextTable.display_lines(text).join(io, '\n')
+          else
+            io << text
+          end
+        end
+      end
     end
   end
 end

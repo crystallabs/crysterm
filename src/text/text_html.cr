@@ -128,7 +128,7 @@ module Crysterm
       data.each_with_index do |b, ri|
         tag = ri == 0 ? "th" : "td"
         io << "<tr>"
-        TextTable.split_data_row(b.text).each_with_index do |cell, ci|
+        TextTable.split_data_row(b.text, tf).each_with_index do |cell, ci|
           io << '<' << tag
           # Column alignment rides on each cell, the shape both the importer and
           # browsers read back.

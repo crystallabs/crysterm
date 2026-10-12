@@ -404,6 +404,34 @@ module Crysterm
       copy_with(bottom_margin: margin)
     end
 
+    # Indent cells per list nesting level (`TextListFormat#indent - 1`
+    # levels deep) — the terminal stand-in for Qt's per-level pixel indent.
+    LIST_INDENT_CELLS = 2
+
+    # Cells one side of the block's frame nesting takes: 2 per bordered
+    # level (bar + gap) plus each level's margin. Frames are symmetric, so
+    # this is both the left and the right inset.
+    def frame_inset_cells : Int32
+      path = @frame_formats || return 0
+      w = 0
+      path.each { |f| w += (f.border? ? 2 : 0) + f.margin }
+      w
+    end
+
+    # Cells left of the block's text a view lays out before it — frame
+    # insets, quote bars (2 per level), the list nesting indent and the
+    # block indent — less any list marker or alert chip, whose width is the
+    # view's (its glyphs). With `#frame_inset_cells` on the right, what the
+    # block's text has of a text width (Qt's block indent and margins in
+    # `QTextDocumentLayout`).
+    def leading_inset_cells : Int32
+      w = frame_inset_cells + quote_level * 2 + indent
+      if lf = @list_format
+        w += (lf.indent - 1) * LIST_INDENT_CELLS
+      end
+      w
+    end
+
     def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats, @alert_kind, @code_language, @image
   end
 
@@ -546,6 +574,15 @@ module Crysterm
 
     # Per-column horizontal alignment (GFM `:---:`); `nil`/missing = left.
     getter alignments : Array(Tput::AlignFlag)?
+
+    # The cells of the rows this table rendered with wrapped cells whose
+    # pieces, joined back with single spaces, would not give the cells as
+    # they were — a word broken in the middle, a run of spaces at a line
+    # break — keyed by the row block's text. `TextTable.split_data_row`
+    # reads a row through it, so a wrapped row recovers its cells exactly
+    # and a reflow to another width never accumulates spaces. Not a value:
+    # instance identity stays the table's identity.
+    protected getter wrapped_cells = {} of String => Array(String)
 
     def initialize(*, @columns : Int32 = 1, margin : Int32 = 0, border : Bool = true, @alignments : Array(Tput::AlignFlag)? = nil)
       super(margin: margin, border: border)

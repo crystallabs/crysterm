@@ -452,6 +452,13 @@ module Crysterm
       @anchor = TextDocument.shift_position(@anchor, pos, removed, added)
     end
 
+    # Moves both ends where *map* sends them (a table's re-rendering,
+    # `TextDocument#text_width`).
+    protected def remap(map : Proc(Int32, Int32)) : Nil
+      @position = map.call(@position)
+      @anchor = map.call(@anchor)
+    end
+
     protected def rewind_to_start : Nil
       @position = @anchor = 0
       @pending_format = nil
@@ -532,8 +539,8 @@ module Crysterm
       tf = @document.blocks[bi].block_format.table_format || return pos
       tbl = TextTable.new(@document, tf)
       cell = tbl.cell_at(pos) || return pos
-      r = tbl.cell_text_range(*cell) || return pos
-      pos.clamp(r.begin, r.end)
+      offset = tbl.cell_offset(*cell, pos) || return pos
+      tbl.cell_position(*cell, offset) || pos
     end
 
     # One table move (`NextCell`/`PreviousCell`/`NextRow`/`PreviousRow`) from
@@ -552,7 +559,7 @@ module Crysterm
         when .next_row?      then {row + 1, col} if row + 1 < tbl.rows
         else                      {row - 1, col} if row > 0
         end
-      target.try { |t| tbl.cell_text_range(*t).try(&.begin) }
+      target.try { |t| tbl.cell_position(*t, 0) }
     end
 
     # Start of the current/previous word: skip separators left, then word

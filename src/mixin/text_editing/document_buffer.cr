@@ -133,9 +133,11 @@ module Crysterm
 
         # Rich copy: the clipboard carries the selection as a formatted
         # `TextDocumentFragment` alongside its plain text (which is all the
-        # OSC-52 system clipboard can take).
+        # OSC-52 system clipboard can take) — the fragment's, which reads a
+        # wrapped table row line by line.
         def buf_copy_to_clipboard(clipboard : Crysterm::Application::Clipboard, from : Int32, to : Int32, window : Crysterm::Window? = nil) : Nil
-          clipboard.copy(document.copy_fragment(from, to), document.plain_text(from, to), window)
+          fragment = document.copy_fragment(from, to)
+          clipboard.copy(fragment, fragment.to_plain_text, window)
         end
 
         # Rich paste: inserts the clipboard's fragment (formats intact,
@@ -548,9 +550,9 @@ module Crysterm
           case kind
           when .edit?
             return if removed == 0 && added == 0
-            np = TextDocument.shift_position(@cursor_pos, pos, removed, added)
+            np = document.position_after_change(@cursor_pos, pos, removed, added)
             if a = @selection_anchor
-              na = TextDocument.shift_position(a, pos, removed, added)
+              na = document.position_after_change(a, pos, removed, added)
               # A collapsed anchor is a landmine — drop it rather than leaving
               # it equal to the caret.
               @selection_anchor = na == np ? nil : na

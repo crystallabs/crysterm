@@ -250,23 +250,23 @@ module Crysterm
         place_caret_in_cell(tbl, at, 0, 0)
       end
 
-      # Cell (*row*, *column*)'s document range in *tbl* and the caret's
-      # offset within it, or nil when the range can't be resolved. The
-      # range comes from `TextTable#cell_text_range` (document positions);
-      # the offset is always safe to index the cell's text with, since the
-      # text handed to callers is drawn from that same range (see
-      # `#table_type_char`, `#table_delete_char`, `#insert_text`).
-      private def cell_range_and_offset(tbl : TextTable, row : Int32, col : Int32) : {Range(Int32, Int32), Int32}?
-        r = tbl.cell_text_range(row, col) || return
-        {r, (@cursor_pos - r.begin).clamp(0, r.end - r.begin)}
+      # Cell (*row*, *column*)'s text in *tbl* and the caret's offset in it,
+      # or nil when the cell can't be resolved. A cell is addressed by text
+      # offset, not by document range: a wrapped cell's text is spread over
+      # the lines of its row (`TextTable#cell_offset`). The offset is always
+      # safe to index the text with (see `#table_type_char`,
+      # `#table_delete_char`, `#insert_text`).
+      private def cell_text_and_offset(tbl : TextTable, row : Int32, col : Int32) : {String, Int32}?
+        txt = tbl.cell_text(row, col) || return
+        off = tbl.cell_offset(row, col, @cursor_pos) || return
+        {txt, off.clamp(0, txt.size)}
       end
 
       # Types *c* into the caret's cell at the caret's offset.
       private def table_type_char(tbl : TextTable, info : {Int32, Int32}?, c : Char) : Nil
         return unless info
         row, col = info
-        r, off = cell_range_and_offset(tbl, row, col) || return
-        txt = document.plain_text(r.begin, r.end)
+        txt, off = cell_text_and_offset(tbl, row, col) || return
         tbl.set_cell_text(row, col, txt.insert(off, c))
         place_caret_in_cell(tbl, row, col, off + 1)
       end
@@ -276,9 +276,8 @@ module Crysterm
       private def table_delete_char(tbl : TextTable, info : {Int32, Int32}?, backward : Bool) : Nil
         return unless info
         row, col = info
-        r, off = cell_range_and_offset(tbl, row, col) || return
-        len = r.end - r.begin
-        txt = document.plain_text(r.begin, r.end)
+        txt, off = cell_text_and_offset(tbl, row, col) || return
+        len = txt.size
         if backward
           return if off <= 0
           tbl.set_cell_text(row, col, txt[0, off - 1] + txt[off..])
@@ -302,12 +301,11 @@ module Crysterm
         return if str.empty? && !selection?
         if tbl = caret_table
           return if selection? && selection_touches_table?
-          if (info = tbl.cell_at(@cursor_pos)) && (ro = cell_range_and_offset(tbl, *info))
+          if (info = tbl.cell_at(@cursor_pos)) && (to = cell_text_and_offset(tbl, *info))
             row, col = info
-            r, off = ro
+            txt, off = to
             want = text_change_observed?
             before = want ? buf_text : nil
-            txt = document.plain_text(r.begin, r.end)
             clean = str.gsub(/\r\n?|\n/, ' ')
             tbl.set_cell_text(row, col, txt.insert(off, clean))
             place_caret_in_cell(tbl, row, col, off + clean.size)
@@ -327,8 +325,8 @@ module Crysterm
       # Parks the caret at *offset* within cell (*row*, *col*)'s text
       # (clamped — pass `Int32::MAX` for "end of cell").
       private def place_caret_in_cell(tbl : TextTable, row : Int32, col : Int32, offset : Int32) : Nil
-        if r = tbl.cell_text_range(row, col)
-          @cursor_pos = r.begin + offset.clamp(0, r.end - r.begin)
+        if pos = tbl.cell_position(row, col, offset)
+          @cursor_pos = pos
         end
         clear_selection
         @goal_col = nil

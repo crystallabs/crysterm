@@ -203,6 +203,14 @@ module Crysterm
       normalize!
     end
 
+    # Replaces the runs with copies of *fragments* — a whole new text, for
+    # the document internals that re-render a block in place (a table's
+    # reflow, `TextDocument#text_width`).
+    protected def replace_fragments(fragments : Enumerable(TextFragment)) : Nil
+      @fragments = fragments.map { |f| TextFragment.new(f.text, f.format) }.to_a
+      normalize!
+    end
+
     # Removes up to `count` codepoints starting at `offset`.
     def remove(offset : Int32, count : Int32) : Nil
       offset = offset.clamp(0, size)
