@@ -9,9 +9,11 @@ module Crysterm
     # unparseable selector, and `set-content`'s `split_selector_arg` runs it to
     # find the selector/argument boundary. Keeping both on one helper guarantees
     # the boundary probe accepts exactly the selectors the resolver can match, so
-    # a future lowering step can't silently split the two apart.
+    # a future lowering step can't silently split the two apart. Compiled in
+    # `Selectors.engine_form`, as a stylesheet's rules are, so a presence-only
+    # `[attr]` before a combinator queries what it says.
     def self.compile_selector(selector : String)
-      ::CSS.compile(CSS::Selectors.expand_types(selector)) rescue nil
+      ::CSS.compile(CSS::Selectors.engine_form(CSS::Selectors.expand_types(selector))) rescue nil
     end
   end
 
