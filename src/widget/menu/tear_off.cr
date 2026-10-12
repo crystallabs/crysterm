@@ -317,6 +317,16 @@ module Crysterm
       # that already draws a top border, from its theme or the unstyled floor,
       # reuses that row as is. Also run from `#fit_to_content`, so a pop-up is
       # sized with the row before its first frame.
+      #
+      # The write in place touches this menu alone. The style it lands on is
+      # the menu's own: under a stylesheet a fresh dup of its pristine
+      # snapshot, given its own `Border` by every path that fills one in
+      # (`Style#dup`, the inline fold, a parsed `border:`), never a theme's or
+      # a sibling's object; without one the inline style `Menu.new` dups (as
+      # `#tear_off` and `#open_submenu` dup theirs again), or its
+      # `Styles.default` deep dup. The rows' styles `#strip_item_box_model`
+      # zeroes are owned the same way — each row's own cascade result. A
+      # frozen `Border` (`Border::ZERO`, assigned whole) is replaced instead.
       private def ensure_tear_off_border : Nil
         return if style.border_view.top > 0
         st = state_style
