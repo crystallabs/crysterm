@@ -124,8 +124,11 @@ module Crysterm
         end
       end
 
-      # Whether a config option carries a non-default value, so a default-equal
-      # value never overrides a programmatic tweak.
+      # Whether some source — the config file, an env var, a flag — set the
+      # option, whatever value it chose (`Superconf.configured?` answers by
+      # source): a user who pins an option to its default value is heard over
+      # the measured one, while an untouched option leaves the measurement in
+      # charge.
       private def self.config_set?(key : String) : Bool
         Superconf.configured? key
       end
