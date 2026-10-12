@@ -761,7 +761,8 @@ module Crysterm
       # this window's is set (`Tput#title=`), and a terminfo `smcup` that
       # saves the title as well (`CSI 22 t`) must not save this window's, or
       # leaving would put the window's title back in place of the terminal's.
-      # Again on every enter, as on resuming after a suspend.
+      # Again on every enter, as on `#show` after `#hide` (a resume after a
+      # suspend is `Tput#resume`'s, which sets the title again itself).
       @title.try { |t| tput.title = t } if device_active_window?
       # The VS16 width is measured again on the alternate screen just entered:
       # the answer can differ from the normal buffer's (iTerm2 advances two
