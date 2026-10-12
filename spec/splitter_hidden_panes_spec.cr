@@ -96,6 +96,16 @@ describe "Splitter hidden panes" do
     c2.show
     sp2.sizes.should eq [23, 23, 13]
     c.visible?.should be_true
+
+    # A pane hidden before the restore takes its extent too, for when it is
+    # shown; the shown panes share the span meanwhile.
+    _, sp3, _, _, c3 = three_panes(61)
+    c3.hide
+    sp3.restore_state([5, 10, 14]).should be_true
+    sp3.sizes.should eq [20, 40, 0]
+    sp3.save_state.should eq [5, 10, 14]
+    c3.show
+    sp3.sizes.should eq [10, 20, 29]
   end
 
   it "keeps its dividers off the Tab chain" do
