@@ -193,6 +193,8 @@ module Superconf
     validate: ->(t : Time::Span) { t > Time::Span.zero }
   option "menu.tool_tips", false,
     description: "Pop a highlighted menu entry's tool_tip up beside its row after tool_tip.delay (the default of Widget::Menu#tool_tips_visible, which a menu may override; Qt's QMenu::toolTipsVisible, off by default). The entry's status_tip shows in the main window's status bar regardless"
+  option "menu.tear_off", false,
+    description: "Detachable menus (GNOME 2's tear-off menus, Qt's QMenu::tearOffEnabled): every pop-up menu and submenu carries a grab strip in the middle of its top border row (a menu whose theme draws no border gets a one-cell top border for it); dragging the strip — or clicking it — tears off a copy of the menu that stays on screen with the original's entries, kept in step with them, movable by its own strip and closed by the x at its right end. The original menus are unchanged. Widget::Menu#tear_off_enabled= overrides it per menu"
   option "tool_tip.delay", 0.7.seconds,
     description: "How long a menu entry stays highlighted before its tooltip pops up (Qt's SH_ToolTip_WakeUpDelay, 700 ms)",
     validate: ->(t : Time::Span) { t >= Time::Span.zero }

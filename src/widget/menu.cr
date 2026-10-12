@@ -33,7 +33,8 @@ module Crysterm
     # The class is split across three files, following the `textedit.cr`
     # precedent: this one holds the core class and action API,
     # `menu_popup.cr` the popup/submenu session management, and `menu_rows.cr`
-    # the row building and its caches.
+    # the row building and its caches; `menu/tear_off.cr` adds the tear-off
+    # (detachable) menus.
     #
     # <!-- widget-examples:capture v1 -->
     # ![Menu screenshot](../../tests/widget/menu/menu.5s.apng)
@@ -566,6 +567,9 @@ module Crysterm
           end
         elsif e.key == ::Tput::Key::Escape
           return if dismiss_to_parent_menu e
+          # A torn-off menu stays up; Escape only hands the keyboard back
+          # (`menu/tear_off.cr`).
+          return if torn_off_escape e
           if @popup_mode
             hide_popup
             e.accept
@@ -706,6 +710,7 @@ module Crysterm
         hide_popup
         close_submenu
         drop_tips
+        tear_off_destroyed
         # Drop every per-action `Changed` handler and association, so destroying
         # this menu (including submenus rebuilt on each open/close) leaves no
         # stale handler running against a destroyed widget, nor a dead `Menu`
@@ -722,3 +727,4 @@ end
 require "./menu/popup"
 require "./menu/rows"
 require "./menu/tips"
+require "./menu/tear_off"

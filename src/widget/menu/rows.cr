@@ -168,6 +168,8 @@ module Crysterm
       # model (this runs pre-cascade for a freshly-opened submenu).
       protected def fit_to_content : Nil
         @autosize = true
+        # The tear-off strip's border row counts in `ivertical` (`menu/tear_off.cr`).
+        ensure_tear_off_border if tear_off_chrome?
         self.width = fit_width
         self.height = fit_height
       end
@@ -241,6 +243,7 @@ module Crysterm
       def paint(*, with_children = true)
         refresh_glyphs
         strip_item_box_model
+        sync_tear_off_chrome
         autosize
         size_rows
         size_separators

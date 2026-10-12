@@ -229,6 +229,9 @@ module Crysterm
         # *every* open, so per-add `#sync_items` would make opening O(A²).
         child.batch_update { subs.each { |a| child << a } }
         child.parent_menu = self
+        # An explicit tear-off override carries down the chain; `nil` leaves the
+        # child on the `menu.tear_off` option like its parent.
+        child.tear_off_enabled = @tear_off_enabled
 
         # Add to the tree and resolve its themed box model *now*, before sizing
         # or focusing. A submenu is created fresh on open, so its border/padding

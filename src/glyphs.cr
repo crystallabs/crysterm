@@ -211,6 +211,11 @@ module Crysterm
       LegendSwatch # chart legend color swatch
       MapMarker    # default map/graph point marker
 
+      # Menu tear-off grab strip, repeated across a few cells of the top border
+      # row (`⠿⠿⠿`): braille dots read as "grab here", where a dashed run would
+      # vanish into the border line it sits on.
+      TearOffHandle
+
       # -- Icon palette -----------------------------------------------------------
       # A curated vocabulary of common UI icons (toolbar actions, status marks,
       # media transport, navigation), pre-picked per tier so applications don't
@@ -675,6 +680,7 @@ module Crysterm
       set_in t, Role::IconQuestion, Entry.new('?')
 
       set_in t, Role::DragHandle, Entry.new('#', '⠿')
+      set_in t, Role::TearOffHandle, Entry.new(':', '⠿')
       set_in t, Role::LegendSwatch, Entry.new('#', '■')
       set_in t, Role::MapMarker, Entry.new('*', '●')
 
