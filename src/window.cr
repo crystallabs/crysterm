@@ -190,14 +190,27 @@ module Crysterm
     # hardware-vs-artificial decision read surface state, so they stay on the
     # surface and drive the hardware path through these.
     delegate hardware_cursor?, hardware_cursor_styling?, hardware_cursor_color?,
-      apply_hardware_cursor_shape,
-      reset_hardware_cursor_color, show_hardware_cursor, hide_hardware_cursor,
-      reset_hardware_cursor,
       to: @screen
 
-    # `delegate` can't forward assignment, so forward this setter explicitly.
+    # The writing primitives reach the device only while this window drives
+    # its terminal (`#drives_terminal?`): a disconnected window's cursor
+    # changes are recorded on its `Cursor` and nowhere else.
+    {% for name in %w(reset_hardware_cursor_color show_hardware_cursor hide_hardware_cursor reset_hardware_cursor) %}
+      # :ditto:
+      def {{name.id}} : Nil
+        @screen.{{name.id}} if drives_terminal?
+      end
+    {% end %}
+
+    # :ditto:
+    def apply_hardware_cursor_shape(shape : ::Tput::CursorShape, *, blink : Bool = false) : Nil
+      @screen.apply_hardware_cursor_shape shape, blink: blink if drives_terminal?
+    end
+
+    # :ditto: (`delegate` can't forward assignment.)
     def hardware_cursor_color=(color : Int32)
-      @screen.hardware_cursor_color = color
+      @screen.hardware_cursor_color = color if drives_terminal?
+      color
     end
 
     # Device-side OSC escape-sequence transport: OSC-52 clipboard, OSC 7 cwd,

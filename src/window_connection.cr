@@ -244,6 +244,9 @@ module Crysterm
     # line discipline. All steps are guarded because a user-closed window leaves
     # dead fds that raise on write.
     private def restore_terminal : Nil
+      # `#disconnect` has marked the window disconnected already; the
+      # cursor writes of the restore must still reach the terminal.
+      @restoring_terminal = true
       restore_step(true) { leave }
 
       # A no-op on the alt-screen path (`leave` above already disabled the
@@ -254,6 +257,24 @@ module Crysterm
       # Device half: input-mode toggle-offs (keyboard-protocol / bracketed-paste
       # / in-band-resize / color-scheme) plus line-discipline restore.
       @screen.restore_input_modes
+    ensure
+      @restoring_terminal = false
+    end
+
+    # Set while `#restore_terminal` hands the terminal back.
+    @restoring_terminal = false
+
+    # Whether this window's cursor writes reach its terminal: while it is
+    # connected, and while `#restore_terminal` hands the terminal back. Once
+    # disconnected, the terminal is no longer this window's — it is the
+    # shell's again, or a sibling window's on a shared device — so what the
+    # rest of a teardown does to the cursor must not reach it: `#close`
+    # disconnects before `#destroy` takes focus away, and a text input
+    # leaving its reading mode then hid the cursor the restore had just
+    # shown, leaving the shell without one. The state stays recorded on the
+    # `Cursor`, for a reconnect to apply.
+    protected def drives_terminal? : Bool
+      @connected || @restoring_terminal
     end
 
     # Spawns a fiber that watches the window's rendezvous socket: routes
