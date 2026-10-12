@@ -191,6 +191,26 @@ module Crysterm
         value
       end
 
+      # Whether status tips take the status bar's full width: a tip too wide
+      # for the room left of the permanent fields (`StatusBar#add_permanent_widget`,
+      # `#add_permanent`) covers them while it shows, rather than being cut
+      # at the first of them (`StatusBar#show_message`'s `full_width`). A tip
+      # that fits beside them leaves them be, and they come back when the
+      # tip goes. The application's own messages keep `QStatusBar`'s
+      # behavior either way. Qt has no such switch — a `QStatusBar` message
+      # only ever displaces the normal widgets. Off by default.
+      getter? status_tips_full_width : Bool = false
+
+      # :ditto: — a tip showing is put up again in the new manner.
+      def status_tips_full_width=(value : Bool) : Bool
+        return value if value == @status_tips_full_width
+        @status_tips_full_width = value
+        if (bar = status_bar?) && (shown = @status_tip_shown) && bar.message == shown
+          bar.show_message shown, full_width: value
+        end
+        value
+      end
+
       # The status tip last put in the status bar, while it may still be
       # there; what a clearing tip is allowed to take down.
       @status_tip_shown : String?
@@ -201,8 +221,10 @@ module Crysterm
       # message that was up — a timed notice included, which does not come
       # back. An empty *text* (the highlight or the pointer left) clears the
       # message only while the message is the tip's own: a notice the
-      # application put up meanwhile is the newer word and stays. Without a status bar the tip is dropped, as
-      # Qt ignores the event then — none is created for it.
+      # application put up meanwhile is the newer word and stays. With
+      # `#status_tips_full_width`, the tip may cover the bar's permanent
+      # fields. Without a status bar the tip is dropped, as Qt ignores the
+      # event then — none is created for it.
       private def show_status_tip(text : String) : Nil
         return unless @status_tips
         bar = status_bar? || return
@@ -211,7 +233,7 @@ module Crysterm
           @status_tip_shown = nil
         else
           @status_tip_shown = text
-          bar.show_message text
+          bar.show_message text, full_width: @status_tips_full_width
         end
       end
 

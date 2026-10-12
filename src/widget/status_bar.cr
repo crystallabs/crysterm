@@ -122,6 +122,11 @@ module Crysterm
         return widget if @permanent_widgets.includes? widget
         @permanent_widgets << widget
         append widget
+        # A full-width message covering the fields covers a new one too.
+        if @covering && widget.visible?
+          widget.hide
+          @covered << widget
+        end
         update!
         widget
       end
@@ -130,6 +135,7 @@ module Crysterm
       # `removeWidget`); a no-op when it is not a field here.
       def remove_permanent_widget(widget : Widget) : Nil
         return unless @permanent_widgets.delete widget
+        widget.show if @covered.delete widget
         remove widget
         update!
       end
@@ -195,6 +201,7 @@ module Crysterm
         @normal_widgets.delete element
         @permanent_widgets.delete element
         @displaced.delete element
+        @covered.delete element
       end
 
       # The normal fields the bar hid for the current message — the ones to
@@ -205,6 +212,82 @@ module Crysterm
       # Whether a temporary message is up, displacing the normal fields.
       private def message_showing? : Bool
         !@message.empty?
+      end
+
+      # Whether the message showing was put up with `full_width: true`
+      # (`#show_message`): it may then cover the permanent fields and
+      # sections too, when it does not fit beside them.
+      getter? full_width_message : Bool = false
+
+      # Whether the full-width message is covering the permanent fields and
+      # sections this moment — they are hidden (`@covered`) and unpainted.
+      @covering = false
+
+      # The permanent fields the bar hid for a full-width message, to show
+      # again when it goes; one the application hid itself is not among
+      # them, as with `@displaced`.
+      @covered = [] of Widget
+
+      # The cells a message had left of the permanent fields and sections
+      # in the last frame painted without covering them, or `nil` before
+      # the first: what decides whether a full-width message fits beside
+      # them or covers them.
+      @message_room : Int32?
+
+      # Whether the correction of `@covering` a frame found wanting is
+      # already posted (see `#paint`), so later frames do not post it again.
+      @cover_pending = false
+
+      # Whether *text*, as a full-width message, must cover the permanent
+      # fields: it is wider than the room beside them. Unknown room (no
+      # frame yet) counts as fitting; the first frame corrects it.
+      private def needs_cover?(text : String) : Bool
+        return false unless @full_width_message && !text.empty?
+        return false if @permanent_widgets.empty? && @permanent.empty?
+        room = @message_room || return false
+        str_width(text) > room
+      end
+
+      # Covers the permanent fields and sections for a full-width message
+      # that needs their cells, or brings them back when it no longer does
+      # (cleared, replaced by an ordinary message, or by one that fits).
+      private def apply_cover : Nil
+        if needs_cover?(@message)
+          return if @covering
+          @covering = true
+          @permanent_widgets.each do |w|
+            next unless w.visible?
+            w.hide
+            @covered << w
+          end
+        else
+          return unless @covering
+          @covering = false
+          @covered.each &.show
+          @covered.clear
+        end
+      end
+
+      # Measures `@message_room` from the frame just laid out: the cells
+      # from the bar's left edge to a cell short of the left-most permanent
+      # field or section. Only while nothing is covered (covered fields have
+      # no place to measure) and no question is open. Reads the geometry
+      # the paint left (`#lpos`), not `#with_inner_coords`, which would
+      # render the bar again over the sections.
+      private def measure_message_room : Nil
+        return if @covering || prompting?
+        return unless own = lpos
+        xi = own.xi + ileft
+        xl = own.xl - iright
+        edge = nil.as(Int32?)
+        @permanent_widgets.each do |w|
+          next unless w.visible?
+          next unless pos = w.lpos
+          edge = pos.xi if edge.nil? || pos.xi < edge
+        end
+        start = edge
+        start = (edge ? edge - 1 : xl) - str_width(@permanent_text) unless @permanent.empty?
+        @message_room = Math.max(0, start ? start - 1 - xi : xl - xi)
       end
 
       # Hides the visible normal fields while a message shows, and brings
@@ -268,7 +351,16 @@ module Crysterm
       # itself after that span (unless replaced first); without, it stays until
       # the next `#show_message`/`#clear_message`. The normal fields
       # (`#add_widget`) stand down while the message shows.
-      def show_message(text : String, timeout : Time::Span? = nil) : Nil
+      #
+      # With *full_width*, the message may take the permanent fields' cells
+      # as well (Qt has no such mode: there a message only ever displaces
+      # the normal widgets): when it fits beside them they stay, and when
+      # it does not they and the text sections are hidden while it shows,
+      # so it gets the whole bar — for a status tip, which is up only while
+      # its entry is highlighted. Everything comes back when the message
+      # clears or an ordinary message replaces it. Whether it fits is
+      # judged against the bar as last painted.
+      def show_message(text : String, timeout : Time::Span? = nil, *, full_width : Bool = false) : Nil
         # The timer is (re)armed either way; the same text again is otherwise
         # no change (`QStatusBar::showMessage`): no repaint, no event.
         gen = bump_dismiss_gen
@@ -280,7 +372,7 @@ module Crysterm
             end
           end
         end
-        message_changed text
+        message_changed text, full_width
       end
 
       # Clears the temporary message immediately (Qt's `clearMessage`); a
@@ -301,11 +393,20 @@ module Crysterm
 
       # Puts *text* up as the message (or takes it down, with `""`): displaces
       # or restores the normal fields, repaints and reports the change
-      # (`Event::MessageChanged`). Nothing happens for an unchanged text.
-      private def message_changed(text : String) : Nil
-        return if @message == text
+      # (`Event::MessageChanged`). Nothing happens for an unchanged text,
+      # beyond taking on *full_width* (`#show_message`).
+      private def message_changed(text : String, full_width : Bool = false) : Nil
+        if @message == text
+          return if @full_width_message == full_width
+          @full_width_message = full_width && !text.empty?
+          apply_cover
+          update!
+          return
+        end
         @message = text
+        @full_width_message = full_width && !text.empty?
         apply_message_to_fields
+        apply_cover
         update!
         emit Crysterm::Event::MessageChanged, text
       end
@@ -406,7 +507,26 @@ module Crysterm
         # the message nor the sections are painted under it.
         set_content(prompting? ? "" : @message)
         super
-        draw_permanent unless prompting?
+        draw_permanent unless prompting? || @covering
+        measure_message_room
+        correct_cover
+      end
+
+      # Posts a re-decision of the full-width cover when the frame just
+      # painted disagrees with it — the room was unknown or has changed
+      # (a resize, a field that grew when the normal ones stood down) —
+      # since the fields cannot be hidden or shown in the middle of the
+      # paint that laid them out.
+      private def correct_cover : Nil
+        return if @cover_pending
+        return if needs_cover?(@message) == @covering
+        return unless win = window?
+        @cover_pending = true
+        win.post do
+          @cover_pending = false
+          apply_cover
+          update!
+        end
       end
 
       # Overlays the permanent sections, right-aligned, after the base render
