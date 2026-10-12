@@ -95,6 +95,14 @@ module Crysterm
       end
     end
 
+    # Yields every action this widget owns: the ones `#add_action` installed
+    # and, on a widget presenting actions, those it presents — a menu bar's
+    # (descending into the submenus), a tool bar's. What `#find_action` and
+    # `Mixin::Children#find_actions` search.
+    def each_action(&block : Action ->) : Nil
+      each_shortcut_action(&block)
+    end
+
     # A plain widget's shortcut-owning actions are the ones `#add_action`
     # installed. Subclasses that also *present* actions (`ToolBar`, `MenuBar`)
     # override this and chain `super`.

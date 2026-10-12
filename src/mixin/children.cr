@@ -222,6 +222,28 @@ module Crysterm
         found
       end
 
+      # The first action named *name* (`Action#name`) owned by this widget or
+      # a descendant (`Widget#each_action`: installed with `#add_action`, or
+      # presented by a menu bar or tool bar), searched depth-first, or `nil`
+      # when none is (Qt's `QObject#findChild<QAction*>`).
+      def find_action(name : String) : Action?
+        find_actions.find { |action| action.name == name }
+      end
+
+      # Every action owned by this widget or its descendants, each once, in
+      # depth-first order (Qt's `QObject#findChildren<QAction*>`); with
+      # *name*, only the actions so named.
+      def find_actions(name : String? = nil) : Array(Action)
+        found = [] of Action
+        collect = ->(action : Action) do
+          found << action if (name.nil? || action.name == name) && !found.includes?(action)
+          nil
+        end
+        self.as?(::Crysterm::Widget).try &.each_action(&collect)
+        descendants.each &.each_action(&collect)
+        found
+      end
+
       # Returns a flat list of all children widgets, recursively
       def descendants : Array(Widget)
         children = [] of Widget

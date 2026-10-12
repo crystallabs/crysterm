@@ -91,6 +91,12 @@ module Crysterm
     # :ditto:
     notifying_setter icon_text, String?
 
+    # The action's name (Qt's `QObject::objectName`), by which a program finds
+    # it again — `Widget#find_action`, a command line running actions by
+    # name — independent of its translated, mnemonic-marked `#text`. `nil` (no
+    # name) by default; Crysterm itself gives no action a name.
+    property name : String?
+
     # Text / label of action
     getter text : String = ""
 
@@ -400,6 +406,7 @@ module Crysterm
       whats_this : String? = nil,
       menu : Array(Action)? = nil,
       data : Data? = nil,
+      @name : String? = nil,
     )
       # No observers exist yet, so assign directly rather than via the emitting setters.
       @icon = icon
