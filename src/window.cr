@@ -264,6 +264,11 @@ module Crysterm
     getter title : String? = nil
 
     # :ditto:
+    #
+    # The terminal's own title is saved before the first title and put back
+    # when the window hands the terminal back (`#leave`, also on suspend):
+    # `Tput#title=` and `Tput#restore_title`. The title is sent on any
+    # terminal; one without titles ignores it.
     def title=(@title : String?)
       # The title is per-window terminal state: store it always, but write the
       # OSC 0 escape only while connected AND device-active — a background
@@ -382,7 +387,7 @@ module Crysterm
 
       self.optimization = optimization
       padding.try { |pad| @padding = Padding.from(pad) }
-      title.try { |t| self.title = t }
+      # A *title* is sent by `#enter` below, once the terminal is taken over.
       key_policy.try { |p| self.key_policy = p }
 
       @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop }
@@ -752,6 +757,12 @@ module Crysterm
       # screen — not a sibling window's `enter` on a device already there.
       fresh_alternate = @alternate && !tput.is_alt
       tput.alternate_buffer if @alternate
+      # The title after the switch: the terminal's own title is saved before
+      # this window's is set (`Tput#title=`), and a terminfo `smcup` that
+      # saves the title as well (`CSI 22 t`) must not save this window's, or
+      # leaving would put the window's title back in place of the terminal's.
+      # Again on every enter, as on resuming after a suspend.
+      @title.try { |t| tput.title = t } if device_active_window?
       # The VS16 width is measured again on the alternate screen just entered:
       # the answer can differ from the normal buffer's (iTerm2 advances two
       # columns for a VS16 cluster on the normal buffer, one on the alternate
@@ -816,6 +827,9 @@ module Crysterm
       # subsequent `restore_terminal` doesn't redundantly disable again.
       disable_mouse if @screen.mouse_enabled?
 
+      # The terminal's own title back, before `rmcup`, which may pop a title
+      # its `smcup` saved.
+      tput.restore_title
       tput.normal_buffer
       if cursor.applied?
         reset_cursor

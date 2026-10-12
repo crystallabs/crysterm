@@ -176,6 +176,8 @@ module Crysterm
       # auto-grow, may be smaller than `aheight`).
       tput.cursor_pos render_row_offset + @inline_visible, 0
       reset_cursor if cursor.applied?
+      # The terminal's own title back (`Tput#title=` saved it).
+      tput.restore_title
 
       tput.flush
     end
