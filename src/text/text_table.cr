@@ -834,7 +834,15 @@ module Crysterm
       if height > 1 && (tf = bf.table_format)
         text = block.text
         exact = Array.new(widths.size) { |i| (cells[i]? || "").strip(' ') }
-        tf.wrapped_cells[text] = exact unless split_data_row(text) == exact
+        # A rendering that reads back as it looks forgets what it was
+        # remembered for: the same lines can be a word broken mid-way or
+        # the words of a space typed at that break, and the cells they
+        # stand for now are these.
+        if split_data_row(text) == exact
+          tf.wrapped_cells.delete(text)
+        else
+          tf.wrapped_cells[text] = exact
+        end
       end
       block
     end
