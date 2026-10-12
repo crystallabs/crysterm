@@ -224,10 +224,29 @@ module Crysterm
           primary, other = @buffer_parity ? {@id_b, @id_a} : {@id_a, @id_b}
           @buffer_parity = !@buffer_parity # next emit targets the other buffer
           write_segments io, literals, keys, primary, other
+          @placed_id = primary
         else
           # Single buffer: `{i}` -> @id_a, and any (never-present) `{o}` is left
           # literal.
           write_segments io, literals, keys, @id_a, nil
+          @placed_id = @id_a
+        end
+      end
+
+      # The image id the last emit transmitted and placed, nil once deleted.
+      @placed_id : UInt32? = nil
+
+      # Places the image last transmitted again by its id (`a=p`), sending no
+      # pixels: written-over cells drop a picture's placement on a terminal
+      # that keeps images in its cells (WezTerm), not the image's data, which
+      # stays until deleted. Not used after a wipe, as kitty frees the data of
+      # images a screen clear (`ED 2`) removes (`Window#wiped?`).
+      protected def place_again_seq(cols : Int32, rows : Int32) : String?
+        id = @placed_id || return
+        String.build do |io|
+          io << "\e_Ga=p,i=" << id << ",p=1,c=" << Math.max(cols, 1) << ",r=" << Math.max(rows, 1) << ",C=1,q=2"
+          @z.try { |z| io << ",z=" << z }
+          io << "\e\\"
         end
       end
 
@@ -314,6 +333,7 @@ module Crysterm
         # the output IO, skipping the intermediate allocation.
         s.tput._oprint delete_seq(@id_a), delete_seq(@id_b)
         s.tput.flush
+        @placed_id = nil
       end
 
       # Single-buffer only ever uses `@id_a`, so on the true→false switch the last
@@ -325,6 +345,7 @@ module Crysterm
         window?.try do |s|
           s.tput._oprint delete_seq(@id_b)
           s.tput.flush
+          @placed_id = nil if @placed_id == @id_b
         end
       end
     end

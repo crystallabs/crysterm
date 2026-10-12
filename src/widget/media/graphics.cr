@@ -463,9 +463,19 @@ module Crysterm
         # cell, blanks included) or a screen clear (`ED 2` deletes kitty's
         # images), which left the picture covered until it moved (`#overdrawn?`).
         unless repaint_every_frame?
-          if @emitted_key == @payload_key && !s.overdrawn?(xi, yi, cols, rows)
-            @last_drawn = {xi, yi, cols, rows}
-            return
+          if @emitted_key == @payload_key
+            unless s.overdrawn?(xi, yi, cols, rows)
+              @last_drawn = {xi, yi, cols, rows}
+              return
+            end
+            # Only cells were written over it: a backend whose terminal still
+            # holds the transmitted picture places it again without its data.
+            if !s.wiped? && (seq = place_again_seq(cols, rows))
+              s.tput._oprint "\e7\e[#{yi + 1};#{xi + 1}H#{seq}\e8"
+              s.tput.flush
+              @last_drawn = {xi, yi, cols, rows}
+              return
+            end
           end
         end
 
@@ -488,6 +498,14 @@ module Crysterm
 
         @emitted_key = @payload_key
         @last_drawn = {xi, yi, cols, rows}
+      end
+
+      # The control sequence that places the graphic last emitted again, at the
+      # cursor, over a *cols* × *rows* cell box, from what the terminal kept of
+      # it — or nil to send it whole (the default). Used when the frame wrote
+      # cells over the picture but did not wipe the surface (`Window#wiped?`).
+      protected def place_again_seq(cols : Int32, rows : Int32) : String?
+        nil
       end
 
       # Whether the graphic must be re-emitted on every window render (true when

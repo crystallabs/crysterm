@@ -53,6 +53,16 @@ module Crysterm
       false
     end
 
+    # Whether the surface itself was wiped or scrolled since the previous
+    # `Event::Rendered` (a clear, an erase of whole rows, insert/delete-line
+    # ops), as opposed to cells written over parts of it: then `#overdrawn?`
+    # is true everywhere, and what the terminal stored with the lost pictures
+    # may be gone too (kitty frees an image's data on `ED 2`), so a listener
+    # sends a picture whole again rather than placing it once more.
+    def wiped? : Bool
+      @_overdraw_all
+    end
+
     # Records that `#draw` wrote columns *lo*..*hi* of row *y*.
     @[AlwaysInline]
     private def note_overdraw(y : Int32, lo : Int32, hi : Int32) : Nil

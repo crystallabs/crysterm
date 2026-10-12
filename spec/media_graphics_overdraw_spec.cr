@@ -29,9 +29,10 @@ private def frame(s : Window, buf : IO::Memory) : String
   buf.to_s
 end
 
-# Where a Kitty placement (`a=T`) starts in *emitted*, or nil.
+# Where a Kitty placement (`a=T` with the pixels, or `a=p` of the image
+# already sent) starts in *emitted*, or nil.
 private def kitty_at(emitted : String) : Int32?
-  emitted.index("\e_Ga=T")
+  emitted.index("\e_Ga=T") || emitted.index("\e_Ga=p")
 end
 
 describe "Window#overdrawn?" do
@@ -79,6 +80,10 @@ describe "Media::Kitty overdraw" do
     emitted = frame s, buf
     at = kitty_at(emitted).should_not be_nil
     emitted.rindex("\e[5;").not_nil!.should be < at
+    # Placed again by its id, its pixels not sent again.
+    emitted.should_not contain("\e_Ga=T")
+    emitted.should contain("\e_Ga=p,i=")
+    emitted.should contain(",p=1,c=8,r=4,C=1,q=2\e\\")
     kitty_at(frame s, buf).should be_nil
   ensure
     s.try &.destroy
@@ -95,7 +100,8 @@ describe "Media::Kitty overdraw" do
     t.set_content "changed"
     kitty_at(frame s, buf).should be_nil
     s.realloc
-    kitty_at(frame s, buf).should_not be_nil
+    # A clear frees kitty's image data with the placement: sent whole again.
+    frame(s, buf).should contain("\e_Ga=T")
     kitty_at(frame s, buf).should be_nil
   ensure
     s.try &.destroy
