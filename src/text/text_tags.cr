@@ -232,7 +232,9 @@ module Crysterm
     # The `{fg, bg}` *f* is written with: its own colors, else — under a
     # *palette* — the color of the semantic part it belongs to, mirroring
     # `TextEdit`'s paint order (least to most specific: `dim`, `rule`,
-    # `code`, the block's heading, an anchor). `nil` = none.
+    # `code`, the block's heading, an anchor). `nil` = none. A fenced-code line
+    # gets the code background too: the block-level `bg-` prop is dropped by a
+    # plain widget, so only the fragment-level tag reaches its screen.
     private def self.fragment_colors(f : TextFragment, palette : ContentPalette?, bf : TextBlockFormat) : {Int32?, Int32?}
       fmt = f.format
       fg = fmt.fg
@@ -250,7 +252,7 @@ module Crysterm
         elsif fmt.dim?
           palette.muted
         end
-      if fmt.code? && !bf.code_block? && (cbg = palette.code_bg)
+      if fmt.code? && (cbg = palette.code_bg)
         bg ||= cbg
       end
       {fg, bg}

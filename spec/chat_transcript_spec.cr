@@ -388,4 +388,28 @@ describe Crysterm::Widget::Chat::Transcript do
     t.append :prose, "**bold** and plain"
     t.line(1).should contain "**bold** and plain"
   end
+
+  it "paints a fenced code block on the theme's code background" do
+    s = headless_screen(60, 20, default_quit_keys: true)
+    t = Transcript.new parent: s, top: 0, left: 0, width: 50, height: 10
+
+    t.append :prose, "plain\n\n```\nzqzq\n```\n"
+    s.repaint
+
+    # The painted cell of the first occurrence of *needle*.
+    find = ->(needle : Char) do
+      found = nil
+      s.cell_rows.each do |row|
+        found ||= row.find { |c| c.char == needle }
+      end
+      found.not_nil!
+    end
+    code = find.call('z')
+    prose = find.call('p')
+
+    Attr.bg(code.attr).should_not eq Attr.bg(prose.attr)
+    pal = ::Crysterm::ContentPalette.from_style(t.style, t.style.bg)
+    pal.code_bg.should_not be_nil
+    Attr.bg(code.attr).should eq Attr.pack_color(pal.code_bg.not_nil!)
+  end
 end
