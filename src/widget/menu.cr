@@ -134,6 +134,13 @@ module Crysterm
       @sep_style_bg : Int32? = nil
       @sep_style_out : ::Crysterm::Style?
 
+      # Cache for `#disabled_row_style`'s highlighted disabled row: the
+      # selection style it was derived from, the disabled foreground laid on
+      # it, and the result — one row at a time is highlighted, so one entry.
+      @dis_sel_src : ::Crysterm::Style?
+      @dis_sel_fg : Int32? = nil
+      @dis_sel_out : ::Crysterm::Style?
+
       def initialize(title = "", **widget)
         @title = title
 
@@ -384,7 +391,43 @@ module Crysterm
           else
             super
           end
+        base = disabled_row_style(item, base) if @disabled_items.includes? item
         item_on_surface base
+      end
+
+      # The look of a disabled action's row (Qt draws it from
+      # `QPalette::Disabled`): the row's `:disabled` style — the theme's
+      # `Menu::item:disabled` rule, or a Qt theme's own `QMenu::item:disabled`
+      # — read from the row's styles without putting the row in that state,
+      # since a disabled widget gets no pointer events and the row must still
+      # highlight on hover (to show its status tip) and pass clicks to the
+      # menu. The whole row takes it, so the check mark, the label with its
+      # mnemonic underline and the shortcut column grey out together. A
+      # highlighted disabled row keeps the selection's background and takes
+      # only the disabled foreground, as Fusion draws one. With no disabled
+      # look set (an unstyled menu, a theme without the rule) *base* is
+      # returned as is. Precomputed set lookup (`#sync_items`), so enabled
+      # rows pay nothing.
+      private def disabled_row_style(item : Widget, base : Style) : Style
+        dis, normal = if item.css_styled?
+                        {item.styles[::Crysterm::WidgetState::Disabled], item.styles.normal}
+                      elsif styles.own_disabled?
+                        {styles.disabled, style.item}
+                      else
+                        return base
+                      end
+        return base if dis.same?(normal)
+        highlighted = @show_highlight && item_selected?(item)
+        return without_border(dis) unless highlighted
+        return base unless dis.specified?(:fg) && dis.fg != base.fg
+        if (cached = @dis_sel_out) && base.same?(@dis_sel_src) && dis.fg == @dis_sel_fg
+          return cached
+        end
+        out = base.dup
+        out.fg = dis.fg
+        @dis_sel_src = base
+        @dis_sel_fg = dis.fg
+        @dis_sel_out = out
       end
 
       # A `QMenu::item { background: transparent }` row (Qt's default) resolves

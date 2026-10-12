@@ -28,6 +28,11 @@ module Crysterm
       # separator?" with an O(1) set lookup instead of a per-row scan every frame.
       @separator_items = Set(Widget).new
 
+      # The item boxes of disabled actions, rebuilt with `@separator_items` in
+      # `#sync_items` (an action's `enabled=` emits `Changed`, which rebuilds
+      # the rows), so `#render_style_for` greys a row out with an O(1) lookup.
+      @disabled_items = Set(Widget).new
+
       # Visible-action snapshot and the per-row left/right text columns, rebuilt
       # only in `#sync_items` (i.e. on structural/visibility/label change), never
       # per frame: `#paint` reaches them through
@@ -488,11 +493,13 @@ module Crysterm
         # `QMenu::item:selected`) rather than falling through to generic
         # `QWidget` rules and mismatching the frame.
         @separator_items = Set(Widget).new
+        @disabled_items = Set(Widget).new
         @item_boxes.each_with_index do |itm, i|
           if (a = acts[i]?) && a.separator?
             @separator_items << itm
           else
             itm.add_css_class "Item"
+            @disabled_items << itm if a && !a.enabled?
           end
           # A row parses tags only while its text actually carries the mnemonic
           # underline markup — set both ways, since boxes are reused across

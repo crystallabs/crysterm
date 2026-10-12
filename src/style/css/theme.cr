@@ -287,6 +287,9 @@ module Crysterm
            Background is `--surface`, matching what an unstyled `QMenu` inherits in
            Qt; a theme that styles `QMenu` explicitly overrides it. */
         Menu { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; padding: 0 1; }
+        /* A disabled action's row greys out (Qt's QPalette::Disabled text),
+           its check mark and shortcut column with it. */
+        Menu::item:disabled { color: var(--muted-light); }
         .popup { border: solid; border-color: var(--muted); background-color: var(--surface); z-index: 10; }
 
         /* Scrollbars are a real widget (.scrollbar) on a thin translucent plane
