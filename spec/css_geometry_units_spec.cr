@@ -272,7 +272,7 @@ describe "CSS geometry units" do
       s.repaint
       a.width_spec.should eq 40 # 200 / 5
     ensure
-      Superconf.css_px_per_cell = 10.0 # back to default ⇒ un-configured
+      Superconf.reset "css.px_per_cell" # untouched again, so the measurement anchors px
       Crysterm::CSS::Length.divisors["px"] = 10.0
     end
   end
@@ -289,8 +289,8 @@ describe "CSS geometry units" do
       a.width_spec.should eq 25 # map px=4, then px_per_cell=8 wins ⇒ 200 / 8
       a.height_spec.should eq 2 # em=2 from the map ⇒ 4 / 2
     ensure
-      Superconf.css_unit_divisors = ""
-      Superconf.css_px_per_cell = 10.0
+      Superconf.reset "css.unit_divisors"
+      Superconf.reset "css.px_per_cell"
       Crysterm::CSS::Length.divisors["px"] = 10.0
       Crysterm::CSS::Length.divisors["em"] = 1.0
     end
@@ -329,7 +329,7 @@ describe "CSS geometry units" do
       a.width_spec.should eq 20 # 200 / 10 (horizontal, unaffected)
       a.height_spec.should eq 5 # 200 / (10 * 4.0)
     ensure
-      Superconf.css_cell_aspect_ratio = 2.0
+      Superconf.reset "css.cell_aspect_ratio"
       Crysterm::CSS::Length.cell_aspect_ratio = 2.0
     end
   end

@@ -115,7 +115,7 @@ describe "Window cell geometry" do
       Crysterm::CSS::Length.divisors["pt"].should eq 6.0  # user-configured: untouched
       Crysterm::CSS::Length.divisors["pc"].should eq 0.75 # unconfigured: follows px
     ensure
-      Superconf.css_unit_divisors = ""
+      Superconf.reset "css.unit_divisors"
       Crysterm::CSS::Length.divisors["px"] = 10.0
       Crysterm::CSS::Length.divisors["pt"] = 7.5
       Crysterm::CSS::Length.divisors["pc"] = 0.625
@@ -138,7 +138,7 @@ describe "Window cell geometry" do
       Crysterm::CSS::Length.divisors["pt"].should eq 7.5
       Crysterm::CSS::Length.divisors["pc"].should eq 0.625
     ensure
-      Superconf.css_px_per_cell = 10.0
+      Superconf.reset "css.px_per_cell"
       Crysterm::CSS::Length.divisors["px"] = 10.0
       Crysterm::CSS::Length.cell_aspect_ratio = 2.0
     end
@@ -164,7 +164,7 @@ describe "Window cell geometry" do
       s.cell_pixel_height.should eq 30
       Crysterm::CSS::Length.cell_aspect_ratio.should eq 3.0 # pinned, not 2.5
     ensure
-      Superconf.css_cell_aspect_ratio = 2.0
+      Superconf.reset "css.cell_aspect_ratio"
       Crysterm::CSS::Length.cell_aspect_ratio = 2.0
       Crysterm::CSS::Length.divisors["px"] = 10.0
     end
