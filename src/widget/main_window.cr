@@ -174,7 +174,18 @@ module Crysterm
       # highlighted (Qt's `QMainWindow` shows every `QStatusTipEvent` in its
       # status bar; the switch is for an application that keeps its bar for
       # its own fields, or offers the choice). On by default.
-      property? status_tips : Bool = true
+      getter? status_tips : Bool = true
+
+      # :ditto: — turning the tips off takes down the one showing, as the
+      # highlight leaving would have: the switch is thrown from a menu entry
+      # as often as not, with that entry's own tip up, and the tips being
+      # off is no reason for it to stay.
+      def status_tips=(value : Bool) : Bool
+        return value if value == @status_tips
+        status_tip "" unless value
+        @status_tips = value
+        value
+      end
 
       # The status tip last put in the status bar, while it may still be
       # there; what a clearing tip is allowed to take down.

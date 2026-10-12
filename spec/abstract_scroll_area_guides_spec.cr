@@ -190,3 +190,41 @@ describe "AbstractScrollArea guides" do
     Crysterm::CSS.theme = saved_theme
   end
 end
+
+describe "AbstractScrollArea guides, scrolled and in a viewer" do
+  it "marks a viewer's capped column's right edge too, in the slack beside the text" do
+    s = headless_screen(40, 5)
+    te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 40, height: 5, content: "ab"
+    te.guides_enabled = true
+    te.line_wrap_column = 20
+    te.line_wrap_column_alignment = Tput::AlignFlag::HCenter
+    s.repaint
+    te.text_column_bounds.should eq({0, 21})
+    # 40 columns, one kept for the scroll bar, 20 of text: 9 blank at the
+    # left; the bounds stand just outside the text.
+    left = te.ileft
+    left.should eq 9
+    row_text(s, 0, (left - 1)..(left + 20)).should eq "│ab#{" " * 18}│"
+  end
+
+  it "keeps a guide scrolled out of the text off the slack beside it" do
+    s = headless_screen(40, 5)
+    pe = editor(s, "0123456789abcdefghijklmnopqrstuvwxyz\nz", width: 40, height: 5, wrap: false)
+    pe.guides_enabled = true
+    pe.line_wrap_column = 20
+    pe.line_wrap_column_alignment = Tput::AlignFlag::HCenter
+    pe.guides = [3]
+    pe.focus
+    pe.cursor_position = 0
+    s.repaint
+    # 40 columns, one for the caret, 20 of text: 9 blank at the left.
+    pe.ileft.should eq 9
+    row_text(s, 2, 8..11).should eq "│  │" # the left bound, then the guide at column 3
+    pe.scroll_to_x 5
+    s.repaint
+    # Column 3 and the left bound are scrolled off: nothing is drawn in the
+    # slack; the right bound, the text's column 21, slid five cells left.
+    row_text(s, 2, 0..8).should eq " " * 9
+    row_text(s, 2, 24..24).should eq "│"
+  end
+end

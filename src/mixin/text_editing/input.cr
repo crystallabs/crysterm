@@ -234,7 +234,8 @@ module Crysterm
               end
             end
           elsif !read_only? && k == Tput::Key::Insert
-            # Insert/overwrite toggle (Qt's `QTextEdit` does the same).
+            # Insert/overwrite toggle — Crysterm's own binding; Qt's text
+            # edits leave the key to the application (see `#overwrite_mode`).
             self.overwrite_mode = !overwrite_mode?
           elsif rl && !read_only? && k == Tput::Key::CtrlW # kill word before cursor
             killed = kill_backward_to word_left_pos

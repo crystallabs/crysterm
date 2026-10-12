@@ -130,6 +130,37 @@ module Crysterm
       @images_revision = 0
       @images_laid_out = -1
 
+      # The row cap `#rebuild_layout` last fitted the pictures to
+      # (`#image_row_cap`): with no `#max_image_rows` it follows the viewport's
+      # height, which a resize changes without touching the layout key (the
+      # key is the width's) or the document.
+      @image_cap_laid_out = -1
+
+      # Whether the pictures are laid out as their inputs stand now
+      # (`#process_content`'s share of the steady-frame test): the revision,
+      # and — for pictures that exist — the row cap. A document without a
+      # measurable picture is not relaid for a height change.
+      private def images_current? : Bool
+        return false unless @images_laid_out == @images_revision
+        !@images_enabled || @image_slots.empty? || @image_cap_laid_out == image_row_cap
+      end
+
+      # Whether *src* is fetched over the network rather than read from disk.
+      private def remote_image?(src : String) : Bool
+        src =~ /\Ahttps?:/i ? true : false
+      end
+
+      # Drops the measured sizes of the local files, after a whole-content
+      # replacement, so a file rewritten on disk since is measured again
+      # (`Media.decode` keys a local file on its size and mtime). A remote
+      # image's size stays: `Media.decode` holds a URL's bytes for the
+      # process, so measuring it again could only say the same, and would
+      # first lay the rows out without the picture for a frame — a flicker
+      # on every re-render of a live preview.
+      private def forget_local_image_sizes : Nil
+        @image_sizes.reject! { |src, _| !remote_image?(src) }
+      end
+
       # The `Media` children drawing block images this frame, one per
       # picture whose rows meet the viewport (for a caller that wants to
       # know what is on screen, and for specs).
@@ -173,7 +204,7 @@ module Crysterm
       # fiber and reported through `#invalidate_images` when it arrives.
       private def image_pixel_size(src : String) : Tuple(Int32, Int32)?
         return @image_sizes[src] if @image_sizes.has_key?(src)
-        if src =~ /\Ahttps?:/i
+        if remote_image?(src)
           fetch_image_size src
           return
         end

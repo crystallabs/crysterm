@@ -398,13 +398,6 @@ module Crysterm
           end
         end
 
-        # Mirrors a document change made by another actor (a second view
-        # sharing the document, a `TextCursor`, direct `TextDocument` calls)
-        # onto this view's caret/selection — the same adjustment the document
-        # applies to registered cursors, keyed by the change's
-        # `TextDocument::ChangeKind`. The including widget calls this from its
-        # `Event::ContentsChanged` handler. Own edits (`#as_self_edit`) are
-        # skipped: the mixin logic moves the caret itself.
         # Render-time format overlays (Qt `QTextEdit::ExtraSelection`, which
         # `QPlainTextEdit` shares): each `Widget::TextEdit::ExtraSelection`
         # paints its cursor's selected range with its format merged over the
@@ -543,6 +536,13 @@ module Crysterm
           update! if window?
         end
 
+        # Mirrors a document change made by another actor (a second view
+        # sharing the document, a `TextCursor`, direct `TextDocument` calls)
+        # onto this view's caret/selection — the same adjustment the document
+        # applies to registered cursors, keyed by the change's
+        # `TextDocument::ChangeKind`. The including widget calls this from its
+        # `Event::ContentsChanged` handler. Own edits (`#as_self_edit`) are
+        # skipped: the mixin logic moves the caret itself.
         def follow_document_change(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil
           return if @self_edit
           case kind

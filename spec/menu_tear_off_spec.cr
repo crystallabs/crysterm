@@ -308,6 +308,52 @@ describe "Menu tear-off" do
     end
   end
 
+  it "is raised by a press on it, not by one on what is drawn over it" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, _, _ = build(s)
+      main.menu_bar.open_menu 0
+      s.repaint
+      drag_handle s, handle_of(view).not_nil!, 20, 8
+      t = Widget::Menu.torn_off_menus(s).first
+      # A dialog's stand-in covering the torn-off menu: in the menus' compositing
+      # layer (the theme's `z-index: 10`, a `.popup` dialog's too), so the later
+      # child is the one drawn on top, and keyable, so the hit test stops at it
+      # as it would at a dialog's controls.
+      over = Widget::Box.new parent: s, left: t.aleft - 2, top: t.atop - 1,
+        width: t.awidth + 4, height: t.aheight + 2, content: "dialog", keys: true,
+        style: Style.new(z_index: 10)
+      over.to_front
+      s.repaint
+      click_at s, t.aleft + 1, t.atop + 1 # on the dialog, over the menu's row
+      s.children.last.should eq over
+      # Out from under it, a press on a row lifts the menu again.
+      over.hide
+      s.repaint
+      click_at s, t.aleft + 1, t.atop + 1
+      s.children.last.should eq t
+    end
+  end
+
+  it "sends its status tips to the bar it was torn off, as the original chain did" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, sync, _ = build(s)
+      main.status_bar
+      sync.status_tip = "Keep the cursor in step"
+      main.menu_bar.open_menu 0
+      s.repaint
+      drag_handle s, handle_of(view).not_nil!, 20, 8
+      t = Widget::Menu.torn_off_menus(s).first
+      x, y = row_of(t, "S&ync Cursor")
+      mouse_move s, x, y
+      main.status_bar.message.should eq "Keep the cursor in step"
+      x, y = row_of(t, "&Reload") # no tip: cleared
+      mouse_move s, x, y
+      main.status_bar.message.should eq ""
+    end
+  end
+
   it "follows actions added to the original while it lives" do
     with_tear_off true do
       s = headless_screen(80, 24)

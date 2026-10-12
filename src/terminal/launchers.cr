@@ -100,36 +100,17 @@ module Crysterm
         Launcher.new("terminal.app",
           ->(inner : Array(String), _c : Int32, _r : Int32, _t : String?) { inner },
           ->(inner : Array(String), c : Int32, r : Int32, t : String?) do
-            script = String.build do |s|
-              s << "tell application \"Terminal\"\n"
-              s << "  set t to do script " << applescript_string(shell_command(inner)) << "\n"
-              s << "  set custom title of t to " << applescript_string(t) << "\n" if t
-              s << "  try\n"
-              s << "    set w to first window whose selected tab is t\n"
-              s << "    set number of columns of w to " << c << "\n"
-              s << "    set number of rows of w to " << r << "\n"
-              s << "  end try\n"
-              s << "end tell\n"
-            end
-            Process.new("osascript", ["-e", script])
+            Process.new("osascript", ["-e", terminal_app_script(inner, c, r, t)])
           end,
           -> { File.exists?("/System/Applications/Utilities/Terminal.app") || File.exists?("/Applications/Utilities/Terminal.app") }),
+        # The command is typed into the new window's shell (`write text`),
+        # as for Terminal.app, not given as the window's `command`: iTerm2
+        # runs that one itself, split by its own rules and with no shell, so
+        # the `exec` at its head would be looked up as a program.
         Launcher.new("iterm2",
           ->(inner : Array(String), _c : Int32, _r : Int32, _t : String?) { inner },
           ->(inner : Array(String), c : Int32, r : Int32, t : String?) do
-            script = String.build do |s|
-              s << "tell application \"iTerm2\"\n"
-              s << "  set w to (create window with default profile command " << applescript_string(shell_command(inner)) << ")\n"
-              s << "  try\n"
-              s << "    tell current session of w\n"
-              s << "      set name to " << applescript_string(t) << "\n" if t
-              s << "      set columns to " << c << "\n"
-              s << "      set rows to " << r << "\n"
-              s << "    end tell\n"
-              s << "  end try\n"
-              s << "end tell\n"
-            end
-            Process.new("osascript", ["-e", script])
+            Process.new("osascript", ["-e", iterm2_script(inner, c, r, t)])
           end,
           -> { application_bundle?("iTerm.app") }),
         # Ghostty's macOS build has no `-e`, no `+new-window`, and a second
@@ -217,6 +198,42 @@ module Crysterm
           return found
         end
         LAUNCHERS.find &.available?
+      end
+    end
+
+    # The AppleScript the `terminal.app` launcher runs: *inner* typed into a
+    # new Terminal.app window (`do script`), the tab titled *title* and the
+    # window sized *cols* by *rows* where the application allows it.
+    def self.terminal_app_script(inner : Array(String), cols : Int32, rows : Int32, title : String?) : String
+      String.build do |s|
+        s << "tell application \"Terminal\"\n"
+        s << "  set t to do script " << applescript_string(shell_command(inner)) << "\n"
+        s << "  set custom title of t to " << applescript_string(title) << "\n" if title
+        s << "  try\n"
+        s << "    set w to first window whose selected tab is t\n"
+        s << "    set number of columns of w to " << cols << "\n"
+        s << "    set number of rows of w to " << rows << "\n"
+        s << "  end try\n"
+        s << "end tell\n"
+      end
+    end
+
+    # The AppleScript the `iterm2` launcher runs: a new window on the default
+    # profile, *inner* typed into its session (`write text`), named *title*
+    # and sized *cols* by *rows*.
+    def self.iterm2_script(inner : Array(String), cols : Int32, rows : Int32, title : String?) : String
+      String.build do |s|
+        s << "tell application \"iTerm2\"\n"
+        s << "  set w to (create window with default profile)\n"
+        s << "  tell current session of w\n"
+        s << "    write text " << applescript_string(shell_command(inner)) << "\n"
+        s << "    try\n"
+        s << "      set name to " << applescript_string(title) << "\n" if title
+        s << "      set columns to " << cols << "\n"
+        s << "      set rows to " << rows << "\n"
+        s << "    end try\n"
+        s << "  end tell\n"
+        s << "end tell\n"
       end
     end
 

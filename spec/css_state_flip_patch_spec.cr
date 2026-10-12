@@ -202,6 +202,24 @@ describe "CSS patch-only cascade on a state flip" do
     fast.window.css_cascades_serialized.should eq serialized0 + 2
   end
 
+  it "patches an attribute flipped back into the cached document before a serializing cascade" do
+    fast = build_tree
+    control = build_tree
+    # Adding the class takes the patch route, leaving the cached nodes ahead
+    # of the last serialized string. Removing it arrives together with a
+    # sheet swap: the serializing route must still patch the node, although
+    # the tree now serializes to the very string last parsed — or `.hot
+    # Button` keeps matching the buttons under the box.
+    patched0 = fast.window.css_cascades_patched
+    check_step(fast, control, "add class") { |t| t.boxes[2].add_css_class "hot" }
+    fast.window.css_cascades_patched.should eq patched0 + 1
+    check_step(fast, control, "remove class with sheet swap") do |t|
+      t.boxes[2].remove_css_class "hot"
+      t.window.stylesheet = SHEET + "\nLabel { background-color: #202020; }"
+    end
+    fast.buttons[2].styles.normal.bg.should eq 0x333344
+  end
+
   it "skips the cascade when a flip and its reversal leave the document unchanged" do
     t = build_tree
     patched0 = t.window.css_cascades_patched

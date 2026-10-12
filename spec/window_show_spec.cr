@@ -229,5 +229,28 @@ describe "Terminal.resolve_launcher" do
       launcher.available?.should be_true
       launcher.argv_for(["/bin/true"], 80, 24, nil).should be_nil # a custom spawner, not an argv
     end
+
+    it "types the helper command, exec'ed and shell-quoted, into the new window's shell" do
+      inner = ["env", "CRYSTERM_WINDOW_HELPER=/tmp/a b.sock", "/Users/me/My Apps/md", "it's \"quoted\""]
+      # Through the shell, each word quoted and the helper `exec`ed in the
+      # shell's place; then through AppleScript, the shell line as one string
+      # literal with its quotes and backslashes escaped.
+      literal = %q("exec env 'CRYSTERM_WINDOW_HELPER=/tmp/a b.sock' '/Users/me/My Apps/md' 'it'\"'\"'s \"quoted\"'")
+
+      terminal = Crysterm::Terminal.terminal_app_script(inner, 100, 30, "md — notes")
+      terminal.should contain "set t to do script #{literal}\n"
+      terminal.should contain "set custom title of t to \"md — notes\"\n"
+      terminal.should contain "set number of columns of w to 100\n"
+      terminal.should contain "set number of rows of w to 30\n"
+
+      # iTerm2 runs a window's `command` itself, with no shell for the
+      # `exec`, so the line is typed into the session's shell instead.
+      iterm = Crysterm::Terminal.iterm2_script(inner, 100, 30, nil)
+      iterm.should contain "create window with default profile)\n"
+      iterm.should_not contain "command "
+      iterm.should contain "write text #{literal}\n"
+      iterm.should_not contain "set name to"
+      iterm.should contain "set columns to 100\n"
+    end
   {% end %}
 end

@@ -42,6 +42,18 @@ describe "Crysterm.default_log_file" do
     end
   end
 
+  it "install_log_file reports a file it cannot open and leaves the log where it is" do
+    previous = Crysterm::Config.log_file
+    begin
+      Crysterm::Config.set "log.file", File.join(File.tempname("crysterm-no-such-dir"), "app.log")
+      # The screen setup calls this on a real terminal; a bad setting must
+      # not raise out of it.
+      Crysterm.install_log_file
+    ensure
+      Crysterm::Config.set "log.file", previous
+    end
+  end
+
   it "returns nil and leaves the option empty when the directory cannot be made" do
     previous = Crysterm::Config.log_file
     previous_xdg = ENV["XDG_CACHE_HOME"]?

@@ -191,6 +191,10 @@ module Crysterm
   # backtrace a user sees when a handler raises. With the option unset nothing
   # changes; an app wanting another sink sets `::Log` up itself. The backend
   # dispatches synchronously so the last lines before an exit are not lost.
+  # A file that cannot be opened (a directory in its path missing, no
+  # permission) is reported on standard error, before the terminal is taken
+  # over, and the standard log setup stands: a setting must not keep the
+  # application from starting.
   def self.install_log_file : Nil
     return if @@log_file_installed
     path = Config.log_file
@@ -199,6 +203,8 @@ module Crysterm
     io = File.open(path, "a")
     io.sync = true
     ::Log.setup :info, ::Log::IOBackend.new(io, dispatcher: ::Log::DispatchMode::Sync)
+  rescue ex : File::Error
+    STDERR.puts "Crysterm: cannot open the log file #{path.inspect} (log.file): #{ex.message}; logging to standard error"
   end
 
   # Gives the `log.file` option a default for the application *app*: its

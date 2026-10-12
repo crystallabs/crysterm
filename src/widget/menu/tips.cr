@@ -106,11 +106,11 @@ module Crysterm
           parent_menu.try &.hide_tip_popup
           act.hover
           emit ::Crysterm::Event::ActionHovered, act
-          root_menu.emit ::Crysterm::Event::StatusTip, (act.status_tip || "")
+          tip_root.emit ::Crysterm::Event::StatusTip, (act.status_tip || "")
           arm_tool_tip act
         else
           emit ::Crysterm::Event::ActionHovered, nil
-          root_menu.emit ::Crysterm::Event::StatusTip, ""
+          tip_root.emit ::Crysterm::Event::StatusTip, ""
         end
       end
 
@@ -120,19 +120,30 @@ module Crysterm
       protected def reannounce_tip : Nil
         return unless visible?
         act = @tip_action || return
-        root_menu.emit ::Crysterm::Event::StatusTip, (act.status_tip || "")
+        tip_root.emit ::Crysterm::Event::StatusTip, (act.status_tip || "")
+      end
+
+      # The menu whose listeners hear this chain's status tips: the chain's
+      # root — or, under a torn-off menu, the root of the chain it was torn off
+      # while that lives (`menu/tear_off.cr`), so a torn-off palette's tips
+      # still reach the `MenuBar` and the status bar as Qt's reach the main
+      # window through the `QTornOffMenu`'s caused stack.
+      private def tip_root : Menu
+        root = root_menu
+        root.@torn_tip_root || root
       end
 
       # Starts the wake-up for *act*'s tooltip, when tooltips are on and the
       # action has one that says more than its label (Qt's `QAction#toolTip`
-      # falls back to the text, and a tooltip repeating the row is noise).
-      # The timer's block checks that *act* is still the one highlighted: a
-      # highlight that moved meanwhile stopped the timer, but the tick may
-      # already be in flight.
+      # falls back to the text, and a tooltip repeating the row is noise —
+      # the label as the row shows it, its `&` marker resolved). The timer's
+      # block checks that *act* is still the one highlighted: a highlight
+      # that moved meanwhile stopped the timer, but the tick may already be
+      # in flight.
       private def arm_tool_tip(act : Action) : Nil
         return unless tool_tips_visible?
         text = act.tool_tip
-        return if text.nil? || text.empty? || text == act.text
+        return if text.nil? || text.empty? || text == ::Crysterm::Mnemonic.parse(act.text)[0]
         win = window? || return
         @tip_timer = win.after(Config.tool_tip_delay) do
           @tip_timer = nil

@@ -86,14 +86,17 @@ module Crysterm
     # absolute path stays; a relative name is joined to the base — resolved
     # as a URL when the base is one (`URI#resolve`), joined as a path
     # otherwise, its percent-encoding undone (`a%20b.png` names `a b.png`).
-    # Without a base a relative name is returned as written.
+    # Without a base a relative name is a path from the working directory,
+    # decoded the same way: the Markdown parser percent-encodes every
+    # destination it reads (`![x](ćevapi.png)` arrives as
+    # `%C4%87evapi.png`), so the name as written would miss the file.
     def resolve_url(name : String) : String
       uri = URI.parse(name)
       if scheme = uri.scheme
         return scheme.downcase == "file" ? URI.decode(uri.path) : name
       end
       return name if name.starts_with?('/')
-      base = @base_url || return name
+      base = @base_url || return URI.decode(name)
       base_uri = URI.parse(base)
       case base_uri.scheme.try(&.downcase)
       when nil    then File.expand_path(URI.decode(name), base)
@@ -1043,13 +1046,16 @@ module Crysterm
         return
       end
       # Positions before the edit are unchanged, so the tree still locates
-      # the block the edit started in.
+      # the block the edit started in. A block starting exactly at the
+      # edit's end is still re-recorded: a block run replaced by one of the
+      # same count can end in an empty block (a refreshed TOC's placeholder),
+      # which begins at `finish` and whose length changed all the same.
       i = bp.locate(pos)[0]
       finish = pos + added
       loop do
         bp.set_length(i, bs.unsafe_fetch(i).size + 1)
         i += 1
-        break if i >= bs.size || bp.position(i) >= finish
+        break if i >= bs.size || bp.position(i) > finish
       end
     end
 

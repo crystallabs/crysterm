@@ -38,7 +38,9 @@ module Crysterm
       # While the menu it was torn off lives, the torn-off menu follows the
       # actions added to or removed from it (Qt's `syncWithMenu`); a submenu is
       # rebuilt on every open, so a copy torn off a submenu keeps the entries it
-      # was torn with.
+      # was torn with. Its status tips go where the original chain's went — to
+      # the root menu it was torn off, so a `MenuBar` and its `MainWindow` keep
+      # showing them — while that root lives (`menu/tips.cr`).
       #
       # ```
       # Crysterm::Config.menu_tear_off = true # every menu, from now on
@@ -79,6 +81,13 @@ module Crysterm
       # is gone — a submenu is destroyed when its chain closes.
       getter torn_source : Menu?
 
+      # The root of the chain this menu was torn off, while it lives: where a
+      # torn-off menu's status tips go (`#tip_root`), as Qt's `QTornOffMenu`
+      # keeps the caused stack up to the menu bar for its `topCausedWidget`. A
+      # submenu's root outlives the submenu, so a copy torn off one still
+      # reports to the bar after its source is gone.
+      @torn_tip_root : Menu?
+
       # The torn-off menus on *window*: its top-level `Menu` children that are
       # `#torn_off?`, for an application to find and close
       # (`each &.close_torn_off`).
@@ -91,6 +100,12 @@ module Crysterm
       # label is (`Widget#set_label`), created at the first paint that wants them.
       @tear_off_handle : TearOffHandle?
       @tear_off_close : Box?
+
+      # The glyphs the strip and the close mark were last built from: a steady
+      # frame compares a `Char` instead of building their texts anew to find
+      # them unchanged (`#place_tear_off_handle`, `#place_tear_off_close`).
+      @tear_off_handle_glyph : Char?
+      @tear_off_close_glyph : Char?
 
       # The copy torn off by the drag of this menu's strip now under way, from the
       # first motion (or the click) until the button is released.
@@ -177,11 +192,16 @@ module Crysterm
         # only when it actually differs.
         subs.on(source, ::Crysterm::Event::ItemsChanged) { sync_torn_actions }
         subs.on(source, ::Crysterm::Event::Destroy) { @torn_source = nil }
+        root = @torn_tip_root = source.root_menu
+        subs.on(root, ::Crysterm::Event::Destroy) { @torn_tip_root = nil }
         # A press anywhere on the torn-off menu brings it in front of whatever
         # was raised over it since; watched at the window, as its rows take the
-        # press themselves.
-        subs.on(window, ::Crysterm::Event::Mouse) do |e|
-          raise_torn_off if e.action.down? && contains_point?(e.x, e.y)
+        # press themselves. The press has to land *on* the menu — the window
+        # hears every press, and one on a dialog drawn over the menu must not
+        # lift the menu over the dialog.
+        win = window
+        subs.on(win, ::Crysterm::Event::Mouse) do |e|
+          raise_torn_off if e.action.down? && covers?(win.widget_at(e.x, e.y))
         end
       end
 
@@ -276,8 +296,12 @@ module Crysterm
         Menu.watch_tear_off_config
         if tear_off_chrome?
           ensure_tear_off_border
-          place_tear_off_handle(@tear_off_handle ||= build_tear_off_handle)
-          place_tear_off_close(@tear_off_close ||= build_tear_off_close) if torn_off?
+          handle = @tear_off_handle ||= build_tear_off_handle
+          place_tear_off_handle handle
+          if torn_off?
+            close = @tear_off_close ||= build_tear_off_close
+            place_tear_off_close close
+          end
         elsif handle = @tear_off_handle
           @tear_off_handle = nil
           handle.destroy
@@ -307,20 +331,20 @@ module Crysterm
         update!
       end
 
-      # The strip's text: the handle glyph at the window's tier, repeated.
-      private def tear_off_handle_text : String
-        glyph(Glyphs::Role::TearOffHandle).to_s * TEAR_OFF_HANDLE_WIDTH
-      end
-
+      # The texts come from the placement that follows every build
+      # (`#sync_tear_off_chrome`), which sets them whenever the glyph differs
+      # from the one last used — on a fresh box, always.
       private def build_tear_off_handle : TearOffHandle
-        handle = TearOffHandle.new(self, parent: self, content: tear_off_handle_text,
+        @tear_off_handle_glyph = nil
+        handle = TearOffHandle.new(self, parent: self,
           top: -itop, height: 1, width: TEAR_OFF_HANDLE_WIDTH, style: Style.new)
         border_chrome handle
         handle
       end
 
       private def build_tear_off_close : Box
-        close = Box.new(parent: self, content: glyph(Glyphs::Role::CloseButton).to_s,
+        @tear_off_close_glyph = nil
+        close = Box.new(parent: self,
           top: -itop, right: 1 - iright, height: 1, width: 1, style: Style.new)
         border_chrome close
         close.on(::Crysterm::Event::Click) { close_torn_off }
@@ -337,10 +361,14 @@ module Crysterm
 
       # Centers the strip on the top border row, re-reading the glyph (a tier
       # switch, `Glyphs.set`) and the width (an auto-sized menu grows with its
-      # rows) each frame; a change-guarded no-op on the steady frame.
+      # rows) each frame; a change-guarded no-op on the steady frame, which
+      # builds no text: the glyph is compared as a `Char`.
       private def place_tear_off_handle(handle : TearOffHandle) : Nil
-        text = tear_off_handle_text
-        handle.set_content(text) unless handle.content == text
+        g = glyph(Glyphs::Role::TearOffHandle)
+        unless g == @tear_off_handle_glyph
+          @tear_off_handle_glyph = g
+          handle.set_content g.to_s * TEAR_OFF_HANDLE_WIDTH
+        end
         left = Math.max((awidth - TEAR_OFF_HANDLE_WIDTH) // 2, 0) - ileft
         handle.left = left unless handle.left == left
         pin_border_chrome handle
@@ -349,8 +377,11 @@ module Crysterm
       # Puts the close mark at the right end of the top border row, just inside
       # the corner, whatever the theme's side border and padding.
       private def place_tear_off_close(close : Box) : Nil
-        text = glyph(Glyphs::Role::CloseButton).to_s
-        close.set_content(text) unless close.content == text
+        g = glyph(Glyphs::Role::CloseButton)
+        unless g == @tear_off_close_glyph
+          @tear_off_close_glyph = g
+          close.set_content g.to_s
+        end
         right = 1 - iright
         close.right = right unless close.right == right
         pin_border_chrome close
@@ -380,6 +411,7 @@ module Crysterm
         @torn_subs.try &.off
         @torn_subs = nil
         @torn_source = nil
+        @torn_tip_root = nil
         @tear_off_pending = nil
       end
 

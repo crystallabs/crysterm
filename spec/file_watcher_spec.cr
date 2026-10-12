@@ -90,6 +90,51 @@ describe "FileWatcher" do
     end
   end
 
+  it "ends with the window it was given" do
+    w = headless_screen(40, 10)
+    watcher = FileWatcher.new 20.milliseconds, window: w
+    begin
+      watcher.running?.should be_true
+      w.destroy
+      watcher.running?.should be_false
+    ensure
+      watcher.stop
+      w.destroy
+    end
+  end
+
+  it "does not put back a path a handler removed during the same look" do
+    first = File.tempfile("crysterm-file-watcher-a")
+    second = File.tempfile("crysterm-file-watcher-b")
+    watcher = FileWatcher.new 20.milliseconds
+    begin
+      seen = [] of String
+      watcher.on(Event::FileChanged) do |e|
+        seen << e.path
+        # The first path's handler drops the second, changed in the same look.
+        watcher.remove_path second.path if e.path == first.path
+      end
+      watcher.add_path first.path
+      watcher.add_path second.path
+      watcher.stop # both changes land in one look, in insertion order
+      [first, second].each do |f|
+        f.puts "changed"
+        f.flush
+      end
+      watcher.start
+      wait_for seen, 1
+      sleep 60.milliseconds
+      seen.should eq [first.path]
+      watcher.paths.should eq [first.path]
+    ensure
+      watcher.stop
+      [first, second].each do |f|
+        f.close
+        File.delete? f.path
+      end
+    end
+  end
+
   it "delivers through the window's render fiber when given one" do
     w = headless_screen(40, 10)
     file = File.tempfile("crysterm-file-watcher")

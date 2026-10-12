@@ -549,11 +549,12 @@ module Crysterm
         sel_cols = selection_columns_for_row(coords.base + (y - yi))
         xsels, xfull = extra_selections_for_row(coords.base + (y - yi))
 
-        # Content exhausted (every line painted, or none to paint): every cell
-        # of this row is the constant `{attr, bch}` fill — no SGR can arrive,
-        # the single-column `bch` never clusters, and with no selection
+        # No line on this row — the vertical-alignment gap before the first
+        # (`attr` is still the default there) or the rows past the last: every
+        # cell is the constant `{attr, bch}` fill — no SGR can arrive, the
+        # single-column `bch` never clusters, and with no selection
         # `highlighted_attr` is `attr` itself.
-        if bulk_fill_ok && r >= row_count && sel_cols.nil? && xfull.nil?
+        if bulk_fill_ok && (r < 0 || r >= row_count) && sel_cols.nil? && xfull.nil?
           if fill && !bg_cells
             scr.fill_region(attr, bch, xi, xl, y, y + 1)
           end

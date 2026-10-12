@@ -68,6 +68,8 @@ describe "TextMarkdown block images" do
     again = TextDocument.from_markdown(text)
     again.blocks[0].block_format.image.should eq doc.blocks[0].block_format.image
     again.blocks.find!(&.block_format.list_format).block_format.image.try(&.name).should eq "a%20b.png"
+    # A linked block image keeps its link.
+    TextDocument.from_markdown("[![badge](b.svg)](https://ci.example)").to_markdown.should eq "[![badge](b.svg)](https://ci.example)"
   end
 end
 
@@ -75,6 +77,9 @@ describe "TextDocument#base_url" do
   it "resolves relative names against a directory, a file: URL or a URL base, and leaves the rest alone" do
     doc = TextDocument.new
     doc.resolve_url("pic.png").should eq "pic.png"
+    # No base: still a path, so the parser's percent-encoding comes off.
+    doc.resolve_url("%C4%87evapi.png").should eq "ćevapi.png"
+    doc.resolve_url("sub/a%20b.png").should eq "sub/a b.png"
     doc.base_url = "/tmp/docs/sub"
     doc.resolve_url("pic.png").should eq "/tmp/docs/sub/pic.png"
     doc.resolve_url("../a%20b.png").should eq "/tmp/docs/a b.png"
@@ -208,6 +213,44 @@ describe "TextEdit block images" do
     s.repaint
     tb.block_media.size.should eq 1
     tb.scroll_height.should eq 1 + 1 + 4 + 1 + 1 + 1
+    s.destroy
+  end
+
+  it "re-caps the picture when only the viewport's height changes" do
+    s = headless_screen
+    tb = browser_with s, "![Matterhorn](matterhorn.png)\n\nAfter"
+    tb.block_media[0].aheight.should eq 4
+    # Half of the 4 rows left: the layout key (the width's) and the document
+    # are unchanged, so the cap alone must bring the relayout.
+    tb.height = 4
+    s.repaint
+    tb.block_media[0].aheight.should eq 2
+    tb.scroll_height.should eq 2 + 1 + 1 + 1
+    tb.height = 8
+    s.repaint
+    tb.block_media[0].aheight.should eq 4
+    s.destroy
+  end
+
+  it "measures a local file again after a whole-content replacement, but keeps a remote image's size" do
+    s = headless_screen
+    tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: s.awidth, height: s.aheight
+    tb.document.base_url = IMAGE_DIR
+    remote = "https://example.invalid/pic.png"
+    # Measured once already (as unusable, so nothing is drawn or fetched);
+    # `Media.decode` would answer a URL from its own cache anyway, so a
+    # re-measure could only cost a frame without the picture.
+    tb.@image_sizes[remote] = nil
+    tb.set_markdown "![r](#{remote})\n\n![Matterhorn](matterhorn.png)"
+    s.repaint
+    tb.@image_sizes.has_key?(IMAGE).should be_true
+    tb.set_markdown "![r](#{remote})\n\n![Matterhorn](matterhorn.png)\n\nmore"
+    tb.@image_sizes.has_key?(remote).should be_true
+    tb.@image_loading.should be_empty
+    tb.@image_sizes.has_key?(IMAGE).should be_false
+    s.repaint
+    tb.@image_sizes.has_key?(IMAGE).should be_true
+    tb.block_media.size.should eq 1
     s.destroy
   end
 end

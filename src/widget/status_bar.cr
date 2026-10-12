@@ -185,6 +185,18 @@ module Crysterm
 
       @normal_widgets = [] of Widget
 
+      # Every detach unregisters the field, whatever the path — the
+      # `#remove_*_widget` pair, a generic `#remove`, or `Widget#destroy`
+      # (which lands here through `parent.remove`) — so a field destroyed
+      # behind the bar's back neither stops the painted sections at the
+      # column it last had nor is shown again when a message clears.
+      def remove(element)
+        super
+        @normal_widgets.delete element
+        @permanent_widgets.delete element
+        @displaced.delete element
+      end
+
       # The normal fields the bar hid for the current message — the ones to
       # show again when it clears. A field hidden by the application before
       # the message is not among them and stays hidden.

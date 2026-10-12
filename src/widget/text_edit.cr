@@ -382,7 +382,7 @@ module Crysterm
         @doc_revision += 1
         # New content may name the same image files, rewritten meanwhile:
         # measure them again (`text_edit/images.cr`).
-        @image_sizes.clear if kind.replace?
+        forget_local_image_sizes if kind.replace?
         blocks = document.blocks
         b1 = document.block_at(pos).index
         b2 = document.block_at(pos + added).index
@@ -413,7 +413,7 @@ module Crysterm
         sync_line_wrap_column(awidth_hint || awidth)
         colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
-        if key == @layout_key && @layout_revision == @doc_revision && @images_laid_out == @images_revision && !@wrapped_lines.empty?
+        if key == @layout_key && @layout_revision == @doc_revision && images_current? && !@wrapped_lines.empty?
           # Steady frame. Keep the cached base attr fresh (a style change
           # recolors the background) — mirrors the base `process_content`. The
           # derivation is memoized on {identity, attr_revision}; no stamped-
@@ -455,7 +455,7 @@ module Crysterm
         # block below, capped for this viewport.
         @image_slots.clear
         images = @images_enabled
-        image_cap = image_row_cap
+        image_cap = @image_cap_laid_out = image_row_cap
 
         cl = @wrapped_lines
         cl.reset

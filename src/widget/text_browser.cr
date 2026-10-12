@@ -75,8 +75,12 @@ module Crysterm
           if e.action.down? && links_enabled? && (window?.try(&.click_count) || 1) == (@double_click_links ? 2 : 1)
             if text_hit?(e.x, e.y) && (url = anchor_at(position_at(e.x, e.y)))
               # A double click is also the text's word selection, which ran
-              # first; the click was the link's, so the selection goes.
-              clear_selection if @double_click_links
+              # first and was reported; the click was the link's, so the
+              # selection goes, and that is reported too.
+              if @double_click_links
+                clear_selection
+                emit_caret_events
+              end
               activate_link url
             end
           end

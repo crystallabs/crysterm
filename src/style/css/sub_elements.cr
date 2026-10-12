@@ -38,8 +38,6 @@ module Crysterm
       end
     end
 
-    # The chat transcript renders its markdown prose through the tags
-    # exporter, colored from the same content slots (`Transcript::code { … }`).
     # The plain editor's line-number gutter (`PlainTextEdit::line-number {
     # color: … }`, see `PlainTextEdit#line_numbers=`).
     class PlainTextEdit
@@ -57,6 +55,8 @@ module Crysterm
       end
     end
 
+    # The chat transcript renders its markdown prose through the tags
+    # exporter, colored from the same content slots (`Transcript::code { … }`).
     class Chat::Transcript
       def build_css_sub_elements : Array(String)
         super + ["heading", "code", "link", "quote", "rule", "muted"]

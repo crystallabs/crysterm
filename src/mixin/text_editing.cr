@@ -231,18 +231,46 @@ module Crysterm
       end
 
       # Copies the selection and deletes it (Qt's `cut`; the `Ctrl-X` key):
-      # returns whether there was one, and does nothing when read-only.
+      # returns whether there was one, and does nothing when read-only. The
+      # edit is reported as `#insert_text` reports one.
       def cut : Bool
         return false if read_only?
         return false unless copy_selection
-        delete_selection
+        report_edit { delete_selection }
         true
       end
 
       # Inserts the clipboard at the cursor, replacing the selection (Qt's
-      # `paste`; the `Ctrl-V` key), unless read-only.
+      # `paste`; the `Ctrl-V` key), unless read-only. Reported as
+      # `#insert_text` is; an empty clipboard changes and reports nothing.
       def paste : Nil
-        paste_clipboard unless read_only?
+        return if read_only?
+        report_edit { paste_clipboard }
+      end
+
+      # Runs an edit (the block) made from outside the key handler and tells
+      # of it as a keystroke's is told of: the caret kept on window,
+      # `Event::TextChanged` and `TextEdited` when the text changed, the caret
+      # events, a repaint and the terminal caret moved. The change test is
+      # `#_listener`'s: with no selection to replace an edit changes the size,
+      # so the text is serialized only when one was there.
+      private def report_edit(&) : Nil
+        before = selection? ? buf_text : nil
+        before_size = buf_size
+        yield
+        changed = before ? buf_text != before : buf_size != before_size
+        if changed
+          ensure_cursor_visible
+          ensure_cursor_visible_x
+          if text_change_observed?
+            after = buf_text
+            emit Crysterm::Event::TextChanged, after
+            emit Crysterm::Event::TextEdited, after
+          end
+          update!
+        end
+        emit_caret_events
+        _update_cursor if changed
       end
 
       # While this widget is reading, Up/Down/Ctrl-U/Ctrl-D/PageUp/PageDown/Home/End
@@ -266,7 +294,8 @@ module Crysterm
 
       # Whether typed characters replace the one under the caret instead of
       # being inserted before it — Qt's `QTextEdit#overwriteMode`. Off by
-      # default; the Insert key toggles it. Overwriting stops at the end of a
+      # default; the Insert key toggles it (Qt leaves that binding to the
+      # application; here it is built in, as in most editors). Overwriting stops at the end of a
       # line (the character after a line end is never consumed), a typed line
       # break always inserts, and typing over a selection replaces the
       # selection as in insert mode. Each overwritten character is one undo

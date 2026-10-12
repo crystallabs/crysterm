@@ -260,3 +260,27 @@ describe "AbstractScrollArea rulers" do
     Attr.fg(s.cell_rows[0][5].attr).should_not eq Attr.fg(s.cell_rows[1][2].attr)
   end
 end
+
+describe "AbstractScrollArea rulers, scrolled in a centered column" do
+  it "keeps the tape off the slack beside the text when the text is scrolled sideways" do
+    s = headless_screen(40, 5)
+    pe = editor(s, "0123456789abcdefghijklmnopqrstuvwxyz\nz", width: 40, height: 5, wrap: false)
+    pe.rulers = true
+    pe.line_wrap_column = 20
+    pe.line_wrap_column_alignment = Tput::AlignFlag::HCenter
+    pe.focus
+    pe.cursor_position = 0
+    s.repaint
+    # 40 columns, 2 for the ruler and 1 for the caret: 37 for the text, 20
+    # of them used, so 8 blank at the left before column 1.
+    pe.ileft.should eq 10
+    row_text(s, 0, 0..9).should eq "          "
+    row_text(s, 0, 10..19).should eq "────┼────│"
+    pe.scroll_to_x 5
+    s.repaint
+    # The first text column now shows column 6; the slack stays blank.
+    row_text(s, 0, 0..9).should eq "          "
+    row_text(s, 0, 10..14).should eq "────│"
+    row_text(s, 1, 10..14).should eq "56789"
+  end
+end

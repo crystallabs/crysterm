@@ -56,6 +56,19 @@ describe "Window#mouse_policy" do
     s.destroy
   end
 
+  it "is asked again when the focused widget is destroyed, with nobody focused" do
+    s, a, b = stage
+    a.focus
+    s.mouse_policy = ->(w : Widget?) { w.same?(a) }
+    s.mouse_enabled?.should be_true
+    a.destroy # gives focus up without handing it on: nothing is focused
+    s.focused.should be_nil
+    s.mouse_enabled?.should be_false
+    b.focus
+    s.mouse_enabled?.should be_false
+    s.destroy
+  end
+
   it "asks with nil when no widget has focus" do
     s, a, _ = stage
     s.release_focus # the window had focused the first widget on its own

@@ -43,8 +43,13 @@ module Crysterm
 
     # Creates a watcher checking its paths every *interval*, already running
     # (it ticks idly until the first `#add_path`). With *window*, events are
-    # delivered on that window's render fiber; see the class docs.
+    # delivered on that window's render fiber, and the watcher ends with the
+    # window (its `Event::Destroy` stops it), as a `QFileSystemWatcher` goes
+    # with its parent: a program closing one window of several need not
+    # remember to stop the watchers it gave it, which would otherwise poll
+    # on, posting to a render fiber that is gone; see the class docs.
     def initialize(@interval : Time::Span = 1.second, *, @window : Window? = nil)
+      @window.try &.on(Crysterm::Event::Destroy, once: true) { stop }
       start
     end
 
@@ -91,6 +96,9 @@ module Crysterm
     private def poll : Nil
       # Iterate a snapshot: a handler may `remove_path` under the iteration.
       @stamps.dup.each do |path, seen|
+        # A handler earlier in this look may have removed the path: recording
+        # it again would put it back under watch.
+        next unless @stamps.has_key? path
         now = stamp path
         next if now == seen
         @stamps[path] = now

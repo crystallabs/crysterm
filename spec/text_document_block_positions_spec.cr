@@ -75,4 +75,17 @@ describe "TextDocument block positions" do
       check doc
     end
   end
+
+  it "re-records an empty block that ends a same-count block-run replacement" do
+    # A titled TOC whose one entry vanishes refreshes [title, entry] into
+    # [title, placeholder]: same block count, the last block now empty and
+    # starting exactly where the edit ends — its length must be re-recorded.
+    doc = Crysterm::TextDocument.from_markdown("<!-- toc -->\n# Contents\n<!-- tocstop -->\n\n# Alpha\n\ntail text")
+    check doc
+    hb = doc.blocks.rindex!(&.block_format.heading?)
+    doc.cursor(doc.block_position(hb), doc.block_position(hb) + doc.blocks[hb].size).remove_selected_text
+    doc.refresh_tocs.should be_true
+    doc.blocks.map(&.text).should eq ["Contents", "", "", "tail text"]
+    check doc
+  end
 end

@@ -165,8 +165,10 @@ module Crysterm
       # and the row ruler down the content rows, right of the subclass's own
       # margin (the gutter). The base render filled the band with the
       # widget's background; both are written in `#ruler_attr`. Columns
-      # before the text's first (a centered column's left slack) and rows
-      # past the document's end stay blank.
+      # before the text's first (a centered column's left slack) stay blank
+      # — the tape starts at the text, so a horizontal scroll slides the
+      # numbers under it and not into the slack — and so do rows past the
+      # document's end.
       private def paint_rulers : Nil
         lp = @lpos || return
         x0, xl, y0, yl, text_x0, content_top = chrome_frame || return
@@ -176,7 +178,7 @@ module Crysterm
         vw = @vertical_ruler_width
         ruler_x0 = x0 + @viewport_margins.left
         if @column_ruler && y0 >= 0 && (row = rows[y0]?)
-          (tape_x0(x0)...xl).each do |x|
+          (Math.max(tape_x0(x0), text_x0)...xl).each do |x|
             next if x < 0
             cell = row[x]? || break
             cell.set_if_changed attr, column_ruler_glyph(text_column_at(x, text_x0))
@@ -201,7 +203,8 @@ module Crysterm
         x0 + @viewport_margins.left + @vertical_ruler_width
       end
 
-      # The attr the row ruler's cells on display row *rl* (0-based) are
+      # The attr the row ruler's cells on document row *rl* (0-based, among
+      # the wrapped rows, so a scrolled view's first row is not 0) are
       # written in, given the ruler's *attr*: the ruler's own by default. A
       # subclass that tints whole rows (the current line, a full-width
       # selection) carries the tint across the ruler here, so the gutter, the

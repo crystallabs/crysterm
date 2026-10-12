@@ -172,5 +172,19 @@ describe "TextBrowser#double_click_links?" do
       clicked.should eq ["u://1"]
       tb.selection?.should be_false # the text's double-click word select was the link's click
     end
+
+    it "reports the dropped word selection of the double click that followed a link" do
+      s = headless_screen(40, 8)
+      tb = linked_tb s
+      tb.double_click_links = true
+      selections = 0
+      tb.on(Crysterm::Event::SelectionChanged) { selections += 1 }
+      click s, 4, 0
+      click s, 4, 0
+      # The word selection the second click made was reported, and so is
+      # its going: a follower is not left believing "one" is selected.
+      selections.should eq 2
+      tb.selection?.should be_false
+    end
   end
 end

@@ -95,11 +95,20 @@ module Crysterm
       # hand, ascending, each column once.
       def guide_columns : Array(Int32)
         columns = Set(Int32).new
-        low, high = text_column_bounds
-        columns << low << high
-        columns.concat @guides
-        @dragged_guide.try { |c| columns << c }
+        each_guide_column { |c| columns << c }
         columns.to_a.sort!
+      end
+
+      # Yields the columns of `#guide_columns` without building it — for the
+      # painter, which runs every frame: in no order, and a column held
+      # twice (a guide dragged onto another) twice, which paints the same
+      # cells again.
+      private def each_guide_column(& : Int32 ->) : Nil
+        low, high = text_column_bounds
+        yield low
+        yield high
+        @guides.each { |c| yield c }
+        @dragged_guide.try { |c| yield c }
       end
 
       private def guides_changed : Nil
@@ -113,16 +122,18 @@ module Crysterm
       # that hold a blank — a text cell keeps its character — with the cell's
       # own background and flags under the guide's foreground; and a `┬` on
       # the column ruler, where the guide can be taken hold of. A column
-      # scrolled or laid out off the viewport (the left bound with nothing
-      # before the text) draws nothing.
+      # scrolled or laid out off the text (the left bound with nothing
+      # before the text, a guide scrolled past the text's first column, which
+      # would otherwise land in a centered column's slack or on the gutter)
+      # draws nothing.
       private def paint_guides : Nil
         x0, xl, y0, yl, text_x0, content_top = chrome_frame || return
         return if xl <= x0 || yl <= content_top
         rows = window.cell_rows
         fg = Attr.fg(guide_attr)
         marker_attr = @column_ruler ? ruler_attr : 0_i64
-        first_x = guides_first_x(x0)
-        guide_columns.each do |col|
+        first_x = Math.max(guides_first_x(x0), text_x0 - 1)
+        each_guide_column do |col|
           x = text_x0 + col - 1 - @child_base_x
           next if x < first_x || x >= xl || x < 0
           (content_top...yl).each do |y|

@@ -1627,16 +1627,20 @@ module Crysterm
           return
         end
 
-        # A block image goes back as the image it was read from; its text is
-        # only the stand-in. In a list it sits behind the item's marker or
-        # at a continuation's column, like a paragraph there.
+        # A block image goes back as the image it was read from — inside the
+        # link its text carries, when it does (`[![alt](src)](href)`); its
+        # text is only the stand-in. In a list it sits behind the item's
+        # marker or at a continuation's column, like a paragraph there.
         if img = bf.image
           if lf = bf.list_format
             write_list_marker(io, lf, bf.checked?)
           elsif bf.indent > 0
             io << " " * (@item_cols[bf.indent // 2]? || bf.indent)
           end
+          href = b.fragments.first?.try(&.format.anchor_href)
+          io << '[' if href
           write_image(io, img)
+          io << "](" << encode_url(href) << ')' if href
           return
         end
 
@@ -1957,7 +1961,13 @@ module Crysterm
       # into the block at the insertion point. Ride behind an empty sentinel
       # carrying the last block's format: the sentinel merges into that block
       # (a no-op) and every parsed block materializes after it.
-      sentinel = TextBlock.new("", TextCharFormat.default, blocks.last.block_format)
+      # At an empty last block the sentinel *is* that block (the fragment's
+      # head block's format and stamp replace the target's at a block
+      # start), so it carries the block's source line too, or the stamp
+      # would be lost.
+      last = blocks.last
+      sentinel = TextBlock.new("", TextCharFormat.default, last.block_format)
+      sentinel.source_line = last.source_line
       insert_fragment(size, TextDocumentFragment.new([sentinel] + parsed))
     end
   end

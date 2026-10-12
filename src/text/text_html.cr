@@ -7,7 +7,8 @@ module Crysterm
   # `QTextDocument::setHtml`/`toHtml` counterpart, parsed with the `html5` shard.
   #
   # Supported on import: `p div h1..h6 b/strong i/em u/ins s/strike/del a[href]
-  # br hr ul ol li pre code/tt/kbd/samp blockquote span[style] font[color]`,
+  # img[src alt title] br hr ul ol li pre code/tt/kbd/samp blockquote
+  # span[style] font[color]`,
   # plus the style properties `color`, `background(-color)`, `font-weight`,
   # `font-style`, `text-decoration(-line)`, `text-align` and `white-space:
   # pre*`; the `align` attribute works too. Unknown elements are transparent
@@ -20,8 +21,10 @@ module Crysterm
   #
   # The block model matches `TextMarkdown`'s — `ul`/`ol` → one `TextList` per
   # list element, `blockquote` nesting → `TextBlockFormat#quote_level`, `hr` → a
-  # `horizontal_rule` block, code blocks as code-bg rows — so documents
-  # cross-convert consistently.
+  # `horizontal_rule` block, `pre` → `code_language` rows (one per line), an
+  # `img` inline → the picture glyph and alt text, a `p` that is one `img` →
+  # a block image (`TextBlockFormat#image`, written back as `<img>`) — so
+  # documents cross-convert consistently.
   # `<p>a</p><p>b</p>` imports as two *adjacent* blocks; block spacing is
   # `TextBlockFormat` margins (the margins re-base), carried as
   # `margin-top`/`margin-bottom` styles on export and parsed back on import
@@ -187,10 +190,29 @@ module Crysterm
         write_language_class(io, bf)
         io << '>'
       end
-      b.fragments.each { |f| write_fragment(io, f) }
+      if img = bf.image
+        write_image(io, img, b)
+      else
+        b.fragments.each { |f| write_fragment(io, f) }
+      end
       io << "</pre>" if inner_pre
       io << "</" << inner_heading << '>' if inner_heading
       io << "</" << tag << '>'
+    end
+
+    # A block image as the `<img>` it was read from (Qt's `toHtml` writes an
+    # image format as `<img src>` too) — inside the `<a>` of the link the
+    # block's text carries, when it does — rather than the stand-in text, so
+    # the picture survives an HTML round-trip (`Importer#sole_image`).
+    private def self.write_image(io : IO, img : TextImageFormat, b : TextBlock) : Nil
+      href = b.fragments.first?.try(&.format.anchor_href)
+      io << "<a href=\"" << escape_attr(href) << "\">" if href
+      io << "<img src=\"" << escape_attr(img.name) << "\" alt=\"" << escape_attr(img.alt) << '"'
+      if title = img.title
+        io << " title=\"" << escape_attr(title) << '"'
+      end
+      io << '>'
+      io << "</a>" if href
     end
 
     # The ` class="language-<lang>"` attribute carrying a fence's info string
@@ -386,6 +408,12 @@ module Crysterm
             @pending_margin += 1
             return
           end
+          # A paragraph that is one image is a block image (the Markdown
+          # importer's reading): the block records it, the text is the
+          # stand-in the `<img>` branch appends.
+          if img = sole_image(node)
+            bf = bf.merge(TextBlockFormat.new(image: img))
+          end
           start_block(bf, collapse)
           walk_children(node)
           end_block
@@ -462,6 +490,10 @@ module Crysterm
           # The li's own styles (margins, alignment) ride along, as does its
           # whitespace-collapse flag (a pre-wrap li opens its block uncollapsed).
           ibf, icollapse = block_format_from(node)
+          # An item that is one image is a block image, as a `<p>` is.
+          if img = sole_image(node)
+            ibf = ibf.merge(TextBlockFormat.new(image: img))
+          end
           @pending_item_format = ibf == TextBlockFormat.default ? nil : ibf
           @pending_item_collapse = icollapse
           walk_children(node)
@@ -510,6 +542,13 @@ module Crysterm
         when "a"
           url = attr_val(node, "href")
           with_patch(TextCharFormat.new(anchor_href: url)) { walk_children(node) }
+        when "img"
+          # No pictures inline on a cell grid: the Markdown importer's
+          # degrade — the `dim` picture-frame glyph, then the alt text.
+          alt = attr_val(node, "alt").try(&.strip).presence
+          with_patch(TextCharFormat.new(dim: true)) do
+            append_text(alt ? "#{image_placeholder} #{alt}" : image_placeholder)
+          end
         when "span"
           if patch = style_patch(attr_val(node, "style"))
             with_patch(patch) { walk_children(node) }
@@ -735,6 +774,42 @@ module Crysterm
 
       # Whether an element holds nothing but (collapsible) whitespace — the
       # empty `<p></p>` spacing test.
+      # The image a `<p>` *is* (`TextBlockFormat#image`): its one child
+      # besides whitespace is an `<img>`, or an `<a>` holding exactly one —
+      # the shape `TextHtml.generate` writes a block image as, and the
+      # Markdown importer's `sole_image` rule.
+      private def sole_image(node : HTML5::Node) : TextImageFormat?
+        sole = sole_child(node) || return
+        sole = sole_child(sole) || return if sole.data == "a"
+        return unless sole.data == "img"
+        TextImageFormat.new(
+          name: attr_val(sole, "src") || "",
+          alt: attr_val(sole, "alt").try(&.strip) || "",
+          title: attr_val(sole, "title").presence)
+      end
+
+      # *node*'s one element child when it has exactly one and no text but
+      # whitespace, else `nil`.
+      private def sole_child(node : HTML5::Node) : HTML5::Node?
+        sole = nil
+        each_child(node) do |child|
+          case child.type
+          when .text?
+            return unless child.data.blank?
+          when .element?
+            return if sole
+            sole = child
+          end
+        end
+        sole
+      end
+
+      # What stands in for a picture on the cell grid — the glyph the
+      # Markdown importer uses, at the same tier (see its `image_placeholder`).
+      private def image_placeholder : String
+        Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)
+      end
+
       private def spacing_only?(node : HTML5::Node) : Bool
         each_child(node) do |child|
           return false if child.type.element?

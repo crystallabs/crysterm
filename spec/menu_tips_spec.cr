@@ -154,6 +154,27 @@ describe "Widget::Menu tips" do
     Crysterm::Config.reset "tool_tip.delay"
   end
 
+  it "shows no tooltip that only repeats the row's label, mnemonic marker aside" do
+    Crysterm::Config.set "tool_tip.delay", 20.milliseconds
+    s = headless_screen(80, 24)
+    main, file = tipped_window(s)
+    quit = file.add_action("&Quit") { }
+    quit.tool_tip = "Quit" # the row reads "Quit", with the Q underlined
+    main.menu_bar.open_menu 0
+    s.repaint
+    file.tool_tips_visible = true
+    file.select_last_action # Quit
+    sleep 80.milliseconds
+    visible_tool_tip(s).should be_nil
+    quit.tool_tip = "Quit the application"
+    press file, Tput::Key::Up
+    press file, Tput::Key::Down
+    wait_until { visible_tool_tip(s) }
+    visible_tool_tip(s).not_nil!.content.should eq " Quit the application"
+  ensure
+    Crysterm::Config.reset "tool_tip.delay"
+  end
+
   it "shows one tooltip at a time: a submenu's row takes the parent row's down" do
     Crysterm::Config.set "tool_tip.delay", 20.milliseconds
     s = headless_screen(80, 24)

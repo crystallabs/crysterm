@@ -585,7 +585,7 @@ module Crysterm
     end
 
     # The application this window runs under — its own, once an
-    # `Application#add_window` adopted it, else the global one (created when
+    # `Application#add` adopted it, else the global one (created when
     # none exists yet): what `#exec` and `#quit` drive, and where anything
     # subscribing on the window's behalf (`MainWindow#report_handler_errors`)
     # subscribes. With an application of your own, add the window to it

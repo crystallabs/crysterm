@@ -76,12 +76,10 @@ module Crysterm
     # stylesheet.
     @css_widgets_styled = false
 
-    # Cached parsed document and the string it was parsed from, plus a
-    # `data-uid -> node` index. Reused across cascades: an attribute-only change
-    # patches nodes in place rather than re-parsing; a structural change forces
-    # a fresh parse + index.
+    # Cached parsed document plus a `data-uid -> node` index. Reused across
+    # cascades: an attribute-only change patches nodes in place rather than
+    # re-parsing; a structural change forces a fresh parse + index.
     @css_parsed_doc : HTML5::Node?
-    @css_parsed_doc_string : String?
     @css_node_index : Hash(String, HTML5::Node)?
     # `data-uid -> {widget, slot}`, the widget-side twin of `@css_node_index`.
     # Rebuilt on the same structural signal (`@css_structural`) — its uid→widget
@@ -589,21 +587,22 @@ module Crysterm
 
     # Returns the parsed document for *document*. A structural change (or no
     # cache) forces a fresh parse + node index. Otherwise the cached parse is
-    # reused: identical when the string matches, or patched in place per changed
-    # widget's node, avoiding a re-parse on attribute-only changes.
+    # reused, patched in place for every widget whose attributes changed since
+    # it was last brought current (`@css_patch_widgets`), avoiding a re-parse on
+    # attribute-only changes. The patch set, not the serialized string, decides:
+    # a patch-only cascade leaves the nodes ahead of any string, so a flip back
+    # to the parsed state serializes to the very string last parsed while the
+    # nodes still show the flip — a string compare would skip the patch and
+    # cascade `[checked]` rules against a stale toggle.
     private def css_parsed_document(document : String) : HTML5::Node
       cached = @css_parsed_doc
       if @css_structural || cached.nil?
         parsed = HTML5.parse(document)
         @css_parsed_doc = parsed
-        @css_parsed_doc_string = document
         @css_node_index = css_build_node_index(parsed)
         return parsed
       end
-      unless document == @css_parsed_doc_string
-        css_patch_nodes_diff
-        @css_parsed_doc_string = document
-      end
+      css_patch_nodes_diff unless @css_patch_widgets.empty?
       cached
     end
 

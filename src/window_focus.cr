@@ -208,6 +208,10 @@ module Crysterm
       @history.clear
       return unless old
       old.emit Crysterm::Event::FocusOut, nil if blur_state_reset old
+      # Nothing is focused now: a `#mouse_policy` that served the mouse for
+      # the blurred widget alone is asked again, as on any other focus change
+      # — except on the way out, where the terminal is about to be restored.
+      apply_mouse_policy unless @destroyed
     end
 
     # Takes keyboard focus off *el* the way Qt's `~QWidget` clears it: when

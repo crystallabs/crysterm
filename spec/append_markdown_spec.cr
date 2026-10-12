@@ -207,6 +207,16 @@ describe "TextDocument#append_markdown" do
     entries = doc.blocks.select { |b| b.block_format.frame_formats.try(&.any?(TextTocFormat)) }
     entries.any?(&.text.includes?("Two")).should be_true
   end
+
+  it "keeps the source line of an empty last block the next piece appends behind" do
+    doc = TextDocument.new
+    # The fence's blank line is an empty last block, stamped with line 3.
+    doc.append_markdown "```\ncode\n\n```\n\n"
+    doc.blocks.map(&.source_line).should eq [2, 3]
+    doc.append_markdown "tail\n"
+    doc.flush_markdown
+    doc.blocks.map(&.source_line).should eq [2, 3, 6]
+  end
 end
 
 describe "Widget::TextEdit#append_markdown" do

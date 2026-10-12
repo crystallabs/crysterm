@@ -92,6 +92,22 @@ describe "StatusBar normal fields" do
     mode.visible?.should be_false
   end
 
+  it "forgets a field destroyed behind its back, and gives the sections its cells" do
+    s = headless_screen(40, 3)
+    bar = Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: "100%", height: 1
+    bar.add_permanent "UTF-8"
+    name = bar.add_widget field("notes.md", width: 10)
+    pos = bar.add_permanent_widget field("Ln 1", width: 10)
+    bar.show_message "Busy"
+    name.destroy
+    pos.destroy
+    bar.normal_widgets.should be_empty
+    bar.permanent_widgets.should be_empty
+    bar.clear_message
+    s.repaint
+    row(s, 40).rstrip.should end_with "UTF-8"
+  end
+
   it "keeps the painted sections left of a visible normal field" do
     s = headless_screen(40, 3)
     bar = Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: "100%", height: 1

@@ -194,6 +194,25 @@ describe Crysterm::TextHtml do
       doc2.to_markdown.should eq doc.to_markdown
     end
 
+    it "cross-converts a block image as <img>, linked or not, and degrades an inline one to the glyph and alt text" do
+      doc = TextDocument.from_markdown("![Alt text](pic.png \"A title\")\n\n[![badge](b.svg)](https://ci.example)\n\nsee ![a](b.png) here")
+      html = doc.to_html
+      html.should contain %(<p><img src="pic.png" alt="Alt text" title="A title"></p>)
+      html.should contain %(<a href="https://ci.example"><img src="b.svg" alt="badge"></a>)
+      doc2 = TextDocument.from_html(html)
+      doc2.blocks[0].block_format.image.should eq doc.blocks[0].block_format.image
+      doc2.blocks[1].block_format.image.should eq doc.blocks[1].block_format.image
+      doc2.blocks[1].fragments[0].format.anchor_href.should eq "https://ci.example"
+      doc2.blocks[2].block_format.image.should be_nil
+      doc2.to_plain_text.should eq doc.to_plain_text
+      doc2.to_markdown.should eq doc.to_markdown
+      # A list item that is one image is a block image too.
+      items = TextDocument.from_markdown("- ![item](i.png)\n- plain")
+      TextDocument.from_html(items.to_html).to_markdown.should eq items.to_markdown
+      # A bare `<img>` is inline content: the glyph alone without alt text.
+      html_doc(%(<p>a <img src="x.png"> b</p>)).blocks[0].text.should eq "a #{Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)} b"
+    end
+
     it "round-trips a checkbox list, and cross-converts to/from markdown" do
       doc = TextDocument.from_markdown("- [x] done\n- [ ] todo")
       html = doc.to_html
