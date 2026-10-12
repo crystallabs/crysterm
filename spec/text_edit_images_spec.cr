@@ -1,4 +1,5 @@
 require "./spec_helper"
+require "base64"
 
 include Crysterm
 
@@ -10,6 +11,18 @@ include Crysterm
 
 private IMAGE_DIR = File.expand_path("#{__DIR__}/../data/image")
 private IMAGE     = File.join(IMAGE_DIR, "matterhorn.png") # 240 × 84 pixels
+
+# A 30 × 20 pixel PNG (a flat red rectangle): smaller than any text column.
+private SMALL_PNG = Base64.decode("iVBORw0KGgoAAAANSUhEUgAAAB4AAAAUCAYAAACaq43EAAAAJUlEQVR42mM4ISf3fyAww6jFoxaPWjxq8ajFoxaPWjxq8cixGACyL7dFCHooGgAAAABJRU5ErkJggg==")
+
+# Yields the path of a copy of `SMALL_PNG` on disk, deleted after.
+private def with_small_png(&)
+  path = File.tempname("text-edit-images-small", ".png")
+  File.write path, SMALL_PNG
+  yield path
+ensure
+  File.delete? path if path
+end
 
 private def headless_screen(w = 40, h = 8)
   Crysterm::Window.new(
@@ -101,11 +114,11 @@ describe "TextDocument#base_url" do
 end
 
 describe "TextEdit block images" do
-  it "reserves rows fitted to the text width and capped at half the viewport, and owns a Media child for the picture" do
+  it "reserves the picture's rows, capped at half the viewport, and owns a Media child for the picture" do
     s = headless_screen
     tb = browser_with s, "![Matterhorn](matterhorn.png)\n\nAfter"
-    # 240 × 84 in 40 columns asks 7 rows (a cell counts as 2 pixels tall);
-    # the cap is half of 8, and the width shrinks with it: 240 × 4 / 84 / 0.5.
+    # 240 × 84 pixels over the 10 × 20 fallback cell is 24 × 4.2 cells; the
+    # cap is half of 8, and the width shrinks with it: 24 × 4 / 4.2.
     tb.scroll_height.should eq 4 + 1 + 1 + 1 # picture, caption, margin, After
     media = tb.block_media
     media.size.should eq 1
@@ -119,6 +132,48 @@ describe "TextEdit block images" do
     # The caption row holds the block's positions; the picture rows none.
     tb.cursor_position = 0
     tb.cursor_viewport_row.should eq 4
+    s.destroy
+  end
+
+  it "draws a small picture at its natural size rather than stretched to the column" do
+    s = headless_screen
+    with_small_png do |small|
+      tb = browser_with s, "![icon](#{small})\n\nAfter"
+      # 30 × 20 pixels over the 10 × 20 fallback cell: 3 columns, 1 row.
+      tb.block_media.size.should eq 1
+      tb.block_media[0].awidth.should eq 3
+      tb.block_media[0].aheight.should eq 1
+      tb.scroll_height.should eq 1 + 1 + 1 + 1 # picture, caption, margin, After
+    end
+    s.destroy
+  end
+
+  it "shrinks a picture wider than the text column to fit it, keeping its aspect" do
+    s = headless_screen(12, 8)
+    tb = browser_with s, "![Matterhorn](matterhorn.png)\n\nAfter"
+    # 24 × 4.2 cells naturally, halved to the 12 columns: 12 × 2.
+    tb.block_media[0].awidth.should eq 12
+    tb.block_media[0].aheight.should eq 2
+    tb.scroll_height.should eq 2 + 2 + 1 + 1 # picture, the caption wrapped in two, margin, After
+    s.destroy
+  end
+
+  it "measures in the cell size the terminal reports, and again when it changes" do
+    s = headless_screen
+    s.screen.cell_pixel_width = 5
+    s.screen.cell_pixel_height = 10
+    with_small_png do |small|
+      tb = browser_with s, "![icon](#{small})\n\nAfter"
+      tb.block_media[0].awidth.should eq 6
+      tb.block_media[0].aheight.should eq 2
+      # A zoom re-probes the cell size with the key, the document and the
+      # cap unchanged: the pictures alone bring the relayout.
+      s.screen.cell_pixel_width = 10
+      s.screen.cell_pixel_height = 20
+      s.repaint
+      tb.block_media[0].awidth.should eq 3
+      tb.block_media[0].aheight.should eq 1
+    end
     s.destroy
   end
 

@@ -456,6 +456,7 @@ module Crysterm
         @image_slots.clear
         images = @images_enabled
         image_cap = @image_cap_laid_out = image_row_cap
+        @image_cells_laid_out = image_cell_pixels
 
         cl = @wrapped_lines
         cl.reset
@@ -532,8 +533,9 @@ module Crysterm
           avail = Math.max(colwidth - deco - rdeco, 0)
 
           # A block image's picture: margin rows above the block's text row
-          # (its caption), at the text's left edge, fitted to the text
-          # width. An image that cannot be measured reserves nothing.
+          # (its caption), at the text's left edge, at its natural size or
+          # shrunk to the text width and the cap. An image that cannot be
+          # measured reserves nothing.
           if images && (img = bf.image) && (slot = image_slot(img, cl.size, deco, avail, image_cap))
             @image_slots << slot
             slot.rows.times do

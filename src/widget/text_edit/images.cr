@@ -13,15 +13,16 @@ module Crysterm
       # so the view owns a child per picture on screen, the way its
       # `background-image` layer is a child (`Widget#update_background_media`).
       #
-      # Rows. The image's natural pixel size (`Media.decode`, the
-      # process-wide decode cache the child reads from too) is fitted into
-      # the block's text width (`Media::Fit::Contain`): as wide as the text
-      # column, as tall as its aspect asks, with a cell counted as twice as
-      # tall as it is wide (`CELL_ASPECT`, the default
-      # `Media::Base#native_pixel_aspect`, as the terminal's cell size is not
-      # known before a backend is built). The height is capped at
-      # `#max_image_rows`, half the viewport by default, and the width
-      # shrinks with it, so a tall picture never fills the view. The rows are
+      # Rows. A picture is drawn at its natural size, as Qt draws an inline
+      # image at its pixel size: the image's pixel size (`Media.decode`, the
+      # process-wide decode cache the child reads from too) over the
+      # terminal's cell size in pixels (`Screen#cell_pixel_width`/`_height`,
+      # probed at startup; `FALLBACK_CELL_PIXELS` when the terminal reports
+      # none) is the cells it takes. Only a picture that does not fit is
+      # shrunk, `Media::Fit::Contain`-style — by one factor, so its aspect
+      # keeps — to the block's text width or to the row cap
+      # (`#max_image_rows`, half the viewport by default), whichever asks
+      # for more; a small icon is never blown up to the column. The rows are
       # margin rows (`RowMeta#margin`), which the caret steps over as it
       # steps over a block's top margin, so the picture adds no positions:
       # the block's text row — the picture glyph and the alt text — stays
@@ -61,9 +62,12 @@ module Crysterm
       # caption alone, then the layout takes the picture in — a shift of the
       # rows below, as a browser's page shifts when its images arrive.
 
-      # A terminal cell's width over its height, what a picture's rows are
-      # derived from: a cell is about twice as tall as it is wide.
-      CELL_ASPECT = 0.5
+      # The cell size in pixels (width, height) a picture is measured in
+      # when the terminal reports none (`Screen#cell_pixel_width`/`_height`
+      # are 0 — no `TIOCGWINSZ` pixel size, no XTWINOPS answer, a headless
+      # window): a typical monospace cell, the same assumption
+      # `Media::Graphics` draws with.
+      FALLBACK_CELL_PIXELS = {10, 20}
 
       # The share of the viewport's rows a picture may take without
       # `#max_image_rows`: half.
@@ -136,13 +140,31 @@ module Crysterm
       # key is the width's) or the document.
       @image_cap_laid_out = -1
 
+      # The cell size in pixels the pictures were last measured in
+      # (`#image_cell_pixels`): a font or zoom change re-probes it
+      # (`Screen#refresh_cell_geometry`) without a change of the key, the
+      # document or the cap when the terminal keeps its cell count.
+      @image_cells_laid_out = {0, 0}
+
       # Whether the pictures are laid out as their inputs stand now
       # (`#process_content`'s share of the steady-frame test): the revision,
-      # and — for pictures that exist — the row cap. A document without a
-      # measurable picture is not relaid for a height change.
+      # and — for pictures that exist — the row cap and the cell size. A
+      # document without a measurable picture is not relaid for a height
+      # change.
       private def images_current? : Bool
         return false unless @images_laid_out == @images_revision
-        !@images_enabled || @image_slots.empty? || @image_cap_laid_out == image_row_cap
+        return true if !@images_enabled || @image_slots.empty?
+        @image_cap_laid_out == image_row_cap && @image_cells_laid_out == image_cell_pixels
+      end
+
+      # The terminal's cell size in pixels a picture is measured in: what
+      # the screen probed, each axis the terminal left at 0 standing in from
+      # `FALLBACK_CELL_PIXELS`.
+      private def image_cell_pixels : Tuple(Int32, Int32)
+        win = window?
+        w = win.try(&.cell_pixel_width) || 0
+        h = win.try(&.cell_pixel_height) || 0
+        {w > 0 ? w : FALLBACK_CELL_PIXELS[0], h > 0 ? h : FALLBACK_CELL_PIXELS[1]}
       end
 
       # Whether *src* is fetched over the network rather than read from disk.
@@ -182,20 +204,21 @@ module Crysterm
       end
 
       # The rows and columns *img* takes at display row *row*, its left edge
-      # at column *offset*, in *avail* columns and at most *cap* rows — or
-      # `nil` for an image that cannot be measured (missing, undecodable, or
-      # a remote one still being fetched), which reserves no rows.
+      # at column *offset*, in *avail* columns and at most *cap* rows — its
+      # natural size in cells, shrunk by one factor when it exceeds either
+      # (see the section comment), never enlarged — or `nil` for an image
+      # that cannot be measured (missing, undecodable, or a remote one still
+      # being fetched), which reserves no rows.
       private def image_slot(img : TextImageFormat, row : Int32, offset : Int32, avail : Int32, cap : Int32) : ImageSlot?
         return if avail < 1
         src = document.resolve_url(img.name)
         pw, ph = image_pixel_size(src) || return
-        cols = avail
-        rows = (ph.to_f * cols / pw * CELL_ASPECT).round.to_i
-        rows = 1 if rows < 1
-        if rows > cap
-          rows = cap
-          cols = (pw.to_f * rows / ph / CELL_ASPECT).round.to_i.clamp(1, avail)
-        end
+        cw, ch = image_cell_pixels
+        natural_cols = pw.to_f / cw
+        natural_rows = ph.to_f / ch
+        scale = Math.min(1.0, Math.min(avail / natural_cols, cap / natural_rows))
+        cols = (natural_cols * scale).round.to_i.clamp(1, avail)
+        rows = (natural_rows * scale).round.to_i.clamp(1, cap)
         ImageSlot.new(row, rows, offset, cols, src)
       end
 
@@ -233,6 +256,8 @@ module Crysterm
         @image_loading << src
         spawn(name: "crysterm-image-size") do
           size = decode_image_size(src)
+          # On a window closed while the fetch ran, `post` drops the job (the
+          # queue is closed with the window); nothing holds this view.
           win.post do
             @image_sizes[src] = size
             @image_loading.delete src
