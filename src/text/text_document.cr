@@ -1,4 +1,5 @@
 require "weak_ref"
+require "uri"
 
 module Crysterm
   # A structured, formatted text buffer (Qt `QTextDocument`), independent of
@@ -70,6 +71,38 @@ module Crysterm
 
     # Root frame owning the block list. Lazy so it can capture `self`.
     getter root_frame : TextFrame { TextFrame.new(self) }
+
+    # Where the document's relative resource names count from (Qt
+    # `QTextDocument::baseUrl`): the directory of the file the document was
+    # read from, or a URL. A view resolves an image's `TextImageFormat#name`
+    # against it (`#resolve_url`); `nil` leaves a relative name as written,
+    # which is then read from the working directory. Not content: a
+    # whole-content replacement (`#set_markdown`) keeps it, as the document
+    # is the same document re-filled.
+    property base_url : String?
+
+    # *name* made absolute against `#base_url`. A name with a scheme
+    # (`https://…`) is itself, a `file:` URL becomes its path, and an
+    # absolute path stays; a relative name is joined to the base — resolved
+    # as a URL when the base is one (`URI#resolve`), joined as a path
+    # otherwise, its percent-encoding undone (`a%20b.png` names `a b.png`).
+    # Without a base a relative name is returned as written.
+    def resolve_url(name : String) : String
+      uri = URI.parse(name)
+      if scheme = uri.scheme
+        return scheme.downcase == "file" ? URI.decode(uri.path) : name
+      end
+      return name if name.starts_with?('/')
+      base = @base_url || return name
+      base_uri = URI.parse(base)
+      case base_uri.scheme.try(&.downcase)
+      when nil    then File.expand_path(URI.decode(name), base)
+      when "file" then File.expand_path(URI.decode(name), URI.decode(base_uri.path))
+      else             base_uri.resolve(name).to_s
+      end
+    rescue URI::Error
+      name
+    end
 
     @cursors = [] of WeakRef(TextCursor)
 

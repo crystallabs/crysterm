@@ -490,15 +490,15 @@ module Crysterm
       # Rebuilds the media every live window resolved through `resolve`, for
       # what it picks now, and repaints the windows. A backend is a concrete
       # widget class chosen at construction (`Media.new`), so a widget that was
-      # built for one cannot switch; the layer Crysterm builds itself — the
-      # `background-image` layer of every widget with one — is dropped
-      # (`Widget#reset_background_media`) and comes back for the new backend
-      # on the next frame. A `Media` widget an application constructed is its
-      # own to rebuild.
+      # built for one cannot switch; the media Crysterm builds itself — the
+      # `background-image` layer of every widget with one, a `TextEdit`'s
+      # block images — is dropped (`Widget#reset_resolved_media`) and comes
+      # back for the new backend on the next frame. A `Media` widget an
+      # application constructed is its own to rebuild.
       def self.rebuild_resolved : Nil
         Crysterm::Window.instances.dup.each do |window|
           # A snapshot: dropping a layer removes a child under the walk.
-          window.descendants.each &.reset_background_media
+          window.descendants.each &.reset_resolved_media
           window.update
         end
       end

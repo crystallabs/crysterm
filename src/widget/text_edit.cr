@@ -27,6 +27,11 @@ module Crysterm
     # The document is settable and shareable between views (Qt semantics):
     # `TextEdit.new(document: doc)` or `edit.document = doc`.
     #
+    # A block that is an image (`TextBlockFormat#image`) is drawn as a
+    # picture by a `Widget::Media` child the view owns, on rows the layout
+    # reserves above the block's text (`text_edit/images.cr`,
+    # `#images_enabled?`).
+    #
     # <!-- widget-examples:capture v1 -->
     # ![TextEdit screenshot](../../tests/widget/textedit/textedit.5s.apng)
     # <!-- /widget-examples:capture -->
@@ -372,6 +377,9 @@ module Crysterm
       private def on_contents_change(pos : Int32, removed : Int32, added : Int32, kind : TextDocument::ChangeKind) : Nil
         follow_document_change(kind, pos, removed, added)
         @doc_revision += 1
+        # New content may name the same image files, rewritten meanwhile:
+        # measure them again (`text_edit/images.cr`).
+        @image_sizes.clear if kind.replace?
         blocks = document.blocks
         b1 = document.block_at(pos).index
         b2 = document.block_at(pos + added).index
@@ -402,7 +410,7 @@ module Crysterm
         sync_line_wrap_column(awidth_hint || awidth)
         colwidth = (awidth_hint || awidth) - ihorizontal
         key = layout_cache_key(colwidth)
-        if key == @layout_key && @layout_revision == @doc_revision && !@wrapped_lines.empty?
+        if key == @layout_key && @layout_revision == @doc_revision && @images_laid_out == @images_revision && !@wrapped_lines.empty?
           # Steady frame. Keep the cached base attr fresh (a style change
           # recolors the background) — mirrors the base `process_content`. The
           # derivation is memoized on {identity, attr_revision}; no stamped-
@@ -439,6 +447,12 @@ module Crysterm
         @block_layouts.clear if key != @layout_key
         @layout_key = key
         @layout_revision = @doc_revision
+        @images_laid_out = @images_revision
+        # The pictures (`text_edit/images.cr`): rows reserved per image
+        # block below, capped for this viewport.
+        @image_slots.clear
+        images = @images_enabled
+        image_cap = image_row_cap
 
         cl = @wrapped_lines
         cl.reset
@@ -513,6 +527,18 @@ module Crysterm
           align = bf.alignment
           align = nil unless wrap_content? && align && (align.h_center? || align.right?)
           avail = Math.max(colwidth - deco - rdeco, 0)
+
+          # A block image's picture: margin rows above the block's text row
+          # (its caption), at the text's left edge, fitted to the text
+          # width. An image that cannot be measured reserves nothing.
+          if images && (img = bf.image) && (slot = image_slot(img, cl.size, deco, avail, image_cap))
+            @image_slots << slot
+            slot.rows.times do
+              cl.rtof << bi
+              meta << RowMeta.new(0, margin: true)
+              cl.push ""
+            end
+          end
 
           row_ids = cl.take_ftor_row
           first = true

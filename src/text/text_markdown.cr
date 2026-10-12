@@ -13,7 +13,12 @@ module Crysterm
   #
   # - Headings → `TextBlockFormat#heading_level` (the view colors them).
   # - `**`/`*`/`~~`/backticks/links → char formats (`code` spans, anchors);
-  #   images degrade to a `dim` placeholder glyph plus their alt text.
+  #   images degrade to a `dim` placeholder glyph plus their alt text. A
+  #   paragraph that is nothing but one image (a link around it allowed) is
+  #   a *block image* besides: its block records the source, alt text and
+  #   title (`TextBlockFormat#image`), a view that draws images puts the
+  #   picture above the text (`Widget::TextEdit#images_enabled?`), and the
+  #   exporter writes `![alt](src "title")` back.
   # - Paragraph spacing → `TextBlockFormat#top_margin` on the block that
   #   follows (the margins re-base; exporters read the margins back as blank
   #   lines, and HTML carries them as `margin-*` styles, so the formats stay
@@ -663,9 +668,50 @@ module Crysterm
           import_table(txt)
           return
         end
-        start_block
+        # A paragraph that is one image is a block image: the block carries
+        # the image, and its text is the usual placeholder and alt text.
+        img = sole_image(node)
+        start_block(img ? TextBlockFormat.new(image: img) : TextBlockFormat.default)
         walk_children(node)
         end_block
+      end
+
+      # The image a paragraph *is*: its one child that is not whitespace is
+      # an image — or a link holding exactly an image, the
+      # `[![badge](src)](href)` idiom. An image among text is inline and
+      # stays the placeholder glyph with the alt text, so `nil` then.
+      private def sole_image(node : Markd::Node) : TextImageFormat?
+        sole = sole_child(node) || return
+        sole = sole_child(sole) || return if sole.type.link?
+        return unless sole.type.image?
+        title = sole.data["title"]?.try(&.as(String))
+        TextImageFormat.new(
+          name: sole.data["destination"]?.try(&.as(String)) || "",
+          alt: alt_text(sole),
+          title: title.presence)
+      end
+
+      # *node*'s one child besides whitespace (blank text, a soft break), or
+      # `nil` when it has none or more than one.
+      private def sole_child(node : Markd::Node) : Markd::Node?
+        sole = nil
+        child = node.first_child?
+        while child
+          case child.type
+          when .soft_break?
+          when .text? then return unless child.text.blank?
+          else
+            return if sole
+            sole = child
+          end
+          child = child.next?
+        end
+        sole
+      end
+
+      # An image's alt text: its children's plain text on one line.
+      private def alt_text(node : Markd::Node) : String
+        String.build { |io| collect_text(node, io) }.gsub('\n', ' ').strip
       end
 
       # A list node: pushes its shared `TextListFormat` (instance identity =
@@ -1581,6 +1627,19 @@ module Crysterm
           return
         end
 
+        # A block image goes back as the image it was read from; its text is
+        # only the stand-in. In a list it sits behind the item's marker or
+        # at a continuation's column, like a paragraph there.
+        if img = bf.image
+          if lf = bf.list_format
+            write_list_marker(io, lf, bf.checked?)
+          elsif bf.indent > 0
+            io << " " * (@item_cols[bf.indent // 2]? || bf.indent)
+          end
+          write_image(io, img)
+          return
+        end
+
         if lf = bf.list_format
           write_list_marker(io, lf, bf.checked?)
           # A heading inside a list item ("- # Title", which the importer
@@ -1619,6 +1678,23 @@ module Crysterm
           io << " " * pad
         end
         write_inline(io, b.fragments, lead: true)
+      end
+
+      # `![alt](src "title")`: the alt text escaped as inline text is, the
+      # destination in angle brackets when it holds a space or a parenthesis
+      # (CommonMark's form for one), the title quoted when there is one.
+      private def write_image(io : IO, img : TextImageFormat) : Nil
+        io << "![" << escape_md(img.alt) << "]("
+        name = img.name
+        if name.includes?(' ') || name.includes?('(') || name.includes?(')')
+          io << '<' << name.gsub('<', "\\<").gsub('>', "\\>") << '>'
+        else
+          io << name
+        end
+        if title = img.title
+          io << " \"" << title.gsub('"', "\\\"") << '"'
+        end
+        io << ')'
       end
 
       # A thematic break: nothing but rule glyphs (or plain dashes, which

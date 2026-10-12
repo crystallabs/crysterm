@@ -224,6 +224,16 @@ module Crysterm
     # a view paints it on its code background, and the exporters fence it.
     getter code_language : String?
 
+    # The image this block *is* — a Markdown paragraph holding nothing but
+    # `![alt](src)` (`TextImageFormat`) — or `nil` for a text block. The
+    # block's text is the picture glyph and the alt text, so the block has
+    # positions like any other; a view that draws images reserves rows
+    # above the text for the picture (`Widget::TextEdit#images_enabled?`),
+    # and the Markdown exporter writes the image back. Qt keeps an image in
+    # a fragment's char format; on a cell grid a picture is a block of its
+    # own rows, so it rides on the block.
+    getter image : TextImageFormat?
+
     # Shared all-defaults instance.
     class_getter default : TextBlockFormat { new }
 
@@ -256,6 +266,7 @@ module Crysterm
       frame_formats : Array(TextFrameFormat)? = nil,
       @alert_kind : AlertKind? = nil,
       @code_language : String? = nil,
+      @image : TextImageFormat? = nil,
     )
       @indent = indent
       @top_margin = top_margin
@@ -345,6 +356,7 @@ module Crysterm
         code_language: patch.code_language || @code_language,
         frame_formats: patch.frame_formats || @frame_formats,
         alert_kind: patch.alert_kind || @alert_kind,
+        image: patch.image || @image,
       )
     end
 
@@ -358,7 +370,7 @@ module Crysterm
         non_breakable: @non_breakable, quote_level: @quote_level,
         horizontal_rule: @horizontal_rule, checked: checked, list_format: list_format,
         table_format: @table_format, frame_formats: frame_formats, alert_kind: @alert_kind,
-        code_language: @code_language)
+        code_language: @code_language, image: @image)
     end
 
     # A copy with the list reference replaced, or cleared with `nil` — which
@@ -392,7 +404,7 @@ module Crysterm
       copy_with(bottom_margin: margin)
     end
 
-    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats, @alert_kind, @code_language
+    def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @list_format, @table_format, @frame_formats, @alert_kind, @code_language, @image
   end
 
   # List format (Qt `QTextListFormat`): marker style, nesting depth, numbering
@@ -540,18 +552,34 @@ module Crysterm
     end
   end
 
-  # Inline image (Qt `QTextImageFormat < QTextCharFormat`).
+  # An image (Qt `QTextImageFormat < QTextCharFormat`). The Markdown
+  # importer records one on the block a paragraph holding nothing but an
+  # image becomes (`TextBlockFormat#image`), keeping the block's text as the
+  # picture glyph and the alt text: a view that draws images
+  # (`Widget::TextEdit#images_enabled?`) shows the picture above that row,
+  # and anything that reads the text alone — the exporters, the clipboard,
+  # the caret — still sees the alt text. `#name` is as written in the
+  # source; a view resolves it against the document's `TextDocument#base_url`.
   class TextImageFormat < TextCharFormat
-    # Image source (path or URL).
+    # Image source (path or URL), as written.
     getter name : String
+
+    # The alternative text (Markdown's `![alt]`, HTML's `alt=`): what stands
+    # in for the picture where it cannot be drawn.
+    getter alt : String
+
+    # The title (`![alt](src "title")`), or `nil`.
+    getter title : String?
 
     # Desired size in cells; `nil` = natural.
     getter width : Int32?
     getter height : Int32?
 
-    def initialize(*, @name : String = "", @width : Int32? = nil, @height : Int32? = nil)
+    def initialize(*, @name : String = "", @alt : String = "", @title : String? = nil, @width : Int32? = nil, @height : Int32? = nil)
       super()
     end
+
+    def_equals_and_hash @name, @alt, @title, @width, @height
   end
 
   # Table cell format (Qt `QTextTableCellFormat < QTextCharFormat`).

@@ -15,6 +15,9 @@ module Crysterm
           # scroll away from the caret must stick).
           _type_scroll
         end
+        # The pictures' children, placed for this scroll position before the
+        # child pass paints them (`text_edit/images.cr`).
+        sync_block_images
         ret = base_render with_children
         if ret
           # An empty document with a `#placeholder_text` draws the placeholder

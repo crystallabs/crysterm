@@ -88,11 +88,20 @@ module Crysterm
       Media.resolve Media::Content::Background, s.tput
     end
 
+    # Drops every `Media` this widget resolved through `Media.resolve` for
+    # itself, so the next frame builds them again for the backend it picks
+    # then — the way a run-time change of `media.backend` or `media.exclude`
+    # reaches media already on screen (`Media.rebuild_resolved`, which calls
+    # this on every widget of every window). The background layer here; a
+    # widget owning more (`TextEdit`'s block images) extends it.
+    def reset_resolved_media : Nil
+      reset_background_media
+    end
+
     # Drops the background layer, so the next frame builds it again for the
-    # backend `Media.resolve` picks then — the way a run-time change of
-    # `media.backend` or `media.exclude` reaches a background already on
-    # screen (`Media.rebuild_resolved`). The old layer is destroyed, so its
-    # backend erases its image; a widget without a layer is left alone.
+    # backend `Media.resolve` picks then (see `#reset_resolved_media`). The
+    # old layer is destroyed, so its backend erases its image; a widget
+    # without a layer is left alone.
     def reset_background_media : Nil
       return unless bg = @background_media
       bg.destroy
