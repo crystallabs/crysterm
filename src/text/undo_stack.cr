@@ -18,6 +18,13 @@ module Crysterm
   # "Clean" tracking: `mark_clean` remembers the current index; `clean?`
   # compares against it and is unreachable (`CLEAN_INVALID`) once the clean
   # state is truncated away. `TextDocument#modified?` is `!clean?`.
+  #
+  # A table re-rendered to a new `TextDocument#text_width` is layout, not a
+  # step, yet it moves the positions the commands hold: the stack keeps the
+  # re-renderings (`#reflowed`), those between two commands on the later
+  # one (`Command#reflows`), and replays each command at the width it was
+  # made at — taking back the re-renderings since, undoing or redoing it,
+  # then fitting the tables to the current width again.
   class TextUndoStack
     # Sentinel for "no reachable clean state".
     CLEAN_INVALID = Int32::MIN
@@ -26,6 +33,11 @@ module Crysterm
       # Set once no later command may coalesce into this one, at macro
       # boundaries and across undo/redo.
       property? sealed = false
+
+      # The tables' re-renderings to a new `TextDocument#text_width` made
+      # after the previous command and before this one: taken back after
+      # this command is undone, played again before it is redone.
+      property reflows : Array(TextDocument::TableReflow)? = nil
 
       abstract def undo(doc : TextDocument) : Nil
       abstract def redo(doc : TextDocument) : Nil
@@ -214,6 +226,10 @@ module Crysterm
     @clean_index = 0
     @macro : MacroCommand?
     @macro_depth = 0
+    # The re-renderings since the stack last moved (a push, an undo, a
+    # redo): what stands between the current text and the one the next
+    # command to undo or redo expects.
+    @reflows = [] of TextDocument::TableReflow
 
     # The owning document — the stack is `TextDocument`-internal (one stack
     # per document, built by it), so commands always replay against their own
@@ -225,6 +241,12 @@ module Crysterm
     end
 
     def push(cmd : Command) : Nil
+      # The re-renderings since the last move now precede this command.
+      unless @reflows.empty?
+        target = @macro || cmd
+        target.reflows = (target.reflows || [] of TextDocument::TableReflow).concat(@reflows)
+        @reflows.clear
+      end
       if m = @macro
         unless (last = m.children.last?) && !last.sealed? && last.try_merge(cmd)
           m.children << cmd
@@ -269,20 +291,67 @@ module Crysterm
 
     def undo : Bool
       return false if in_macro? || @index == 0
+      return false unless take_back_reflows
       @index -= 1
-      @commands[@index].undo(document)
-      seal_last
-      document.refresh_undo_state
+      cmd = @commands[@index]
+      cmd.undo(document)
+      cmd.reflows.try { |r| drop_history unless document.replay_reflows(r, backward: true) }
+      refit
       true
     end
 
     def redo : Bool
       return false if in_macro? || @index == @commands.size
-      @commands[@index].redo(document)
+      return false unless take_back_reflows
+      cmd = @commands[@index]
+      if (r = cmd.reflows) && !document.replay_reflows(r, backward: false)
+        drop_history
+        refit
+        return false
+      end
+      cmd.redo(document)
       @index += 1
-      seal_last
-      document.refresh_undo_state
+      refit
       true
+    end
+
+    # Records *reflows*, tables just re-rendered to a new
+    # `TextDocument#text_width` (see the class docs); nothing coalesces
+    # across them. With no history there is nothing to replay.
+    def reflowed(reflows : Array(TextDocument::TableReflow)) : Nil
+      return if reflows.empty? || !(undo_available? || redo_available?)
+      seal_last
+      @reflows.concat(reflows)
+    end
+
+    # Forgets every step, keeping `#clean?` false when it was — the last
+    # resort when the text no longer matches what the commands expect.
+    def drop_history : Nil
+      dirty = !clean?
+      clear
+      mark_dirty if dirty
+      document.refresh_undo_state
+    end
+
+    # Takes the re-renderings since the last move back, so the text is the
+    # one the next command to undo or redo expects; false, the history
+    # dropped, when a table is not as they left it.
+    private def take_back_reflows : Bool
+      ok = document.replay_reflows(@reflows, backward: true)
+      @reflows.clear
+      unless ok
+        drop_history
+        refit
+      end
+      ok
+    end
+
+    # After a move: the tables fitted to the current width again, the
+    # re-renderings kept for the next move.
+    private def refit : Nil
+      seal_last
+      reflowed(document.fit_tables(document.text_width))
+      document.refresh_undo_state
     end
 
     def undo_available? : Bool
@@ -295,6 +364,7 @@ module Crysterm
 
     def clear : Nil
       @commands.clear
+      @reflows.clear
       @index = 0
       @clean_index = 0
       @macro = nil

@@ -917,8 +917,11 @@ module Crysterm
     # one at a row's start or end stays there, one on a border row at the
     # same offset (clamped) — `TextCursor`s and, through
     # `#position_after_change`, a view's caret. Positions after the table
-    # shift. The undo history, whose positions no longer match, is dropped
-    # when a table changes. An import (`#set_markdown`, `#set_html`,
+    # shift. The undo history stays: the stack keeps the re-renderings and
+    # replays each command at the width it was made at, the tables then
+    # fitted to the current width again (`TextUndoStack#reflowed`); only
+    # inside an edit block (`#edit`), whose commands would straddle the
+    # change, is it dropped. An import (`#set_markdown`, `#set_html`,
     # `#append_markdown`, …) and an insertion render their tables at the
     # current width.
     getter text_width : Int32?
@@ -927,20 +930,50 @@ module Crysterm
     def text_width=(width : Int32?) : Int32?
       return width if width == @text_width
       @text_width = width
-      changed = false
-      TextTable.each_run(blocks_mut) do |first, last|
-        if fresh = TextTable.rerender(blocks_mut[first..last], width)
-          raw_rerender_block_run(first, fresh)
-          changed = true
-        end
-      end
-      if changed && (undo_available? || redo_available?)
-        dirty = modified?
-        undo_stack.clear
-        undo_stack.mark_dirty if dirty
-        refresh_undo_state
+      reflows = fit_tables(width)
+      return width if reflows.empty?
+      if undo_stack.in_macro?
+        undo_stack.drop_history
+      else
+        undo_stack.reflowed(reflows)
       end
       width
+    end
+
+    # One table's re-rendering to a new `#text_width`: the blocks from index
+    # *first* on, with the fragments they had (*old*) and were given
+    # (*new*) — what `TextUndoStack` plays back and forth to replay a
+    # command at the width it was made at.
+    record TableReflow, first : Int32, old : Array(TextBlock), new : Array(TextBlock)
+
+    # Re-renders every table whose rendering differs at *width*, returning
+    # the re-renderings.
+    protected def fit_tables(width : Int32?) : Array(TableReflow)
+      reflows = [] of TableReflow
+      bs = blocks_mut
+      TextTable.each_run(bs) do |first, last|
+        run = bs[first..last]
+        if fresh = TextTable.rerender(run, width)
+          old = run.map(&.clone)
+          raw_rerender_block_run(first, fresh)
+          reflows << TableReflow.new(first, old, fresh)
+        end
+      end
+      reflows
+    end
+
+    # Plays *reflows* forward, or *backward* (from the last, each table
+    # given back its old fragments), returning false — and stopping — at a
+    # table not found as the re-rendering left it (or found it).
+    protected def replay_reflows(reflows : Array(TableReflow), backward : Bool) : Bool
+      bs = blocks_mut
+      (backward ? reflows.reverse : reflows).each do |r|
+        from, to = backward ? {r.new, r.old} : {r.old, r.new}
+        return false unless r.first + from.size <= bs.size
+        return false unless from.each_with_index.all? { |b, k| bs[r.first + k].text == b.text }
+        raw_rerender_block_run(r.first, to)
+      end
+      true
     end
 
     # Gives the blocks from index *first* on the fragments of *fresh*, a

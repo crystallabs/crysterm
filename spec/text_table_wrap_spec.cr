@@ -184,14 +184,14 @@ describe TextDocument do
       start.position.should eq doc.blocks[3].position
     end
 
-    it "keeps the modified state and drops an undo history the reflow invalidates" do
+    it "keeps the modified state and the undo history" do
       doc = TextDocument.new
       doc.set_markdown GFM + "\n\npara"
       doc.cursor(doc.size).insert_text("!")
       doc.modified?.should be_true
       doc.text_width = 30
       doc.modified?.should be_true
-      doc.undo_available?.should be_false
+      doc.undo_available?.should be_true
     end
 
     it "renders an import at the current width, a streamed one too" do
