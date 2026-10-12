@@ -134,10 +134,13 @@ module Crysterm
       # last render: `{x0, xl, y0, yl, text_x0, content_top}` — the band's
       # first column (the subclass's own margin's, the gutter's; the row
       # ruler stands `@viewport_margins.left` columns in from it) and the
-      # row the column ruler is on (the padding's inner
-      # edge), the interior's exclusive right and bottom edges with the scroll
-      # bars kept out, the screen column the text's column 1 is at (before
-      # the horizontal scroll) and the first content row. The same arithmetic
+      # row the column ruler is on (the padding's inner edge); the text
+      # area's exclusive right and bottom edges — `#iright`/`#ibottom` leave
+      # out the padding, `@viewport_margins`' right and bottom and a
+      # centered column's right slack alike, and the scroll bars are kept
+      # out besides — so the tape ends with the text; the screen column the
+      # text's column 1 is at (before the horizontal scroll) and the first
+      # content row. The same arithmetic
       # `#position_at` and `#_update_cursor` do, from `#ileft`/`#itop`, so a
       # column the ruler names is the column a click there lands on. nil
       # without a render.
