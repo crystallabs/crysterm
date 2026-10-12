@@ -45,4 +45,16 @@ describe "StatusBar MessageChanged" do
     seen.last.should eq ""
     name.visible?.should be_true
   end
+
+  it "disarms a pending timeout when the bar is destroyed" do
+    s = headless_screen(40, 3)
+    bar = Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: "100%", height: 1
+    seen = [] of String
+    bar.on(Event::MessageChanged) { |e| seen << e.message }
+    bar.show_message "Gone soon", 20.milliseconds
+    bar.destroy
+    sleep 40.milliseconds
+    s.repaint
+    seen.should eq ["Gone soon"]
+  end
 end

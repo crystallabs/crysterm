@@ -238,7 +238,10 @@ module Crysterm
 
       # Asks *label* in place of the bar (see `LinePrompt#prompt`): the
       # fields and sections stand down until the answer — the entered text,
-      # or `nil` when cancelled — is delivered to *callback*.
+      # or `nil` when cancelled — is delivered to *callback*. The question
+      # is asked in the bar's row, so a hidden bar asks it unseen (the field
+      # still takes the keyboard): a host that hides its bars shows this one
+      # for the question.
       def prompt(label : String, value : String = "", &callback : String? ->) : Nil
         line_prompt.prompt(label, value, &callback)
       end
@@ -286,6 +289,14 @@ module Crysterm
         return unless message_showing?
         bump_dismiss_gen
         message_changed ""
+      end
+
+      # A pending timeout is disarmed with the bar (the mixin's teardown
+      # bump): fired after, it would take down and report a message on a
+      # widget that is gone, and until then its fiber would sleep toward it.
+      def destroy
+        bump_dismiss_gen
+        super
       end
 
       # Puts *text* up as the message (or takes it down, with `""`): displaces
