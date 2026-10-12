@@ -116,7 +116,7 @@ module Crysterm
           window = Stylesheet.parse(css).rules.find { |rule| rule.selector == ".Widget" && rule.state.nil? }
           color = ->(property : String) { window.try { |rule| rule.declarations[property]?.try { |value| ColorValue.solid(value, nil) } } }
           surface = color.call("background-color")
-          is_dark = surface ? Colors.luminance(surface) < 0.5 : !name.includes?("light")
+          is_dark = surface ? !Colors.light?(surface) : !name.includes?("light")
           primaries = (is_dark ? dark : light).primaries.dup
           primaries["surface"] = surface if surface
           color.call("color").try { |text| primaries["text"] = text }
