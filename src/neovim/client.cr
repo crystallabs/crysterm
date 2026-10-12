@@ -282,11 +282,16 @@ module Crysterm
       # terminates it, then kills it, waiting as long after each. Returns the
       # exit code (`nil` for a signal). Idempotent: called again, or after
       # Neovim quit on its own, it only returns the code.
+      #
+      # Neither step waits on the write lock: a Neovim that stopped reading
+      # leaves a write parked on its full input holding it, and the quit is
+      # sent from a fiber of its own while closing the input wakes that
+      # write with an error.
       def close(grace : Time::Span = 2.seconds) : Int32?
         unless @gone
-          notify_with "nvim_command", {"qall!"} rescue nil
+          spawn(name: "Neovim::Client quit") { notify_with "nvim_command", {"qall!"} rescue nil }
           unless exited_within? grace
-            @write_lock.synchronize { @input.close rescue nil }
+            @input.close rescue nil
             unless exited_within? grace
               @process.terminate rescue nil
               unless exited_within? grace
