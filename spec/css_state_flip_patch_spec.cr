@@ -159,9 +159,18 @@ describe "CSS patch-only cascade on a state flip" do
     end
     check_step(fast, control, "unhover") { |t| t.boxes[2].state = :normal }
 
-    # An intrinsic attribute: `CheckBox[checked] ~ Label`.
+    # An intrinsic attribute: `CheckBox[checked] ~ Label`. The label after the
+    # box is the one sibling it reaches (the inner box's label is not a
+    # sibling), and both sides must actually flip, not merely agree.
+    fast.labels[0].styles.normal.italic?.should be_false
     check_step(fast, control, "check") { |t| t.checks[0].checked = true }
+    {fast, control}.each do |t|
+      t.labels[0].styles.normal.italic?.should be_true
+      t.labels[1].styles.normal.italic?.should be_false
+      t.labels[2].styles.normal.italic?.should be_false
+    end
     check_step(fast, control, "uncheck") { |t| t.checks[0].checked = false }
+    {fast, control}.each { |t| t.labels[0].styles.normal.italic?.should be_false }
 
     # A user class on an ancestor: `.hot Button`.
     check_step(fast, control, "add class") { |t| t.boxes[2].add_css_class "hot" }

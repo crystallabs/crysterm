@@ -465,9 +465,10 @@ module Crysterm
       private NON_NORMAL_STATES = WidgetState.values.reject(&.normal?)
 
       # Whether *node* has a descendant (or, with `:scope`, relative element)
-      # matching the `:has(...)` inner selector.
+      # matching the `:has(...)` inner selector (in `Selectors.engine_form`,
+      # so a presence-only `[attr]` inside it keeps the combinator after it).
       private def self.has_descendant?(node : HTML5::Node, inner : String) : Bool
-        !node.css(inner).empty?
+        !node.css(Selectors.engine_form(inner)).empty?
       rescue
         false
       end

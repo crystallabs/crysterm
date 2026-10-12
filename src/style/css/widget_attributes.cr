@@ -31,7 +31,8 @@ module Crysterm
         attrs["checkable"] = nil if checkable?
         if checkable?
           # Qt's `:unchecked`/`:off` become `[unchecked]`: the complement is
-          # surfaced explicitly because `:not()` doesn't compile here.
+          # surfaced explicitly, so the `.qss` translation has a positive
+          # attribute to lower them to.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
         # Qt's `:flat`/`:default`; the theme's `Button[flat]` strips the border.
@@ -71,7 +72,8 @@ module Crysterm
           attrs["indeterminate"] = nil # Qt's PartiallyChecked / CSS :indeterminate
         else
           # Complementary `[checked]`/`[unchecked]` (Qt `:checked`/`:unchecked`,
-          # `:on`/`:off`); `:not([checked])` isn't available.
+          # `:on`/`:off`). `:not([checked])` is not the same: it also matches
+          # a partially checked box, which Qt's `:unchecked` does not.
           attrs[checked? ? "checked" : "unchecked"] = nil
         end
         attrs

@@ -48,6 +48,65 @@ module Crysterm
         end
       end
 
+      # The *selector* as handed to the `html5` engine: every presence-only
+      # attribute selector (`[checked]`, no `=`) is followed by an empty
+      # comment, `[checked]/**/`.
+      #
+      # The engine's compiler consumes the closing `]` of a presence-only
+      # attribute itself and then, like after every other simple selector,
+      # steps past one more token — the one that follows the `]`. Where that is
+      # the end of the selector nothing is lost, but anywhere else it is a
+      # combinator or a closing paren, and dropping it changes the selector:
+      # `CheckBox[checked] ~ Label` compiles as `CheckBox[checked] Label` (the
+      # tilde is eaten along with the space before it, the space after it
+      # becomes a descendant combinator), `Box[x] Label` as `Box[x].Label`, and
+      # `:not([checked])` does not compile. The comment is a token the engine
+      # skips without meaning, so the extra step lands on it and the token
+      # after the `]` survives. A valued `[attr="v"]` is left alone: there the
+      # compiler leaves the `]` for that extra step.
+      #
+      # Applied where a selector is compiled, never to the stored rule text, so
+      # `Rule#selector` (which the patch path's token test reads) is unchanged.
+      def self.engine_form(selector : String) : String
+        return selector unless selector.includes?('[')
+        n = selector.size
+        String.build do |io|
+          i = 0
+          while i < n
+            case selector[i]
+            when '"', '\''
+              stop = skip_string(selector, i)
+              io << selector[i...stop]
+              i = stop
+            when '['
+              stop = skip_balanced(selector, i, '[', ']')
+              io << selector[i...stop]
+              io << "/**/" if presence_attribute?(selector, i, stop)
+              i = stop
+            else
+              io << selector[i]
+              i += 1
+            end
+          end
+        end
+      end
+
+      # Whether the attribute selector spanning *start*...*stop* in *selector*
+      # (`[` through `]`) tests presence only: it holds no `=` outside quotes.
+      private def self.presence_attribute?(selector : String, start : Int32, stop : Int32) : Bool
+        i = start + 1
+        while i < stop
+          ch = selector[i]
+          if ch == '"' || ch == '\''
+            i = skip_string(selector, i)
+            next
+          end
+          return false if ch == '='
+          i += 1
+        end
+        true
+      end
+
       private def self.copy_ident(str : String, i : Int32, io) : Int32
         while i < str.size && ident?(str[i])
           io << str[i]

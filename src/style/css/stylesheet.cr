@@ -120,11 +120,13 @@ module Crysterm
 
       # Compiled selectors, memoized by their structural string, so `Node#css`
       # doesn't re-lex/re-compile on each match. A `nil` entry marks an
-      # unparseable selector so it isn't retried.
+      # unparseable selector so it isn't retried. Compiled from
+      # `Selectors.engine_form`, so a presence-only `[attr]` keeps the
+      # combinator after it.
       @compiled_selectors = Cache::Bounded(String, ::CSS::Selector?).new(Cache::SELECTOR_CAPACITY)
 
       def compiled_selector(selector : String) : ::CSS::Selector?
-        @compiled_selectors.fetch(selector) { ::CSS.compile(selector) rescue nil }
+        @compiled_selectors.fetch(selector) { ::CSS.compile(Selectors.engine_form(selector)) rescue nil }
       end
 
       # Per-rule cascade-entry caches, keyed by `{rule index, base_tier}`.
