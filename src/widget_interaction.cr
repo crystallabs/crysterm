@@ -419,6 +419,77 @@ module Crysterm
       end
     end
 
+    # Text the status bar of the enclosing `Widget::MainWindow` shows while
+    # the pointer is over this widget (Qt's `QWidget#statusTip`). `nil` or
+    # empty means none. The tip is the widget's own: a child without one
+    # does not borrow its parent's, as Qt's `QWidget::event` sends only the
+    # widget's own `statusTip`.
+    getter status_tip : String?
+
+    # Whether the hover handlers of `#status_tip=` have been installed (so
+    # re-setting the text doesn't stack duplicate handlers).
+    @_status_tip_wired = false
+
+    # Whether this widget's tip went out on the last enter and has not been
+    # taken back yet: what the leave clears, even after the text was
+    # changed or dropped in between.
+    @_status_tip_sent = false
+
+    # Sets the status tip. A non-nil value makes the widget mouse-hover-
+    # tracked, as `#tool_tip=` does: entering it sends the text up the
+    # parent chain as `Event::StatusTip` (`#send_status_tip`), and leaving
+    # it, or the widget being hidden under the pointer, sends `""` (Qt sends
+    # a `QStatusTipEvent` with the text on `QEvent::Enter` and an empty one
+    # on `QEvent::Leave`). Set `nil` to disable.
+    def status_tip=(text : String?)
+      @status_tip = text
+      wire_status_tip if text
+      text
+    end
+
+    private def wire_status_tip : Nil
+      install_once _status_tip_wired do
+        on(Crysterm::Event::MouseEnter) do
+          if (text = @status_tip) && !text.empty?
+            @_status_tip_sent = true
+            send_status_tip text
+          end
+        end
+        on(Crysterm::Event::MouseLeave) { retract_status_tip }
+        # A widget hidden under the pointer gets no `MouseLeave`.
+        on(Crysterm::Event::Hide) { retract_status_tip }
+      end
+    end
+
+    # Sends `""` in place of a tip this widget sent on enter, once.
+    private def retract_status_tip : Nil
+      return unless @_status_tip_sent
+      @_status_tip_sent = false
+      send_status_tip ""
+    end
+
+    # Sends *text* as `Event::StatusTip` the way Qt sends a
+    # `QStatusTipEvent`: to this widget first, then to each parent in turn,
+    # until a widget that handles status tips (`#handles_status_tips?`, a
+    # `Widget::MainWindow`) has had it — the event travels up to the
+    # top-level unless something nearer takes it, as Qt's propagates until
+    # accepted. `""` takes a tip down.
+    def send_status_tip(text : String) : Nil
+      w = self
+      while w
+        w.emit Crysterm::Event::StatusTip, text
+        break if w.handles_status_tips?
+        w = w.parent
+      end
+    end
+
+    # Whether `Event::StatusTip` stops at this widget on its way up
+    # (`#send_status_tip`), as Qt's stops at the widget that accepts it:
+    # `false` but on `Widget::MainWindow`, which shows the tip.
+    protected def handles_status_tips? : Bool
+      false
+    end
+
     # The GUI mouse-pointer shape requested while the pointer is over this widget
     # — e.g. `::Tput::MouseCursorShape::PointingHandCursor` for a clickable
     # widget. `nil` leaves the pointer unchanged.

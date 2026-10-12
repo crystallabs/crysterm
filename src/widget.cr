@@ -697,6 +697,7 @@ module Crysterm
 
       label = nil,
       tool_tip = nil,
+      status_tip = nil,
       mouse_cursor_shape = nil,
 
       scrollable = nil,
@@ -801,6 +802,9 @@ module Crysterm
       tool_tip.try do |t|
         self.tool_tip = t
       end
+      status_tip.try do |t|
+        self.status_tip = t
+      end
 
       # Content is seeded; from here a resize or an attach reflows it (see
       # `#emit_resize` / `#reflow_on_attach`).
@@ -886,6 +890,13 @@ module Crysterm
       # A hover tooltip is a window-level satellite, not a child; drop it here.
       Widget.destroy_satellite @_tool_tip
       @_tool_tip = nil
+      # A status tip it put up comes down while the parent chain that
+      # carries the retraction to the main window is still there.
+      begin
+        retract_status_tip
+      rescue ex
+        error ||= ex
+      end
       # A destroyed widget gives focus up rather than handing it on (Qt's
       # `~QWidget` → `clearFocus`): a `FocusOut` with no successor, and no
       # `FocusIn` anywhere — unlike a hide or a plain detach, where the

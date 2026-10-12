@@ -651,8 +651,13 @@ module Crysterm
     # A status tip to show (Qt's `QStatusTipEvent`): a `Widget::Menu` emits
     # its highlighted action's `Action#status_tip` as the highlight moves
     # there, and `""` when the highlight leaves or the menu closes; a
-    # `Widget::MenuBar` re-emits its menus' on itself, and a
-    # `Widget::MainWindow` shows the text in its status bar (`#status_tips?`).
+    # `Widget::MenuBar` re-emits its menus' on itself. A widget with a
+    # `Widget#status_tip` sends it when the pointer enters it and `""` when
+    # the pointer leaves or it is hidden, to itself and then up its parent
+    # chain until a `Widget::MainWindow` has it (`Widget#send_status_tip`;
+    # Qt's propagates to the parents until accepted). A `Widget::MainWindow`
+    # shows the text — its menu bar's and its widgets' alike — in its status
+    # bar (`#status_tips?`).
     event StatusTip, text : String
 
     # Emitted when an `Action`'s checked state changes — programmatically or via

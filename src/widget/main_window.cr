@@ -38,6 +38,9 @@ module Crysterm
       def initialize(**box)
         super(**{fill: true}.merge(box))
         self.layout = Carve.new
+        # The status tips of the widgets inside — central widget, docks,
+        # tool bars — arrive here on their way up (`Widget#send_status_tip`).
+        on(::Crysterm::Event::StatusTip) { |e| show_status_tip e.text }
       end
 
       # The menu bar, constructed (and parented) on first access — like Qt's
@@ -169,9 +172,10 @@ module Crysterm
         value
       end
 
-      # Whether the menu bar's status tips show in the status bar: the
-      # highlighted menu entry's `Action#status_tip`, for as long as it is
-      # highlighted (Qt's `QMainWindow` shows every `QStatusTipEvent` in its
+      # Whether status tips show in the status bar: the highlighted menu
+      # entry's `Action#status_tip`, for as long as it is highlighted, and
+      # the hovered widget's `Widget#status_tip`, for as long as the pointer
+      # is over it (Qt's `QMainWindow` shows every `QStatusTipEvent` in its
       # status bar; the switch is for an application that keeps its bar for
       # its own fields, or offers the choice). On by default.
       getter? status_tips : Bool = true
@@ -182,7 +186,7 @@ module Crysterm
       # off is no reason for it to stay.
       def status_tips=(value : Bool) : Bool
         return value if value == @status_tips
-        status_tip "" unless value
+        show_status_tip "" unless value
         @status_tips = value
         value
       end
@@ -193,13 +197,13 @@ module Crysterm
 
       # Shows *text* in the status bar as `QMainWindow` shows a
       # `QStatusTipEvent`'s: `show_message` without a timeout, so it stays
-      # while the entry is highlighted and replaces a message that was up —
-      # a timed notice included, which does not come back. An empty *text*
-      # (the highlight left) clears the message only while the message is
-      # the tip's own: a notice the application put up meanwhile is the
-      # newer word and stays. Without a status bar the tip is dropped, as
+      # while the entry is highlighted or the widget hovered, and replaces a
+      # message that was up — a timed notice included, which does not come
+      # back. An empty *text* (the highlight or the pointer left) clears the
+      # message only while the message is the tip's own: a notice the
+      # application put up meanwhile is the newer word and stays. Without a status bar the tip is dropped, as
       # Qt ignores the event then — none is created for it.
-      private def status_tip(text : String) : Nil
+      private def show_status_tip(text : String) : Nil
         return unless @status_tips
         bar = status_bar? || return
         if text.empty?
@@ -217,11 +221,19 @@ module Crysterm
       # window's to show.
       private def watch_status_tips(bar : MenuBar?) : Nil
         @status_tip_sub.try &.off
-        @status_tip_sub = bar.try &.on(::Crysterm::Event::StatusTip) { |e| status_tip e.text }
+        @status_tip_sub = bar.try &.on(::Crysterm::Event::StatusTip) { |e| show_status_tip e.text }
       end
 
       # The `StatusTip` subscription on the menu bar in the slot.
       @status_tip_sub : ::EventHandler::Subscription?
+
+      # A widget's status tip stops here on its way up
+      # (`Widget#send_status_tip`): the main window shows it, as
+      # `QMainWindow::event` accepts the `QStatusTipEvent`, and an outer
+      # main window holding this one does not show it as well.
+      protected def handles_status_tips? : Bool
+        true
+      end
 
       # Defines a `<name>=` setter for one of the singular top-level slots
       # (menu/status bar, central widget): detaches the slot's previous
