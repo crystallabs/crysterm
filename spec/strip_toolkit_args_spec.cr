@@ -33,8 +33,14 @@ describe "Crysterm.strip_toolkit_args" do
   it "drops the config file and dump flags, with their values" do
     argv = ["--crysterm-config=c.yml", "--crysterm-config", "d.yml", "--crysterm-dump-config", "yaml", "--crysterm-dump-config", bool_flag, "--crysterm-dump-config=json", "f"]
     Crysterm.strip_toolkit_args(argv).should eq ["f"]
-    # A word after the dump flag that is not a toolkit flag is its format.
-    Crysterm.strip_toolkit_args(["--crysterm-dump-config", "-x", "g"]).should eq ["g"]
+    # A word after the dump flag is its format only when it names one.
+    Crysterm.strip_toolkit_args(["--crysterm-dump-config", "JSON", "g"]).should eq ["g"]
+    Crysterm.strip_toolkit_args(["--crysterm-dump-config", "-x", "g"]).should eq ["-x", "g"]
+  end
+
+  it "leaves the application's file after a bare dump flag, as Superconf does" do
+    Crysterm.strip_toolkit_args(["--crysterm-dump-config", "notes.md"]).should eq ["notes.md"]
+    Crysterm.strip_toolkit_args(["a.md", "--crysterm-dump-config", "notes.md", "b.md"]).should eq ["a.md", "notes.md", "b.md"]
   end
 
   it "keeps the flags the application names as its own" do

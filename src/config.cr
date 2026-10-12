@@ -80,7 +80,9 @@ module Crysterm
   #
   # Dropped: every registered option's flag — with its `=value` or
   # separate-word value for a valued option, and its `--no-` negation for a
-  # boolean — plus `CONFIG_FLAG` and `DUMP_CONFIG_FLAG`. Everything from `--`
+  # boolean — plus `CONFIG_FLAG` and `DUMP_CONFIG_FLAG`, the latter with
+  # the next word only when it names a format (`Superconf.dump_format?`), so
+  # `--crysterm-dump-config notes.md` leaves `notes.md`. Everything from `--`
   # on is the application's. *except* names flags the application owns,
   # kept even where a toolkit option derives the same spelling (the
   # application's flag wins, as in `.toolkit_options_help`). *argv* itself
@@ -112,11 +114,10 @@ module Crysterm
         # as `OptionParser` takes a required value
         i += 1 if eq.empty?
       elsif dump && name == DUMP_CONFIG_FLAG
-        # the format is optional: the next word unless it is a flag of the
-        # toolkit's own, as `OptionParser` takes an optional value
-        if eq.empty? && (nxt = argv[i]?) && !flags.includes?(nxt) && !valued.includes?(nxt) && nxt != DUMP_CONFIG_FLAG
-          i += 1
-        end
+        # the format is optional: the next word when it names one
+        # (`Superconf.dump_format?`), as `Superconf.load_args` takes it; any
+        # other word is the application's (`--crysterm-dump-config notes.md`)
+        i += 1 if eq.empty? && (nxt = argv[i]?) && Superconf.dump_format?(nxt)
       else
         out << arg
       end
