@@ -166,6 +166,9 @@ module Crysterm
       await_loop_exit
       @render_stop = false
       @resize_stop = false
+      # `destroy` closed the `post` queue, and a closed channel stays closed:
+      # the revived loops drain a fresh one.
+      @ui_queue = Channel(Proc(Nil)).new UI_QUEUE_CAPACITY
       generation = (@loop_generation += 1)
       @_render_loop_fiber = spawn render_loop(generation)
       @_resize_loop_fiber = spawn(name: "resize_loop") { resize_loop(generation) }

@@ -24,6 +24,27 @@ private class BreakingIO < IO
 end
 
 # Waits for the stream's `done`, failing the example on a hang.
+# Hands the reader what is fed to it, blocking between lines.
+private class FedIO < IO
+  @lines = Channel(String).new
+  @pending = Bytes.empty
+
+  def feed(line : String) : Nil
+    @lines.send line
+  end
+
+  def read(slice : Bytes) : Int32
+    @pending = @lines.receive.to_slice if @pending.empty?
+    n = Math.min(slice.size, @pending.size)
+    slice.copy_from @pending[0, n]
+    @pending += n
+    n
+  end
+
+  def write(slice : Bytes) : Nil
+  end
+end
+
 private def wait(done : Channel(IO::Error?)) : IO::Error?
   select
   when e = done.receive
@@ -67,6 +88,22 @@ describe "Window#pump" do
       fail "the line never arrived"
     end
     s.destroy
+  end
+
+  it "ends the read and runs done at once when the window is destroyed mid-stream" do
+    s = headless_screen(default_quit_keys: true)
+    io = FedIO.new
+    lines = [] of String
+    done = Channel(IO::Error?).new
+    s.pump(io, done: ->(e : IO::Error?) { done.send e; nil }) { |l| lines << l }
+    io.feed "shown\n"
+    wait_until { lines == ["shown\n"] }
+    s.destroy
+    # No render fiber is left to show the next line: the reader stops at it,
+    # and done runs on the reader fiber, with the stream not in error.
+    io.feed "dropped\n"
+    wait(done).should be_nil
+    lines.should eq ["shown\n"]
   end
 end
 

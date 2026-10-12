@@ -98,7 +98,10 @@ module Crysterm
     # Closures queued by other fibers to run *on the render fiber*, applied
     # just before the next render. The marshaling boundary (Qt's queued
     # connection / `postEvent`).
-    @ui_queue = Channel(Proc(Nil)).new 1024
+    @ui_queue = Channel(Proc(Nil)).new UI_QUEUE_CAPACITY
+
+    # How many `#post` jobs wait before a poster blocks (`Channel` capacity).
+    UI_QUEUE_CAPACITY = 1024
 
     # Minimum delay between frames (also the FPS cap, ~60 fps).
     property frame_interval : Time::Span = Config.render_frame_interval.seconds
@@ -194,9 +197,21 @@ module Crysterm
     # then schedules that render. Use to apply results computed off the render
     # fiber (a background fiber, or a thread) to widgets,
     # keeping all widget mutation on the single render fiber — no locks needed.
+    # A job posted to a destroyed window is dropped: nothing would run it.
     def post(&block : Proc(Nil)) : Nil
+      try_post(&block)
+    end
+
+    # `#post`, telling whether *block* was queued: `false` once the window is
+    # destroyed, when the queue is closed and nothing would ever run the job
+    # (`Window#destroy` closes it, which also wakes a poster parked on a full
+    # queue — `#pump`'s reader with no render fiber left to drain it).
+    protected def try_post(&block : Proc(Nil)) : Bool
       @ui_queue.send block
       schedule_render
+      true
+    rescue Channel::ClosedError
+      false
     end
 
     # Reads *io* line by line on a fiber of its own and hands each line to
@@ -207,6 +222,13 @@ module Crysterm
     # fiber after the last line, with the `IO::Error` that cut the stream
     # short or `nil` at a clean end (without *done*, such an error is
     # logged). *name* names the reader fiber.
+    #
+    # The window's end is the stream's: once the window is destroyed the
+    # reader stops at the next line (what it has read is dropped, as the
+    # render fiber that would have shown it is gone) and *done* runs at once,
+    # on the reader fiber — the only one left, and nothing else touches the
+    # widgets by then — so what it releases (a pipe, a child process) is
+    # released. *io* itself is the caller's to close.
     #
     # ```
     # window.pump(STDIN, done: ->(e : IO::Error?) { viewer.flush_markdown }) do |line|
@@ -220,15 +242,19 @@ module Crysterm
           # A block parameter, not a `while line = io.gets` loop variable:
           # the posted closure must capture this line, and a loop variable
           # would have moved on (to `nil` at the end) by the time the render
-          # fiber runs it.
-          io.each_line(chomp: false) { |line| post { block.call line } }
+          # fiber runs it. A post refused (the window destroyed, under a full
+          # queue or not) ends the read.
+          io.each_line(chomp: false) do |line|
+            break unless try_post { block.call line }
+          end
         rescue ex : IO::Error
           error = ex
         end
         if finish = done
           # The explicit `nil` breaks the inference cycle when *done* itself
-          # ends up posting (a refresh in the callback).
-          post { finish.call(error); nil }
+          # ends up posting (a refresh in the callback). With the window gone
+          # the callback runs here, as the doc above says.
+          finish.call(error) unless try_post { finish.call(error); nil }
         elsif error
           # With no one to tell, an error that cut the stream short is at
           # least on record.
@@ -242,7 +268,9 @@ module Crysterm
     private def drain_ui_queue
       loop do
         select
-        when job = @ui_queue.receive
+        when job = @ui_queue.receive?
+          # `nil` once `Window#destroy` closed the queue under the loop.
+          break unless job
           begin
             job.call
           rescue ex

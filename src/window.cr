@@ -879,6 +879,10 @@ module Crysterm
       # Signal the render fiber to exit, then wake it so it notices.
       @render_stop = true
       schedule_render
+      # Nothing drains the `post` queue from here on: close it, so a job
+      # posted to the dead window is dropped rather than parked for good, and
+      # a poster blocked on a full queue (a `#pump` reader) wakes and ends.
+      @ui_queue.close
 
       # Same for the resize fiber: flag it, then poke the channel
       # so it wakes and exits instead of looping forever on `receive`, pinning

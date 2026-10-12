@@ -95,8 +95,14 @@ module Crysterm
         self.text = ScrollPositionLabel.text_for(@view)
       end
 
-      # *view*'s reading position as vi reports it.
+      # *view*'s reading position as vi reports it. "All" for a view on no
+      # window — destroyed, or not attached yet: the overflow test and the
+      # percentage read the view's geometry through its window, which is not
+      # there to ask, and a refresh can come after the window is gone (a
+      # stream's `done` runs on the reader fiber once `Window#pump` has lost
+      # its window, and a status refresh is a usual thing for it to end with).
       def self.text_for(view : Widget) : String
+        return "All" unless view.window?
         return "All" unless view.overflows_y?
         percent = view.scroll_percent
         if percent <= 0.0

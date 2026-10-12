@@ -74,4 +74,23 @@ describe "Widget::ScrollPositionLabel" do
     label.text.should eq "Top"
     s.destroy
   end
+
+  it "reads All for a view on no window, before it is attached and after its window is destroyed" do
+    loose = Widget::TextBrowser.new width: 40, height: 8
+    loose.set_markdown (1..60).map { |i| "line #{i}" }.join("\n\n")
+    Widget::ScrollPositionLabel.text_for(loose).should eq "All"
+
+    s = headless_screen(40, 10)
+    tb = Widget::TextBrowser.new parent: s, left: 0, top: 0, width: 40, height: 8
+    tb.set_markdown (1..60).map { |i| "line #{i}" }.join("\n\n")
+    label = Widget::ScrollPositionLabel.new tb, parent: s, top: 9, left: 0, width: 6
+    s.repaint
+    label.text.should eq "Top"
+    s.destroy
+    # A stream's done refreshing the status after the window went: no window
+    # to measure against, and no error.
+    Widget::ScrollPositionLabel.text_for(tb).should eq "All"
+    label.refresh
+    label.text.should eq "All"
+  end
 end
