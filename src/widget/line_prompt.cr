@@ -123,6 +123,7 @@ module Crysterm
         @active = false
         callback = @callback
         @callback = nil
+        @question_completer = nil
         end_completion
         # Focus rewinds out of the hidden row to the widget that had it.
         hide
@@ -187,9 +188,11 @@ module Crysterm
         @field.value = @matches[@match_index]
       end
 
+      # The matches are let go, not cleared: the list may be the completer's
+      # own (a fixed set of names it returns as is), which is not ours to empty.
       private def end_completion : Nil
         @completing = false
-        @matches.clear
+        @matches = [] of String unless @matches.empty?
       end
     end
   end
