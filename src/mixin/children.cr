@@ -227,7 +227,7 @@ module Crysterm
       # presented by a menu bar or tool bar), searched depth-first, or `nil`
       # when none is (Qt's `QObject#findChild<QAction*>`).
       def find_action(name : String) : Action?
-        find_actions.find { |action| action.name == name }
+        find_actions(name).first?
       end
 
       # Every action owned by this widget or its descendants, each once, in
@@ -235,12 +235,16 @@ module Crysterm
       # *name*, only the actions so named.
       def find_actions(name : String? = nil) : Array(Action)
         found = [] of Action
+        # A set for the once-each test: a window owns hundreds of actions (a
+        # menu bar presents every entry), and an application completing a
+        # command line asks for them all at each Tab.
+        seen = Set(Action).new
         collect = ->(action : Action) do
-          found << action if (name.nil? || action.name == name) && !found.includes?(action)
+          found << action if (name.nil? || action.name == name) && seen.add?(action)
           nil
         end
         self.as?(::Crysterm::Widget).try &.each_action(&collect)
-        descendants.each &.each_action(&collect)
+        each_descendant &.each_action(&collect)
         found
       end
 
