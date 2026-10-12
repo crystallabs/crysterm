@@ -325,8 +325,8 @@ module Crysterm
       # is asked in the bar's row, so a hidden bar asks it unseen (the field
       # still takes the keyboard): a host that hides its bars shows this one
       # for the question.
-      def prompt(label : String, value : String = "", &callback : String? ->) : Nil
-        line_prompt.prompt(label, value, &callback)
+      def prompt(label : String, value : String = "", *, completer : Proc(String, Array(String))? = line_prompt.completer, &callback : String? ->) : Nil
+        line_prompt.prompt(label, value, completer: completer, &callback)
       end
 
       # Whether a question is open in place of the bar.

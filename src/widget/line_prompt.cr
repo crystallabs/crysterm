@@ -43,6 +43,9 @@ module Crysterm
       # outright and the next Tab completes it further.
       property completer : Proc(String, Array(String))?
 
+      # The open question's completer (`#prompt`'s *completer*).
+      @question_completer : Proc(String, Array(String))?
+
       # A `#completer` for file system paths, as a shell completes them: the
       # entries matching the text typed so far, sorted, with a trailing `/`
       # on directories so that the next Tab descends into them. A leading
@@ -89,11 +92,15 @@ module Crysterm
 
       # Asks *label*, with the field starting at *value* (the caret at its end),
       # and delivers the answer to *callback*: the entered text, or `nil` when
-      # cancelled. A question already open is cancelled first.
-      def prompt(label : String, value : String = "", &callback : String? ->) : Nil
+      # cancelled. A question already open is cancelled first. *completer*
+      # completes this question's Tab and Shift+Tab, by default the prompt's
+      # `#completer` (`nil`: none) — a question asking for something else
+      # than the usual, a command name rather than a file, brings its own.
+      def prompt(label : String, value : String = "", *, completer : Proc(String, Array(String))? = @completer, &callback : String? ->) : Nil
         cancel
         @active = true
         @callback = callback
+        @question_completer = completer
         @label_box.set_content label
         @label_box.width = str_width label
         @field.value = value
@@ -164,7 +171,7 @@ module Crysterm
       # completes the new text afresh — a shell's `/t` → `/tmp/` → the
       # entries under it. A run only cycles when there is something to cycle.
       private def complete(dir : Int32) : Nil
-        return unless completer = @completer
+        return unless completer = @question_completer
         unless @completing
           @matches = completer.call @field.value
           return if @matches.empty?
