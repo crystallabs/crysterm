@@ -493,8 +493,11 @@ module Crysterm
       # buffers are reallocated above; it fully repaints on `activate`.
       update if device_active_window?
 
-      # For children (`Widget`s).
-      emit_descendants e
+      # For children (`Widget`s): the same path a `set_geometry` resize takes,
+      # so each widget's content is reflowed to the new width before its
+      # `Event::Resize` handlers run — a handler reading `wrapped_lines` on a
+      # terminal resize sees the new layout, not the previous width's.
+      each_descendant(&.emit_resize)
     end
 
     # Whether this window is the one currently shown on its device: the
