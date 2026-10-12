@@ -160,6 +160,9 @@ module Crysterm
               # Neovim names a keypad key apart from the key it stands for
               # (unmapped, it acts as that key).
               KEYPAD[n]?
+            when 57376..57398
+              # kitty's F13 (57376) through F35, which have no legacy form.
+              "F#{n - 57376 + 13}"
             else
               return if n < 0x20 || (0xE000 <= n <= 0xF8FF)
               modded = ke.ctrl? || ke.alt? || ke.meta? || ke.super?
