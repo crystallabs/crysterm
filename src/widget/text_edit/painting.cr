@@ -19,6 +19,8 @@ module Crysterm
         # child pass paints them (`text_edit/images.cr`).
         sync_block_images
         ret = base_render with_children
+        # Refilled by `#paint_document` for the chrome painted after it.
+        @row_full_formats.clear unless @row_full_formats.empty?
         if ret
           # An empty document with a `#placeholder_text` draws the placeholder
           # instead of the (blank) document — Qt's
@@ -191,6 +193,7 @@ module Crysterm
           # `selection_columns_for_row`'s `off + rendered_column(...)` convention.
           offset = meta.try(&.offset) || 0
           row_xsels, full_fmt = row_extra_selections(row_start, row_end, offset)
+          @row_full_formats[rl] = full_fmt if full_fmt
 
           paint_decorations(line, xi, region_w, meta, bfmt, block_bg, base_attr, full_fmt, bch) if meta && offset > 0
 

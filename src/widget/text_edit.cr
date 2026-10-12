@@ -202,6 +202,11 @@ module Crysterm
       # rebuilt alongside `@wrapped_lines` by `#rebuild_layout`.
       @row_meta = [] of RowMeta
 
+      # The full-width format (the current-line tint, a full-width extra
+      # selection) `#paint_document` laid over each visible row this frame,
+      # by row, for the margin chrome beside it (`#chrome_row_attr`).
+      @row_full_formats = {} of Int32 => TextCharFormat
+
       # The layout inputs `@block_layouts` entries are valid for:
       # {colwidth, child_base_x, wrap_content?, content_margin_x}. Any change
       # invalidates every block (a width change re-wraps everything).
@@ -685,11 +690,15 @@ module Crysterm
       # carries it across the gutter and the row ruler too, as
       # `#paint_document` carries it across the text; a margin row holds no
       # positions, so nothing covers it.
+      #
+      # Read off what `#paint_document` found for the row this frame
+      # (`@row_full_formats`), which the chrome is painted after: measuring
+      # the row's bounds again here (`#pos_from_rowcol` walks the block's
+      # rows before it) made every visible row of a long paragraph cost a
+      # walk of the block, twice with the row ruler on too.
       protected def chrome_row_attr(rl : Int32, attr : Int64) : Int64
-        return attr if (@extra_selections.empty? && !@highlight_current_line) || rl < 0 || rl >= @wrapped_lines.size
-        return attr if @row_meta[rl]?.try(&.margin)
-        xfull = row_extra_selections(pos_from_rowcol(rl, 0), pos_from_rowcol(rl, line_display_width(rl)), row_text_x_offset(rl))[1]
-        xfull ? xfull.apply_to_attr(attr) : attr
+        return attr if @row_full_formats.empty?
+        (xfull = @row_full_formats[rl]?) ? xfull.apply_to_attr(attr) : attr
       end
 
       # Steps over block-margin rows (no buffer positions) in the direction
