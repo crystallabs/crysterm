@@ -749,11 +749,13 @@ module Crysterm
       end
 
       # Runs a whole-content replacement (the block) and settles this view's
-      # caret and scroll after it: rewound to the top by default, or — with
-      # *keep_view* — put back where they were, clamped to the new content.
-      # The document's own replace already rewound the caret (see
-      # `#follow_document_change`), so the restore comes after the block.
-      # Either way a caret that ended up elsewhere reports through
+      # caret after it: rewound to the top by default, or — with *keep_view*
+      # — put back where it was, clamped to the new content. The document's
+      # own replace already rewound the caret (see `#follow_document_change`),
+      # so the restore comes after the block. The scroll position is not the
+      # document's and stays as it is; the next paint clamps it to the new
+      # rows (`#paint`'s `clamp_child_base_to_content`) and brings the caret
+      # into view. Either way a caret that ended up elsewhere reports through
       # `Event::CursorPositionChanged`.
       private def interchange_replace(keep_view : Bool, &) : Nil
         unless keep_view
@@ -762,13 +764,11 @@ module Crysterm
           return
         end
         pos = @cursor_pos
-        offset = scroll_position
         yield
         @cursor_pos = pos.clamp(0, buf_size)
         clear_selection
         @goal_col = nil
         @typing_format = nil
-        scroll_to offset if offset > 0
         emit_caret_events
       end
     end
