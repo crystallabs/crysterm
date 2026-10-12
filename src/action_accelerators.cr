@@ -197,7 +197,26 @@ module Crysterm
       return none unless exact || prefix
       return none if (e.repeat? && !auto_repeat?) || !enabled?
       return none unless shortcut_active? window
+      return none if modal_blocked? window
       {exact, prefix}
+    end
+
+    # Whether a modal dialog on *window* (`Window#active_modal_widget`) shuts
+    # this action's shortcut out: its host — the action's widgets on *window*,
+    # or the one it was installed with — is outside the dialog, as Qt's
+    # shortcut map passes over the windows a modal dialog blocks. An action
+    # of the dialog's own, or of a widget in it, still fires.
+    private def modal_blocked?(window : ::Crysterm::Window) : Bool
+      return false unless modal = window.active_modal_widget
+      inside = ->(widget : Widget) { widget.same?(modal) || widget.ancestors.any?(&.same?(modal)) }
+      any_on_window = false
+      @associated_widgets.each do |w|
+        next unless w.window? == window
+        any_on_window = true
+        return false if inside.call(w)
+      end
+      return true if any_on_window
+      !((h = @shortcut_host_by_window[window]?) && inside.call(h))
     end
 
     # Whether *candidate* is a proper prefix of one of this action's sequences —

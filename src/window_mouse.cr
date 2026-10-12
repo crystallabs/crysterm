@@ -34,6 +34,17 @@ module Crysterm
       !@grabs.empty?
     end
 
+    # The modal dialog on top, the last opened of those up (Qt's
+    # `QApplication::activeModalWidget`), or `nil` when none is: while one
+    # is, the widgets outside it get no input, their actions' shortcuts
+    # included (`Action#shortcut_candidate`).
+    def active_modal_widget : Widget?
+      @grabs.reverse_each do |grab|
+        return grab if grab.as?(Widget::Dialog).try &.modal?
+      end
+      nil
+    end
+
     # Whether the point (*x*, *y*) lies inside some active grab's region. True
     # when nothing is grabbing.
     private def within_grab?(x : Int32, y : Int32) : Bool
