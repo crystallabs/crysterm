@@ -78,6 +78,19 @@ describe Crysterm::TextMarkdown do
       doc = md_doc "[https://x.io](https://x.io)more and see:[https://y.io](https://y.io) ok, (https://z.io), https://w.io."
       doc.to_markdown.should eq "[https://x.io](https://x.io)more and see:[https://y.io](https://y.io) ok, (https://z.io), https://w.io."
       md_doc(doc.to_markdown).blocks[0].fragments.compact_map(&.format.anchor_href).should eq ["https://x.io", "https://y.io", "https://z.io", "https://w.io"]
+      # Trimmed punctuation after the URL is fine only up to whitespace, a
+      # hostless URL is never read back as one, and a `www.` text whose
+      # href is not the import's `http://` one keeps its brackets.
+      md_doc("[https://x.io](https://x.io).com ok").to_markdown.should eq "[https://x.io](https://x.io).com ok"
+      md_doc("[https://localhost/x](https://localhost/x) ok").to_markdown.should eq "[https://localhost/x](https://localhost/x) ok"
+      md_doc("[www.x.io](www.x.io) ok").to_markdown.should eq "[www.x.io](www.x.io) ok"
+      md_doc("www.x.io ok").to_markdown.should eq "www.x.io ok"
+    end
+
+    it "does not link a bare URL glued to a code span, a link or an image, as github.com does not" do
+      md_doc("`c`https://x.io ok").blocks[0].fragments.map(&.format.anchor_href).should eq [nil, nil]
+      md_doc("[a](u://a)https://x.io ok").blocks[0].fragments.compact_map(&.format.anchor_href).should eq ["u://a"]
+      md_doc("`c` https://x.io ok").blocks[0].fragments.compact_map(&.format.anchor_href).should eq ["https://x.io"]
     end
 
     it "imports lists as TextLists with nesting via the list-format indent" do

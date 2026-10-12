@@ -185,8 +185,13 @@ module Crysterm
       end
 
       # A full-width extra selection on the row (the current line's tint)
-      # covers the row ruler's cell too, as it does the gutter's.
+      # covers the row ruler's cell too, as it does the gutter's — on the
+      # rows the gutter paints, a wrapped line's first; its continuation
+      # rows stay as they are, as the gutter's do.
       protected def row_ruler_attr(rl : Int32, attr : Int64) : Int64
+        wl = @wrapped_lines
+        fake = wl.rtof[rl]? || return attr
+        return attr unless wl.ftor[fake]?.try(&.first?) == rl
         if xfull = extra_selections_for_row(rl)[1]
           xfull.apply_to_attr(attr)
         else

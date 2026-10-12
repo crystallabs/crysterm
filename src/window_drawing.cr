@@ -820,7 +820,7 @@ module Crysterm
           ly = y
         end
 
-        if attr != df
+        if (mono ? SGR.monochrome(attr, @_light_terminal) : attr) != df
           @outbuf.print "\e[m"
         end
 

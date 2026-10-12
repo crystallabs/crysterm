@@ -52,8 +52,15 @@ describe "Menu nested submenus by mouse" do
     x, y = row_of(edit, "Paste &Special")
     click_at s, x, y
     open_menus(s).size.should eq 2
-    click_at s, x, y # again: still open
+    click_at s, x, y # again: still open, and the keyboard is the submenu's
     open_menus(s).size.should eq 2
+    special = menu_with(s, "From &Kill Ring")
+    s.focused.should eq special
+    # A hover-opened menu shows no highlight yet: the first Down reveals it,
+    # the second moves it — in the submenu, not the parent.
+    2.times { s.emit Event::KeyPress, Event::KeyPress.new('\0', Tput::Key::Down) }
+    special.current_index.should eq 1
+    edit.current_index.should eq 1 # the Paste Special row, untouched
     special = menu_with(s, "From &Kill Ring")
     x, y = row_of(special, "From &Kill Ring")
     click_at s, x, y

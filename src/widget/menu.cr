@@ -674,7 +674,10 @@ module Crysterm
       # same stay-open rule a click follows in `#activate_index`.
       private def open_submenu_selected(act : Action) : Nil
         open_submenu act unless @submenu_open && @submenu_action == act
-        @submenu_open.try &.select_first_action
+        if child = @submenu_open
+          child.select_first_action
+          child.focus # the keyboard follows, wherever the focus had got to
+        end
       end
 
       # Escape (and any cancel gesture) must not fire the highlighted action.

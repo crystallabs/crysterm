@@ -1155,9 +1155,14 @@ module Crysterm
           if fmt.anchor_href || fmt.code? || !text.matches?(AUTOLINK)
             (i...j).each { |k| out << frags[k] }
           else
+            # The run before this one — a code span, a link's text, an
+            # image — must leave the URL free-standing too, as the raw
+            # byte before it does for GFM: `` `c`https://x.io `` is no link.
+            before = i > 0 ? frags[i - 1].text[-1]? : nil
             pos = 0
             text.scan(AUTOLINK) do |m|
               run = m[0]
+              next if m.begin == 0 && before && !(before.whitespace? || "*_~(".includes?(before))
               stop = Importer.autolink_end(run)
               next if stop == 0 || !run[0, stop].matches?(AUTOLINK_HOST)
               out << TextFragment.new(text[pos...m.begin], fmt) if m.begin > pos
@@ -1689,23 +1694,26 @@ module Crysterm
       # the `http://` the importer put before it.
       private def autolink?(text : String, url : String, fmt : TextCharFormat) : Bool
         return false if fmt.code? || fmt.bold? || fmt.italic? || fmt.strike?
-        return false unless text == url || (Importer.www?(text) && url == "http://#{text}")
-        m = text.match(Importer::AUTOLINK)
-        !m.nil? && m.begin == 0 && Importer.autolink_end(text) == text.size
+        return false unless Importer.www?(text) ? url == "http://#{text}" : text == url
+        m = text.match(Importer::AUTOLINK) || return false
+        m.begin == 0 && m.end == text.size && Importer.autolink_end(text) == text.size && text.matches?(Importer::AUTOLINK_HOST)
       end
 
       # Whether fragment *i* of *frags*, written bare, would be read back as
       # the URL it is: what comes before it is nothing, whitespace or one of
       # the characters `Importer::AUTOLINK` lets precede a URL, and what
-      # follows is nothing, whitespace, a closing parenthesis or punctuation
-      # the import trims off a URL's end (`Importer::AUTOLINK_TRAIL`) — not
-      # text that would join the URL (`https://x.iomore`) or keep it from
-      # being one (`see:https://y.io`).
+      # follows is nothing, whitespace, or closing parentheses and punctuation
+      # the import trims off a URL's end (`Importer::AUTOLINK_TRAIL`) up to
+      # whitespace — not text that would join the URL (`https://x.iomore`,
+      # `https://x.io).com`) or keep it from being one (`see:https://y.io`).
       private def bare_context?(frags : Array(TextFragment) | TextFragmentView, i : Int32) : Bool
         before = i > 0 ? frags[i - 1].text[-1]? : nil
-        after = frags[i + 1]?.try(&.text[0]?)
-        (before.nil? || before.whitespace? || "*_~(".includes?(before)) &&
-          (after.nil? || after.whitespace? || after == ')' || Importer::AUTOLINK_TRAIL.includes?(after))
+        return false unless before.nil? || before.whitespace? || "*_~(".includes?(before)
+        following = frags[i + 1]?.try(&.text) || return true
+        # What the import would trim off the URL's end may follow, but only
+        # up to whitespace: `https://x.io).com` would read as one URL.
+        rest = following.lstrip(")#{Importer::AUTOLINK_TRAIL}")
+        rest.empty? || rest[0].whitespace?
       end
 
       # A code span, carrying a strike flag as `~~` around the span (the

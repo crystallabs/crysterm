@@ -161,7 +161,14 @@ module Crysterm
         # as Qt does: a toggle here would close what the hover had just opened,
         # and the row would look dead to a click.
         if action.menu?
-          open_submenu action unless @submenu_open && @submenu_action == action
+          if @submenu_open && @submenu_action == action
+            # The click pulled the focus back here (click-to-focus); the
+            # keyboard goes to the submenu the click stands for, as Qt's
+            # does to the last menu popped up.
+            @submenu_open.try &.focus
+          else
+            open_submenu action
+          end
           return
         end
 
