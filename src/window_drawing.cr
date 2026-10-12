@@ -141,8 +141,16 @@ module Crysterm
       case @hyperlinks
       in .on?   then true
       in .off?  then false
-      in .auto? then output_tty? && tput.features.hyperlinks?
+      in .auto? then hyperlinks_detected?
       end
+    end
+
+    # What the `Auto` policy of `#hyperlinks` decides on the connected
+    # terminal, whatever the policy is now: whether the output is a real tty
+    # whose emulator is identified as rendering OSC 8. An application offering
+    # the policy names the detection beside its Auto choice with this.
+    def hyperlinks_detected? : Bool
+      output_tty? && tput.features.hyperlinks?
     end
 
     # Whether the terminal is light: its probed default background (OSC 11)
