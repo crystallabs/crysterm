@@ -342,10 +342,17 @@ module Crysterm
     end
 
     # Forgets every step, keeping `#clean?` false when it was — the last
-    # resort when the text no longer matches what the commands expect.
+    # resort when the text no longer matches what the commands expect. An
+    # open edit block stays open, empty, so the commands still to come in it
+    # make one step, as it promised.
     def drop_history : Nil
       dirty = !clean?
+      depth = @macro_depth
       clear
+      if depth > 0
+        @macro = MacroCommand.new
+        @macro_depth = depth
+      end
       mark_dirty if dirty
       document.refresh_undo_state
     end
