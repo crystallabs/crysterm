@@ -73,6 +73,8 @@ require "./terminal/launchers"
 require "./terminal/handshake"
 require "./application"
 require "./clipboard"
+require "./neovim/client"
+require "./neovim/keys"
 
 require "./widget"
 require "./widget/**"

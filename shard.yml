@@ -40,6 +40,8 @@ dependencies:
     github: naqvis/crystal-html5
   markd:
     github: icyleaf/markd
+  msgpack:
+    github: crystal-community/msgpack-crystal
 
 development_dependencies:
   ameba:
