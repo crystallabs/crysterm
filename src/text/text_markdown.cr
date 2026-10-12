@@ -109,8 +109,48 @@ module Crysterm
       # (`a|b`, `{|}`) open a table block that then degrades to a separate
       # paragraph, splitting ordinary prose in two — which github.com does
       # not do. Its checkbox rule also accepts only lowercase `[x]`.
+      blocks = parse_piece(text)
+      blocks.empty? ? [TextBlock.new] : blocks
+    end
+
+    # `.parse` without the empty block that stands in for a text holding no
+    # block at all (blank lines, or only constructs that import to nothing,
+    # such as an empty blockquote `>`). A document needs that block; a piece
+    # `TextDocument#append_markdown` adds to one does not — appended, it
+    # would be a blank line the whole text never had.
+    def self.parse_piece(text : String) : Array(TextBlock)
       doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
       fold_tocs(Importer.new(text).import(doc))
+    end
+
+    # The line `.seam?` appends to the text before a proposed seam: so deeply
+    # indented that whatever is still open there and can run on across a
+    # blank line — a fence, an HTML block of types 1-5, a list item at any
+    # nesting depth, indented code — takes it in, while after anything closed
+    # it opens an indented code block of its own.
+    private SEAM_PROBE = "#{" " * 100}x\n"
+    # That code block's text when the probe line does start one.
+    private SEAM_PROBE_CODE = "#{" " * 96}x\n"
+
+    # Whether *prefix*, a text ending just past a blank line, can be parsed on
+    # its own exactly as it parses at the head of any longer text — the
+    # check `Stream` puts every release point it proposes through. Its line
+    # scanner tracks fences and HTML blocks without the container context
+    # markd has, so it can take a line inside one construct for the opening
+    # of another (`<script>` inside an HTML block of type 7 for a block of
+    # type 1, whose close then ends nothing while a real fence is still
+    # open); markd's own parse of the prefix plus `SEAM_PROBE` settles it.
+    # The prefix must also leave no `<!-- toc -->` waiting for its tocstop,
+    # which the importer would pair across the seam (`.fold_tocs`) — that
+    # opener can come out of any block, an HTML block's line or a code line
+    # included, so the fold itself is asked.
+    protected def self.seam?(prefix : String) : Bool
+      text = prefix + SEAM_PROBE
+      doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
+      last = doc.last_child?
+      return false unless last && last.type.code_block? && !last.fenced? && last.text == SEAM_PROBE_CODE
+      return true unless prefix.matches?(/toc/i)
+      fold_tocs(Importer.new(text).import(doc)).none? { |b| fence_open?(b) }
     end
 
     # Serializes *blocks* to markdown.
@@ -271,8 +311,14 @@ module Crysterm
     #
     # `#append` buffers a chunk and returns markdown ready to parse, or nil;
     # `#flush` returns whatever is still pending — the end-of-stream signal.
-    # This class is pure text chunking: `TextDocument#append_markdown` owns one
-    # per document and feeds the released pieces through `.parse`.
+    # This class is text chunking: `TextDocument#append_markdown` owns one
+    # per document and feeds the released pieces through `.parse_piece`.
+    #
+    # A line scanner proposes the release points below, and markd confirms
+    # each before it is used (`TextMarkdown.seam?`): the scanner sees lines
+    # without the containers around them, so it can mistake one construct's
+    # content for another's opening, and a seam it alone vouched for could
+    # fall inside a fence the scanner never saw open.
     #
     # A release point must satisfy, judged per complete line (a trailing line
     # still missing its `'\n'` is never released — it could yet grow):
@@ -345,9 +391,10 @@ module Crysterm
       # Byte offset into `@pending` of the first unscanned byte; only whole
       # `'\n'`-terminated lines are ever classified.
       @scan_pos = 0
-      # Byte offset of the largest safe release point found so far (always
-      # just past a blank line), or nil.
-      @boundary : Int32?
+      # Byte offsets of the release points the scan proposes (each just past
+      # a blank line), in order; `#release` takes the last one markd
+      # confirms (`TextMarkdown.seam?`).
+      @boundaries = [] of Int32
       # Byte end of the last content line scanned; a boundary is only worth
       # releasing when content precedes it.
       @last_content_end = 0
@@ -391,7 +438,7 @@ module Crysterm
       private def reset : Nil
         @pending = ""
         @scan_pos = 0
-        @boundary = nil
+        @boundaries.clear
         @last_content_end = 0
         @fence_char = nil
         @fence_len = 0
@@ -410,15 +457,18 @@ module Crysterm
         end
       end
 
-      # Cuts the pending buffer at the recorded boundary, rebasing the scan
-      # state (all offsets are byte-based; a boundary lies just past a `'\n'`,
-      # so the cut is always on a character boundary).
+      # Cuts the pending buffer at the last proposed boundary markd confirms,
+      # rebasing the scan state (all offsets are byte-based; a boundary lies
+      # just past a `'\n'`, so the cut is always on a character boundary).
+      # A boundary markd rejects stays rejected — the verdict depends only on
+      # the text before it — so every proposal is dropped here either way.
       private def release : String?
-        b = @boundary || return
+        b = @boundaries.reverse_each.find { |c| TextMarkdown.seam?(@pending.byte_slice(0, c)) }
+        @boundaries.clear
+        return unless b
         piece = @pending.byte_slice(0, b)
         @pending = @pending.byte_slice(b, @pending.bytesize - b)
         @scan_pos -= b
-        @boundary = nil
         @last_content_end = Math.max(@last_content_end - b, 0)
         @piece_line = @released_lines + 1
         @released_lines += piece.count('\n')
@@ -443,7 +493,7 @@ module Crysterm
         end
         if blank?(line)
           @at_region_start = true
-          @boundary = line_end if @last_content_end > 0 && !@unsafe_tail && !@toc_open
+          @boundaries << line_end if @last_content_end > 0 && !@unsafe_tail && !@toc_open
           return
         end
         @last_content_end = line_end
@@ -551,9 +601,11 @@ module Crysterm
         @source = source.split('\n')
       end
 
+      # The blocks *doc* imports to — none at all when it holds nothing
+      # (`TextMarkdown.parse` supplies the empty block a document needs).
       def import(doc : Markd::Node) : Array(TextBlock)
         walk_children(doc)
-        finalize_blocks
+        @blocks
       end
 
       private def walk_children(node : Markd::Node) : Nil
@@ -1895,6 +1947,11 @@ module Crysterm
     # The per-document `TextMarkdown::Stream` behind `#append_markdown`,
     # created on first use.
     @markdown_stream : TextMarkdown::Stream?
+    # The document's last block as `#append_markdown` left it after its
+    # latest piece: the mark that an empty-looking document is the stream's
+    # own output (a lone rule, an empty TOC frame or code block holds no
+    # characters) and not a document still waiting for its first piece.
+    @markdown_tail : TextBlock?
 
     # Streams markdown into the document: buffers *chunk* on the
     # pending tail and, once the tail contains complete constructs
@@ -1939,12 +1996,20 @@ module Crysterm
     # numbers `TextBlock#source_line` from 1 per piece, so the blocks are
     # rebased onto it.
     private def append_markdown_piece(text : String, line : Int32 = 1) : Nil
-      parsed = TextMarkdown.parse(text)
+      # A piece that imports to no block at all (an empty blockquote, say)
+      # adds none: one-shot import has no block for it either.
+      parsed = TextMarkdown.parse_piece(text)
+      return if parsed.empty?
       parsed.each { |b| b.source_line = b.source_line.try &.+(line - 1) } if line > 1
       # An empty document adopts the piece wholesale — `#set_markdown`'s reset
-      # semantics, minus the TOC refresh (manual for appends).
-      if size == 0
+      # semantics, minus the TOC refresh (manual for appends). Empty means
+      # holding no characters *and* not being what the previous piece left:
+      # a first piece of content-less blocks (a rule, an empty TOC) leaves the
+      # size at 0 too, and the next piece must append behind them, not
+      # replace them.
+      if size == 0 && !blocks.last.same?(@markdown_tail)
         replace_content(parsed)
+        @markdown_tail = blocks.last
         return
       end
       # The seam always sits on a blank line, which one-shot import turns
@@ -1969,6 +2034,7 @@ module Crysterm
       sentinel = TextBlock.new("", TextCharFormat.default, last.block_format)
       sentinel.source_line = last.source_line
       insert_fragment(size, TextDocumentFragment.new([sentinel] + parsed))
+      @markdown_tail = blocks.last
     end
   end
 

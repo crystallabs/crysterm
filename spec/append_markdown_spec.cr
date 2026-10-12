@@ -25,6 +25,19 @@ private FIXTURES = {
   "multibyte and emoji"                            => "Emoji 👨‍👩‍👧‍👦 family and 🇭🇷 flag\n\nCafé naïve — ellipsis…\n\n漢字とかな mixed **太字** bold",
   "toc fence region"                               => "# One\n\n<!-- toc -->\n\n- [One](#one)\n\n<!-- tocstop -->\n\n## Two\n\nbody text",
   "bare toc marker"                                => "# A\n\n[TOC]\n\n## B\n\nbody",
+  # A `<script>` line inside an HTML block of type 6 is content, not the
+  # opening of a type-1 block, so its `</script>` closes nothing while the
+  # fence below is open: no seam may fall on the fence's blank line.
+  "script line inside a type-6 html block" => "</div>\n<script>\n\n```\n</script>\n\ncode\n```\n\nafter",
+  # The comment's closing line is also the TOC opener the importer pairs with
+  # the tocstop further down.
+  "toc opener closing an html comment" => "<!-- note\n<!-- toc -->\n\n- [A](#a)\n\n<!-- tocstop -->\n\n# A",
+  # Pieces whose blocks hold no characters: the next piece goes behind them.
+  "empty-text blocks first"            => "---\n\n```\n```\n\n<!-- toc -->\n<!-- tocstop -->\n\ntail",
+  "an empty quote at the end"          => "text\n\n>",
+  "a fence never closed"               => "Intro\n\n```\ncode\n\nmore code",
+  "a table cut short after its header" => "x\n\n| a | b |\n|---",
+  "CRLF line ends"                     => "a\r\nb\r\n\r\n```\r\nc\r\n\r\n```\r\n\r\n| a |\r\n| - |\r\n| 1 |\r\n\r\nend\r\n",
 }
 
 # A value-comparable snapshot of a document's full structure. Formats compare
@@ -153,6 +166,23 @@ describe Crysterm::TextMarkdown::Stream do
       .should eq "<!-- toc -->\n\n- [x](#x)\n\n<!-- tocstop -->\n\nnext\n\n"
   end
 
+  it "drops a proposed seam markd places inside an open construct" do
+    s = Crysterm::TextMarkdown::Stream.new
+    # The scanner reads `<script>` as an HTML block of type 1 and its
+    # `</script>` as the close, but both are content (of the `</div>` block,
+    # then of the fence): the blank line after `</script>` is inside the fence.
+    s.append("</div>\n<script>\n\n```\n</script>\n\ncode\n").should be_nil
+    s.append("```\n").should be_nil
+    s.flush.should eq "</div>\n<script>\n\n```\n</script>\n\ncode\n```\n"
+  end
+
+  it "keeps a TOC opener that closes an HTML block with its tocstop" do
+    s = Crysterm::TextMarkdown::Stream.new
+    s.append("<!-- note\n<!-- toc -->\n\n- [A](#a)\n\nplain\n\n").should be_nil
+    s.append("<!-- tocstop -->\n\nnext\n\n")
+      .should eq "<!-- note\n<!-- toc -->\n\n- [A](#a)\n\nplain\n\n<!-- tocstop -->\n\nnext\n\n"
+  end
+
   it "treats a whitespace-only stream as nothing" do
     s = Crysterm::TextMarkdown::Stream.new
     s.append("  \n\n").should be_nil
@@ -216,6 +246,74 @@ describe "TextDocument#append_markdown" do
     doc.append_markdown "tail\n"
     doc.flush_markdown
     doc.blocks.map(&.source_line).should eq [2, 3, 6]
+  end
+end
+
+describe "TextDocument#append_markdown after content-less blocks" do
+  it "appends behind a first piece whose blocks hold no characters" do
+    doc = TextDocument.new
+    doc.append_markdown "---\n\n"
+    doc.size.should eq 0
+    doc.blocks.first.block_format.horizontal_rule?.should be_true
+    doc.append_markdown "after\n"
+    doc.flush_markdown
+    doc.blocks.map(&.text).should eq ["", "after"]
+    doc.blocks.first.block_format.horizontal_rule?.should be_true
+  end
+
+  it "adds no block for a piece that imports to nothing" do
+    doc = TextDocument.new
+    doc.append_markdown "text\n\n>"
+    doc.flush_markdown
+    doc.blocks.map(&.text).should eq ["text"]
+  end
+
+  it "still adopts the first piece into a document emptied since" do
+    doc = TextDocument.new
+    doc.append_markdown "one\n\n"
+    doc.clear
+    doc.append_markdown "two\n\n"
+    doc.blocks.map(&.text).should eq ["two"]
+    doc.blocks.first.block_format.top_margin.should eq 0
+  end
+end
+
+# A piece may end anywhere: inside a fence, between a table's header and its
+# delimiter row, in the middle of a line. Each shows nothing of the unfinished
+# construct and, once the rest arrives, the same blocks as one-shot import.
+describe "Widget::TextEdit#append_markdown seams inside a construct" do
+  it "keeps a fence open across pieces, each line once" do
+    s = headless_screen(40, 10)
+    te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30, height: 8
+    te.append_markdown "Intro\n\n```\ncode\n\n"
+    te.document.blocks.map(&.text).should eq ["Intro"]
+    te.append_markdown "more\n```\n\nafter\n"
+    te.flush_markdown
+    md = "Intro\n\n```\ncode\n\nmore\n```\n\nafter\n"
+    doc_signature(te.document).should eq doc_signature(TextDocument.from_markdown(md))
+    te.document.blocks.map(&.text).should eq ["Intro", "code", "", "more", "after"]
+  end
+
+  it "renders no paragraph for a table header whose delimiter row is still to come" do
+    s = headless_screen(40, 10)
+    te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30, height: 8
+    te.append_markdown "| a | b |\n"
+    te.document.size.should eq 0
+    te.append_markdown "| - | - |\n| 1 | 2 |\n\n"
+    md = "| a | b |\n| - | - |\n| 1 | 2 |\n\n"
+    doc_signature(te.document).should eq doc_signature(TextDocument.from_markdown(md))
+    te.document.blocks.all?(&.block_format.table_format).should be_true
+  end
+
+  it "parses a last line that arrives without its newline at the end of the stream" do
+    s = headless_screen(40, 10)
+    te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30, height: 8
+    te.append_markdown "a\n\nlast li"
+    te.document.blocks.map(&.text).should eq ["a"]
+    te.append_markdown "ne"
+    te.flush_markdown
+    te.document.blocks.map(&.text).should eq ["a", "last line"]
+    doc_signature(te.document).should eq doc_signature(TextDocument.from_markdown("a\n\nlast line"))
   end
 end
 
