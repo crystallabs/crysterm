@@ -78,6 +78,21 @@ module Crysterm
         ::Tput::Key::AltPageDown   => "<M-PageDown>",
       }
 
+      # Neovim's names of the numeric keypad's keys (`<kEnter>`, `<k0>`,
+      # `<kPlus>`, `<kHome>`, …), by the kitty `KP_*` code a `Tput::KeyEvent`
+      # reports them with — under the kitty protocol, and for an
+      # application-keypad key (`Tput::KeyEvent.from_ss3_keypad`).
+      KEYPAD = {
+        57399 => "k0", 57400 => "k1", 57401 => "k2", 57402 => "k3", 57403 => "k4",
+        57404 => "k5", 57405 => "k6", 57406 => "k7", 57407 => "k8", 57408 => "k9",
+        57409 => "kPoint", 57410 => "kDivide", 57411 => "kMultiply",
+        57412 => "kMinus", 57413 => "kPlus", 57414 => "kEnter",
+        57415 => "kEqual", 57416 => "kComma",
+        57417 => "kLeft", 57418 => "kRight", 57419 => "kUp", 57420 => "kDown",
+        57421 => "kPageUp", 57422 => "kPageDown", 57423 => "kHome",
+        57424 => "kEnd", 57425 => "kInsert", 57426 => "kDel", 57427 => "kOrigin",
+      }
+
       # The notation of a key press, or `nil` for one Neovim has no input
       # for (a release, a lone modifier, a mouse or paste marker). Reads the
       # `Tput::KeyEvent` when the terminal sent one, the legacy `char`/`key`
@@ -136,11 +151,15 @@ module Crysterm
           when '~' then tilde_name ke.number
           when 'u'
             case n = ke.number
-            when  27 then "Esc"
-            when  13 then "CR"
-            when   9 then "Tab"
+            when 27  then "Esc"
+            when 13  then "CR"
+            when 9   then "Tab"
             when 127 then "BS"
-            when  32 then "Space"
+            when 32  then "Space"
+            when ::Tput::KeyEvent::KEYPAD
+              # Neovim names a keypad key apart from the key it stands for
+              # (unmapped, it acts as that key).
+              KEYPAD[n]?
             else
               return if n < 0x20 || (0xE000 <= n <= 0xF8FF)
               modded = ke.ctrl? || ke.alt? || ke.meta? || ke.super?

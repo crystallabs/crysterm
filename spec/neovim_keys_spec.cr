@@ -76,7 +76,7 @@ describe Crysterm::Neovim::Keys do
   it "gives nothing for releases and lone modifiers" do
     K.notation(kitty('a'.ord, type: Tput::KeyEvent::Type::Release)).should be_nil
     K.notation(kitty(57441)).should be_nil
-    K.notation(kitty(57399)).should be_nil # a kitty keypad code (Private Use Area)
+    K.notation(kitty(57428)).should be_nil # a kitty media key code (Private Use Area)
   end
 
   it "translates a KeyPress event by the shape it came in" do
