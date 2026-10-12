@@ -228,6 +228,10 @@ module Crysterm
       @owns_client = false
       @subs = ::Crysterm::Subscriptions.new
       @notification : Client::NotificationHandler?
+
+      # The `Client#on_exit` block `#setup` added, removed by `#teardown`.
+      @exit_handler : Client::ExitHandler?
+
       # Set while the handler itself changes the widget, whose events are
       # then no outside change.
       @applying = false
@@ -342,7 +346,7 @@ module Crysterm
         @read_only = target.read_only?
         client.request "nvim_exec_lua", "crysterm_vi.attach(...)", [buf, target.single_line?, @lines, !@read_only]
         @notification = client.on_notification { |method, params| notified client, method, params }
-        client.on_exit { |code| exited client, code }
+        @exit_handler = client.on_exit { |code| exited client, code }
         client.request "nvim_win_set_buf", 0_i64, buf
         @@shown[client.object_id] = buf
         begin
@@ -376,6 +380,10 @@ module Crysterm
           client.off_notification h
         end
         @notification = nil
+        if client && (eh = @exit_handler)
+          client.off_exit eh
+        end
+        @exit_handler = nil
         if client
           @@shown.delete(client.object_id) if @@shown[client.object_id]? == @buffer
           if @owns_client

@@ -39,4 +39,21 @@ describe Crysterm::Neovim::Handler do
     h.attached?.should be_false
     window.destroy
   end
+
+  it "leaves no exit block on a shared Neovim it detached from" do
+    window = nvd_window
+    w = Crysterm::Widget::PlainTextEdit.new parent: window, width: 40, height: 8
+    client = Crysterm::Neovim::Client.new(args: Crysterm::Neovim::Handler.default_args.dup)
+    before = client.@exit_handlers.size
+    h = Crysterm::Neovim::Handler.new client
+    3.times do
+      h.attach(w).should be_true
+      h.detach
+    end
+    client.@exit_handlers.size.should eq before
+    client.running?.should be_true
+  ensure
+    client.try &.close
+    window.try &.destroy
+  end
 end

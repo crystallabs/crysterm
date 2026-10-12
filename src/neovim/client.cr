@@ -267,6 +267,12 @@ module Crysterm
         block
       end
 
+      # Removes a block `#on_exit` added, so a holder that lets go of a shared
+      # client (`Handler#detach`) leaves no block behind on it.
+      def off_exit(handler : ExitHandler) : Nil
+        @exit_handlers.delete handler
+      end
+
       @exited_dispatched = false
 
       # This client's channel ID in Neovim — what `rpcnotify()` and
