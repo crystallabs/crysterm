@@ -85,6 +85,7 @@ describe "Widget::ScrollPositionLabel" do
     tb.set_markdown (1..60).map { |i| "line #{i}" }.join("\n\n")
     label = Widget::ScrollPositionLabel.new tb, parent: s, top: 9, left: 0, width: 6
     s.repaint
+    label.refresh # made before the first layout, which emits no Scroll or Resize
     label.text.should eq "Top"
     s.destroy
     # A stream's done refreshing the status after the window went: no window
