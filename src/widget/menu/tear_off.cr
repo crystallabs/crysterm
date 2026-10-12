@@ -20,8 +20,10 @@ module Crysterm
       # without any motion tears the menu off in place, as Qt's tear-off item
       # tears on a click. Tearing off dismisses the original menu chain the way
       # a leaf activation does (a `MenuBar` deactivates and focus returns to the
-      # central area); the originals are otherwise untouched, and still show
-      # the entries in the normal menus.
+      # central area) — at once, on the motion that tears the copy off, as Qt's
+      # menu hides as soon as its torn-off menu shows, the drag carrying on in
+      # the copy's strip (`Window#hand_over_drag`); the originals are otherwise
+      # untouched, and still show the entries in the normal menus.
       #
       # A torn-off menu is a persistent, non-modal palette: an outside click
       # does not dismiss it, firing one of its entries leaves it up (a leaf
@@ -108,7 +110,7 @@ module Crysterm
       @tear_off_close_glyph : Char?
 
       # The copy torn off by the drag of this menu's strip now under way, from the
-      # first motion (or the click) until the button is released.
+      # first motion (or the click) until the original chain is closed.
       @tear_off_pending : Menu?
 
       # A torn-off menu's subscriptions on its original and on the window, ended
@@ -258,11 +260,29 @@ module Crysterm
 
       # One motion of a strip drag. On a torn-off menu it is a reposition drag:
       # the menu follows the pointer. On any other menu the first motion tears
-      # the copy off, over this menu, and every motion moves that copy — the
-      # original stays where it is until the button is released.
+      # the copy off, over this menu, moves it under the pointer and hands the
+      # drag to the copy's strip (`Window#hand_over_drag`), which carries it to
+      # the release — or, in two-click mode, to the dropping press — as a
+      # reposition drag of the copy; the original's strip gets its `DragEnd`
+      # there and then, closing the original chain at once (`#tear_off_finished`).
       protected def tear_off_drag_to(x : Int32, y : Int32, dx : Int32, dy : Int32) : Nil
-        target = torn_off? ? self : (@tear_off_pending ||= tear_off)
-        target.drag_move_to x, y, dx, dy
+        return drag_move_to(x, y, dx, dy) if torn_off?
+        fresh = @tear_off_pending.nil?
+        copy = @tear_off_pending ||= tear_off
+        copy.drag_move_to x, y, dx, dy
+        return unless fresh
+        win = window
+        if (sess = win.drag_session) && (h = @tear_off_handle) && sess.source.same?(h)
+          win.hand_over_drag sess, copy.tear_off_handle!
+        end
+      end
+
+      # The copy's grab strip, built and placed now if no frame has yet — a drag
+      # handed to it on the motion that tore the copy off comes before its first
+      # paint.
+      protected def tear_off_handle! : TearOffHandle
+        sync_tear_off_chrome
+        @tear_off_handle ||= build_tear_off_handle
       end
 
       # A click on the strip with no motion in between: tears the menu off in
@@ -275,7 +295,8 @@ module Crysterm
         tear_off_finished
       end
 
-      # The strip's gesture ended (the button released, or the drag cancelled).
+      # The strip's gesture ended for this menu (the drag handed to the copy on
+      # its first motion, the click, or a drag cancelled before it moved).
       # With a copy torn off, the original chain is dismissed the way a leaf
       # activation dismisses it — `#close_chain`, then the root's
       # `#chain_activated_handler`, so a `MenuBar` deactivates and hands focus to

@@ -83,7 +83,10 @@ module Crysterm
   # time — a drag is modal) and shared by both sensors. Coordinates are
   # absolute (window) cell positions.
   class DragSession
+    # The widget being dragged. Changed mid-gesture only by
+    # `Window#hand_over_drag`.
     getter source : Widget
+    protected setter source
     getter data : DragData
     getter sensor : DragSensor
     # Current candidate drop target: the topmost widget under the pointer (mouse

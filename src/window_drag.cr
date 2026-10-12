@@ -127,6 +127,30 @@ module Crysterm
       update
     end
 
+    # Hands the in-flight drag *sess* over to *source*, which carries the rest
+    # of the gesture — the button, the pointer, a two-click drag's next press
+    # — as if it had been picked up there: the old source gets its `DragEnd`
+    # (not dropped), free to go away at once, and *source* its `DragStart`
+    # at the pointer's position, from which a reposition source takes its
+    # grab offset. A menu's tear-off strip hands its drag to the torn-off
+    # copy's strip on the first motion (Qt's `QMenu` tears the menu off and
+    # hides itself while the button is still down), so the original menu can
+    # close under the pointer and the copy follows it to the release.
+    def hand_over_drag(sess : DragSession, to source : Widget) : Nil
+      old = sess.source
+      return if old.same?(source) || !@_drag.same?(sess)
+      sess.source = source
+      sess.offset_x = sess.x - source.aleft
+      sess.offset_y = sess.y - source.atop
+      ev = ::Crysterm::Event::DragEnd.new sess
+      ev.dropped = false
+      old.emit ev
+      source.emit ::Crysterm::Event::DragStart, sess
+      # The old source is no longer skipped by the hit test; the new one is.
+      retarget_over sess, widget_at(sess.x, sess.y, skip: source) if sess.sensor.mouse?
+      update
+    end
+
     # Keyboard arrow during a drag. A repositioning source moves in the pressed
     # direction (`drag_nudge`). A transfer source has nothing to reposition, so
     # arrows retarget the drop candidate instead — mirroring Tab/Shift-Tab:
