@@ -115,6 +115,14 @@ module Crysterm
       # with it.
       @torn_subs : ::Crysterm::Subscriptions?
 
+      # The top border `#ensure_tear_off_border` forced, for
+      # `#restore_tear_off_border`: the style written to, the border left on it,
+      # its top width before (or the frozen border it replaced).
+      @tear_off_forced_style : Style?
+      @tear_off_forced_border : Border?
+      @tear_off_forced_replaced : Border?
+      @tear_off_forced_top : Int32 = 0
+
       # Whether the `menu.tear_off` watcher below is installed.
       @@tear_off_watched = false
 
@@ -303,9 +311,12 @@ module Crysterm
             close = @tear_off_close ||= build_tear_off_close
             place_tear_off_close close
           end
-        elsif handle = @tear_off_handle
-          @tear_off_handle = nil
-          handle.destroy
+        else
+          restore_tear_off_border
+          if handle = @tear_off_handle
+            @tear_off_handle = nil
+            handle.destroy
+          end
         end
       end
 
@@ -327,17 +338,51 @@ module Crysterm
       # `Styles.default` deep dup. The rows' styles `#strip_item_box_model`
       # zeroes are owned the same way — each row's own cascade result. A
       # frozen `Border` (`Border::ZERO`, assigned whole) is replaced instead.
+      #
+      # Under a stylesheet the next cascade replaces the object written to, so
+      # the forced row goes with it; but a menu the cascade does not style
+      # (no stylesheet, or no rule matches) writes into its inline style, which
+      # outlives every cascade. So the write is remembered — the style, the
+      # border it left there and what it replaced — and `#restore_tear_off_border`
+      # undoes it when the strip is no longer wanted.
       private def ensure_tear_off_border : Nil
         return if style.border_view.top > 0
         st = state_style
         b = st.border
+        @tear_off_forced_style = st
+        @tear_off_forced_replaced = nil
         if b.frozen?
-          st.border = ::Crysterm::Border.from({1, 0, 0, 0}) # top, right, bottom, left
+          @tear_off_forced_replaced = b
+          @tear_off_forced_border = st.border = ::Crysterm::Border.from({1, 0, 0, 0}) # top, right, bottom, left
         else
+          @tear_off_forced_top = b.top
+          @tear_off_forced_border = b
           b.top = 1
         end
         # The insets are derived from the resolved style, and an in-place write
         # is invisible to damage tracking.
+        invalidate_frame_style
+        update!
+      end
+
+      # Gives back the top border `#ensure_tear_off_border` forced, once the strip
+      # is no longer wanted: the original top width put back in place, or the
+      # frozen `Border` that was replaced assigned again. Only while the forced
+      # border is still the style's own (a cascade or a program that replaced it
+      # since has already settled the matter), so a border the program has
+      # changed meanwhile is not overwritten.
+      private def restore_tear_off_border : Nil
+        return unless st = @tear_off_forced_style
+        forced = @tear_off_forced_border
+        @tear_off_forced_style = nil
+        @tear_off_forced_border = nil
+        return unless forced && st.border.same?(forced)
+        if replaced = @tear_off_forced_replaced
+          st.border = replaced
+        else
+          forced.top = @tear_off_forced_top
+        end
+        @tear_off_forced_replaced = nil
         invalidate_frame_style
         update!
       end

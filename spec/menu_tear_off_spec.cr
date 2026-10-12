@@ -129,6 +129,35 @@ describe "Menu tear-off" do
     end
   end
 
+  it "gives an inline-styled menu its borderless box back when tear-off is turned off" do
+    with_tear_off false do
+      s = headless_screen(40, 10)
+      m = Widget::Menu.new(parent: s, style: Style.new(border: false))
+      m.add_action "&One"
+      m.add_action "&Two"
+      m.popup 2, 2
+      s.repaint
+      rows = -> { (2..4).map { |y| (s.dump(2, 12, y, y + 1) || "").lines[2][1..-2].strip } }
+      m.itop.should eq 0
+      rows.call.first(2).should eq ["One", "Two"]
+
+      m.tear_off_enabled = true
+      s.repaint
+      m.itop.should eq 1
+      m.style.border_view.top.should eq 1
+      handle_of(m).not_nil!.atop.should eq m.atop
+      rows.call[0].should contain Glyphs[Glyphs::Role::TearOffHandle, Glyphs::Tier::Unicode].to_s
+      rows.call[1].should eq "One"
+
+      m.tear_off_enabled = false
+      s.repaint
+      handle_of(m).should be_nil
+      m.style.border_view.top.should eq 0
+      m.itop.should eq 0
+      rows.call.first(2).should eq ["One", "Two"]
+    end
+  end
+
   it "tears a copy off on a drag of the strip, sharing the actions, and closes the original chain" do
     with_tear_off true do
       s = headless_screen(80, 24)
