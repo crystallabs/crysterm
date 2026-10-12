@@ -255,6 +255,14 @@ module Superconf
     description: "Preferred terminal-emulator command, tried first when auto-selecting a launcher for a detached window"
   option "environment.xdg_runtime_dir", ENV["XDG_RUNTIME_DIR"]?, parse: ENV_STRING,
     description: "Per-user runtime directory used for the window-handshake socket (falls back to the system temp dir when unset)"
+  option "environment.display", ENV["DISPLAY"]?, parse: ENV_STRING,
+    description: "Set under X11; its presence (or WAYLAND_DISPLAY's) means a new terminal-emulator window can be opened (Terminal.graphical?)"
+  option "environment.wayland_display", ENV["WAYLAND_DISPLAY"]?, parse: ENV_STRING,
+    description: "Set under Wayland; see environment.display"
+  option "environment.term_program", ENV["TERM_PROGRAM"]?, parse: ENV_STRING,
+    description: "The terminal emulator's self-identification (Apple_Terminal, iTerm.app, WezTerm, ghostty, tmux…), the first thing Terminal.current_emulator reads to open a new window of the same program"
+  option "environment.sty", ENV["STY"]?, parse: ENV_STRING,
+    description: "Set by GNU screen when running inside it; presence makes screen the current emulator, so a new window is a screen window"
 
   # -- Remote control --------------------------------------------------------
   option "remote.enabled", ENV["CRYSTERM_REMOTE"]?, parse: ENV_STRING,

@@ -290,6 +290,25 @@ module Crysterm
     # window's device.
     getter clipboard : Clipboard { Clipboard.new self }
 
+    # Puts *window* on screen under this application, the way `#exec` puts
+    # its first one: registered (`#add`), rendered and reading input — Qt's
+    # `QWindow::show` for a window made while the loop runs, such as one
+    # `Window.open` spawned from a menu. It joins the running `#exec` on the
+    # same terms as the first window: input is routed to it, the default quit
+    # keys ask it, an output failure of its own ends the loop, and the loop
+    # runs on until the last window is gone (`#quit_on_last_window_closed?`)
+    # — closing the first window no longer ends the program while this one is
+    # open. Outside a running loop it only registers, renders and starts
+    # reading (a program driving windows by hand). Returns *window*.
+    def show(window : Window) : Window
+      add window
+      # Ended with the window, whose teardown drops its handlers.
+      window.on(::Crysterm::Event::OutputFailed) { |e| fail_exec e.error } if @exec_running
+      window.update
+      window.start_input
+      window
+    end
+
     # Renders *window* and runs the main loop — the `QApplication::exec()` entry.
     # Registers the window, honors headless capture mode, then renders, starts
     # input, and blocks until `#quit` (or, with `#quit_on_last_window_closed?`,

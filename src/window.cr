@@ -849,6 +849,19 @@ module Crysterm
       true
     end
 
+    # Closes the window if it agrees (Qt's `QWidget::close`, the user-facing
+    # one): asks through `#request_close` and, when no `Event::CloseRequest`
+    # handler ignored it, closes through `#close`. Returns whether it closed —
+    # `false` when a handler refused (an unsaved-changes guard, which asks the
+    # user and closes on their answer) or the window was already gone. What a
+    # Window → Close entry calls: one window of several goes, and the
+    # application runs on with the others; with the last one the loop ends
+    # (`Application#quit_on_last_window_closed?`).
+    def try_close : Bool
+      return false if @destroyed || !request_close
+      close
+    end
+
     # Destroys self and removes it from the global list of `Screen`s. Also
     # removes all global events relevant to the object. If no screens remain,
     # the app is reset to its initial state.
