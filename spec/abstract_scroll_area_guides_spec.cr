@@ -227,4 +227,26 @@ describe "AbstractScrollArea guides, scrolled and in a viewer" do
     row_text(s, 2, 0..8).should eq " " * 9
     row_text(s, 2, 24..24).should eq "│"
   end
+
+  it "lets go of a guide dropped past the text's right edge, where no ruler press could reach it" do
+    s = headless_screen(40, 8)
+    pe = editor(s, "abcdef\nxy")
+    pe.column_ruler = true
+    pe.guides_enabled = true
+    s.repaint
+    changes = [] of Array(Int32)
+    pe.on(Event::GuidesChanged) { |e| changes << e.columns }
+    drag(s, 4, 0, 35, 2) # a new guide, dropped right of the editor
+    pe.guides.should be_empty
+    changes.should be_empty
+    drag(s, 4, 0, 4, 2)
+    pe.guides.should eq [5]
+    drag(s, 4, 0, 35, 2) # the guide at 5, dragged off
+    pe.guides.should be_empty
+    changes.should eq [[5], [] of Int32]
+    drag(s, 4, 0, 29, 2) # the caret column: the right bound, occupied
+    pe.guides.should be_empty
+    drag(s, 6, 0, 28, 2) # the text's last column
+    pe.guides.should eq [29]
+  end
 end

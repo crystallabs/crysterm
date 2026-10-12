@@ -23,10 +23,12 @@ module Crysterm
       # does in a design tool: a press on the column ruler lifts the guide
       # hanging there (its `┬`), or a new one when none does, and the guide
       # follows the pointer until the button is released. Dropped on a
-      # content row it stays at that column; dropped back on the ruler, or on
-      # a column another guide (a bound included) already occupies, it is
-      # removed — so one of two guides brought together goes, and the bounds,
-      # which are not in `#guides`, survive any drop. A click on the ruler
+      # content row it stays at that column; dropped back on the ruler, off
+      # the columns guides are drawn in (past the ruler's end, on the scroll
+      # bar, in a centered column's slack), or on a column another guide (a
+      # bound included) already occupies, it is removed — so one of two
+      # guides brought together goes, and the bounds, which are not in
+      # `#guides`, survive any drop. A click on the ruler
       # that does not reach the content makes nothing. Without the rulers the
       # guides are still shown but there is nothing to pull them from.
       # `Event::GuidesChanged` reports every change to `#guides`, with the
@@ -132,7 +134,7 @@ module Crysterm
         rows = window.cell_rows
         fg = Attr.fg(guide_attr)
         marker_attr = @column_ruler ? ruler_attr : 0_i64
-        first_x = Math.max(guides_first_x(x0), text_x0 - 1)
+        first_x = guides_first_x(x0, text_x0)
         each_guide_column do |col|
           x = text_x0 + col - 1 - @child_base_x
           next if x < first_x || x >= xl || x < 0
@@ -182,8 +184,7 @@ module Crysterm
           elsif e.action.up?
             next unless @dragged_guide
             e.accept
-            frame = chrome_frame
-            drop_guide column_at(e.x), on_ruler: !frame.nil? && e.y == frame[2]
+            drop_guide e.x, e.y
           end
         end
       end
@@ -206,12 +207,24 @@ module Crysterm
       end
 
       # The first screen column a guide is drawn in, given the band's first
-      # column *x0*: the row ruler's right edge while it shows (it stands
-      # right of the subclass's own margin, and a guide never runs over its
-      # ticks), else the band's own first column, so the left bound may run
-      # down a gutter's gap column.
-      private def guides_first_x(x0 : Int32) : Int32
-        @vertical_ruler_width > 0 ? tape_x0(x0) : x0
+      # column *x0* and the text's *text_x0*: the row ruler's right edge while
+      # it shows (it stands right of the subclass's own margin, and a guide
+      # never runs over its ticks), else the band's own first column, so the
+      # left bound may run down a gutter's gap column — but never before the
+      # column just left of the text, which keeps a guide scrolled past the
+      # text's first column out of a centered column's slack and off the
+      # gutter.
+      private def guides_first_x(x0 : Int32, text_x0 : Int32) : Int32
+        Math.max(@vertical_ruler_width > 0 ? tape_x0(x0) : x0, text_x0 - 1)
+      end
+
+      # The text column a guide dropped at screen `(x, y)` lands on: nil on
+      # the column ruler, off the columns a guide is drawn in, or without a
+      # render.
+      private def dropped_column(x : Int32, y : Int32) : Int32?
+        x0, xl, y0, _yl, text_x0, _top = chrome_frame || return
+        return if (@column_ruler && y == y0) || x < guides_first_x(x0, text_x0) || x >= xl
+        text_column_at x, text_x0
       end
 
       # Takes the guide at *column* in hand — the user's one there, lifted out
@@ -229,16 +242,22 @@ module Crysterm
         update!
       end
 
-      # Ends the drag at *column*: the guide is put down there unless it was
-      # dropped back on the ruler or onto an occupied column — a bound's or
-      # another guide's — in which case it is gone. `Event::GuidesChanged` is
+      # Ends the drag at screen `(x, y)`: the guide is put down at the text
+      # column there when that is a column a guide is drawn in
+      # (`#dropped_column`) — unless it was dropped back on the ruler or
+      # onto an occupied column, a bound's or another guide's. Anywhere
+      # else — past the ruler's end, on the scroll bar, beyond the widget,
+      # on the gutter or in the slack left of the text — it is gone, as a
+      # guide pulled off a design tool's canvas is; kept, it would sit at a
+      # column no ruler press can reach again. `Event::GuidesChanged` is
       # emitted when the drag changed `#guides`; a guide put back where it
       # was lifted from is no change.
-      private def drop_guide(column : Int32?, on_ruler : Bool) : Nil
+      private def drop_guide(x : Int32, y : Int32) : Nil
         from = @dragged_from
         @dragged_guide = @dragged_from = nil
+        column = dropped_column(x, y)
         low, high = text_column_bounds
-        keep = column && !on_ruler && column > 0 && column != low && column != high && !@guides.includes?(column)
+        keep = column && column > 0 && column != low && column != high && !@guides.includes?(column)
         @guides << column if keep && column
         if (keep ? column : nil) != from
           guides_changed
