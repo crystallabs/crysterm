@@ -73,6 +73,28 @@ describe Crysterm::Neovim::Handler do
     end
   end
 
+  it "takes a final newline as the end of the last line, as a file's" do
+    s = nvh_window
+    w = Crysterm::Widget::PlainTextEdit.new parent: s, width: 40, height: 10
+    w.value = "one\ntwo\n"
+    with_handler(w) do |_|
+      nvh_type w, "G0"
+      w.cursor_pos.should eq 4
+      nvh_type w, "othree<Esc>"
+      w.value.should eq "one\ntwo\nthree\n"
+      nvh_type w, "ddGdd"
+      w.value.should eq "one\n"
+      w.value = "one\ntwo"
+      Fiber.yield
+      nvh_type w, "Gofour<Esc>"
+      w.value.should eq "one\ntwo\nfour"
+      w.value = ""
+      Fiber.yield
+      nvh_type w, "ifive<Esc>"
+      w.value.should eq "five"
+    end
+  end
+
   it "edits a TextEdit, the formats outside the change kept" do
     s = nvh_window
     w = Crysterm::Widget::TextEdit.new parent: s, width: 40, height: 10

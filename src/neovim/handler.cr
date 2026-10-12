@@ -219,8 +219,12 @@ module Crysterm
       getter pending_keys : String = ""
 
       # The buffer's lines as Neovim has them; the widget's text is their
-      # join with `\n` (with a space for a single-line widget).
+      # join with `\n` (with a space for a single-line widget), followed by a
+      # `\n` when `@eol` is set. A final newline ends the last line, as in a
+      # file Neovim reads ('endofline'), rather than starting an empty one,
+      # so `G` and `o` there act as on the file.
       @lines = [""]
+      @eol = false
       @owns_client = false
       @subs = ::Crysterm::Subscriptions.new
       @notification : Client::NotificationHandler?
@@ -320,7 +324,7 @@ module Crysterm
         @buffer = buf
         @widget = widget
         @target = target
-        @lines = split_lines target
+        @lines, @eol = split_lines target
         @mode = Mode::Normal
         @command_line = nil
         @message = nil
@@ -408,10 +412,21 @@ module Crysterm
         {80, 24}
       end
 
-      private def split_lines(target : Target) : Array(String)
+      # The widget's text as Neovim's lines, and whether it ends with a
+      # newline that ends its last line.
+      private def split_lines(target : Target) : {Array(String), Bool}
         text = target.value
-        lines = target.single_line? ? [text.tr("\n", " ")] : text.split('\n')
-        lines.empty? ? [""] : lines
+        return {[text.tr("\n", " ")], false} if target.single_line?
+        eol = text.ends_with?('\n')
+        text = text.rchop if eol
+        lines = text.split('\n')
+        {lines.empty? ? [""] : lines, eol}
+      end
+
+      # The widget's text as Neovim's lines make it.
+      private def joined_lines(sep : String) : String
+        text = @lines.join(sep)
+        @eol ? text + "\n" : text
       end
 
       private def separator : String
@@ -748,10 +763,10 @@ module Crysterm
           end
         @lines[first...last] = data
         @lines << "" if @lines.empty?
-        if target.buf_size != total
+        if target.buf_size != total + (@eol ? 1 : 0)
           # Out of step (an edit the handler did not see): take Neovim's
           # whole text.
-          s, e, ins = 0, target.buf_size, @lines.join(sep)
+          s, e, ins = 0, target.buf_size, joined_lines(sep)
         end
         replace target, s, e, ins
       end
@@ -818,7 +833,7 @@ module Crysterm
       # Sends Neovim the lines that differ between its buffer and the widget.
       private def push_text(client : Client, target : Target) : Nil
         buf = @buffer || return
-        new = split_lines target
+        new, @eol = split_lines target
         old = @lines
         return if new == old
         p, q = common_ends(old, new)
