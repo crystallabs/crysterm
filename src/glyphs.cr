@@ -148,6 +148,13 @@ module Crysterm
       RadioClose        # delimiter after the mark: `)`
       RadioChecked      # the mark when selected
       RadioUnchecked    # the mark when not selected
+      # A whole indicator in one cell, no delimiters — what a menu's check
+      # column draws when the tier is above ASCII (`☐`/`☑`, `○`/`◉`), in
+      # place of the composed `[x]`, which stays the ASCII rendition.
+      CheckMarkChecked   # a checked checkbox: `☑`
+      CheckMarkUnchecked # an unchecked one: `☐`
+      RadioMarkChecked   # a selected radio button: `◉`
+      RadioMarkUnchecked # an unselected one: `○`
 
       # -- Disclosure markers (Tree nodes, ToolBox section headers) ----------
       TreeExpanded
@@ -650,6 +657,10 @@ module Crysterm
       set_in t, Role::RadioClose, Entry.new(')')
       set_in t, Role::RadioChecked, Entry.new('*', nil, '•')
       set_in t, Role::RadioUnchecked, Entry.new(' ')
+      set_in t, Role::CheckMarkChecked, Entry.new('x', '☑')
+      set_in t, Role::CheckMarkUnchecked, Entry.new(' ', '☐')
+      set_in t, Role::RadioMarkChecked, Entry.new('*', '◉')
+      set_in t, Role::RadioMarkUnchecked, Entry.new(' ', '○')
 
       set_in t, Role::TreeExpanded, Entry.new('v', '▾')
       set_in t, Role::TreeCollapsed, Entry.new('>', '▸')

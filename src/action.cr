@@ -374,8 +374,24 @@ module Crysterm
     # `QAction::actionGroup`). Set by `ActionGroup#add_action`/`#remove_action`;
     # not meant to be assigned directly. Consulted by `#activate` to suppress
     # the off-toggle Qt applies when re-triggering an exclusive group's checked
-    # member.
-    protected property group : ActionGroup?
+    # member. Public as `#action_group`.
+    protected getter group : ActionGroup?
+
+    # :ditto: — the public spelling, Qt's `QAction::actionGroup`. A menu
+    # draws a member of an exclusive group with a radio mark.
+    def action_group : ActionGroup?
+      @group
+    end
+
+    # Joins or leaves a group (from `ActionGroup` only), emitting
+    # `Event::Changed` on a real change: membership of an exclusive group
+    # changes how a menu draws the action's check mark.
+    protected def group=(value : ActionGroup?) : ActionGroup?
+      return value if value.same?(@group)
+      @group = value
+      notify_changed
+      value
+    end
 
     # The widget owning this action (Qt's `QObject::parent`), or `nil` for a
     # free-standing one. Set at construction; the action is installed on it via

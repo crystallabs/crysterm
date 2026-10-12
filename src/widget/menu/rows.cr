@@ -380,20 +380,18 @@ module Crysterm
 
       # The left (checkbox slot + label) and right (shortcut / ▶) text columns
       # for each visible action; separators get empty entries. The check column is
-      # *measured*: its width is the widest state's composed `[x]` marker plus a
-      # gap, shared by every row so labels start at a consistent column — and it
-      # vanishes entirely when no item is checkable.
+      # *measured*: its width is the widest state's mark plus a gap, shared by
+      # every row so labels start at a consistent column — and it vanishes
+      # entirely when no item is checkable. Above the ASCII tier a mark is one
+      # glyph (`☑`/`☐`, and `◉`/`○` for a member of an exclusive
+      # `ActionGroup`), a two-cell column; at the ASCII tier it is the composed
+      # `[x]`, four cells.
       private def row_columns(acts : Array(Action)) : {Array(String), Array(String)}
         tier = glyph_tier
         # The check marks are registry-resolved (a menu's check column has no
         # per-item CSS site; `Menu::indicator` is the submenu arrow below).
-        open = Glyphs[Glyphs::Role::CheckboxOpen, tier]
-        close = Glyphs[Glyphs::Role::CheckboxClose, tier]
-        base = Unicode.width(open) + Unicode.width(close)
-        marker_w = base + Math.max(
-          Unicode.width(Glyphs[Glyphs::Role::CheckboxChecked, tier]),
-          Unicode.width(Glyphs[Glyphs::Role::CheckboxUnchecked, tier]))
-        column = acts.any? { |a| !a.separator? && a.checkable? } ? marker_w + 1 : 0
+        checkable = acts.any? { |a| !a.separator? && a.checkable? }
+        column = checkable ? check_column_width(tier) : 0
         # The icon slot is measured like the check column: the widest visible
         # icon plus a gap, shared by every row — so icon-less entries (and
         # narrower icons) indent to the same label column instead of sitting
@@ -405,10 +403,10 @@ module Crysterm
           prefix = if column == 0
                      ""
                    elsif a.checkable?
-                     mark = Glyphs[a.checked? ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked, tier]
+                     mark = check_mark(a, tier)
                      # Pad a narrower state's marker to the shared column width
                      # (the trailing gap is part of the column).
-                     "#{open}#{mark}#{close}#{" " * (column - base - Unicode.width(mark))}"
+                     "#{mark}#{" " * (column - str_width(mark))}"
                    else
                      " " * column
                    end
@@ -432,6 +430,46 @@ module Crysterm
           a.shortcut_text
         end
         {lefts, rights}
+      end
+
+      # Whether the check column draws one-glyph marks (`☑`), not the composed
+      # `[x]`: at any tier above ASCII, where the glyphs are in the repertoire.
+      private def single_check_marks?(tier : Glyphs::Tier) : Bool
+        !tier.ascii?
+      end
+
+      # The check mark *action* shows at *tier*: one glyph (a radio mark for a
+      # member of an exclusive group), or the delimited checkbox at ASCII.
+      private def check_mark(action : Action, tier : Glyphs::Tier) : String
+        on = action.checked?
+        if single_check_marks?(tier)
+          role = if action.action_group.try(&.exclusive?)
+                   on ? Glyphs::Role::RadioMarkChecked : Glyphs::Role::RadioMarkUnchecked
+                 else
+                   on ? Glyphs::Role::CheckMarkChecked : Glyphs::Role::CheckMarkUnchecked
+                 end
+          Glyphs.str(role, tier)
+        else
+          mark = Glyphs[on ? Glyphs::Role::CheckboxChecked : Glyphs::Role::CheckboxUnchecked, tier]
+          "#{Glyphs[Glyphs::Role::CheckboxOpen, tier]}#{mark}#{Glyphs[Glyphs::Role::CheckboxClose, tier]}"
+        end
+      end
+
+      # The check column's width at *tier*: the widest mark any state can
+      # show, plus the gap before the label.
+      private def check_column_width(tier : Glyphs::Tier) : Int32
+        roles = if single_check_marks?(tier)
+                  {Glyphs::Role::CheckMarkChecked, Glyphs::Role::CheckMarkUnchecked,
+                   Glyphs::Role::RadioMarkChecked, Glyphs::Role::RadioMarkUnchecked}
+                else
+                  {Glyphs::Role::CheckboxChecked, Glyphs::Role::CheckboxUnchecked}
+                end
+        widest = roles.max_of { |r| Unicode.width(Glyphs.str(r, tier)) }
+        unless single_check_marks?(tier)
+          widest += Unicode.width(Glyphs[Glyphs::Role::CheckboxOpen, tier]) +
+                    Unicode.width(Glyphs[Glyphs::Role::CheckboxClose, tier])
+        end
+        widest + 1
       end
 
       # Rebuilds the list rows from the visible actions. Each row's text holds

@@ -60,6 +60,7 @@ describe Crysterm::Glyphs do
     # the `ShadowCorner*` grounds carry the shadow tone in the cell background,
     # so their blank means "shadow across the whole cell".
     blank_ok = Set{Glyphs::Role::CheckboxUnchecked, Glyphs::Role::RadioUnchecked,
+                   Glyphs::Role::CheckMarkUnchecked, Glyphs::Role::RadioMarkUnchecked,
                    Glyphs::Role::TreeLeaf, Glyphs::Role::ProgressFill,
                    Glyphs::Role::BigTextPixel,
                    Glyphs::Role::ShadowCornerTL, Glyphs::Role::ShadowCornerTR,

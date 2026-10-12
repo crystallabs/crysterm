@@ -263,8 +263,8 @@ describe "Menu glyphs and measured columns" do
     a.checked = true
     menu.add_action "Open"
     s.repaint
-    row_text(s, 1, menu.aleft + 2...menu.aleft + 2 + 8).should eq "[x] Wrap"
-    row_text(s, 2, menu.aleft + 2...menu.aleft + 2 + 8).should eq "    Open"
+    row_text(s, 1, menu.aleft + 2...menu.aleft + 2 + 6).should eq "☑ Wrap"
+    row_text(s, 2, menu.aleft + 2...menu.aleft + 2 + 6).should eq "  Open"
   end
 
   it "restyles the separator rule via Menu::separator { glyph }" do
