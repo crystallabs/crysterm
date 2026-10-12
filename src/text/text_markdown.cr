@@ -1113,9 +1113,9 @@ module Crysterm
       # A `www.`, in any case, as `AUTOLINK` matches it.
       WWW = /www\./i
 
-      # Whether *url* is a `www.` one, in any case, as `AUTOLINK` matches it.
+      # Whether *url* starts with `WWW`.
       def self.www?(url : String) : Bool
-        url.size >= 4 && url[0, 4].compare("www.", case_insensitive: true) == 0
+        (m = WWW.match(url)) ? m.begin == 0 : false
       end
 
       # Whether a block's fragments can hold a bare URL at all: the `//` of a
@@ -1667,7 +1667,6 @@ module Crysterm
       # the other SGR flags have no markdown form and are dropped. Fragment-
       # edge whitespace moves *outside* the markers — `**bold **` is not
       # right-flanking and would re-import as literal asterisks.
-
       private def write_emphasis(io : IO, text : String, fmt : TextCharFormat, lead : Bool = false) : Nil
         em = fmt.bold? ? (fmt.italic? ? "***" : "**") : (fmt.italic? ? "*" : "")
         if em.empty? && !fmt.strike?

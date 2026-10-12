@@ -9,9 +9,6 @@ include Crysterm
 module MonoSpecHelpers
   extend self
 
-  # Renders *boxes* (each `{fg, bg, reverse}`) side by side in a fresh window at
-  # the monochrome depth and returns the frame's bytes. *light_terminal* probes
-  # the terminal's default background as white.
   # Yields a fresh window at the monochrome depth and its output, the depth
   # put back afterwards; *light_terminal* probes the terminal's default
   # background as white.
