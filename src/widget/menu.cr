@@ -515,28 +515,7 @@ module Crysterm
       def handle_key_press(e)
         intent = nav_intent(e)
 
-        # A menu opens with no row highlighted; the first selection-moving key —
-        # or Enter or Space — *reveals* the highlight rather than moving/
-        # activating it. Up (or End) as that first key reveals it on the *last*
-        # entry, any other mover on the first — so cycling starts from the end
-        # the user is heading toward, and never on a leading separator. Enter
-        # must be gated here too, or it falls through to `super`
-        # (`activate_current` -> `activate_index 0`) and fires the first action
-        # though no row was ever shown highlighted — and Space likewise, for
-        # its activate/toggle handling below.
-        if !@show_highlight && (selection_key?(e) || e.key == ::Tput::Key::Enter || e.char == ' ')
-          @show_highlight = true
-          if intent.backward? || intent.last?
-            edge_selectable(-1).try { |i| self.current_index = i }
-          elsif !intent.none?
-            edge_selectable(1).try { |i| self.current_index = i }
-          end
-          update!
-          highlight_changed # the revealed row's tips (`menu/tips.cr`)
-          e.accept
-          return
-        end
-
+        return if reveal_pressed e, intent
         return if whats_this_pressed e # `F1` (`menu/tips.cr`)
         return if space_pressed e
         return if enter_on_submenu e
@@ -602,6 +581,31 @@ module Crysterm
         return if mnemonic_pressed e
 
         super
+      end
+
+      # A menu opens with no row highlighted; the first selection-moving key —
+      # or Enter or Space — *reveals* the highlight rather than moving/
+      # activating it (returns whether it consumed *e*, whose `nav_intent` is
+      # *intent*). Up (or End) as that first key reveals it on the *last*
+      # entry, any other mover on the first — so cycling starts from the end
+      # the user is heading toward, and never on a leading separator. Enter
+      # must be gated here too, or it falls through to `super`
+      # (`activate_current` -> `activate_index 0`) and fires the first action
+      # though no row was ever shown highlighted — and Space likewise, for
+      # its activate/toggle handling (`#space_pressed`).
+      private def reveal_pressed(e, intent : NavIntent) : Bool
+        return false if @show_highlight
+        return false unless selection_key?(e) || e.key == ::Tput::Key::Enter || e.char == ' '
+        @show_highlight = true
+        if intent.backward? || intent.last?
+          edge_selectable(-1).try { |i| self.current_index = i }
+        elsif !intent.none?
+          edge_selectable(1).try { |i| self.current_index = i }
+        end
+        update!
+        highlight_changed # the revealed row's tips (`menu/tips.cr`)
+        e.accept
+        true
       end
 
       # A bare mnemonic letter (`"&New"` → `n`) pressed anywhere in the open
