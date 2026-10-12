@@ -174,10 +174,22 @@ module Crysterm
       # -- Popup / window-control affordances ---------------------------------
       SubmenuArrow  # Menu row that opens a submenu
       DropdownArrow # ComboBox closed state, ToolButton popup indicator
-      CloseButton   # TabWidget closable tab, DockWidget close
+      CloseButton   # TabWidget closable tab (a window's is `WindowClose`)
       FloatButton   # DockWidget float/dock toggle
       FloatingMark  # DockWidget titlebar mark while floating
       SizeGrip
+
+      # -- Window-management buttons ------------------------------------------
+      # The title-bar buttons of a window-like widget (a torn-off menu, a
+      # `DockWidget`), as a window manager draws them. The `unicode` column is
+      # one set of boxed marks (`⊟ ⊞ ⊠`) that reads as buttons rather than
+      # letters; the `ascii` column is the classic text-UI `_ + x`.
+      WindowClose    # close the window
+      WindowMinimize # minimize (iconify) it
+      WindowMaximize # maximize it
+      WindowRestore  # restore a maximized one
+      WindowRollUp   # roll (shade) it up to its title bar
+      WindowRollDown # roll a rolled-up one back down
 
       # -- Rules and separators ------------------------------------------------
       LineHorizontal # Line/Splitter/Menu separator, horizontal rules
@@ -661,6 +673,13 @@ module Crysterm
       set_in t, Role::FloatButton, Entry.new('^', '⇕')
       set_in t, Role::FloatingMark, Entry.new('#', '▣')
       set_in t, Role::SizeGrip, Entry.new('/', '◢')
+
+      set_in t, Role::WindowClose, Entry.new('x', '⊠')
+      set_in t, Role::WindowMinimize, Entry.new('_', '⊟')
+      set_in t, Role::WindowMaximize, Entry.new('+', '⊞')
+      set_in t, Role::WindowRestore, Entry.new('=', '❐')
+      set_in t, Role::WindowRollUp, Entry.new('^', '▴')
+      set_in t, Role::WindowRollDown, Entry.new('v', '▾')
 
       set_in t, Role::LineHorizontal, Entry.new('-', '─')
       set_in t, Role::LineVertical, Entry.new('|', '│')

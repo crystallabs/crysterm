@@ -36,8 +36,8 @@ module Crysterm
       # fired inside one of its submenus closes that submenu chain back to it),
       # and Escape takes the keyboard back to the window's central area rather
       # than closing it. Its own strips move it (a reposition drag), and the
-      # close mark at the right end of its top row (`Glyphs::Role::CloseButton`,
-      # `✕`) destroys it. A press anywhere on it brings it to the front. It
+      # close mark at the right end of its top row (`Glyphs::Role::WindowClose`,
+      # `⊠`) destroys it. A press anywhere on it brings it to the front. It
       # takes keys once focused — a click on a row focuses it — and, like a
       # `MenuBar`, it sits off the Tab chain and in the F6 region ring. It
       # outlives the option without showing past it: turning the feature off —
@@ -601,7 +601,7 @@ module Crysterm
       # Puts the close mark at the right end of the top border row, just inside
       # the corner, whatever the theme's side border and padding.
       private def place_tear_off_close(close : Box) : Nil
-        g = glyph(Glyphs::Role::CloseButton)
+        g = glyph(Glyphs::Role::WindowClose)
         unless g == @tear_off_close_glyph
           @tear_off_close_glyph = g
           close.set_content g.to_s

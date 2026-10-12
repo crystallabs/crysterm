@@ -29,7 +29,7 @@ private def handle_of(menu)
 end
 
 private def close_of(menu)
-  menu.children.find { |c| !c.is_a?(TearOffHandle) && c.content == Glyphs[Glyphs::Role::CloseButton, Glyphs::Tier::Unicode].to_s }
+  menu.children.find { |c| !c.is_a?(TearOffHandle) && c.content == Glyphs[Glyphs::Role::WindowClose, Glyphs::Tier::Unicode].to_s }
 end
 
 private def open_menus(s)

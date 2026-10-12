@@ -109,7 +109,7 @@ describe "Menu tear-off, bottom strip" do
       b = bottom_of(t).not_nil!
       b.atop.should eq t.atop + t.aheight - 1
       t.tear_off_handle?(Crysterm::Side::Top).not_nil!.atop.should eq t.atop
-      closes = t.children.reject(TearOffHandle).select { |c| c.content == Glyphs[Glyphs::Role::CloseButton, Glyphs::Tier::Unicode].to_s }
+      closes = t.children.reject(TearOffHandle).select { |c| c.content == Glyphs[Glyphs::Role::WindowClose, Glyphs::Tier::Unicode].to_s }
       closes.size.should eq 1
       closes.first.atop.should eq t.atop
     end

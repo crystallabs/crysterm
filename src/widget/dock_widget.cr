@@ -423,7 +423,7 @@ module Crysterm
       # whole grapheme so a wide or multi-codepoint override renders whole and
       # the button reserves its width.
       private def close_glyph : String
-        glyph_str(Glyphs::Role::CloseButton, style.raw_sub_style("close-button"))
+        glyph_str(Glyphs::Role::WindowClose, style.raw_sub_style("close-button"))
       end
 
       # :ditto:

@@ -69,7 +69,7 @@ end
 
 describe "DockWidget titlebuttons reserve the glyph's measured width" do
   it "sizes the close button to a wide registry glyph and offsets the float button past it" do
-    Glyphs.set Glyphs::Role::CloseButton, unicode: "⚠️" # 2 columns
+    Glyphs.set Glyphs::Role::WindowClose, unicode: "⚠️" # 2 columns
     begin
       s = headless_screen(80, 24)
       dock = Widget::DockWidget.new parent: s, top: 0, left: 0, width: 30, height: 10,
