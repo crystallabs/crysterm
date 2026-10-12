@@ -34,9 +34,17 @@ module Crysterm
       # `✕`) destroys it. A press anywhere on it brings it to the front. It
       # takes keys once focused — a click on a row focuses it — and, like a
       # `MenuBar`, it sits off the Tab chain and in the F6 region ring. It
-      # outlives the option: turning the feature off stops further tear-offs,
-      # a torn-off menu stays until closed (its strip and close mark stay with
-      # it), so no palette is ever left on screen without a way to close it.
+      # outlives the option without showing past it: turning the feature off —
+      # the option, or `#tear_off_enabled=` on the menu it was torn off or on
+      # itself — hides it (Qt's `setTearOffEnabled(false)` hides the torn-off
+      # menu), out of the focus, the input and the F6 ring, and turning it on
+      # again shows it where it was, with the same actions.
+      #
+      # The highlight — and the status tip it put up — leaves a torn-off menu
+      # with the focus (a click on a pane, Tab, Escape) and with the pointer
+      # when that leaves its chain with no submenu open, as Qt's `QMenu` drops
+      # its active action on a leave event; a hidden or closed one clears its
+      # tip as any menu does.
       # While the menu it was torn off lives, the torn-off menu follows the
       # actions added to or removed from it (Qt's `syncWithMenu`); a submenu is
       # rebuilt on every open, so a copy torn off a submenu keeps the entries it
@@ -69,9 +77,19 @@ module Crysterm
       # Overrides the `menu.tear_off` option for this menu (Qt's
       # `QMenu#setTearOffEnabled`); `nil` follows the option again. Submenus
       # opened from this menu inherit the override, as does a menu torn off it.
+      #
+      # On a menu with torn-off copies the override goes to the copies as well,
+      # and on a torn-off menu it shows or hides the menu (`#sync_torn_visibility`).
       def tear_off_enabled=(value : Bool?) : Bool?
         @tear_off_enabled = value
         update!
+        if torn_off?
+          sync_torn_visibility
+        elsif win = window?
+          Menu.torn_off_menus(win).each do |t|
+            t.tear_off_enabled = value if t.torn_source.same?(self)
+          end
+        end
         value
       end
 
@@ -113,6 +131,15 @@ module Crysterm
       # first motion (or the click) until the original chain is closed.
       @tear_off_pending : Menu?
 
+      # Whether this torn-off menu is hidden because tear-off was turned off for
+      # it, to be shown again when it is turned back on (`#sync_torn_visibility`).
+      # A torn-off menu the program hid itself is not marked, and stays hidden.
+      getter? torn_suppressed = false
+
+      # Whether the pointer was last seen over this torn-off menu's chain, so
+      # its leaving is a transition (`#torn_pointer_moved`).
+      @torn_pointer_inside = false
+
       # A torn-off menu's subscriptions on its original and on the window, ended
       # with it.
       @torn_subs : ::Crysterm::Subscriptions?
@@ -130,7 +157,8 @@ module Crysterm
 
       # Repaints every menu on every window when `menu.tear_off` changes, so an
       # open menu gains or loses its strip at once rather than on its next open —
-      # as `Widget::Media.watch_config` rebuilds the media for a backend change.
+      # as `Widget::Media.watch_config` rebuilds the media for a backend change —
+      # and hides or shows the torn-off menus again (`#sync_torn_visibility`).
       # Installed from the first menu paint; the option is read live by
       # `#tear_off_enabled?`, so the watcher only has to ask for the frame.
       protected def self.watch_tear_off_config : Nil
@@ -139,7 +167,32 @@ module Crysterm
         ::Crysterm::Config.on_change("menu.tear_off") do
           ::Crysterm::Window.instances.each do |window|
             window.each_descendant { |w| w.update! if w.is_a?(Menu) }
+            torn_off_menus(window).each &.sync_torn_visibility
           end
+        end
+      end
+
+      # Shows or hides this torn-off menu as `#tear_off_enabled?` now says: off,
+      # a shown menu hides — its submenu closed, its highlight and status tip
+      # cleared, the keyboard handed back to the central area, so a hidden
+      # palette holds no focus and, invisible, takes no input and no F6 stop —
+      # and is marked `#torn_suppressed?`; on, a menu so marked shows again at
+      # the place and stacking it had. A no-op on a menu that is not torn off.
+      protected def sync_torn_visibility : Nil
+        return unless torn_off?
+        if tear_off_enabled?
+          return unless @torn_suppressed
+          @torn_suppressed = false
+          show
+          update!
+        else
+          return if @torn_suppressed || !visible?
+          @torn_suppressed = true
+          drop_torn_highlight
+          if (win = window?) && (f = win.focused) && chain_holds?(f)
+            win.focus_central
+          end
+          hide
         end
       end
 
@@ -212,7 +265,47 @@ module Crysterm
         win = window
         subs.on(win, ::Crysterm::Event::Mouse) do |e|
           raise_torn_off if e.action.down? && covers?(win.widget_at(e.x, e.y))
+          torn_pointer_moved e.x, e.y if e.action.move?
         end
+      end
+
+      # Whether *w* is in this menu or in its open submenu chain (submenus are
+      # window children, not descendants, so `#covers?` alone misses them).
+      private def chain_holds?(w : Widget) : Bool
+        !!w.first_self_or_ancestor { |a| covers?(a) || a.as?(Menu).try(&.submenu_of?(self)) }
+      end
+
+      # The pointer moved to (*x*, *y*): on leaving this torn-off menu's chain
+      # with no submenu open, the highlight goes, as `QMenu#leaveEvent` drops
+      # the active action — and with it the status tip it put in the bar.
+      private def torn_pointer_moved(x : Int32, y : Int32) : Nil
+        inside = visible? && in_chain?(x, y)
+        left = @torn_pointer_inside && !inside
+        @torn_pointer_inside = inside
+        drop_torn_highlight if left && @submenu_open.nil?
+      end
+
+      # Focus moved from somewhere in this menu's chain to *next_focused*
+      # (`nil` for no widget; from `menu/tips.cr`, on the chain's root): on a
+      # torn-off menu, focus that left the chain takes the highlight, the open
+      # submenu and the status tip with it — Qt's torn-off menu clears its
+      # status tip when it stops being active. A no-op on any other menu, whose
+      # chain closes when it loses the keyboard.
+      protected def chain_focus_left(next_focused : Widget?) : Nil
+        return unless torn_off?
+        return if next_focused && chain_holds?(next_focused)
+        drop_torn_highlight
+      end
+
+      # Clears this torn-off menu's highlight: an open submenu closes without
+      # taking the focus back from where it went, and the leaving highlight
+      # clears the status tip and the tooltip (`menu/tips.cr`).
+      private def drop_torn_highlight : Nil
+        close_submenu(refocus: false) if @submenu_open
+        return unless @show_highlight
+        @show_highlight = false
+        highlight_changed
+        update!
       end
 
       # Re-adopts the original's action set when it changed under the copy.

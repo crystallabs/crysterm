@@ -291,7 +291,7 @@ describe "Menu tear-off" do
     end
   end
 
-  it "takes a per-menu override that submenus inherit, and stays up when the option is turned off" do
+  it "takes a per-menu override that submenus inherit, and hides its torn-off menus while the option is off" do
     with_tear_off false do
       s = headless_screen(80, 24)
       main, view, _, _ = build(s)
@@ -325,15 +325,19 @@ describe "Menu tear-off" do
       s.repaint
       drag_handle s, handle_of(view).not_nil!, 5, 5
       t = Widget::Menu.torn_off_menus(s).first
-      # The option goes off under it: the strip leaves the ordinary menus, the
-      # torn-off menu keeps its strip and close mark until closed.
+      # The option goes off under it: the strip leaves the ordinary menus and
+      # the torn-off menu hides, until the option comes back on.
       Crysterm::Config.set "menu.tear_off", false
       main.menu_bar.open_menu 0
       s.repaint
       handle_of(view).should be_nil
+      t.visible?.should be_false
+      main.menu_bar.close
+      Crysterm::Config.set "menu.tear_off", true
+      s.repaint
+      t.visible?.should be_true
       handle_of(t).should_not be_nil
       close_of(t).should_not be_nil
-      t.visible?.should be_true
     end
   end
 

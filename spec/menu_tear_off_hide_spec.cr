@@ -199,3 +199,135 @@ describe "Menu tear-off, mid-drag" do
     end
   end
 end
+
+describe "Menu tear-off, turned off and on" do
+  it "hides torn-off menus while the option is off and shows them where they were" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, edit = build(s)
+      t = torn_view(s, main, view)
+      x0, y0 = t.aleft, t.atop
+      x, y = row_of(t, "&Reload")
+      click_at s, x, y
+      s.focused.should eq t
+
+      Crysterm::Config.set "menu.tear_off", false
+      s.repaint
+      t.visible?.should be_false
+      t.torn_suppressed?.should be_true
+      s.focused.should eq edit # the keyboard went back to the central area
+      # Not an F6 stop: the ring is the bar and the central area.
+      press s, Tput::Key::F6
+      s.focused.should eq main.menu_bar
+      press s, Tput::Key::F6
+      s.focused.should eq edit
+      # Not under the pointer: a press where it was reaches what is beneath.
+      click_at s, x, y
+      s.focused.should_not eq t
+
+      Crysterm::Config.set "menu.tear_off", true
+      s.repaint
+      t.visible?.should be_true
+      t.torn_suppressed?.should be_false
+      {t.aleft, t.atop}.should eq({x0, y0})
+      t.actions.should eq view.actions
+      Widget::Menu.torn_off_menus(s).should eq [t]
+    end
+  end
+
+  it "follows the override of the menu it was torn off, and its own" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, _ = build(s)
+      t = torn_view(s, main, view)
+      view.tear_off_enabled = false
+      t.visible?.should be_false
+      view.tear_off_enabled = nil
+      t.visible?.should be_true
+
+      t.tear_off_enabled = false
+      t.visible?.should be_false
+      t.tear_off_enabled = true
+      t.visible?.should be_true
+      # Shown with the option off by its own override, and left alone by it.
+      Crysterm::Config.set "menu.tear_off", false
+      t.visible?.should be_true
+    end
+  end
+
+  it "leaves a torn-off menu the program hid hidden when the option comes back" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, _ = build(s)
+      t = torn_view(s, main, view)
+      t.hide
+      Crysterm::Config.set "menu.tear_off", false
+      Crysterm::Config.set "menu.tear_off", true
+      t.visible?.should be_false
+    end
+  end
+end
+
+describe "Menu tear-off status tips" do
+  it "clears the tip when the pointer leaves the torn-off menu" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, _ = build(s)
+      t = torn_view(s, main, view)
+      x, y = row_of(t, "S&ync Cursor")
+      mouse_move s, x, y
+      main.status_bar.message.should eq "Keep the cursor in step"
+      mouse_move s, 2, 22
+      main.status_bar.message.should eq ""
+    end
+  end
+
+  it "clears the tip when the focus leaves it, by a click on a pane, by Tab or by Escape" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, edit = build(s)
+      other = Widget::LineEdit.new parent: s, top: 20, left: 0, width: 20, height: 1
+      t = torn_view(s, main, view)
+      focus_leaves(s, main, t) { click_at s, other.aleft, other.atop; s.focused.should eq other }
+      focus_leaves(s, main, t) { press s, Tput::Key::Tab; s.focused.should_not eq t }
+      focus_leaves(s, main, t) { press s, Tput::Key::Escape; s.focused.should eq edit }
+    end
+  end
+
+  it "closes an open submenu, leaving the focus where it went, when the focus leaves" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, edit = build(s)
+      t = torn_view(s, main, view)
+      x, y = row_of(t, "Ru&lers")
+      click_at s, x, y
+      sub = open_menus(s).find! { |m| m.parent_menu == t }
+      edit.focus
+      sub.window?.should be_nil
+      s.focused.should eq edit
+      open_menus(s).should eq [t]
+      main.status_bar.message.should eq ""
+    end
+  end
+
+  it "clears the tip when the torn-off menu is hidden or closed" do
+    with_tear_off true do
+      s = headless_screen(80, 24)
+      main, view, _ = build(s)
+      t = torn_view(s, main, view)
+      x, y = row_of(t, "S&ync Cursor")
+      mouse_move s, x, y
+      main.status_bar.message.should eq "Keep the cursor in step"
+      Crysterm::Config.set "menu.tear_off", false
+      main.status_bar.message.should eq ""
+      Crysterm::Config.set "menu.tear_off", true
+      s.repaint
+
+      mouse_move s, 2, 22
+      mouse_move s, x, y
+      main.status_bar.message.should eq "Keep the cursor in step"
+      t.close_torn_off
+      main.status_bar.message.should eq ""
+    end
+  end
+end

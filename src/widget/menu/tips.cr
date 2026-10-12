@@ -232,10 +232,14 @@ module Crysterm
         true
       end
 
-      # Listens for the menu's own hiding, which takes the highlight with it
-      # (from `#initialize`).
+      # Listens for the menu's own hiding, which takes the highlight with it,
+      # and for the focus leaving it, which the chain's root — a torn-off menu,
+      # whose chain stays up without the focus — answers by dropping its
+      # highlight when the focus left the chain (`menu/tear_off.cr`). From
+      # `#initialize`.
       private def wire_tips : Nil
         on(::Crysterm::Event::Hide) { highlight_left }
+        on(::Crysterm::Event::FocusOut) { |e| root_menu.chain_focus_left e.next_focused }
       end
 
       # Ends the tips with the menu (from `#destroy`): the popup is destroyed,

@@ -307,13 +307,15 @@ module Crysterm
 
       # Closes this menu's open child submenu (recursively), refocusing this menu
       # first so destroying the focused child doesn't trigger a focus rewind.
-      def close_submenu : Nil
+      # Without *refocus* the focus stays where it is — for a chain closed
+      # because the focus has already left it (`menu/tear_off.cr`).
+      def close_submenu(refocus : Bool = true) : Nil
         if child = @submenu_open
-          child.close_submenu
+          child.close_submenu refocus
           @submenu_open = nil
           @submenu_action = nil
           @submenu_anchor = nil
-          focus
+          focus if refocus
           window?.try &.remove child
           child.destroy
           update!
