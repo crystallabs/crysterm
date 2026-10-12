@@ -12,8 +12,8 @@ module Crysterm
     abstract class AbstractScrollArea < Box
       # The band this widget reserves inside its frame, between the padding
       # and the viewport — Qt's `QAbstractScrollArea::viewportMargins()`.
-      # Protected as in Qt: a subclass sets it for chrome of its own
-      # (`PlainTextEdit`'s line-number gutter); it is not a user-facing
+      # Protected as in Qt: chrome of the view's own goes in it (the
+      # line-number gutter, `#line_numbers=`); it is not a user-facing
       # spacing knob, that is `Style#padding`. Honored by the base content
       # pipeline (`Widget#base_render`, the shared caret and mouse geometry)
       # and by `TextEdit#paint_document`.
@@ -94,10 +94,20 @@ module Crysterm
       # ahead of the wrap, so this frame's `#ileft`/`#ihorizontal` — and with
       # them the wrap width, the painted origin and the caret and mouse
       # geometry — already include them.
+      #
+      # The gutter's width is re-derived first too, and again after the
+      # layout: a count of lines that gained (or lost) a digit with it lays
+      # out once more at the new width, so the frame shows the two
+      # agreeing. That converges — a wider gutter leaves no fewer rows.
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         sync_ruler_width if @row_ruler
+        sync_line_number_width if @line_numbers
         sync_line_wrap_column(awidth_hint || awidth) if window?
-        super
+        ret = super
+        if @line_numbers && sync_line_number_width
+          ret = super
+        end
+        ret
       end
 
       # Recomputes `@column_margins` for a box *width* cells wide: the text
@@ -187,10 +197,12 @@ module Crysterm
       end
 
       # Paints what `#viewport_margins` holds, over the base render: the
-      # subclass's own band first (`#paint_viewport_margins`, the gutter),
-      # then the rulers, then the guides — last, so a guide's line runs over
-      # a gutter's gap column rather than under its blanks.
+      # gutter (`#line_numbers=`) and the subclass's own band first
+      # (`#paint_viewport_margins`), then the rulers, then the guides — last,
+      # so a guide's line runs over a gutter's gap column rather than under
+      # its blanks.
       protected def paint_viewport_chrome : Nil
+        paint_line_numbers if @line_number_width > 0
         paint_viewport_margins
         paint_rulers if @column_ruler || @row_ruler
         paint_guides if @guides_enabled
@@ -205,4 +217,5 @@ module Crysterm
 end
 
 require "./abstract_scroll_area/rulers"
+require "./abstract_scroll_area/line_numbers"
 require "./abstract_scroll_area/guides"

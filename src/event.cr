@@ -399,11 +399,12 @@ module Crysterm
     # mode.
     event OverwriteModeChanged, overwrite : Bool
 
-    # Emitted by a `Widget::PlainTextEdit` when its line-number gutter is
-    # shown or hidden (`#line_numbers=`) — the signal a View menu's "Line
-    # numbers" check entry binds to (`Action#bind_checked`). `visible` is the
-    # new state. Qt has no counterpart: its code editor example owns the
-    # gutter outright, so there is nothing to toggle.
+    # Emitted by a `Widget::AbstractScrollArea` (a text editor or viewer)
+    # when its line-number gutter is shown or hidden (`#line_numbers=`) —
+    # the signal a View menu's "Line numbers" check entry binds to
+    # (`Action#bind_checked`). `visible` is the new state. Qt has no
+    # counterpart: its code editor example owns the gutter outright, so
+    # there is nothing to toggle.
     event LineNumbersChanged, visible : Bool
 
     # Emitted by a `Widget::AbstractScrollArea` when `#rulers?` changes — a

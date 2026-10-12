@@ -38,20 +38,13 @@ module Crysterm
       end
     end
 
-    # The plain editor's line-number gutter (`PlainTextEdit::line-number {
-    # color: … }`, see `PlainTextEdit#line_numbers=`).
-    class PlainTextEdit
-      def build_css_sub_elements : Array(String)
-        super + ["line-number"]
-      end
-    end
-
-    # The rulers and guides of every scroll area (`AbstractScrollArea::ruler
-    # { color: … }`, `::guide`; see `AbstractScrollArea#rulers=`), the text
-    # views included.
+    # The line-number gutter, rulers and guides of every scroll area
+    # (`AbstractScrollArea::line-number { color: … }`, `::ruler`, `::guide`;
+    # see `AbstractScrollArea#line_numbers=` and `#rulers=`), the text views
+    # included.
     class AbstractScrollArea
       def build_css_sub_elements : Array(String)
-        super + ["ruler", "guide"]
+        super + ["line-number", "ruler", "guide"]
       end
     end
 

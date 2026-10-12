@@ -264,9 +264,9 @@ module Crysterm
            focus reads as dimmed whenever the user works in another pane. (The
            chat `Input` is a PlainTextEdit, and keeps the tint by its own name.) */
         Input:focus, LineEdit:focus, SpinBox:focus, DoubleSpinBox:focus, ComboBox:focus { background-color: var(--surface-light); }
-        /* The plain editor's line-number gutter reads as chrome, like muted text. */
-        PlainTextEdit::line-number { color: var(--muted-light); }
-        /* So do a scroll area's rulers; its guides are quieter still, drawn among the text. */
+        /* A scroll area's line-number gutter reads as chrome, like muted text. */
+        AbstractScrollArea::line-number { color: var(--muted-light); }
+        /* So do its rulers; its guides are quieter still, drawn among the text. */
         AbstractScrollArea::ruler { color: var(--muted-light); }
         AbstractScrollArea::guide { color: var(--muted); }
 

@@ -407,6 +407,11 @@ module Crysterm
       def process_content(no_tags = false, awidth_hint : Int32? = nil)
         return false unless window?
         sync_palette
+        # The margin chrome's widths from the last layout's rows (the base
+        # `AbstractScrollArea#process_content` does the same), the gutter's
+        # checked again below against the rows this layout makes.
+        sync_ruler_width if @row_ruler
+        sync_line_number_width if @line_numbers
         # The column's insets first (`AbstractScrollArea#process_content`
         # does the same for the base pipeline): the wrap width below is the
         # width left inside them.
@@ -436,6 +441,11 @@ module Crysterm
           sync_text_width(key2)
           rebuild_layout(colwidth, key2)
         end
+        # The gutter numbers the rows (`AbstractScrollArea#line_numbers=`):
+        # a row count that gained or lost a digit lays out once more at the
+        # gutter's new width — monotonic too, a wider gutter leaving no
+        # fewer rows.
+        return process_content(no_tags, awidth_hint) || true if @line_numbers && sync_line_number_width
         true
       end
 
@@ -663,6 +673,23 @@ module Crysterm
       # adds it, `#paint_document` paints from it.
       private def row_text_x_offset(rl : Int32) : Int32
         @row_meta[rl]?.try(&.offset) || 0
+      end
+
+      # The gutter (`AbstractScrollArea#line_numbers=`) numbers every row as
+      # laid out, the base's default; the caret's row is the current one.
+      protected def current_line_number : Int32
+        cursor_row + 1
+      end
+
+      # A row the current-line tint or a full-width extra selection covers
+      # carries it across the gutter and the row ruler too, as
+      # `#paint_document` carries it across the text; a margin row holds no
+      # positions, so nothing covers it.
+      protected def chrome_row_attr(rl : Int32, attr : Int64) : Int64
+        return attr if (@extra_selections.empty? && !@highlight_current_line) || rl < 0 || rl >= @wrapped_lines.size
+        return attr if @row_meta[rl]?.try(&.margin)
+        xfull = row_extra_selections(pos_from_rowcol(rl, 0), pos_from_rowcol(rl, line_display_width(rl)), row_text_x_offset(rl))[1]
+        xfull ? xfull.apply_to_attr(attr) : attr
       end
 
       # Steps over block-margin rows (no buffer positions) in the direction

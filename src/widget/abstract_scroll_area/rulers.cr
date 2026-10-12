@@ -6,8 +6,8 @@ module Crysterm
       # `QAbstractScrollArea` has none; the margins of QScintilla and the
       # rulers Qt Designer's form editor hangs on its canvas are the nearest
       # kin, and like them the rulers are chrome of the view's own, reserved
-      # through `#viewport_margins` (the band `PlainTextEdit`'s line-number
-      # gutter sits in; with both shown the gutter is the outer one and the
+      # through `#viewport_margins` (the band the line-number gutter,
+      # `#line_numbers=`, sits in; with both shown the gutter is the outer one and the
       # row ruler stands between it and the text), so the text lays out,
       # scrolls and takes the mouse below and right of them.
       #
@@ -21,8 +21,8 @@ module Crysterm
       # of the document, so it tells where the view is where the gutter tells
       # which source line a row came from; it is as wide as the row count's
       # digits (two at least) — or, for a widget whose own margins already
-      # number the rows (`#row_ruler_numbers?` false, the
-      # editor with its gutter on), a one-column tape of ticks: `│` on a
+      # number the rows (`#row_ruler_numbers?` false, a view with its
+      # gutter on), a one-column tape of ticks: `│` on a
       # row, `┼` on every fifth, `╪` on every tenth. A guide
       # (`#guides_enabled=`) hangs from the column ruler as a `┬`, and is
       # pulled off it with the mouse.
@@ -84,7 +84,7 @@ module Crysterm
 
       # How far a ruler's or a guide's foreground fades toward the background
       # when no `::ruler`/`::guide` rule styles it: the weight of the text
-      # color in the mix (`PlainTextEdit::LINE_NUMBER_FADE`'s twin).
+      # color in the mix (`LINE_NUMBER_FADE`'s twin).
       CHROME_FADE = 0.55
 
       # Columns the row ruler takes this frame, 0 while `#row_ruler?` is
@@ -92,13 +92,8 @@ module Crysterm
       @vertical_ruler_width = 0
 
       # Whether the row ruler prints the row numbers, or is a one-column
-      # tape of ticks for a widget whose own margins already number the
-      # rows — `PlainTextEdit` says no while its line-number gutter shows.
-      # true here; a subclass that overrides it re-runs `#sync_ruler_width`
-      # when its answer changes, so the band is re-reserved at once.
-      protected def row_ruler_numbers? : Bool
-        true
-      end
+      # tape of ticks beside a gutter that already numbers the lines, is
+      # `#row_ruler_numbers?` (`line_numbers.cr`): no while the gutter shows.
 
       # The row ruler's width, in columns: the row count's digits, so a
       # thousand-row document gets a fourth column (`RULER_MIN_DIGITS` at
@@ -194,7 +189,7 @@ module Crysterm
           next if y < 0
           row = rows[y]? || break
           r = lp.base + (y - content_top) + 1
-          paint_row_ruler_cells row, ruler_x0, vw, (r <= total ? r : 0), numbers, row_ruler_attr(r - 1, attr)
+          paint_row_ruler_cells row, ruler_x0, vw, (r <= total ? r : 0), numbers, chrome_row_attr(r - 1, attr)
         end
       end
 
@@ -204,16 +199,6 @@ module Crysterm
       # text, is spelled for the chrome and its hit tests.
       private def tape_x0(x0 : Int32) : Int32
         x0 + @viewport_margins.left + @vertical_ruler_width
-      end
-
-      # The attr the row ruler's cells on document row *rl* (0-based, among
-      # the wrapped rows, so a scrolled view's first row is not 0) are
-      # written in, given the ruler's *attr*: the ruler's own by default. A
-      # subclass that tints whole rows (the current line, a full-width
-      # selection) carries the tint across the ruler here, so the gutter, the
-      # ruler and the text read as one bar.
-      protected def row_ruler_attr(rl : Int32, attr : Int64) : Int64
-        attr
       end
 
       # The column ruler's glyph at text column *col*: a `│` on a tenth
