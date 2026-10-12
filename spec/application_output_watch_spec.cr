@@ -16,7 +16,6 @@ private def exec_in_fiber(app, first)
   status
 end
 
-
 private def ended_with(status)
   select
   when s = status.receive
@@ -25,7 +24,6 @@ private def ended_with(status)
     fail "the loop did not end"
   end
 end
-
 
 describe "Application#exec watching for output failures" do
   it "watches a window that joins the running loop by #add, as one #show joins it" do
