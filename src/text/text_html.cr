@@ -172,9 +172,9 @@ module Crysterm
       io << " style=\"" << style << '"' unless style.empty?
       write_language_class(io, bf) if tag == "pre"
       io << '>'
-      # A checkbox item leads with a disabled `<input>`, the shape GitHub
-      # emits and `html_task_list?`/`checkbox_checked?` read back.
-      if lf && lf.style.checkbox?
+      # A task item leads with a disabled `<input>`, the shape GitHub emits
+      # and `html_task_list?`/`stash_task_state` read back.
+      if lf && bf.task?
         io << (bf.checked? ? %(<input type="checkbox" checked disabled>) : %(<input type="checkbox" disabled>))
       end
       # A heading inside a list item keeps its level by wrapping only the
@@ -431,7 +431,7 @@ module Crysterm
           # move to (not be duplicated onto) the continuation so it lands only on
           # the paragraph's last line. Derive the continuation before mutating
           # @block_format, then strip bottom off the block being closed.
-          cont = @block_format.with_list_format(nil).with_checked(nil).with_top_margin(nil)
+          cont = @block_format.with_list_format(nil).with_checked(nil).with_task(nil).with_top_margin(nil)
           collapse = @collapse
           @block_format = @block_format.with_bottom_margin(nil)
           end_block
@@ -483,10 +483,10 @@ module Crysterm
           # its text, or by a wrapping `<p>` (loose lists) — so no eager
           # `start_block` here: it would emit an empty member block.
           @pending_item = @list_stack.last?
-          # A checkbox item (`<input type=checkbox>`) stashes its checked
-          # state for `start_block`; the input element itself is dropped
-          # (void, no text).
-          @pending_checked = pending_item_checked?(node)
+          # A task item (`<input type=checkbox>`) stashes its state for
+          # `start_block`; the input element itself is dropped (void, no
+          # text).
+          stash_task_state(node)
           # The li's own styles (margins, alignment) ride along, as does its
           # whitespace-collapse flag (a pre-wrap li opens its block uncollapsed).
           ibf, icollapse = block_format_from(node)
@@ -505,6 +505,7 @@ module Crysterm
           @pending_item_format = nil
           @pending_item_collapse = nil
           @pending_checked = false
+          @pending_task = nil
         when "table"
           end_block(discard_virgin: true)
           # A table that is a list item's first content: materialize the
@@ -620,12 +621,18 @@ module Crysterm
         end
       end
 
-      # Whether the pending `<li>` is a *checked* item — only when its list is
-      # a checkbox list (a stray `<input>` in a plain list is ignored).
-      private def pending_item_checked?(li : HTML5::Node) : Bool
-        lf = @list_stack.last?
-        return false unless lf && lf.style.checkbox?
-        checkbox_checked?(li)
+      # Stashes the pending `<li>`'s task state for `start_block`: a checkbox
+      # `<input>` makes it a task item, checked as the input is — of an `<ol>`
+      # too, as GFM boxes `1. [ ] a` — and an item without one in a checkbox
+      # list a plain one.
+      private def stash_task_state(li : HTML5::Node) : Nil
+        lf = @list_stack.last? || return
+        if inp = checkbox_input(li)
+          @pending_checked = !attr_val(inp, "checked").nil?
+          @pending_task = true unless lf.style.checkbox?
+        elsif lf.style.checkbox?
+          @pending_task = false
+        end
       end
 
       # Whether *list* (`<ul>`) is a GFM task list: some `<li>` holds an
@@ -645,11 +652,6 @@ module Crysterm
           end
         end
         nil
-      end
-
-      # Whether *li*'s checkbox input carries the boolean `checked` attribute.
-      private def checkbox_checked?(li : HTML5::Node) : Bool
-        (inp = checkbox_input(li)) ? !attr_val(inp, "checked").nil? : false
       end
 
       private def collect_trs(node : HTML5::Node, acc : Array(HTML5::Node)) : Nil
@@ -724,6 +726,7 @@ module Crysterm
           if (lf = @block_format.list_format) && @pending_item.nil?
             @pending_item = lf
             @pending_checked = @block_format.checked?
+            @pending_task = @block_format.@task
             @pending_item_format ||= @block_format.with_list_format(nil).with_top_margin(nil)
             @pending_item_collapse ||= (@collapse ? nil : false)
           end

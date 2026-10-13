@@ -46,6 +46,10 @@ module Crysterm
       # block's `TextBlockFormat#checked` flag; the list format itself is
       # shared).
       @pending_checked = false
+      # Its task-box override (`TextBlockFormat#task`): `true` for a task
+      # item of a list that isn't a `Checkbox` one, `false` for a plain item
+      # of one, `nil` to follow the list.
+      @pending_task : Bool? = nil
 
       # Pushes an inline-format patch for the duration of the block, clearing
       # the memoized current format on both edges.
@@ -97,8 +101,10 @@ module Crysterm
           bf = bf.merge(TextBlockFormat.new(list_format: li))
           # Checked task item: flag the block (unchecked stays the default).
           bf = bf.merge(TextBlockFormat.new(checked: true)) if @pending_checked
+          bf = bf.with_task(@pending_task) unless @pending_task.nil?
           @pending_item = nil
           @pending_checked = false
+          @pending_task = nil
           # Hook: html adopts the `<li>`'s whitespace-collapse flag (default is
           # identity).
           collapse = pending_item_collapse(collapse)

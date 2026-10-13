@@ -172,4 +172,26 @@ describe "Windows sharing a terminal" do
     w1.try &.destroy
     w2.try &.destroy
   end
+
+  it "hands the terminal to the window shown next when the shown one disconnects without an Application" do
+    sink = IO::Memory.new
+    dev = Crysterm::Screen.new(input: IO::Memory.new, output: sink, error: IO::Memory.new,
+      width: 40, height: 10)
+    w1 = win_on dev
+    w2 = win_on dev
+    w3 = win_on dev
+    w1.title = "First"
+    w2.title = "Second"
+    dev.tput.flush
+    sink.clear
+    w3.disconnect
+    dev.tput.flush
+    # w2, the last created of those left, is now the one shown.
+    sink.to_s.should contain "Second"
+    sink.to_s.should_not contain "First"
+  ensure
+    w1.try &.destroy
+    w2.try &.destroy
+    w3.try &.destroy
+  end
 end

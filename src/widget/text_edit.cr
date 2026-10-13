@@ -537,7 +537,7 @@ module Crysterm
           if lf = bf.list_format
             n = list_items[lf.object_id]? || 0
             list_items[lf.object_id] = n + 1
-            marker = lf.marker(n, tier, bf.checked?)
+            marker = lf.marker(n, tier, bf.checked?, bf.task?)
           elsif kind = bf.alert_kind
             marker = alert_chip(kind, tier)
           end

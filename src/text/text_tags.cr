@@ -280,8 +280,10 @@ module Crysterm
         props << "list-#{lf.style.to_s.downcase}"
         props << "li-#{lf.indent}" if lf.indent != 1
         props << "ls-#{lf.start}" if lf.start != 1
-        # Per-block checked state of a checkbox item ([x] vs [ ]).
-        props << "checked" if lf.style.checkbox? && bf.checked?
+        # Per-block task state: a task item of another list (`task`), a
+        # plain item of a checkbox one (`no-task`), and [x] vs [ ].
+        props << (bf.task? ? "task" : "no-task") if bf.task? != lf.style.checkbox?
+        props << "checked" if bf.task? && bf.checked?
       end
       if tf = bf.table_format
         props << "tbl-#{tf.columns}"
@@ -454,7 +456,7 @@ module Crysterm
       private def apply_block_props(spec : String) : Nil
         heading = indent = mt = mb = bg = quote = nil
         align = nil
-        nobreak = hr = checked = nil
+        nobreak = hr = checked = task = nil
         code_language = nil
         list_style = nil
         list_indent = 1
@@ -484,6 +486,8 @@ module Crysterm
           when /\Ali-(\d+)\z/     then list_indent = $1.to_i? || list_indent
           when /\Als-(\d+)\z/     then list_start = TextListFormat.sanitize_start($1.to_i? || list_start)
           when "checked"          then checked = true
+          when "task"             then task = true
+          when "no-task"          then task = false
           when /\Atbl-(\d+)\z/    then table_columns = $1.to_i?
           when /\Atal-([lcr]+)\z/ then table_aligns = $1.chars.map { |c| table_align_flag(c) }
           end
@@ -494,7 +498,7 @@ module Crysterm
         @block_format = @block_format.merge(TextBlockFormat.new(
           alignment: align, indent: indent, top_margin: mt, bottom_margin: mb,
           bg: bg, heading_level: heading, non_breakable: nobreak,
-          quote_level: quote, horizontal_rule: hr, checked: checked,
+          quote_level: quote, horizontal_rule: hr, checked: checked, task: task,
           list_format: lf, table_format: tf, code_language: code_language))
       end
 

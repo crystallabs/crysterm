@@ -220,7 +220,7 @@ module Crysterm
     # Hands a terminal shared with live sibling windows over as this window
     # departs it (`#disconnect`, `#screen=`), as `Window#hide` does. When the
     # terminal showed this window (*shown*), the visible sibling on top
-    # (`Application` routing order first, then the global registry) is
+    # (`Application` routing order first, then the latest created) is
     # raised and repainted whole, or, with none visible, this window leaves
     # the alternate screen it held; otherwise the surviving sibling's cursor
     # (shape/blink/color) and title are re-applied. Best-effort: the device
@@ -248,13 +248,15 @@ module Crysterm
     end
 
     # The live sibling on this window's device for which the block is true:
-    # the last in the `Application`'s routing order, else the first in the
-    # global registry.
+    # the last in the `Application`'s routing order, else the last created
+    # (the one `#device_top_window` takes for windows without an
+    # `Application`).
     private def surviving_sibling(& : Window -> Bool) : Window?
       if app = application
         app.windows.reverse_each { |w| return w if live_sibling_on_device?(w) && yield w }
       end
-      Window.instances.find { |w| live_sibling_on_device?(w) && yield w }
+      Window.instances.reverse_each { |w| return w if live_sibling_on_device?(w) && yield w }
+      nil
     end
 
     # Best-effort restore of the terminal to its normal state, split along the

@@ -644,6 +644,7 @@ module Crysterm
           # it doesn't leak onto the next unrelated block.
           @pending_item = nil
           @pending_checked = false
+          @pending_task = nil
           @strip_task = 0
         when .code_block?
           import_code_block(node)
@@ -937,17 +938,22 @@ module Crysterm
       end
 
       # Marks the next block as this item's first block; a GFM task item
-      # additionally becomes a `Checkbox`-list member (the enclosing list is
-      # a checkbox list, per `task_list?`) with its checked state stashed for
-      # `start_block`, and the literal `[x] ` prefix scheduled for stripping.
+      # additionally gets its checked state stashed for `start_block` and the
+      # literal `[x] ` prefix scheduled for stripping. A bullet list holding
+      # one is a `Checkbox` list (`task_list?`), whose plain items are marked
+      # `task: false`; an ordered list keeps its numbering and marks its task
+      # items `task: true`, as GFM boxes `1. [ ] a` too.
       private def set_item_marker(item : Markd::Node) : Nil
         lf = @list_stack.last?
         @pending_item = lf
-        return unless lf && lf.style.checkbox?
-        case task_marker(item)
-        when :done then @pending_checked = true; @strip_task = 4
-        when :todo then @pending_checked = false; @strip_task = 4
-        else            @pending_checked = false # a plain item in a task list (rare)
+        @pending_checked = false
+        return unless lf && (lf.style.checkbox? || lf.style.numbered?)
+        if mark = task_marker(item)
+          @pending_checked = mark == :done
+          @strip_task = 4
+          @pending_task = true if lf.style.numbered?
+        elsif lf.style.checkbox?
+          @pending_task = false
         end
       end
 
@@ -963,8 +969,16 @@ module Crysterm
       end
 
       # `:done` / `:todo` if *item* begins with a `[x]`/`[ ]` task marker, which
-      # markd tokenizes as plain text.
+      # markd tokenizes as plain text. The marker must open the item's first
+      # paragraph (GFM's task list item), as cmark-gfm, which github.com
+      # renders with, and md4c read it: a paragraph that a setext underline
+      # makes a heading keeps it (`- [ ] a` over `  ---` is a task whose
+      # text is a level-2 heading), while an ATX heading's text does not
+      # (`- ## [ ] a` is a heading "[ ] a" in a plain item), nor does a
+      # nested list's or a code block's (`- - [ ] a` is a task in the inner
+      # item only).
       private def task_marker(item : Markd::Node) : Symbol?
+        return unless (first = item.first_child?) && paragraph_text?(first)
         # Cheap source-position check first: it rejects `\[x\]` without touching
         # the item's content at all.
         return if md_escaped_marker?(item)
@@ -975,6 +989,15 @@ module Crysterm
         if md = leading_text(item, 4).match(/\A\[([ xX])\]\s/)
           md[1].downcase == "x" ? :done : :todo
         end
+      end
+
+      # Whether *node* is a paragraph, or a setext heading (a paragraph its
+      # underline made one): an ATX heading starts at its `#` in the source.
+      private def paragraph_text?(node : Markd::Node) : Bool
+        return true if node.type.paragraph?
+        return false unless node.type.heading?
+        line, col = node.source_pos[0]
+        @source[line - 1]?.try(&.[col - 1]?) != '#'
       end
 
       # Whether the item's leading `[` is backslash-escaped in the source.
@@ -1352,12 +1375,18 @@ module Crysterm
 
     # Blocks → markdown. Works purely off block/char structure: heading
     # levels, `code`-flagged runs on `code_language` blocks (fences), the
-    # quote-level/list/rule block properties, checkbox items (`[x]`/`[ ]`
-    # from the list style + block `checked?`), and inline flags/anchors.
+    # quote-level/list/rule block properties, task items (`[x]`/`[ ]` from
+    # the block's `task?` and `checked?`), and inline flags/anchors.
     private class Exporter
       # Items emitted so far per list instance (identity-keyed) — the
       # numbering source for ordered markers.
       @list_items = {} of UInt64 => Int32
+      # The list of the item last emitted per list depth, `nil` for a parent
+      # item `#write_list_marker` supplied (one with no block of its own).
+      @list_at = {} of Int32 => TextListFormat?
+      # List depth the previous block leaves open: its list's depth, a
+      # continuation's item depth, or 0.
+      @open_depth = 0
       # Content column of the last item emitted per list depth — the indent
       # a nested list must reach to stay nested (CommonMark indents to the
       # parent item's content column, not a fixed 2).
@@ -1431,82 +1460,13 @@ module Crysterm
         false
       end
 
-      # ameba:disable Metrics/CyclomaticComplexity
       def export(blocks : Array(TextBlock)) : String
         String.build do |io|
           i = 0
           while i < blocks.size
-            if i > 0
-              pf = blocks[i - 1].block_format
-              cf = blocks[i].block_format
-              blank = separator_blank?(blocks, i, pf, cf)
-              # A quote-level decrease into a plain body paragraph leaves the
-              # deeper quote's paragraph open, so a bare newline would lazily
-              # continue it and merge the shallower block's text back in
-              # (CommonMark lazy continuation). Break the run only when the
-              # previous block leaves a continuable paragraph (plain body, a
-              # list item, or a list-continuation paragraph): a ">"-only line
-              # at the lower level when the target still sits in a quote (it
-              # re-imports with no extra block), else a blank line at level 0.
-              if !blank && pf.quote_level > cf.quote_level && plain_body?(blocks[i]) &&
-                 (plain_body?(blocks[i - 1]) || pf.list_format ||
-                 (pf.indent > 0 && pf.list_format.nil?))
-                if cf.quote_level > 0
-                  io << '\n' << ("> " * cf.quote_level).rstrip
-                else
-                  blank = true
-                end
-              end
-              # Adjacent plain body blocks with no separating margin are a
-              # hard break — a bare newline would soft-wrap them back into
-              # one paragraph on re-import.
-              io << '\\' if !blank && pf.quote_level == cf.quote_level &&
-                            plain_body?(blocks[i - 1]) && plain_body?(blocks[i]) &&
-                            !html_blockish?(blocks[i - 1]) && !html_blockish?(blocks[i])
-              io << '\n'
-              if blank && cf.quote_level > 0 && pf.quote_level == cf.quote_level &&
-                 cf.indent > 0 && cf.list_format.nil? && cf.top_margin == 0 && pf.bottom_margin == 0
-                # A list item's later block inside a quote (`> - a\n>\n>   ## H`):
-                # the blank line keeps the quote's `>`, or it would end the
-                # quote and the block would land in a second one.
-                io << ("> " * cf.quote_level).rstrip << '\n'
-              elsif blank
-                io << '\n'
-              end
-            end
+            write_boundary(io, blocks, i) if i > 0
             if opens_fence?(blocks, i)
-              first = i
-              fbf = blocks[first].block_format
-              ql = fbf.quote_level
-              prefix = "> " * ql
-              # A fence that imported as list content must re-export inside its
-              # item, else re-import detaches the code block from the list (and,
-              # if the fence is the item's first content, drops the bullet and
-              # shifts ordered numbering). Indent every fence/code line to the
-              # item's content column: the item marker (when the fence is the
-              # item's first block) or the continuation column (@item_cols keyed
-              # by bf.indent // 2, mirroring write_block). Top-level and quoted
-              # fences keep pad 0 and are unchanged.
-              io << prefix
-              pad =
-                if lf = fbf.list_format
-                  write_list_marker(io, lf, fbf.checked?)
-                elsif fbf.indent > 0
-                  col = @item_cols[fbf.indent // 2]? || fbf.indent
-                  io << " " * col
-                  col
-                else
-                  0
-                end
-              ticks = fence_ticks(blocks, first, ql)
-              io << ticks << (fbf.code_language || "") << '\n'
-              # The fence run ends at a margin or quote-level boundary —
-              # two fences separated by a blank line stay two fences.
-              while fence_member?(blocks, i, first, ql)
-                io << prefix << " " * pad << blocks[i].text << '\n'
-                i += 1
-              end
-              io << prefix << " " * pad << ticks
+              i = write_fence(io, blocks, i)
             elsif tf = blocks[i].block_format.table_format
               run = [] of TextBlock
               while i < blocks.size && blocks[i].block_format.table_format.same?(tf)
@@ -1520,6 +1480,86 @@ module Crysterm
             end
           end
         end
+      end
+
+      # The line break before `blocks[i]`, with the blank line (or `>`-only
+      # line) or hard-break backslash the boundary needs.
+      private def write_boundary(io : IO, blocks : Array(TextBlock), i : Int32) : Nil
+        pf = blocks[i - 1].block_format
+        cf = blocks[i].block_format
+        @open_depth = pf.list_format.try(&.indent) || pf.indent // 2
+        blank = separator_blank?(blocks, i, pf, cf)
+        # A quote-level decrease into a plain body paragraph leaves the
+        # deeper quote's paragraph open, so a bare newline would lazily
+        # continue it and merge the shallower block's text back in
+        # (CommonMark lazy continuation). Break the run only when the
+        # previous block leaves a continuable paragraph (plain body, a
+        # list item, or a list-continuation paragraph): a ">"-only line
+        # at the lower level when the target still sits in a quote (it
+        # re-imports with no extra block), else a blank line at level 0.
+        if !blank && pf.quote_level > cf.quote_level && plain_body?(blocks[i]) &&
+           (plain_body?(blocks[i - 1]) || pf.list_format ||
+           (pf.indent > 0 && pf.list_format.nil?))
+          if cf.quote_level > 0
+            io << '\n' << ("> " * cf.quote_level).rstrip
+          else
+            blank = true
+          end
+        end
+        # Adjacent plain body blocks with no separating margin are a
+        # hard break — a bare newline would soft-wrap them back into
+        # one paragraph on re-import.
+        io << '\\' if !blank && pf.quote_level == cf.quote_level &&
+                      plain_body?(blocks[i - 1]) && plain_body?(blocks[i]) &&
+                      !html_blockish?(blocks[i - 1]) && !html_blockish?(blocks[i])
+        io << '\n'
+        if blank && cf.quote_level > 0 && pf.quote_level == cf.quote_level &&
+           cf.indent > 0 && cf.list_format.nil? && cf.top_margin == 0 && pf.bottom_margin == 0
+          # A list item's later block inside a quote (`> - a\n>\n>   ## H`):
+          # the blank line keeps the quote's `>`, or it would end the
+          # quote and the block would land in a second one.
+          io << ("> " * cf.quote_level).rstrip << '\n'
+        elsif blank
+          io << '\n'
+        end
+      end
+
+      # The fenced code block whose lines run from `blocks[i]`, between its
+      # fences; returns the index after the run.
+      private def write_fence(io : IO, blocks : Array(TextBlock), i : Int32) : Int32
+        first = i
+        fbf = blocks[first].block_format
+        ql = fbf.quote_level
+        prefix = "> " * ql
+        # A fence that imported as list content must re-export inside its
+        # item, else re-import detaches the code block from the list (and,
+        # if the fence is the item's first content, drops the bullet and
+        # shifts ordered numbering). Indent every fence/code line to the
+        # item's content column: the item marker (when the fence is the
+        # item's first block) or the continuation column (@item_cols keyed
+        # by bf.indent // 2, mirroring write_block). Top-level and quoted
+        # fences keep pad 0 and are unchanged.
+        io << prefix
+        pad =
+          if lf = fbf.list_format
+            write_list_marker(io, lf, fbf)
+          elsif fbf.indent > 0
+            col = continuation_col(fbf)
+            io << " " * col
+            col
+          else
+            0
+          end
+        ticks = fence_ticks(blocks, first, ql)
+        io << ticks << (fbf.code_language || "") << '\n'
+        # The fence run ends at a margin or quote-level boundary —
+        # two fences separated by a blank line stay two fences.
+        while fence_member?(blocks, i, first, ql)
+          io << prefix << " " * pad << blocks[i].text << '\n'
+          i += 1
+        end
+        io << prefix << " " * pad << ticks
+        i
       end
 
       # A pre-rendered table run back to GFM: data rows (header first) with
@@ -1625,31 +1665,61 @@ module Crysterm
         !b.fragments.empty? && !rule?(b.text)
       end
 
-      # Emits a list item's marker (bullet, ordered number, or checkbox) for
-      # *lf* to *io* — indenting to the parent item's content column, advancing
-      # @list_items for ordered numbering, and recording the item's own content
-      # column in @item_cols. Returns that content column, where the item's
-      # inline text (or a fenced code block that opens as the item's first
-      # content) must align. Shared by write_block's list branch and the
-      # exporter's fence branch so both position items identically.
-      private def write_list_marker(io : IO, lf : TextListFormat, checked : Bool) : Int32
-        # A nested item indents to the parent item's content column
-        # (falling back to 2/level when the parent never appeared).
-        pad = lf.indent > 1 ? (@item_cols[lf.indent - 1]? || (lf.indent - 1) * 2) : 0
+      # Emits the marker of the item of *lf* that *bf* opens (bullet, ordered
+      # number, and `[x] `/`[ ] ` for a task item) — indenting to the parent
+      # item's content column, advancing @list_items for ordered numbering,
+      # and recording the item's own content column in @item_cols. Returns
+      # that content column, where the item's inline text (or a fenced code
+      # block that opens as the item's first content) must align. Shared by
+      # the item, rule, image and fence writers so all position items
+      # identically.
+      private def write_list_marker(io : IO, lf : TextListFormat, bf : TextBlockFormat, inline : Bool = true) : Int32
+        level = lf.indent
+        # An item that opens with a nested list (`- - a`) has no block of its
+        # own, so the nested item's block is the first one under it: write
+        # the missing parent markers, or the nested item would come back one
+        # level up. That is when the previous block leaves the parent depth
+        # closed, or leaves this depth open in another list under parents
+        # written that way — a new parent item's (`- - a` over `- - b`).
+        first = @open_depth + 1
+        if level > 1 && @open_depth >= level && (prev = @list_at[level]?) && !prev.same?(lf)
+          first = level
+          while first > 1 && @list_at.has_key?(first - 1) && @list_at[first - 1].nil?
+            first -= 1
+          end
+        end
+        # A nested item indents to the parent item's content column (falling
+        # back to 2/level when the parent never appeared).
+        outer = Math.min(first, level)
+        pad = outer > 1 ? (@item_cols[outer - 1]? || (outer - 1) * 2) : 0
         io << " " * pad
-        marker =
-          if lf.style.checkbox?
-            checked ? "- [x] " : "- [ ] "
+        (first...level).each do |k|
+          @list_at[k] = nil
+          @item_cols[k] = pad += 2
+          # Inline (`- - a`) unless the item is a task one, which cmark-gfm
+          # boxes only on a line of its own, or empty, where three bare
+          # markers would read as a thematic break.
+          if inline && !bf.task?
+            io << "- "
           else
+            io << "-\n" << "> " * bf.quote_level << " " * pad
+          end
+        end
+        @list_at[level] = lf
+        marker =
+          if lf.style.numbered?
             n = @list_items[lf.object_id]? || 0
             @list_items[lf.object_id] = n + 1
-            lf.style.numbered? ? "#{lf.start + n}. " : "- "
+            "#{lf.start + n}. "
+          else
+            "- "
           end
         io << marker
-        # For a checkbox item the content column is right after "- " —
-        # the "[x] " marker is item *content* to CommonMark.
-        col = pad + (lf.style.checkbox? ? 2 : marker.size)
-        @item_cols[lf.indent] = col
+        col = pad + marker.size
+        # The "[x] " marker is item *content* to CommonMark: the content
+        # column is right before it.
+        io << (bf.checked? ? "[x] " : "[ ] ") if bf.task?
+        @item_cols[level] = col
         col
       end
 
@@ -1666,7 +1736,6 @@ module Crysterm
         pf.alert_kind != cf.alert_kind || pf.quote_level != cf.quote_level
       end
 
-      # ameba:disable Metrics/CyclomaticComplexity
       private def write_block(io : IO, b : TextBlock, open_alert : Bool = false) : Nil
         bf = b.block_format
         if bf.quote_level > 0
@@ -1691,82 +1760,90 @@ module Crysterm
         end
 
         if bf.horizontal_rule?
-          # A rule inside a list item (`- ***`, or `***` at a continuation's
-          # column) stays in the item. It is written `***`: `- ---` is one
-          # thematic break to CommonMark (the marker's `-` joins the rule),
-          # and an indented `---` under the item's text would underline it
-          # into a setext heading.
-          if lf = bf.list_format
-            write_list_marker(io, lf, bf.checked?)
-            io << "***"
-          elsif bf.indent > 0
-            io << " " * (@item_cols[bf.indent // 2]? || bf.indent) << "***"
-          else
-            io << "---"
-          end
-          return
-        end
-
-        # A block image goes back as the image it was read from — inside the
-        # link its text carries, when it does (`[![alt](src)](href)`); its
-        # text is only the stand-in. In a list it sits behind the item's
-        # marker or at a continuation's column, like a paragraph there.
-        if img = bf.image
-          if lf = bf.list_format
-            write_list_marker(io, lf, bf.checked?)
-          elsif bf.indent > 0
-            io << " " * (@item_cols[bf.indent // 2]? || bf.indent)
-          end
-          href = b.fragments.first?.try(&.format.anchor_href)
-          io << '[' if href
-          write_image(io, img)
-          io << "](" << encode_url(href) << ')' if href
-          return
-        end
-
-        if lf = bf.list_format
-          write_list_marker(io, lf, bf.checked?)
-          # A heading inside a list item ("- # Title", which the importer
-          # merges into one block) re-emits its hashes as item *content* —
-          # CommonMark allows a heading as list-item content, and dropping
-          # them would silently downgrade the construct on every roundtrip.
-          # Skipped for checkbox items: GFM does not parse "- [x] # h" as a
-          # task-item heading (and the importer can't produce that combination
-          # from markdown anyway).
-          if !lf.style.checkbox? && (lvl = bf.heading_level) > 0
-            io << "#" * lvl << ' '
-          end
-          write_inline(io, b.fragments, lead: true)
-          return
-        end
-
-        if (lvl = bf.heading_level) > 0
+          write_rule(io, bf)
+        elsif img = bf.image
+          write_block_image(io, b, img)
+        elsif lf = bf.list_format
+          write_item(io, b, lf)
+        elsif (lvl = bf.heading_level) > 0
           # A heading that is a later block of a list item (`- a\n\n  ## H`)
           # imports with the continuation indent and no list; it goes back at
           # the item's content column, as a continuation paragraph does, or
           # it would leave the list.
-          io << " " * (@item_cols[bf.indent // 2]? || bf.indent) if bf.indent > 0
+          io << " " * continuation_col(bf) if bf.indent > 0
           io << "#" * lvl << ' '
           write_inline(io, b.fragments)
-          return
-        end
-
-        text = b.text
-        if rule?(text)
+        elsif rule?(b.text)
           io << "---"
-          return
+        else
+          # A list-item continuation paragraph imports with `indent > 0` and
+          # no list structure; re-emit indentation to the enclosing item's
+          # content column. The importer's `indent` is a 2/level
+          # approximation, but the marker width — e.g. 3 for "1. " — is what
+          # CommonMark needs to keep the paragraph inside the item rather
+          # than merging it.
+          io << " " * continuation_col(bf) if bf.indent > 0
+          write_inline(io, b.fragments, lead: true)
         end
+      end
 
-        # A list-item continuation paragraph imports with `indent > 0` and no
-        # list structure; re-emit indentation to the enclosing item's content
-        # column. The importer's `indent` is a 2/level approximation, but the
-        # marker width — e.g. 3 for "1. " — is what CommonMark needs to keep the
-        # paragraph inside the item rather than merging it.
-        if bf.indent > 0
-          pad = @item_cols[bf.indent // 2]? || bf.indent
-          io << " " * pad
+      # The column a list item's later block (`indent > 0`, no list of its
+      # own) goes back at: its item's content column.
+      private def continuation_col(bf : TextBlockFormat) : Int32
+        @item_cols[bf.indent // 2]? || bf.indent
+      end
+
+      # A rule block. A rule inside a list item (`- ***`, or `***` at a
+      # continuation's column) stays in the item. It is written `***`: `- ---`
+      # is one thematic break to CommonMark (the marker's `-` joins the rule),
+      # and an indented `---` under the item's text would underline it into a
+      # setext heading.
+      private def write_rule(io : IO, bf : TextBlockFormat) : Nil
+        if lf = bf.list_format
+          write_list_marker(io, lf, bf)
+          io << "***"
+        elsif bf.indent > 0
+          io << " " * continuation_col(bf) << "***"
+        else
+          io << "---"
         end
+      end
+
+      # A block image goes back as the image it was read from — inside the
+      # link its text carries, when it does (`[![alt](src)](href)`); its text
+      # is only the stand-in. In a list it sits behind the item's marker or at
+      # a continuation's column, like a paragraph there.
+      private def write_block_image(io : IO, b : TextBlock, img : TextImageFormat) : Nil
+        bf = b.block_format
+        if lf = bf.list_format
+          write_list_marker(io, lf, bf)
+        elsif bf.indent > 0
+          io << " " * continuation_col(bf)
+        end
+        href = b.fragments.first?.try(&.format.anchor_href)
+        io << '[' if href
+        write_image(io, img)
+        io << "](" << encode_url(href) << ')' if href
+      end
+
+      # A list item's first block: its marker, then its text. A heading
+      # inside a list item ("- # Title", which the importer merges into one
+      # block) re-emits its hashes as item *content* — CommonMark allows a
+      # heading as list-item content, and dropping them would silently
+      # downgrade the construct on every roundtrip. A task item's heading is
+      # a setext one instead, its underline at the item's content column
+      # (`- [ ] Title` over `  ---`): GFM reads "- [ ] ## h" as a task with
+      # the text "## h", and "- ## [ ] h" as a heading "[ ] h" with no box.
+      # Setext has levels 1 and 2 only, so a deeper one goes out at level 2.
+      private def write_item(io : IO, b : TextBlock, lf : TextListFormat) : Nil
+        bf = b.block_format
+        col = write_list_marker(io, lf, bf, inline: !b.text.empty?)
+        lvl = bf.heading_level
+        io << "#" * lvl << ' ' if lvl > 0 && !bf.task?
         write_inline(io, b.fragments, lead: true)
+        if lvl > 0 && bf.task? && !b.text.blank?
+          io << '\n' << "> " * bf.quote_level << " " * col << (lvl == 1 ? "===" : "---")
+        end
       end
 
       # `![alt](src "title")`: the alt text escaped as inline text is, the
