@@ -79,8 +79,18 @@ module Crysterm
     end
 
     # Records that the whole surface may have been written over (cleared,
-    # rows erased or scrolled).
+    # rows erased or scrolled) — for every window on the terminal: a sibling
+    # sharing it lost its pictures too (kitty frees them on `ED 2`), and must
+    # send them whole when it is shown again.
     protected def note_overdraw_all : Nil
+      @_overdraw_all = true
+      Window.instances.each do |w|
+        w.note_wiped if !w.same?(self) && w.screen.same?(@screen)
+      end
+    end
+
+    # Records that this window's surface was wiped by a sibling's write.
+    protected def note_wiped : Nil
       @_overdraw_all = true
     end
 

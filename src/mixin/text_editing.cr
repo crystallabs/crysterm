@@ -79,8 +79,9 @@ module Crysterm
       # used to skip building the events' payload when nobody would read it.
       #
       # The payload is `#buf_text` — for a document-backed buffer that is a full
-      # `String` rebuild of the document on every content-changing keystroke, so
-      # the guard is worth having. Call sites must keep `update!` and
+      # `String` rebuild of the document, so the guard is worth having, and
+      # `#emit_text_changed` defers even that to a handler's first read of
+      # it. Call sites must keep `update!` and
       # `_update_cursor` *outside* the guard: rendering does not depend on
       # anyone observing the event.
       #
@@ -92,6 +93,18 @@ module Crysterm
       private def text_change_observed? : Bool
         has_handlers?(Crysterm::Event::TextChanged) ||
           has_handlers?(Crysterm::Event::TextEdited)
+      end
+
+      # Emits `Event::TextChanged` and `Event::TextEdited` for a user edit,
+      # with the text built once for both and only when a handler reads it
+      # (`Event::TextValue`), so an edit nobody reads the text of costs
+      # nothing in the buffer's size.
+      private def emit_text_changed : Nil
+        return unless text_change_observed?
+        text = nil
+        value = -> { (t = text) ? t : (text = buf_text) }
+        emit Crysterm::Event::TextChanged, value
+        emit Crysterm::Event::TextEdited, value
       end
 
       # Last-notified caret/selection state, backing `#emit_caret_events`.
@@ -137,13 +150,9 @@ module Crysterm
         return if !had_selection && buf_size == before_size
         ensure_cursor_visible
         ensure_cursor_visible_x
-        if text_change_observed?
-          after = buf_text
-          emit Crysterm::Event::TextChanged, after
-          # Paste and `#insert_text` count as user edits (Qt's `textEdited`
-          # scope), unlike `value=`.
-          emit Crysterm::Event::TextEdited, after
-        end
+        # Paste and `#insert_text` count as user edits (Qt's `textEdited`
+        # scope), unlike `value=`.
+        emit_text_changed
         emit_caret_events
         update!
         _update_cursor
@@ -262,11 +271,7 @@ module Crysterm
         if changed
           ensure_cursor_visible
           ensure_cursor_visible_x
-          if text_change_observed?
-            after = buf_text
-            emit Crysterm::Event::TextChanged, after
-            emit Crysterm::Event::TextEdited, after
-          end
+          emit_text_changed
           update!
         end
         emit_caret_events
@@ -293,11 +298,7 @@ module Crysterm
         @goal_col = nil
         ensure_cursor_visible
         ensure_cursor_visible_x
-        if text_change_observed?
-          after = buf_text
-          emit Crysterm::Event::TextChanged, after
-          emit Crysterm::Event::TextEdited, after
-        end
+        emit_text_changed
         emit_caret_events
         update!
         _update_cursor

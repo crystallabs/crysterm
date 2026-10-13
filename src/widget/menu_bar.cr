@@ -155,7 +155,7 @@ module Crysterm
             w.focus_region self
           end
           w.update
-        elsif (c = alt_char(e)) && (i = @mnemonics.index(c))
+        elsif (c = alt_char(e)) && (i = mnemonic_menu(c))
           e.accept
           # Entering from the central area records the return slot; with the
           # bar already active (or one of its menus open — an open pop-up is a
@@ -165,6 +165,13 @@ module Crysterm
           open_selected i
           w.update
         end
+      end
+
+      # The menu whose title mnemonic is *c*: with several titles sharing it,
+      # the next of them after the open menu, so pressing Alt+letter again
+      # moves on (Qt cycles ambiguous shortcuts the same way).
+      private def mnemonic_menu(c : Char) : Int32?
+        Mnemonic.next_match(@mnemonics.size, @open_index) { |i| @mnemonics[i] == c }.try &.[0]
       end
 
       # The letter of an Alt+letter chord, or `nil`: legacy input encodes it as
@@ -346,7 +353,7 @@ module Crysterm
         # With the bar active and no menu open, a bare mnemonic letter opens
         # its menu — how Windows/Qt menu bars behave after F10/Alt activation.
         # (Space never reaches here — the branch above owns it.)
-        if @open_index.nil? && (c = e.char) && c != '\0' && (i = @mnemonics.index(c.downcase))
+        if @open_index.nil? && (c = e.char) && c != '\0' && (i = mnemonic_menu(c.downcase))
           open_selected i
           e.accept
           return

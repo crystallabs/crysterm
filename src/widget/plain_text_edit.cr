@@ -193,9 +193,9 @@ module Crysterm
         @ev_contents_change = document.on(Crysterm::Event::ContentsChanged) do |e|
           # Mirror an edit made by another actor on a shared document onto this
           # view's caret (own edits are skipped — the mixin moves the caret
-          # itself). An edit inside one block patches that line's rows right
-          # here; anything else leaves the display to the next frame's full
-          # push (`#sync_display`).
+          # itself). An edit patches the lines it touched right here;
+          # anything else leaves the display to the next frame's full push
+          # (`#sync_display`).
           follow_document_change(e.kind, e.position, e.chars_removed, e.chars_added)
           patch_display e.kind, e.position, e.chars_removed, e.chars_added
           sync_line_number_width if @line_numbers
@@ -203,11 +203,12 @@ module Crysterm
         end
       end
 
-      # Patches the displayed lines for an edit confined to one block, via
-      # `Widget#replace_content_line`. Needs a display that is current, a
-      # document that was and stays non-empty (an empty one shows the
-      # placeholder through the full push), an unchanged block count, and an
-      # inserted range that stays inside the block the edit started in. Any
+      # Patches the displayed lines for an edit, via
+      # `Widget#replace_content_lines`: the lines the edit leaves from its
+      # first block through the block its inserted text ends in replace the
+      # lines it took — as many fewer as the block count grew. Needs a
+      # display that is current and a document that was and stays non-empty
+      # (an empty one shows the placeholder through the full push). Any
       # other change marks the display stale for the full push.
       private def patch_display(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil
         fresh = @_display_fresh
@@ -216,10 +217,14 @@ module Crysterm
         doc = document
         size = doc.size
         return if size == 0 || size - added + removed == 0
-        return if doc.block_count != @_display_blocks
-        block = doc.block_at(pos).index
-        return if added > 0 && doc.block_at(pos + added).index != block
-        return unless replace_content_line(block, doc.blocks[block].text)
+        first = doc.block_at(pos).index
+        last = added > 0 ? doc.block_at(pos + added).index : first
+        blocks = doc.block_count
+        old_count = last - first + 1 - (blocks - @_display_blocks)
+        return if old_count < 1
+        text = first == last ? doc.blocks[first].text : doc.plain_text(doc.block_position(first), doc.block_position(last) + doc.blocks[last].size)
+        return unless replace_content_lines(first, old_count, text)
+        @_display_blocks = blocks
         @_display_value = nil
         @_display_fresh = true
         @_display_patched = true

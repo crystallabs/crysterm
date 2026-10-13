@@ -306,23 +306,42 @@ module Crysterm
     # SGR anywhere (so no attr carry), and a result that keeps the content
     # non-empty.
     def replace_content_line(fake : Int32, text : String) : Bool
-      return false unless content_line_replaceable?(fake, text)
+      return false if text.includes?('\n')
+      replace_content_lines fake, 1, text
+    end
+
+    # Replaces the *count* logical lines from *fake* on with *text*, whose
+    # `'\n'`s make it as many lines as it holds plus one — the path of an
+    # edit that joins or splits lines (Qt's `contentsChange(pos, removed,
+    # added)` relaid over the blocks it touched). As `#replace_content_line`,
+    # whose conditions it shares: O(new lines + rows after them).
+    def replace_content_lines(fake : Int32, count : Int32, text : String) : Bool
+      return false unless content_line_replaceable?(fake, count, text)
       cl = @wrapped_lines
       seg = clean_content_chars text
       # Content that would clean away entirely takes the empty-content shape
       # (`fake` empty, one blank row), which only a full wrap produces.
-      return false if seg.empty? && cl.fake.size == 1
+      return false if seg.empty? && cl.fake.size == count
 
-      # Wrap just the new line, at the width and bar reservation the cached
+      # Wrap just the new lines, at the width and bar reservation the cached
       # lines were wrapped with.
       scratch = (@_append_scratch ||= CLines.new)
       wrap_lines(seg, cl.width, into: scratch, margin: cl.margin)
       return false if scratch.lines.empty?
-      splice_content_rows cl, fake, seg, scratch
+      # An empty *seg* is wrapped as empty content (no fake lines, one
+      # blank row): as a line among others it is one empty line.
+      new_fake = seg.empty? ? [""] : scratch.fake
+      raw = count == 1 && new_fake.size == 1 ? nil : text.split('\n')
+      return false if raw && raw.size != new_fake.size
+      splice_content_rows cl, fake, count, new_fake, scratch
 
-      # The raw side: the line is recorded, the joined string re-built only
+      # The raw side: the lines are recorded, the joined string re-built only
       # when read. Content-shape flags accumulate like `append_content`'s.
-      raw_content_lines[fake] = text
+      if raw
+        raw_content_lines[fake, count] = raw
+      else
+        raw_content_lines[fake] = text
+      end
       @_content_stale = true
       @printable_content = nil
       @_content_has_tags ||= text.includes?('{') && text.matches?(TAG_REGEX)
@@ -344,10 +363,10 @@ module Crysterm
       true
     end
 
-    # The guards of `#replace_content_line`: a current wrap cache at the
-    # live width and scroll, a single existing line to replace, and content
-    # whose lines wrap independently of each other.
-    private def content_line_replaceable?(fake : Int32, text : String) : Bool
+    # The guards of `#replace_content_lines`: a current wrap cache at the
+    # live width and scroll, existing lines to replace, and content whose
+    # lines wrap independently of each other.
+    private def content_line_replaceable?(fake : Int32, count : Int32, text : String) : Bool
       return false unless window?
       cl = @wrapped_lines
       return false unless cl.content_version == @_content_version
@@ -356,8 +375,8 @@ module Crysterm
       return false if colwidth <= 0
       return false if (awidth - ihorizontal) != colwidth
       return false if cl.base_x != @child_base_x
-      return false if fake < 0 || fake >= cl.fake.size
-      return false if text.includes?('\n') || text.includes?('\r')
+      return false if count < 1 || fake < 0 || fake + count > cl.fake.size
+      return false if text.includes?('\r')
       # A tag-parsing widget only takes brace-free text over brace-free
       # content: `expand_tags` carries state across lines.
       if @parse_tags && !@_content_no_tags
@@ -368,45 +387,68 @@ module Crysterm
       # recompute.
       return false if @_content_has_sgr || text.includes?('\e')
       return false unless raw_content_lines.size == cl.fake.size
-      !cl.ftor[fake].empty?
+      !cl.ftor[fake].empty? && !cl.ftor[fake + count - 1].empty?
     end
 
-    # Splices *scratch*'s rows (the freshly wrapped line *seg*) over fake line
-    # *fake*'s rows in *cl*, renumbering the row maps and joined-content
-    # offsets after them and keeping the widest-row records current.
-    private def splice_content_rows(cl : CLines, fake : Int32, seg : String, scratch : CLines) : Nil
+    # Splices *scratch*'s rows (the freshly wrapped lines *new_fake*) over
+    # the rows of the *count* fake lines from *fake* on in *cl*, renumbering
+    # the row maps after them and keeping the widest-row records current.
+    private def splice_content_rows(cl : CLines, fake : Int32, count : Int32, new_fake : Array(String), scratch : CLines) : Nil
       new_lines = scratch.lines
       n_new = new_lines.size
-      old_rows = cl.ftor[fake]
-      r0 = old_rows.first
-      n_old = old_rows.size
+      ftor = cl.ftor
+      r0 = ftor[fake].first
+      n_old = ftor[fake + count - 1].last + 1 - r0
+      nf_new = new_fake.size
       lines = cl.lines
 
-      # Widths of the rows being replaced, before they go.
+      # Widths of the rows and lines being replaced, before they go.
       old_max = 0
       n_old.times do |i|
         w = str_width(lines[r0 + i])
         old_max = w if w > old_max
       end
-      old_full = @wrap_content ? 0 : str_width(cl.fake[fake])
+      old_full = 0
+      unless @wrap_content
+        count.times { |i| old_full = Math.max(old_full, str_width(cl.fake[fake + i])) }
+      end
 
-      # Rows, fake line, and the row→fake map.
+      # Rows, fake lines, and the row→fake map: the new rows map to their
+      # own lines, the rows after them shift by the line delta.
       lines[r0, n_old] = new_lines
-      cl.fake[fake] = seg
-      cl.rtof[r0, n_old] = Array.new(n_new, fake) if n_new != n_old
+      cl.fake[fake, count] = new_fake
+      fdelta = nf_new - count
+      rtof = cl.rtof
+      if fdelta != 0 || nf_new != 1 || n_new != n_old
+        rtof[r0, n_old] = scratch.rtof.map(&.+(fake))
+        if fdelta != 0
+          j = r0 + n_new
+          while j < rtof.size
+            rtof[j] += fdelta
+            j += 1
+          end
+        end
+      end
       # With no SGR anywhere, an existing attr array (built because the raw
       # text carries tag-shaped braces) holds the base attr on every row.
       if (attrs = cl.attr) && n_new != n_old
         attrs[r0, n_old] = Array.new(n_new, attrs[r0])
       end
-      # The fake→rows map: this line's row list is rebuilt in place, the
-      # lines after it shift by the row delta.
-      old_rows.clear
-      n_new.times { |i| old_rows << r0 + i }
+      # The fake→rows map: the replaced lines' row lists are rebuilt (in
+      # place while the line count holds), the lines after them shift by
+      # the row delta.
+      if fdelta == 0
+        nf_new.times do |i|
+          row = ftor[fake + i]
+          row.clear
+          scratch.ftor[i].each { |r| row << r + r0 }
+        end
+      else
+        ftor[fake, count] = scratch.ftor.map(&.map(&.+(r0)))
+      end
       delta = n_new - n_old
       if delta != 0
-        ftor = cl.ftor
-        j = fake + 1
+        j = fake + nf_new
         while j < ftor.size
           ftor.unsafe_fetch(j).map! { |r| r + delta }
           j += 1
@@ -419,16 +461,31 @@ module Crysterm
       if scratch.max_width >= cl.max_width
         cl.max_width = scratch.max_width
       elsif old_max >= cl.max_width
-        cl.max_width = lines.max_of { |row| str_width(row) }
+        cl.max_width = widest_up_to(lines, cl.max_width)
       end
       # :ditto: for the unclipped width (unwrapped content only).
       unless @wrap_content
         if scratch.full_width >= cl.full_width
           cl.full_width = scratch.full_width
         elsif old_full >= cl.full_width
-          cl.full_width = cl.fake.max_of { |line| str_width(line) }
+          cl.full_width = widest_up_to(cl.fake, cl.full_width)
         end
       end
+    end
+
+    # The display width of the widest of *strs*, which is at most *record*:
+    # the scan stops at the first that reaches it — another row at the
+    # record a replaced one held, which wrapped rows filling the width
+    # usually are — and reads all of them only when none does.
+    private def widest_up_to(strs : Array(String), record : Int32) : Int32
+      widest = 0
+      strs.each do |str|
+        w = str_width(str)
+        next unless w > widest
+        widest = w
+        break if widest >= record
+      end
+      widest
     end
   end
 end

@@ -93,11 +93,7 @@ module Crysterm
           document.remove(bp, off)
           document.apply_block_format(bp, bp, TextBlockFormat.new(list_format: lf), merge: true)
         end
-        if text_change_observed?
-          after = buf_text
-          emit Crysterm::Event::TextChanged, after
-          emit Crysterm::Event::TextEdited, after
-        end
+        emit_text_changed
         emit_caret_events
         update!
         _update_cursor

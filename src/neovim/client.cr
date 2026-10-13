@@ -43,6 +43,11 @@ module Crysterm
       end
     end
 
+    # Raised by `Client#request` when Neovim has not answered within the
+    # request's *timeout*.
+    class TimeoutError < Error
+    end
+
     # A Neovim process started with `--embed` and the msgpack-RPC channel on
     # its standard input and output — the host side of Neovim's API
     # (`:help api`, `:help rpc`).
@@ -205,7 +210,7 @@ module Crysterm
               r
             when timeout(timeout)
               @pending.delete id
-              raise Error.new "Neovim did not answer #{method} within #{timeout}"
+              raise TimeoutError.new "Neovim did not answer #{method} within #{timeout}"
             end
           else
             ch.receive?
@@ -292,10 +297,11 @@ module Crysterm
 
       # Ends Neovim: tells it `:qall!` (no question about unsaved changes)
       # and waits up to *grace* for it to exit; failing that closes its
-      # standard input, on which an embedded Neovim quits in any case, then
-      # terminates it, then kills it, waiting as long after each. Returns the
-      # exit code (`nil` for a signal). Idempotent: called again, or after
-      # Neovim quit on its own, it only returns the code.
+      # standard input, on which an embedded Neovim quits in any case, and
+      # terminates it (continuing a stopped one, so that it takes the
+      # signal), then kills it, waiting as long after each. Returns the exit
+      # code (`nil` for a signal). Idempotent: called again, or after Neovim
+      # quit on its own, it only returns the code.
       #
       # Neither step waits on the write lock: a Neovim that stopped reading
       # leaves a write parked on its full input holding it, and the quit is
@@ -306,12 +312,11 @@ module Crysterm
           spawn(name: "Neovim::Client quit") { notify_with "nvim_command", {"qall!"} rescue nil }
           unless exited_within? grace
             @input.close rescue nil
+            @process.terminate rescue nil
+            @process.signal Signal::CONT rescue nil
             unless exited_within? grace
-              @process.terminate rescue nil
-              unless exited_within? grace
-                @process.signal Signal::KILL rescue nil
-                exited_within? grace
-              end
+              @process.signal Signal::KILL rescue nil
+              exited_within? grace
             end
           end
         end

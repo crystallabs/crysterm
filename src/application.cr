@@ -44,8 +44,10 @@ module Crysterm
 
     # The app-wide active window — the surface app-level input is routed to, and
     # whose device the clipboard facade talks to. The most-recently added or
-    # activated window.
+    # activated window that is not hidden (`Window#hide`), as an active window
+    # in Qt is a visible one; the most recent one when all are hidden.
     def active_window : Window?
+      @windows.reverse_each { |w| return w if w.visible? }
       @windows.last?
     end
 
@@ -70,10 +72,21 @@ module Crysterm
     # sibling sharing the same `Screen`. The toolkit's "raise window" for stacked
     # surfaces. An unregistered window is registered (`#add`) on the spot —
     # previously this silently no-opped while returning as if it had worked.
+    #
+    # A hidden window (`Window#hide`) is only moved to the front, as Qt
+    # activates no hidden window: a visible sibling on its device keeps the
+    # terminal and the input, and `Window#show` brings it up on top.
     def activate(window : Window) : Window
       add window unless @windows.includes? window
+      # The window the device showed until now, if another one.
+      shown = active_window_for(window.screen)
       @windows.delete window
       @windows << window
+      return window unless window.visible?
+      # What *shown* left on the terminal goes first: the full re-emission
+      # below writes every cell, but not over pictures a terminal keeps apart
+      # from its cells (kitty's images), which would stay on top.
+      window.clear_device unless shown.nil? || shown.same?(window)
       # A device resize while this window was non-active may not have reached
       # it yet (its debounced resize loop can still be pending); compositing
       # into stale-sized buffers would clip the frame to the old rows/columns.
@@ -242,8 +255,9 @@ module Crysterm
     # `#active_window` but scoped to one device, so input read on a given tty
     # reaches a window on *that* tty rather than the globally most-recent one —
     # which matters once an app drives several windows on distinct devices.
+    # A hidden window (`Window#hide`) is not shown: the one below it is.
     def active_window_for(screen : Screen) : Window?
-      @windows.reverse_each { |w| return w if w.screen.same? screen }
+      @windows.reverse_each { |w| return w if w.visible? && w.screen.same?(screen) }
       nil
     end
 

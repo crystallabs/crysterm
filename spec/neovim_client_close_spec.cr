@@ -15,11 +15,14 @@ describe Crysterm::Neovim::Client do
     spawn { nvim.notify("nvim_input", "x" * 1_000_000) rescue nil }
     Fiber.yield
     done = Channel(Int32?).new 1
-    spawn { done.send nvim.close(grace: 200.milliseconds) }
+    started = Time.instant
+    spawn { done.send nvim.close(grace: 500.milliseconds) }
     select
-    when code = done.receive
-      code.should be_nil
+    when done.receive
       nvim.running?.should be_false
+      # Terminated (and continued, to take the signal) after the first
+      # grace, not killed after the third.
+      (Time.instant - started).should be < 1200.milliseconds
     when timeout(5.seconds)
       Process.signal Signal::KILL, nvim.pid rescue nil
       fail "close did not end the stopped Neovim"

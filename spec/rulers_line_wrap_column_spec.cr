@@ -58,4 +58,17 @@ describe "AbstractScrollArea rulers, the text's column changed at runtime" do
     s.repaint
     rows(s).should eq full
   end
+
+  it "ends the tape with the column's rows when the scroll bar stands beside the column" do
+    s = headless_screen(40, 6)
+    te = viewer(s, (1..30).map(&.to_s).join("\n"))
+    te.rulers = true
+    te.line_wrap_column = 20
+    s.repaint
+    te.show_scrollbar?.should be_true
+    # The bar is in the column's right inset, at the frame: the tape still
+    # runs on over the caret cell, as without a bar.
+    row_text(s, 0, 2..22).should eq "────┼────│10──┼────│2"
+    row_text(s, 0, 23..38).should eq " " * 16
+  end
 end

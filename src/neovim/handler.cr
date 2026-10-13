@@ -16,10 +16,14 @@ module Crysterm
     event ViMessageChanged, text : String?, kind : String = ""
 
     # Emitted by a `Neovim::Handler` when `:w` (`:write`, `:up`, `:wq`, `:x`,
-    # `ZZ`) asks to write the buffer: Neovim writes nothing itself, the
-    # application saves the widget's text — to its own file when *path* is
-    # `nil`, else to *path* (`:w other.txt`, a full path). *bang* is `:w!`'s.
-    event ViWriteRequested, path : String?, bang : Bool = false
+    # `ZZ`, `:saveas`) asks to write the buffer: Neovim writes nothing itself,
+    # the application saves the widget's text — to its own file when *path*
+    # is `nil`, else to *path* (a full path). *rename* tells Vim's two writes
+    # to another file apart: set, the buffer was given *path* as its name
+    # (`:saveas FILE`, or `:file FILE` and then `:w`), which becomes the
+    # widget's file, as File → Save As does; unset (`:w FILE`), a copy is
+    # written there and the buffer keeps its name. *bang* is `:w!`'s.
+    event ViWriteRequested, path : String?, bang : Bool = false, rename : Bool = false
 
     # Emitted by a `Neovim::Handler` when `:q` (`:quit`, `:wq`, `:x`, `ZZ`,
     # `ZQ`) asks to quit, after any write it asked for: Neovim quits nothing
@@ -131,7 +135,10 @@ module Crysterm
     #   undo — is sent to Neovim as the lines it changed (`nvim_buf_set_lines`,
     #   which Neovim's undo records), and a click or a drag moves Neovim's
     #   cursor or selects in Visual mode. What the handler applies itself is
-    #   never sent back.
+    #   never sent back. A change made while Neovim's own are still on their
+    #   way waits for them, so neither lands on the wrong lines; where both
+    #   changed the same lines, the widget's wins. Another document set on
+    #   the widget (`document=`) is followed, its text taken as a reset.
     # * **Undo.** `u` and `Ctrl-R` are Neovim's, with its undo steps (an
     #   insert is one); the widget's mirror of each change is an undo step of
     #   the widget too, so an application's own Undo still works on the
@@ -150,8 +157,8 @@ module Crysterm
     #   Normal and Visual mode, a bar while inserting and on the command line,
     #   an underline in Replace and Operator-pending mode.
     # * **`:w`, `:q`.** The buffer is written by the application, not by
-    #   Neovim: `:w`, `:up` and the writes of `:wq`, `:x` and `ZZ` emit
-    #   `Event::ViWriteRequested`, `:q`, `:qa`, `:wq`, `:x`, `ZZ` and `ZQ`
+    #   Neovim: `:w`, `:up`, `:saveas` and the writes of `:wq`, `:x` and `ZZ`
+    #   emit `Event::ViWriteRequested`, `:q`, `:qa`, `:wq`, `:x`, `ZZ` and `ZQ`
     #   emit `Event::ViQuitRequested` (FakeVim's `writeAllRequested`,
     #   `quitRequested`), and Neovim keeps running.
     # * **One buffer, one window.** Neovim's window keeps the widget's
@@ -161,9 +168,10 @@ module Crysterm
     # * **Neovim gone.** When Neovim cannot be started `#attach` returns
     #   false and leaves the widget alone; when it exits, the handler detaches
     #   and emits `Event::ProcessExited`, and when the widget's buffer is
-    #   closed in Neovim (`:bwipeout`) or a call to Neovim fails, it detaches
-    #   and emits `Event::ViDetached`. Either way the widget edits as it does
-    #   without one.
+    #   closed in Neovim (`:bwipeout`) or a call to Neovim fails or goes
+    #   unanswered for `#request_timeout`, it detaches and emits
+    #   `Event::ViDetached`. Either way the widget edits as it does without
+    #   one. `Ctrl-C` goes to Neovim at once, to interrupt it.
     #
     # Neovim runs as `nvim --embed` with `#args` (`--headless --clean -n` by
     # default; leave out `--clean` for the user's own config). The handler
@@ -199,6 +207,13 @@ module Crysterm
       # How long a key press waits for Neovim to have taken it and for the
       # widget to mirror the result.
       property sync_timeout : Time::Span = 1.second
+
+      # How long a call that Neovim must answer before the handler goes on
+      # (sending a change of the widget's text, a paste, a buffer switch)
+      # waits. A Neovim busy for longer — a loop, a long `:!cmd`, both of
+      # which `Ctrl-C` interrupts, or a hang — is let go of with
+      # `Event::ViDetached` rather than holding up the application.
+      property request_timeout : Time::Span = 5.seconds
 
       # Whether the caret's shape follows the mode (see the class docs).
       property? cursor_shapes : Bool = true
@@ -241,6 +256,10 @@ module Crysterm
       # so `G` and `o` there act as on the file.
       @lines = [""]
       @eol = false
+      # How many changes Neovim has reported of the buffer (`#lines_changed`):
+      # a change of the widget is taken by Neovim only on top of all of them
+      # (`#push_text`), as vscode-neovim matches `b:changedtick`.
+      @version = 0_i64
       @owns_client = false
       @subs = ::Crysterm::Subscriptions.new
       @notification : Client::NotificationHandler?
@@ -267,6 +286,9 @@ module Crysterm
       # Set during `#setup`, whose failure `#attach` reports by its result
       # rather than by an event.
       @setting_up = false
+      # Set when a call was not answered (`#call`): the handler's own Neovim
+      # is then ended without the grace a quit is given.
+      @hung = false
 
       # *client* is a Neovim to share (never ended by the handler); without
       # one the handler starts its own at `#attach` with *args*.
@@ -330,11 +352,18 @@ module Crysterm
         # Detached from a shared Neovim, the handler has the client still,
         # but no buffer: the keys would go to whichever its window shows.
         return unless (client = @client) && @buffer
-        exclusive(client) do
-          flush_pending
-          show_buffer client
-          sync_read_only client
+        if keys == "<C-c>"
+          # Neovim takes `Ctrl-C` at once, ahead of the calls it has queued,
+          # and stops what it is busy with (a loop, a `:!cmd`): sent without
+          # waiting for the lock a call to the busy Neovim may hold.
           client.notify "nvim_input", keys
+        else
+          exclusive(client) do
+            flush_pending
+            show_buffer client
+            sync_read_only client
+            client.notify "nvim_input", keys
+          end
         end
         sync
       rescue ex : Error
@@ -356,6 +385,7 @@ module Crysterm
         @widget = widget
         @target = target
         @lines, @eol = split_lines target
+        @version = 0_i64
         @mode = Mode::Normal
         @command_line = nil
         @message = nil
@@ -412,7 +442,7 @@ module Crysterm
             # waits for it, is then no Neovim ending under the widget
             # (`#exited`), and emits no `Event::ProcessExited`.
             @client = nil
-            client.close
+            @hung ? client.close(grace: 100.milliseconds) : client.close
           elsif client.running? && (buf = @buffer)
             client.notify("nvim_buf_delete", buf, {"force" => true}) rescue nil
           end
@@ -421,6 +451,7 @@ module Crysterm
         @widget = nil
         @target = nil
         @text_reset = false
+        @hung = false
         if w = @waiter
           @waiter = nil
           w[1].send nil
@@ -516,7 +547,7 @@ module Crysterm
         exclusive(client) do
           flush_pending
           show_buffer client
-          client.request "nvim_paste", e.content, true, -1
+          call client, "nvim_paste", e.content, true, -1
         end
         sync
       rescue ex : Error
@@ -529,7 +560,7 @@ module Crysterm
         buf = @buffer || return
         return if client.shown_buffer == buf
         client.shown_buffer = buf
-        client.request "nvim_exec_lua", "crysterm_vi.show(...)", [buf]
+        call client, "nvim_exec_lua", "crysterm_vi.show(...)", [buf]
         if t = @target
           push_caret client, t, @mode
           resized
@@ -542,7 +573,16 @@ module Crysterm
         ro = t.read_only?
         return if ro == @read_only
         @read_only = ro
-        client.request "nvim_exec_lua", "vim.bo[...].modifiable = select(2, ...)", [buf, !ro]
+        call client, "nvim_exec_lua", "vim.bo[...].modifiable = select(2, ...)", [buf, !ro]
+      end
+
+      # Calls *method* in Neovim and returns its answer, as `Client#request`
+      # does, within `#request_timeout`.
+      private def call(client : Client, method : String, *params) : MessagePack::Any
+        client.request_with method, params, @request_timeout
+      rescue TimeoutError
+        @hung = true
+        raise Error.new "Neovim did not answer within #{@request_timeout.total_seconds.format(decimal_places: 1, only_significant: true)} s"
       end
 
       private def focused : Nil
@@ -597,14 +637,19 @@ module Crysterm
         case method
         when "crysterm_vi_lines"
           return unless params[0]?.as?(Int).try(&.to_i64) == buf
-          lines_changed params[1].as(Int).to_i32, params[2].as(Int).to_i32,
-            params[3].as(Array).map(&.to_s)
+          # Not while a change of the widget is on its way to Neovim
+          # (`#push_text`), which is taken on top of this one or not at all.
+          exclusive(client) do
+            next unless @buffer == buf
+            lines_changed params[1].as(Int).to_i64, params[2].as(Int).to_i32,
+              params[3].as(Int).to_i32, params[4].as(Array).map(&.to_s)
+          end
         when "crysterm_vi_state"
           return unless params[0]?.as?(Int).try(&.to_i64) == buf
           state_received params
         when "crysterm_vi_write"
           return unless params[0]?.as?(Int).try(&.to_i64) == buf
-          emit ::Crysterm::Event::ViWriteRequested, params[1]?.as?(String), params[2]? == true
+          emit ::Crysterm::Event::ViWriteRequested, params[1]?.as?(String), params[2]? == true, params[3]? == true
         when "crysterm_vi_quit"
           return unless params[0]?.as?(Int).try(&.to_i64) == buf
           emit ::Crysterm::Event::ViQuitRequested, params[1]? == true, params[2]? == true
@@ -686,11 +731,11 @@ module Crysterm
         @lines[row.clamp(0, @lines.size - 1)]
       end
 
-      # The widget position of line *row*'s start.
-      private def line_offset(row : Int32) : Int32
-        row = row.clamp(0, @lines.size)
+      # The widget position of line *row*'s start, in the text of *lines*.
+      private def line_offset(row : Int32, lines : Array(String) = @lines) : Int32
+        row = row.clamp(0, lines.size)
         off = 0
-        row.times { |i| off += @lines[i].size + 1 }
+        row.times { |i| off += lines[i].size + 1 }
         off
       end
 
@@ -805,44 +850,81 @@ module Crysterm
 
       # Neovim to widget -----------------------------------------------------
 
-      # Neovim replaced lines *first*...*last* of its buffer with *data*:
-      # the same lines of the widget's text get the smallest edit that makes
-      # them so.
-      private def lines_changed(first : Int32, last : Int32, data : Array(String)) : Nil
+      # Neovim replaced lines *first*...*last* of its buffer with *data*, its
+      # change number *version*: the same lines of the widget's text get the
+      # smallest edit that makes them so. Under the client's lock.
+      #
+      # A change of the widget not yet in Neovim, which `#push_text` sends
+      # once Neovim's are in, is kept: Neovim's change goes where its lines
+      # are in the widget, before or after the lines the widget changed.
+      # One that overlaps those is left out of the widget, whose change then
+      # replaces it in Neovim too; so is every change before a reset of the
+      # widget's document, which replaces all of Neovim's lines.
+      private def lines_changed(version : Int64, first : Int32, last : Int32, data : Array(String)) : Nil
         target = @target || return
-        sep = separator
+        # Reported before a reset of the buffer, which replaced it.
+        return if version <= @version
+        @version = version
         n = @lines.size
         first = first.clamp(0, n)
         last = last.clamp(first, n)
-        total = line_offset(n) - 1
-        a = line_offset(first)
-        old = @lines[first...last]
-        old_text = old.join(sep)
+        lines, eol, at = @lines, @eol, first
+        if @text_dirty
+          schedule_flush
+          keep = false
+          unless @text_reset
+            lines, eol = split_lines target
+            p, q = common_ends(@lines, lines)
+            if last <= p
+              keep = true
+            elsif first >= n - q
+              keep = true
+              at = first + lines.size - n
+            end
+          end
+          unless keep
+            @lines[first...last] = data
+            @lines << "" if @lines.empty?
+            return
+          end
+        end
+        edit = widget_edit target, lines, eol, at, at + last - first, data
+        @lines[first...last] = data
+        @lines << "" if @lines.empty?
+        # Out of step (an edit the handler did not see): the widget takes
+        # Neovim's whole text.
+        s, e, ins = edit || {0, target.buf_size, joined_lines(separator)}
+        replace target, s, e, ins
+      end
+
+      # The widget's range and the text that replace lines *first*...*last*
+      # of *lines* with *data*, in the text the lines make (followed by a
+      # newline with *eol*); `nil` when the widget's text is not that text.
+      private def widget_edit(target : Target, lines : Array(String), eol : Bool, first : Int32, last : Int32,
+                              data : Array(String)) : {Int32, Int32, String}?
+        sep = separator
+        n = lines.size
+        total = line_offset(n, lines) - 1
+        a = line_offset(first, lines)
+        old = lines[first...last]
         new_text = data.join(sep)
-        s, e, ins =
+        edit =
           if !old.empty? && !data.empty?
-            {a, a + old_text.size, new_text}
+            {a, a + old.join(sep).size, new_text}
           elsif old.empty? && !data.empty?
             first < n ? {a, a, new_text + sep} : {total, total, sep + new_text}
           elsif !old.empty?
             if last < n
-              {a, a + old_text.size + 1, ""}
+              {a, a + old.join(sep).size + 1, ""}
             elsif first > 0
               {a - 1, total, ""}
             else
               {0, total, ""}
             end
           else
-            return
+            return {0, 0, ""}
           end
-        @lines[first...last] = data
-        @lines << "" if @lines.empty?
-        if target.buf_size != total + (@eol ? 1 : 0)
-          # Out of step (an edit the handler did not see): take Neovim's
-          # whole text.
-          s, e, ins = 0, target.buf_size, joined_lines(sep)
-        end
-        replace target, s, e, ins
+        edit if target.buf_size == total + (eol ? 1 : 0)
       end
 
       # Turns the widget's `[from, to)` into *text* by the smallest edit:
@@ -881,6 +963,10 @@ module Crysterm
         @text_dirty ||= text
         @text_reset ||= reset
         @caret_dirty ||= caret
+        schedule_flush
+      end
+
+      private def schedule_flush : Nil
         return if @flush_scheduled
         @flush_scheduled = true
         spawn(name: "Neovim::Handler flush") { flush_external }
@@ -917,7 +1003,9 @@ module Crysterm
         # handler's keys, still in Neovim's queue, to this buffer.
         if @text_dirty
           @text_dirty = false
-          push_text client, target
+          # Refused: sent again once Neovim's changes are in (the caret
+          # then too, which is placed on the lines with the change).
+          return unless push_text client, target
         end
         if @caret_dirty
           @caret_dirty = false
@@ -931,21 +1019,26 @@ module Crysterm
       # Sends Neovim the lines that differ between its buffer and the widget;
       # after a reset of the widget's document, all of them, with Neovim's
       # undo history cleared as the widget's was, so `u` cannot bring back
-      # the text from before (another file's).
-      private def push_text(client : Client, target : Target) : Nil
-        buf = @buffer || return
-        new, @eol = split_lines target
+      # the text from before (another file's). Returns false, with the
+      # change still to send, when Neovim has changed its buffer since the
+      # last change the handler took in (`#lines_changed`, which takes those
+      # in and sends this again), as the lines would land in the wrong place.
+      private def push_text(client : Client, target : Target) : Bool
+        buf = @buffer || return true
+        new, eol = split_lines target
         old = @lines
         if @text_reset
           @text_reset = false
-          @lines = new
-          client.request "nvim_exec_lua", "crysterm_vi.reset(...)", [buf, new]
-          return
+          @version = call(client, "nvim_exec_lua", "return crysterm_vi.reset(...)", [buf, new]).as_i64
+        elsif new != old
+          p, q = common_ends(old, new)
+          unless call(client, "nvim_exec_lua", "return crysterm_vi.set_lines(...)", [buf, @version, p, old.size - q, new[p...(new.size - q)]]).as_bool
+            @text_dirty = true
+            return false
+          end
         end
-        return if new == old
-        p, q = common_ends(old, new)
-        @lines = new
-        client.request "nvim_exec_lua", "crysterm_vi.set_lines(...)", [buf, p, old.size - q, new[p...(new.size - q)]]
+        @lines, @eol = new, eol
+        true
       end
 
       # Puts Neovim's cursor on the widget's caret, and its Visual selection
@@ -987,7 +1080,8 @@ module Crysterm
         # Subscribes *block* to the changes of the widget's document, for a
         # widget with one (`Mixin::TextEditing::DocumentBuffer`), whose edits
         # by a `TextCursor` tell no `Event::TextChanged`; *block* is told
-        # whether the change reset the document (`TextDocument#set_plain_text`).
+        # whether the change reset the document (`TextDocument#set_plain_text`,
+        # or another document set on the widget).
         abstract def on_document_change(subs : ::Crysterm::Subscriptions, &block : Bool ->) : Nil
       end
 
@@ -1041,7 +1135,13 @@ module Crysterm
         def on_document_change(subs : ::Crysterm::Subscriptions, &block : Bool ->) : Nil
           w = @w
           if w.is_a?(Mixin::TextEditing::DocumentBuffer)
-            subs.on(w.document, ::Crysterm::Event::ContentsChanged) { |e| block.call e.kind.replace? }
+            doc = subs.on(w.document, ::Crysterm::Event::ContentsChanged) { |e| block.call e.kind.replace? }
+            # Another document set on the widget: its changes are followed
+            # instead, and its text replaces the old one's as a reset.
+            subs.on(w, ::Crysterm::Event::DocumentChanged) do |e|
+              doc.on(e.document, ::Crysterm::Event::ContentsChanged) { |c| block.call c.kind.replace? }
+              block.call true
+            end
           end
         end
       end
@@ -1068,12 +1168,19 @@ module Crysterm
         -- anything else is sent about the buffer.
         C.pending = C.pending or {}
 
+        -- How many changes of a buffer were sent: the handler sends its own
+        -- with the number it has taken in, and one sent before Neovim's
+        -- latest are in would be put on the wrong lines (`C.set_lines`).
+        C.version = C.version or {}
+
         function C.flush(buf)
           local p = C.pending[buf]
           if not p then return end
           C.pending[buf] = nil
           if not vim.api.nvim_buf_is_loaded(buf) then return end
-          vim.rpcnotify(C.chan, 'crysterm_vi_lines', buf, p.first, p.last, vim.api.nvim_buf_get_lines(buf, p.first, p.new_last, false))
+          local v = (C.version[buf] or 0) + 1
+          C.version[buf] = v
+          vim.rpcnotify(C.chan, 'crysterm_vi_lines', buf, v, p.first, p.last, vim.api.nvim_buf_get_lines(buf, p.first, p.new_last, false))
         end
 
         local function changed(buf, first, last, new_last)
@@ -1172,9 +1279,12 @@ module Crysterm
         })
 
         -- The widget's lines, also into a buffer made read-only for a
-        -- read-only widget, whose text the application still sets.
-        function C.set_lines(buf, first, last, lines)
+        -- read-only widget, whose text the application still sets; refused
+        -- (false) unless the handler has taken in `version` changes, every
+        -- one sent, when it gives one.
+        function C.set_lines(buf, version, first, last, lines)
           C.flush(buf)
+          if version and version ~= (C.version[buf] or 0) then return false end
           local bo = vim.bo[buf]
           local modifiable = bo.modifiable
           C.quiet[buf] = true
@@ -1183,17 +1293,20 @@ module Crysterm
           bo.modifiable = modifiable
           C.quiet[buf] = nil
           if not ok then error(err) end
+          return true
         end
 
-        -- All of the widget's lines, with no undo history before them.
+        -- All of the widget's lines, with no undo history before them;
+        -- returns the number of changes sent, which they replace.
         function C.reset(buf, lines)
           local bo = vim.bo[buf]
           local undolevels = bo.undolevels
           bo.undolevels = -1
-          local ok, err = pcall(C.set_lines, buf, 0, -1, lines)
+          local ok, err = pcall(C.set_lines, buf, nil, 0, -1, lines)
           bo.undolevels = undolevels
           bo.modified = false
           if not ok then error(err) end
+          return C.version[buf] or 0
         end
 
         function C.join(buf)
@@ -1211,13 +1324,28 @@ module Crysterm
           if win ~= -1 then pcall(vim.api.nvim_win_set_cursor, win, { 1, off + col }) end
         end
 
+        -- Names a buffer was given (`:saveas`, `:file`), for its next write.
+        C.renamed = C.renamed or {}
+
+        -- Wipes the buffers other than `buf` named `name` that hold nothing.
+        local function wipe_named(name, buf)
+          for _, b in ipairs(vim.api.nvim_list_bufs()) do
+            if b ~= buf and not C.own[b] and not vim.bo[b].modified and vim.api.nvim_buf_get_name(b) == name then
+              pcall(vim.api.nvim_buf_delete, b, { force = true })
+            end
+          end
+        end
+
         function C.attach(buf, single, lines, modifiable)
           C.own[buf] = true
+          C.version[buf] = 0
+          C.renamed[buf] = nil
           local bo = vim.bo[buf]
           bo.swapfile = false
           bo.buftype = 'acwrite'
           bo.bufhidden = 'hide'
-          vim.api.nvim_buf_set_name(buf, 'crysterm://' .. buf)
+          local name = 'crysterm://' .. buf
+          vim.api.nvim_buf_set_name(buf, name)
           C.reset(buf, lines)
           bo.modifiable = modifiable
           vim.api.nvim_buf_attach(buf, false, {
@@ -1229,17 +1357,40 @@ module Crysterm
             on_detach = function(_, b)
               C.own[b] = nil
               C.pending[b] = nil
+              C.version[b] = nil
+              C.renamed[b] = nil
               vim.rpcnotify(C.chan, 'crysterm_vi_detach', b)
             end,
           })
+          -- Named another file (`:saveas FILE`, `:file FILE`): the buffer
+          -- keeps the name the handler knows it by, the alternate buffers
+          -- the two names leave are wiped, and its next write (`:saveas`'s
+          -- own) asks the application to save under the new name.
+          vim.api.nvim_create_autocmd('BufFilePost', {
+            buffer = buf,
+            callback = function()
+              local new = vim.api.nvim_buf_get_name(buf)
+              if new == name then return end
+              if new ~= '' then C.renamed[buf] = new end
+              wipe_named(name, buf)
+              vim.api.nvim_buf_set_name(buf, name)
+              wipe_named(new, buf)
+            end,
+          })
+          -- A write to the buffer's own name is the application's save
+          -- (under a name given since, a Save As); another name (`:w FILE`)
+          -- is a copy, after which the buffer is still modified, as in Vim.
           vim.api.nvim_create_autocmd('BufWriteCmd', {
             buffer = buf,
             callback = function(a)
-              local path = a.match
-              if path == vim.api.nvim_buf_get_name(buf) then path = vim.NIL end
-              vim.bo[buf].modified = false
+              local path, rename = a.match, false
+              if path == name then
+                path, rename = C.renamed[buf] or vim.NIL, C.renamed[buf] ~= nil
+                C.renamed[buf] = nil
+                vim.bo[buf].modified = false
+              end
               C.flush(buf)
-              vim.rpcnotify(C.chan, 'crysterm_vi_write', buf, path, vim.v.cmdbang == 1)
+              vim.rpcnotify(C.chan, 'crysterm_vi_write', buf, path, vim.v.cmdbang == 1, rename)
             end,
           })
           if single then

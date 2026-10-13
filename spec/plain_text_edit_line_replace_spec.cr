@@ -2,8 +2,8 @@ require "./spec_helper"
 
 include Crysterm
 
-# `Widget::PlainTextEdit` patches one wrapped logical line per single-block
-# edit (`Widget#replace_content_line`) instead of pushing the whole document
+# `Widget::PlainTextEdit` patches the wrapped logical lines an edit touched
+# (`Widget#replace_content_lines`) instead of pushing the whole document
 # back through `set_content`. Every patched state must be byte-identical, in
 # every `CLines` field and in the raw/printable content, to a fresh editor
 # given the same full text.
@@ -70,7 +70,7 @@ end
 
 private TEXT = "first line here\nsecond, somewhat longer line of text\nthird\n\nfifth and last"
 
-describe "Widget::PlainTextEdit single-line display patch" do
+describe "Widget::PlainTextEdit display patch" do
   it "inserts in the middle of a line" do
     s, pte = new_editor TEXT
     type_at pte, s, at(pte, 1, 8), "X"
@@ -165,21 +165,55 @@ describe "Widget::PlainTextEdit single-line display patch" do
     expect_identical pte, true, 8
   end
 
-  it "falls back to the full push for edits that span lines" do
+  it "patches edits that span lines" do
     s, pte = new_editor TEXT
-    type_at pte, s, at(pte, 2, 2), "x\ny", fast: false
+    type_at pte, s, at(pte, 2, 2), "x\ny"
     pte.value.should eq TEXT.sub("third", "thx\nyird")
     expect_identical pte
     # Joining two lines (backspace over a newline).
-    backspace_at pte, s, at(pte, 3, 0), fast: false
+    backspace_at pte, s, at(pte, 3, 0)
     pte.value.should eq TEXT.sub("third", "thxyird")
     expect_identical pte
+    # A newline at a line's start, at the end, and several lines at once.
+    type_at pte, s, at(pte, 1, 0), "\n"
+    expect_identical pte
+    type_at pte, s, pte.document.size, "\n"
+    pte.value.should end_with "fifth and last\n"
+    expect_identical pte
+    type_at pte, s, at(pte, 0, 5), "\na long new line that wraps over rows\n\nz"
+    expect_identical pte
+    # Selecting across lines and deleting them.
+    pte.selection_anchor = at(pte, 1, 3)
+    pte.cursor_pos = at(pte, 4, 2)
+    pte.cut.should be_true
+    pte.@_content_stale.should be_true
+    s.repaint
+    expect_identical pte
+  end
+
+  it "patches an outside engine's grouped edits (dd, J)" do
+    # Low enough that the scroll bar stays on (its flip takes a full reparse).
+    s, pte = new_editor TEXT, true, 3
+    # `dd` on the second line, then `J` on the first.
+    pte.apply_external_edit { pte.buf_delete(at(pte, 1, 0), at(pte, 2, 0)) }
+    pte.@_content_stale.should be_true
+    s.repaint
+    pte.value.should eq TEXT.sub("second, somewhat longer line of text\n", "")
+    expect_identical pte, true, 3
+    pte.apply_external_edit do
+      p = at(pte, 0, 15)
+      pte.buf_delete(p, p + 1)
+      pte.buf_insert(p, " ")
+    end
+    s.repaint
+    pte.value.should start_with "first line here third\n"
+    expect_identical pte, true, 3
   end
 
   it "keeps the raw content and the wrapped lines in step across edit kinds" do
     s, pte = new_editor TEXT
     type_at pte, s, at(pte, 0, 5), "!"
-    type_at pte, s, at(pte, 3, 0), "x\ny", fast: false
+    type_at pte, s, at(pte, 3, 0), "x\ny"
     type_at pte, s, at(pte, 4, 1), "?"
     pte.content.should eq pte.value
     expect_identical pte
@@ -203,6 +237,29 @@ describe "Widget::PlainTextEdit single-line display patch" do
         type_at pte, s, at(pte, line, col), ["a", "bb", "ccc", "dddd", "_", "\t"].sample(rng), fast: false
       end
       expect_identical pte if i % 30 == 29
+    end
+    expect_identical pte
+  end
+
+  it "matches a fresh layout after many random edits across lines" do
+    s, pte = new_editor TEXT
+    rng = Random.new(7)
+    200.times do |i|
+      size = pte.document.size
+      pos = rng.rand(size + 1)
+      case rng.rand(3)
+      when 0
+        if size > 1
+          to = Math.min(size, pos + rng.rand(1..12))
+          pte.selection_anchor = pos
+          pte.cursor_pos = to
+          pte.cut
+          s.repaint
+        end
+      else
+        type_at pte, s, pos, ["\n", "a\nb", "x\n\ny", "long words wrap\n", "\t\n", "q"].sample(rng), fast: false
+      end
+      expect_identical pte if i % 40 == 39
     end
     expect_identical pte
   end

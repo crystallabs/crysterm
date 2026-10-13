@@ -103,8 +103,10 @@ module Crysterm
       # adopted device's input fiber is already live: the synchronous
       # read would race it; the anchor keeps its row-0 fallback instead.
       capture_inline_anchor unless @alternate || new_screen.listening?
-      # Re-enter + repaint invalidates descendants' memoized device.
-      enter
+      # Re-enter + repaint invalidates descendants' memoized device. A hidden
+      # window stays hidden on the new terminal, as a `QWindow` moved to
+      # another screen does: `#show` enters it.
+      enter if @visible
       realloc
       # Re-assert per-window terminal state on the new device: `enter` sends
       # the stored title only for the device's active window, and nothing else
@@ -576,6 +578,8 @@ module Crysterm
 
       if window = into
         window.connect win.input, win.output, win
+        # Re-displayed: a window `#hide`n before stays hidden on `#connect`.
+        window.show
       else
         window = new(input: win.input, output: win.output, title: title)
         window.adopt_window win
@@ -697,22 +701,54 @@ module Crysterm
     # Takes (back) the terminal presentation and repaints — Qt's
     # `QWindow::show`. No-op while already visible. The terminal-level
     # primitive underneath is `#enter`.
+    #
+    # Under an `Application`, the window comes up on top of any sibling
+    # sharing its terminal and is made active (`Application#activate`), as
+    # a top-level window shown in Qt is mapped on top.
     def show : Nil
       return if @visible
       @visible = true
       enter
-      invalidate_region 0, awidth, 0, aheight
       damage_force_full
-      update
+      if (app = application) && app.windows.includes?(self)
+        app.activate self
+      else
+        invalidate_region 0, awidth, 0, aheight
+        update
+      end
     end
 
     # Releases the terminal presentation (restores the normal buffer /
     # tears down the inline region) — Qt's `QWindow::hide`. No-op while
     # already hidden. The terminal-level primitive underneath is `#leave`.
+    #
+    # A visible sibling sharing the terminal (under the same `Application`)
+    # keeps it instead: the window's frame is cleared away, and the sibling
+    # below takes the terminal and the input, repainted whole, if this window
+    # was the one shown.
     def hide : Nil
       return unless @visible
+      shown = device_active_window?
       @visible = false
-      leave
+      sibling = application.try &.active_window_for(@screen)
+      if sibling && sibling.connected?
+        return unless shown
+        release_cursor
+        clear_device
+        application.try &.activate sibling
+      else
+        leave
+      end
+    end
+
+    # :nodoc: Clears the whole terminal of a full-screen window while it is
+    # connected, pictures painted outside the cell buffer included (`ED 2`),
+    # for `#hide` and `Application#activate` handing a terminal shared by
+    # several windows from one to another.
+    def clear_device : Nil
+      return unless @connected && @alternate
+      note_overdraw_all
+      tput.clear
     end
 
     # Property spelling of `#show`/`#hide` — Qt's `setVisible`.

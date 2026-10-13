@@ -132,8 +132,10 @@ module Crysterm
       # row the column ruler is on (the padding's inner edge); the text
       # area's exclusive right and bottom edges — `#iright`/`#ibottom` leave
       # out the padding, `@viewport_margins`' right and bottom and a
-      # centered column's right slack alike, and the scroll bars are kept
-      # out besides — so the tape ends with the text; the screen column the
+      # centered column's right slack alike, and of the vertical scroll bar
+      # what of it stands in the text area besides (`#scrollbar_overlap`; a
+      # bar beside a capped column is in its right inset already) — so the
+      # tape ends with the text's rows; the screen column the
       # text's column 1 is at (before the horizontal scroll) and the first
       # content row. The same arithmetic
       # `#position_at` and `#_update_cursor` do, from `#ileft`/`#itop`, so a
@@ -146,7 +148,7 @@ module Crysterm
         content_top = lp.yi + itop
         x0 = text_x0 - @column_margins[0] - vm.left - @vertical_ruler_width
         y0 = content_top - vm.top - (@column_ruler ? 1 : 0)
-        xl = lp.xl - iright - (show_scrollbar? ? scrollbar_width : 0)
+        xl = lp.xl - iright - scrollbar_overlap
         yl = lp.yl - ibottom - hscrollbar_rows
         {x0, xl, y0, yl, text_x0, content_top}
       end

@@ -59,5 +59,30 @@ module Crysterm
       end
       {tagged, mnemonic}
     end
+
+    # Qt's rule for a mnemonic several entries share (`QMenu` and
+    # `QMenuBar::keyPressEvent`, `QShortcutMap`'s ambiguous dispatch): of the
+    # *size* entries the block accepts, the first one after *current* when
+    # *current* is itself one of them, else the first — so pressing the letter
+    # again cycles through them. Returns that index and whether it is the only
+    # match (Qt activates a unique match, and only moves to a shared one), or
+    # `nil` when nothing matches.
+    def self.next_match(size : Int, current : Int?, & : Int32 -> Bool) : {Int32, Bool}?
+      first = after = nil
+      count = 0
+      past_current = false
+      size.to_i.times do |i|
+        next unless yield i
+        count += 1
+        first ||= i
+        if i == current
+          past_current = true
+        elsif past_current
+          after ||= i
+        end
+      end
+      return unless first
+      {after || first, count == 1}
+    end
   end
 end

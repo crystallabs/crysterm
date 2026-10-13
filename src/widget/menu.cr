@@ -568,6 +568,17 @@ module Crysterm
       end
 
       def handle_key_press(e)
+        # In a popped-up menu or a submenu Tab and Shift+Tab mean Down and Up
+        # (Qt's `QMenu::keyPressEvent`, off macOS), where they would move the
+        # focus out from under the open menu. An embedded or torn-off menu
+        # keeps them for the window's focus chain.
+        if (e.key == ::Tput::Key::Tab || e.key == ::Tput::Key::ShiftTab) && (@popup_mode || parent_menu)
+          arrow = ::Crysterm::Event::KeyPress.new '\0', (e.key == ::Tput::Key::Tab ? ::Tput::Key::Down : ::Tput::Key::Up)
+          handle_key_press arrow
+          e.accept
+          return
+        end
+
         intent = nav_intent(e)
 
         return if reveal_pressed e, intent
@@ -668,22 +679,30 @@ module Crysterm
       # it consumed *e*). Row semantics match the menu's other activation keys:
       # a submenu row opens with its first child selected, a checkable row
       # toggles in place (our Space divergence from Qt, kept consistent here),
-      # a leaf fires and dismisses the chain. The first matching row wins on
-      # duplicate mnemonics. Plain unmodified characters only — an Alt chord
-      # belongs to the `MenuBar`'s title mnemonics, and navigation/search keys
-      # were already offered every other branch first.
+      # a leaf fires and dismisses the chain. A letter several rows share
+      # only moves the highlight — to the next of them after the highlighted
+      # one, cycling — and activates nothing, as in Qt (`Mnemonic.next_match`).
+      # Plain unmodified characters only — an Alt chord belongs to the
+      # `MenuBar`'s title mnemonics, and navigation/search keys were already
+      # offered every other branch first.
       private def mnemonic_pressed(e) : Bool
         c = e.char
         return false if c == '\0' || e.key || e.alt? || e.ctrl?
         return false if selection_key?(e) # `vi_keys`' `j`/`k`/`g`/`G` and `H`/`M`/`L` too
         down = c.downcase
         acts = visible_actions
-        i = acts.index { |a| !a.separator? && a.enabled? && a.mnemonic == down }
-        return false unless i
+        current = current_index if @show_highlight
+        match = Mnemonic.next_match(acts.size, current) do |j|
+          !acts[j].separator? && acts[j].enabled? && acts[j].mnemonic == down
+        end
+        return false unless match
+        i, unique = match
         @show_highlight = true
         self.current_index = i
         act = acts[i]
-        if act.menu?
+        if !unique
+          # Only highlighted; the next press of the letter moves on.
+        elsif act.menu?
           open_submenu_selected act
         elsif act.checkable?
           act.trigger

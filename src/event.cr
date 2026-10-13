@@ -374,16 +374,37 @@ module Crysterm
     # `QCheckBox#stateChanged(int)`. For the plain Bool view use `Toggled`.
     event StateChanged, state : CheckState
 
+    # The `value` of `TextChanged` and `TextEdited`: the new text, given
+    # as it is or as a proc that builds it on the first read. A
+    # document-backed editor passes the proc, so an edit whose listeners
+    # never read the text (Qt's `QPlainTextEdit#textChanged()` carries
+    # none) costs nothing in the document's size. Built that late, the
+    # text is the widget's when first read: a handler that edits the
+    # widget before the first read shows its edit to the handlers after it.
+    module TextValue
+      def initialize(@value : String | Proc(String))
+      end
+
+      def value : String
+        v = @value
+        v.is_a?(String) ? v : (@value = v.call)
+      end
+    end
+
     # Emitted on every keystroke as an editable text widget's (e.g.
     # `Widget::LineEdit`) text changes, not just on submit. Mirrors Qt's
     # `QLineEdit#textChanged(QString)`.
-    event TextChanged, value : String
+    class TextChanged < ::EventHandler::Event
+      include TextValue
+    end
 
     # Emitted alongside `TextChanged` when the change came from the *user*
     # (typing, paste, kill/yank, table-cell editing) rather than a
     # programmatic `value=`/`set_*` — Qt's `QLineEdit#textEdited(QString)`
     # distinction. `value` is the new text, as in `TextChanged`.
-    event TextEdited, value : String
+    class TextEdited < ::EventHandler::Event
+      include TextValue
+    end
 
     # Emitted by an editable text widget when its insertion point moved —
     # Qt's `cursorPositionChanged()`, with the new position attached:
@@ -427,6 +448,13 @@ module Crysterm
     # payload is not precomputed — building the selected string per mouse-drag
     # step would be wasted work with no listener).
     event SelectionChanged
+
+    # Emitted by a `Mixin::TextEditing::DocumentBuffer` widget (`Widget::TextEdit`,
+    # `Widget::PlainTextEdit`) when another document was set on it
+    # (`document=`), which it now shows and edits; its text and undo history
+    # are the new document's. Neither Qt edit has a signal for it; a holder
+    # of the old document's `ContentsChanged` follows the new one from here.
+    event DocumentChanged, document : Crysterm::TextDocument
 
     # Emitted by a `TextDocument` after every edit: `chars_removed` then
     # `chars_added` characters at `position`. Format-only changes report

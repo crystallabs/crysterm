@@ -354,8 +354,8 @@ module Crysterm
         # Shared `document=` body (Qt `setDocument`): unwires the old document's
         # `ContentsChanged` handler, swaps in *doc*, resets the shared
         # caret/selection/typing state, runs the widget's `#reset_document_caches`
-        # hook, re-wires, and requests a render. Each widget's `document=` is a
-        # same-document guard plus this call.
+        # hook, re-wires, requests a render, and emits `Event::DocumentChanged`.
+        # Each widget's `document=` is a same-document guard plus this call.
         protected def swap_document(doc : TextDocument) : Nil
           unwire_document
           @document = doc
@@ -369,6 +369,7 @@ module Crysterm
           wire_document
           update
           update! if window?
+          emit Crysterm::Event::DocumentChanged, doc
         end
 
         # Replaces the edited document (Qt `setDocument`), e.g. to share one

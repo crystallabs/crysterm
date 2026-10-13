@@ -48,7 +48,8 @@ module Crysterm
     # optionally a spawned `window`), then fully repaints. The widget tree is
     # left intact; only the connection is (re)established. Geometry is taken
     # from the new terminal, so a differently-sized window is handled like a
-    # resize.
+    # resize. A hidden window (`#hide`) stays hidden on the new terminal
+    # until `#show`.
     def connect(input : IO, output : IO, window : Terminal::EmulatorWindow? = nil) : Nil
       # Tear down any existing connection first, so reattaching never leaks
       # the previous window, its fibers, or its watcher.

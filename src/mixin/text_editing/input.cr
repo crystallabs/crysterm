@@ -311,12 +311,8 @@ module Crysterm
         elsif buf_size != before_size
           # No starting selection: a size change is the only way the text changed,
           # so an unchanged size means unchanged text — no serialization at all.
-          # Serializing for the payload is itself skipped when nobody listens.
-          if text_change_observed?
-            after = buf_text
-            emit Crysterm::Event::TextChanged, after
-            emit Crysterm::Event::TextEdited, after
-          end
+          # Serializing for the payload waits for a listener to read it.
+          emit_text_changed
           update!
         end
 
