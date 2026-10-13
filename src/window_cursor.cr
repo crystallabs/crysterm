@@ -93,7 +93,7 @@ module Crysterm
         # The active cursor is drawn by Crysterm, so the terminal's own cursor
         # must not show next to (or on top of) it: hide it here, in the one
         # place every path funnels through (`enter`, focus switches,
-        # `Application`'s raise path, `reassert_sibling_terminal_state`, runtime
+        # `Application`'s raise path, `hand_over_device`, runtime
         # shape changes). Idempotent — `tput.hide_cursor` records
         # `cursor_hidden`, so the per-frame cursor bracket in `#draw` also
         # stops re-showing it. `#leave`/`#leave_inline` undo this at teardown.

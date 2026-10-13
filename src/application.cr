@@ -83,26 +83,7 @@ module Crysterm
       @windows.delete window
       @windows << window
       return window unless window.visible?
-      # What *shown* left on the terminal goes first: the full re-emission
-      # below writes every cell, but not over pictures a terminal keeps apart
-      # from its cells (kitty's images), which would stay on top.
-      window.clear_device unless shown.nil? || shown.same?(window)
-      # A device resize while this window was non-active may not have reached
-      # it yet (its debounced resize loop can still be pending); compositing
-      # into stale-sized buffers would clip the frame to the old rows/columns.
-      # Realloc defensively when the buffer no longer matches the device size.
-      window.realloc unless window.buffers_match_device?
-      # The frame diff runs against this window's PRIVATE `@flushed_lines` (what THIS
-      # window last sent), but the terminal may currently show a sibling sharing
-      # the device — an unchanged frame would emit zero bytes and the raise would
-      # be invisible. Poison the old-frame buffer to force a full re-emit.
-      window.invalidate_region 0, window.awidth, 0, window.aheight
-      # Re-assert per-window terminal state (hardware cursor, OSC title) a
-      # sibling may have overwritten on the shared device — both are pushed
-      # only on (re)takeover, so without this the raised window keeps running
-      # under the sibling's cursor and title indefinitely.
-      window.reassert_terminal_state
-      window.update
+      window.present_over shown
       window
     end
 

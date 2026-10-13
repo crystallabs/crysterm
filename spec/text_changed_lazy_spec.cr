@@ -35,6 +35,19 @@ describe Event::TextValue do
     edited.should be changed
   end
 
+  it "gives a flat buffer's handlers the edit's text, not a handler's later edit" do
+    s = headless_screen(40, 10)
+    le = Widget::LineEdit.new parent: s, width: 20, height: 1, content: "ab"
+    le.cursor_pos = 2
+    edited = nil
+    once = true
+    le.on(Event::TextChanged) { le.value = "X" if once; once = false }
+    le.on(Event::TextEdited) { |e| edited = e.value }
+    le.insert_text "c"
+    le.value.should eq "X"
+    edited.should eq "abc"
+  end
+
   it "still takes the text itself" do
     Event::TextChanged.new("abc").value.should eq "abc"
     Event::TextEdited.new(-> { "lazy" }).value.should eq "lazy"

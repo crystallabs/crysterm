@@ -94,6 +94,8 @@ module Crysterm
     # Idempotent.
     def disconnect : Nil
       return unless @connected
+      # Whether the terminal shows this window, for a sibling to take it over.
+      shown = @visible && device_active_window?
       @connected = false
       # The input read fiber lives on the device; ask it whether it was running
       # so a reattach can restore the prior listening state.
@@ -108,10 +110,11 @@ module Crysterm
       # already disconnecting, so the device is restored exactly once.
       if other_live_window_on_device?
         # The departing window may have pinned a hardware cursor shape/color
-        # (DECSCUSR / OSC 12) or an OSC title on the shared device. This path
-        # skips `restore_terminal`, so hand that per-window state back to the
-        # surviving active window instead of letting it outlive the window.
-        reassert_sibling_terminal_state
+        # (DECSCUSR / OSC 12) or an OSC title on the shared device, and its
+        # frame is what the terminal shows. This path skips
+        # `restore_terminal`, so hand the terminal over to the surviving
+        # sibling instead of letting that state outlive the window.
+        hand_over_device shown
         return
       end
 
@@ -127,7 +130,7 @@ module Crysterm
     # `Window#screen=` for the identical ordered sequence they both run when
     # this window is the device's LAST live window — callers must have
     # already established that (see `#other_live_window_on_device?`); a live
-    # sibling keeps the device alive via `#reassert_sibling_terminal_state`
+    # sibling keeps the device alive via `#hand_over_device`
     # instead and never reaches here.
     #
     # Deliberately does NOT touch the spawned emulator window (`@window`) or
@@ -214,29 +217,44 @@ module Crysterm
       Window.instances.any? { |w| live_sibling_on_device? w }
     end
 
-    # Re-applies the surviving active window's cursor (shape/blink/color) and
-    # title after this window departs a shared device. Prefers the
-    # `Application`'s active window for the device (routing order), falling back
-    # to any live sibling from the global registry. Best-effort: the device may
-    # already be half torn down.
-    private def reassert_sibling_terminal_state : Nil
-      surviving : Window? = nil
-      application.try do |app|
-        app.windows.reverse_each do |w|
-          if live_sibling_on_device? w
-            surviving = w
-            break
-          end
+    # Hands a terminal shared with live sibling windows over as this window
+    # departs it (`#disconnect`, `#screen=`), as `Window#hide` does. When the
+    # terminal showed this window (*shown*), the visible sibling on top
+    # (`Application` routing order first, then the global registry) is
+    # raised and repainted whole, or, with none visible, this window leaves
+    # the alternate screen it held; otherwise the surviving sibling's cursor
+    # (shape/blink/color) and title are re-applied. Best-effort: the device
+    # may already be half torn down.
+    private def hand_over_device(shown : Bool) : Nil
+      surviving = surviving_sibling(&.visible?) || surviving_sibling { true }
+      if shown && surviving && surviving.visible?
+        app = surviving.application
+        if app && app.windows.includes?(surviving)
+          app.activate surviving
+        else
+          surviving.present_over self
         end
+      elsif shown
+        @restoring_terminal = true
+        leave
+      else
+        surviving.try &.reassert_terminal_state
       end
-      surviving ||= Window.instances.find { |w| live_sibling_on_device? w }
-      surviving.try do |w|
-        w.reassert_terminal_state
-      rescue
-        # Dead fds on a user-closed window raise on write; the sibling's
-        # state re-assert must never break the disconnect itself.
+    rescue
+      # Dead fds on a user-closed window raise on write; the hand-over must
+      # never break the disconnect itself.
+    ensure
+      @restoring_terminal = false
+    end
 
+    # The live sibling on this window's device for which the block is true:
+    # the last in the `Application`'s routing order, else the first in the
+    # global registry.
+    private def surviving_sibling(& : Window -> Bool) : Window?
+      if app = application
+        app.windows.reverse_each { |w| return w if live_sibling_on_device?(w) && yield w }
       end
+      Window.instances.find { |w| live_sibling_on_device?(w) && yield w }
     end
 
     # Best-effort restore of the terminal to its normal state, split along the

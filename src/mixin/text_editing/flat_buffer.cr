@@ -20,6 +20,11 @@ module Crysterm
           @value
         end
 
+        # The text as it is: taking it costs nothing (`TextEditing#text_change_value`).
+        private def text_change_value : String | Proc(String)
+          @value
+        end
+
         def buf_size : Int32
           @value.size
         end

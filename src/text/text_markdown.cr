@@ -1431,6 +1431,7 @@ module Crysterm
         false
       end
 
+      # ameba:disable Metrics/CyclomaticComplexity
       def export(blocks : Array(TextBlock)) : String
         String.build do |io|
           i = 0
@@ -1463,7 +1464,15 @@ module Crysterm
                             plain_body?(blocks[i - 1]) && plain_body?(blocks[i]) &&
                             !html_blockish?(blocks[i - 1]) && !html_blockish?(blocks[i])
               io << '\n'
-              io << '\n' if blank
+              if blank && cf.quote_level > 0 && pf.quote_level == cf.quote_level &&
+                 cf.indent > 0 && cf.list_format.nil? && cf.top_margin == 0 && pf.bottom_margin == 0
+                # A list item's later block inside a quote (`> - a\n>\n>   ## H`):
+                # the blank line keeps the quote's `>`, or it would end the
+                # quote and the block would land in a second one.
+                io << ("> " * cf.quote_level).rstrip << '\n'
+              elsif blank
+                io << '\n'
+              end
             end
             if opens_fence?(blocks, i)
               first = i
@@ -1657,6 +1666,7 @@ module Crysterm
         pf.alert_kind != cf.alert_kind || pf.quote_level != cf.quote_level
       end
 
+      # ameba:disable Metrics/CyclomaticComplexity
       private def write_block(io : IO, b : TextBlock, open_alert : Bool = false) : Nil
         bf = b.block_format
         if bf.quote_level > 0
@@ -1681,7 +1691,19 @@ module Crysterm
         end
 
         if bf.horizontal_rule?
-          io << "---"
+          # A rule inside a list item (`- ***`, or `***` at a continuation's
+          # column) stays in the item. It is written `***`: `- ---` is one
+          # thematic break to CommonMark (the marker's `-` joins the rule),
+          # and an indented `---` under the item's text would underline it
+          # into a setext heading.
+          if lf = bf.list_format
+            write_list_marker(io, lf, bf.checked?)
+            io << "***"
+          elsif bf.indent > 0
+            io << " " * (@item_cols[bf.indent // 2]? || bf.indent) << "***"
+          else
+            io << "---"
+          end
           return
         end
 
@@ -1719,6 +1741,11 @@ module Crysterm
         end
 
         if (lvl = bf.heading_level) > 0
+          # A heading that is a later block of a list item (`- a\n\n  ## H`)
+          # imports with the continuation indent and no list; it goes back at
+          # the item's content column, as a continuation paragraph does, or
+          # it would leave the list.
+          io << " " * (@item_cols[bf.indent // 2]? || bf.indent) if bf.indent > 0
           io << "#" * lvl << ' '
           write_inline(io, b.fragments)
           return

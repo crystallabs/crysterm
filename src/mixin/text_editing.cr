@@ -96,15 +96,22 @@ module Crysterm
       end
 
       # Emits `Event::TextChanged` and `Event::TextEdited` for a user edit,
-      # with the text built once for both and only when a handler reads it
-      # (`Event::TextValue`), so an edit nobody reads the text of costs
-      # nothing in the buffer's size.
+      # with the text built once for both (`#text_change_value`).
       private def emit_text_changed : Nil
         return unless text_change_observed?
-        text = nil
-        value = -> { (t = text) ? t : (text = buf_text) }
+        value = text_change_value
         emit Crysterm::Event::TextChanged, value
         emit Crysterm::Event::TextEdited, value
+      end
+
+      # The payload `#emit_text_changed` gives both events: the text, built
+      # only when a handler reads it (`Event::TextValue`), so an edit nobody
+      # reads the text of costs nothing in the buffer's size. A buffer whose
+      # text costs nothing to take (`FlatBuffer`) gives it as it is, so no
+      # handler's own edit can show in it.
+      private def text_change_value : String | Proc(String)
+        text = nil
+        -> { (t = text) ? t : (text = buf_text) }
       end
 
       # Last-notified caret/selection state, backing `#emit_caret_events`.

@@ -109,12 +109,18 @@ module Crysterm
       private alias Message = Notification | IncomingRequest | Exited
 
       @input : IO
+      # Neovim's standard output and error, read to their end: pipes of the
+      # client's own rather than `Process`'s, which `Process#wait` closes as
+      # soon as the process is reaped, cutting off what Neovim sent last.
+      @output : IO
+      @error : IO
       @next_id = 0_u32
       @pending = {} of UInt32 => Channel(Reply)
       @write_lock = Mutex.new
       @queue = Deque(Message).new
       @wake = Channel(Nil).new 1
       @reader_done = Channel(Nil).new
+      @error_done = Channel(Nil).new
       @exited = Channel(Nil).new
       @gone = false
       @error_output = IO::Memory.new
@@ -144,12 +150,23 @@ module Crysterm
       def initialize(*, args : Enumerable(String) = [] of String, executable : String = Neovim.executable,
                      env : Process::Env = nil, chdir : String? = nil)
         path = Neovim.find_executable(executable) || raise Error.new "Neovim executable not found: #{executable}"
-        @process = Process.new(path, ["--embed"] + args.to_a, env: env, chdir: chdir,
-          input: :pipe, output: :pipe, error: :pipe)
+        @output, child_output = IO.pipe(write_blocking: true)
+        @error, child_error = IO.pipe(write_blocking: true)
+        @process = begin
+          Process.new(path, ["--embed"] + args.to_a, env: env, chdir: chdir,
+            input: :pipe, output: child_output, error: child_error)
+        rescue ex
+          @output.close
+          @error.close
+          raise ex
+        ensure
+          child_output.close
+          child_error.close
+        end
         @input = @process.input
-        spawn(name: "Neovim::Client reader") { read_loop @process.output }
+        spawn(name: "Neovim::Client reader") { read_loop @output }
         spawn(name: "Neovim::Client dispatcher") { dispatch_loop }
-        spawn(name: "Neovim::Client stderr") { drain_error_output @process.error }
+        spawn(name: "Neovim::Client stderr") { drain_error_output @error }
         spawn(name: "Neovim::Client waiter") { wait_for_exit }
       end
 
@@ -476,14 +493,20 @@ module Crysterm
 
       # Reaps the process, then — once its output is read to the end, so
       # every answer and notification it sent is in — fails the requests
-      # still waiting and hands the exit to the dispatch fiber.
+      # still waiting and hands the exit to the dispatch fiber. A pipe a
+      # child of Neovim's still holds open is cut off after a second.
       private def wait_for_exit : Nil
         status = @process.wait
         @exit_code = status.normal_exit? ? status.exit_code : nil
-        select
-        when @reader_done.receive?
-        when timeout(1.second)
+        deadline = Time.instant + 1.second
+        {@reader_done, @error_done}.each do |done|
+          select
+          when done.receive?
+          when timeout({deadline - Time.instant, Time::Span.zero}.max)
+          end
         end
+        @output.close rescue nil
+        @error.close rescue nil
         @write_lock.synchronize do
           @gone = true
           @input.close rescue nil
@@ -505,6 +528,8 @@ module Crysterm
           end
         end
       rescue IO::Error
+      ensure
+        @error_done.close
       end
     end
   end

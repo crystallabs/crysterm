@@ -50,6 +50,9 @@ module Crysterm
 
       # Sampled before any teardown, to be restored on the new device below.
       was_listening = @screen.listening?
+      # Whether the old terminal shows this window, for a sibling to take it
+      # over.
+      shown = @visible && device_active_window?
 
       # Whether the new device is genuinely new — not already backing another
       # registered window. Must be computed *before* the swap, while `#screens`
@@ -58,11 +61,11 @@ module Crysterm
 
       # Tear down the old device's terminal when this was its last live window;
       # no later path would restore it. Mirrors `#disconnect`'s split: a sibling
-      # window keeps the device alive, but the departing window's pinned
-      # hardware cursor (shape/blink/color) and title must be handed back to it
-      # rather than outliving this window on the shared terminal.
+      # window keeps the device alive, and is handed the terminal (repainted
+      # over this window's frame, with its own cursor and title) rather than
+      # this window's state outliving it on the shared terminal.
       if other_live_window_on_device?
-        reassert_sibling_terminal_state
+        hand_over_device shown
         stale_window = nil
       else
         # The old device dies with this migration; its owned fds (spawned-
@@ -302,11 +305,18 @@ module Crysterm
     # re-assert used whenever this window (re)takes a terminal: on
     # `Application#activate`, on `#connect`'s reattach, on `#screen=`'s device
     # migration, and when a departing sibling hands the device back
-    # (`#reassert_sibling_terminal_state`). Writes via `tput` directly, so it
+    # (`#hand_over_device`). Writes via `tput` directly, so it
     # emits even before the caller's activation bookkeeping settles.
     def reassert_terminal_state : Nil
       apply_cursor
-      @title.try { |t| tput.title = t } if @visible
+      return unless @visible
+      if t = @title
+        tput.title = t
+      else
+        # An untitled window shows the terminal's own title, not the one a
+        # sibling that had the terminal before it left there.
+        tput.restore_title
+      end
     end
 
     # Rendering performance figures are not drawn by the window itself; add a
@@ -530,16 +540,27 @@ module Crysterm
       each_descendant(&.emit_resize)
     end
 
-    # Whether this window is the one currently shown on its device: the
-    # `Application`'s most-recently added/activated window for this `Screen`.
-    # True when unmanaged (no application, or not registered with it) — a lone
-    # window is always its own device's active window.
+    # Whether this window is the one currently shown on its device
+    # (`#device_top_window`), or no window is.
     private def device_active_window? : Bool
-      app = application
-      return true unless app
-      return true unless app.windows.includes? self
-      aw = app.active_window_for(@screen)
-      aw.nil? || aw.same?(self)
+      top = device_top_window
+      top.nil? || top.same?(self)
+    end
+
+    # The window shown on this window's device, as Qt has one active window
+    # per screen: the `Application`'s most-recently added/activated visible
+    # window for this `Screen`, or, for a window not registered with an
+    # application, the last created visible, connected one of the windows
+    # on the device not registered either.
+    private def device_top_window : Window?
+      if (app = application) && app.windows.includes?(self)
+        return app.active_window_for(@screen)
+      end
+      Window.instances.reverse_each do |w|
+        next unless w.visible? && w.connected? && w.screen.same?(@screen)
+        return w unless (a = w.application) && a.windows.includes?(w)
+      end
+      nil
     end
 
     # The `Application` this window is being driven by, if any. Set when the
@@ -722,20 +743,23 @@ module Crysterm
     # tears down the inline region) — Qt's `QWindow::hide`. No-op while
     # already hidden. The terminal-level primitive underneath is `#leave`.
     #
-    # A visible sibling sharing the terminal (under the same `Application`)
-    # keeps it instead: the window's frame is cleared away, and the sibling
-    # below takes the terminal and the input, repainted whole, if this window
-    # was the one shown.
+    # A visible sibling sharing the terminal keeps it instead: the window's
+    # frame is cleared away, and the sibling below takes the terminal and the
+    # input, repainted whole, if this window was the one shown.
     def hide : Nil
       return unless @visible
       shown = device_active_window?
       @visible = false
-      sibling = application.try &.active_window_for(@screen)
+      sibling = device_top_window
       if sibling && sibling.connected?
         return unless shown
         release_cursor
         clear_device
-        application.try &.activate sibling
+        if (app = application) && app.windows.includes?(sibling)
+          app.activate sibling
+        else
+          sibling.present_over nil
+        end
       else
         leave
       end
@@ -749,6 +773,33 @@ module Crysterm
       return unless @connected && @alternate
       note_overdraw_all
       tput.clear
+    end
+
+    # :nodoc: Repaints this window whole over what *shown* (the window the
+    # terminal showed until now, if another one) left on a terminal they
+    # share, with this window's cursor and title: for `Application#activate`
+    # and a shown window departing the terminal (`#disconnect`, `#screen=`).
+    def present_over(shown : Window?) : Nil
+      # What *shown* left on the terminal goes first: the full re-emission
+      # below writes every cell, but not over pictures a terminal keeps apart
+      # from its cells (kitty's images), which would stay on top.
+      clear_device unless shown.nil? || shown.same?(self)
+      # A device resize while this window was non-active may not have reached
+      # it yet (its debounced resize loop can still be pending); compositing
+      # into stale-sized buffers would clip the frame to the old rows/columns.
+      # Realloc defensively when the buffer no longer matches the device size.
+      realloc unless buffers_match_device?
+      # The frame diff runs against this window's PRIVATE `@flushed_lines` (what THIS
+      # window last sent), but the terminal may currently show a sibling sharing
+      # the device — an unchanged frame would emit zero bytes and the raise would
+      # be invisible. Poison the old-frame buffer to force a full re-emit.
+      invalidate_region 0, awidth, 0, aheight
+      # Re-assert per-window terminal state (hardware cursor, OSC title) a
+      # sibling may have overwritten on the shared device — both are pushed
+      # only on (re)takeover, so without this the raised window keeps running
+      # under the sibling's cursor and title indefinitely.
+      reassert_terminal_state
+      update
     end
 
     # Property spelling of `#show`/`#hide` — Qt's `setVisible`.

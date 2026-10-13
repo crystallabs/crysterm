@@ -379,8 +379,10 @@ module Crysterm
     # document-backed editor passes the proc, so an edit whose listeners
     # never read the text (Qt's `QPlainTextEdit#textChanged()` carries
     # none) costs nothing in the document's size. Built that late, the
-    # text is the widget's when first read: a handler that edits the
-    # widget before the first read shows its edit to the handlers after it.
+    # text is the widget's when first read, so read `value` in the handler,
+    # before anything edits the widget: a handler that edits it before the
+    # first read shows its edit to the handlers after it, and an event kept
+    # and read later gives the text of that later time.
     module TextValue
       def initialize(@value : String | Proc(String))
       end

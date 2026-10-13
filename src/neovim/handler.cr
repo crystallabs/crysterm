@@ -1273,9 +1273,23 @@ module Crysterm
             end
           end
         end
+        -- Run when Neovim next handles its events, out of the command that
+        -- switched (`:e FILE | s/a/b/` edits FILE), and at the latest by
+        -- `C.state`, which the handler waits for before its next keys:
+        -- those reach Neovim's typeahead ahead of the events, and would
+        -- otherwise edit the other buffer.
+        function C.restore_if_due()
+          if not C.restore_due then return end
+          C.restore_due = nil
+          restore()
+        end
         vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
           group = vim.api.nvim_create_augroup('crysterm_vi', { clear = true }),
-          callback = function() vim.schedule(restore) end,
+          callback = function()
+            if C.restore_due then return end
+            C.restore_due = true
+            vim.schedule(C.restore_if_due)
+          end,
         })
 
         -- The widget's lines, also into a buffer made read-only for a
@@ -1402,6 +1416,7 @@ module Crysterm
         end
 
         function C.state(buf, seq)
+          C.restore_if_due()
           C.flush(buf)
           local m = vim.api.nvim_get_mode().mode
           local c = vim.api.nvim_win_get_cursor(0)

@@ -48,8 +48,10 @@ describe "BUGS16 B16-01: render_loop liveness after the throttle sleep" do
     sleep 0.05.seconds
 
     # Teardown lands mid-sleep: sibling path, so the shared device stays live
-    # (output not closed) for w1.
+    # (output not closed) for w1, which takes the terminal over and repaints.
+    w1_renders = w1.renders
     w2.destroy
+    wait_until { w1.renders > w1_renders }
     dev_out = dev.output.as(IO::Memory)
     bytes_after_teardown = dev_out.size
 

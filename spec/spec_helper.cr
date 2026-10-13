@@ -27,6 +27,7 @@ require "./support/emulator_helpers"
 require "./support/media_helpers"
 require "./support/grid_helpers"
 require "./support/input_helpers"
+require "./support/example_watchdog"
 
 # Spins the event loop until *block* is truthy or the deadline passes (raising
 # so a never-satisfied condition fails loudly rather than hanging forever).
