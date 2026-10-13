@@ -90,13 +90,14 @@ end
         {tb.changed, tb.edited}.should eq({1, 0})
       end
 
-      it "stays with the view for a text set through it" do
+      it "comes once from each view for a text set through one" do
         _, a, b = views {{ kind }}
         ta, tb = Tally.new(a), Tally.new(b)
         a.value = "set"
-        # `value=` tells its own view nothing, as before; the other view
-        # learns of the change.
-        {ta.changed, tb.changed}.should eq({0, 1})
+        # `value=` is Qt's `setPlainText`: `textChanged` in every view,
+        # `textEdited` in none.
+        {ta.changed, ta.edited}.should eq({1, 0})
+        {tb.changed, tb.edited}.should eq({1, 0})
       end
     end
   end

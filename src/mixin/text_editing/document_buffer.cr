@@ -278,12 +278,20 @@ module Crysterm
         # undoable — Qt `setPlainText` semantics: the undo stack clears) and
         # parks the caret at the end. The document's `ContentsChanged` signal
         # drives the widget's relayout/render, so no display work happens here.
+        #
+        # Emits `Event::TextChanged`, in this view as in every other view of
+        # the document, but not `Event::TextEdited`: Qt's `setPlainText` emits
+        # `textChanged` (from the document's `contentsChanged`), and only a
+        # user's edit is a `textEdited`. Like Qt's, it is emitted even when
+        # the text set is the text there was, the document being reset all
+        # the same.
         def value=(value : String)
           as_self_edit { document.set_plain_text(value) }
           @cursor_pos = buf_size
           clear_selection
           @goal_col = nil
           emit_caret_events
+          emit Crysterm::Event::TextChanged, text_change_value if has_handlers?(Crysterm::Event::TextChanged)
         end
 
         # Once-per-frame redisplay (from `#paint`): just clamps the caret,

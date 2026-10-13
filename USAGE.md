@@ -1346,7 +1346,9 @@ should reflect), while `doc.char_format_of(pos)` is the format of the character
 
 Four events report editing, and together they make a status line:
 
-- `Event::TextChanged, value` — the text changed, from any cause. A view of a
+- `Event::TextChanged, value` — the text changed, from any cause, a text set
+  with `value=` included (as Qt's `setPlainText` and `QLineEdit::setText`; a
+  `LineEdit` only when the text differs, a document view for every set). A view of a
   shared `TextDocument` emits it for a change made anywhere — in itself, in
   another view, through a `TextCursor` — once per change: an edit block, an
   undo or a whole-text set is one change however many steps it takes.
