@@ -205,14 +205,21 @@ module Crysterm
     # keeping all widget mutation on the single render fiber — no locks needed.
     # A job posted to a destroyed window is dropped: nothing would run it.
     def post(&block : Proc(Nil)) : Nil
-      try_post(&block)
+      post?(&block)
     end
 
     # `#post`, telling whether *block* was queued: `false` once the window is
     # destroyed, when the queue is closed and nothing would ever run the job
     # (`Window#destroy` closes it, which also wakes a poster parked on a full
-    # queue — `#pump`'s reader with no render fiber left to drain it).
-    protected def try_post(&block : Proc(Nil)) : Bool
+    # queue — `#pump`'s reader with no render fiber left to drain it). A
+    # caller serving several windows learns from it that this one is gone
+    # and can hand the job to another, as a reader feeding a document shown
+    # in more than one window does.
+    #
+    # ```
+    # windows.select! { |w| w.post? { w.append line } } # drops the destroyed ones
+    # ```
+    def post?(&block : Proc(Nil)) : Bool
       @ui_queue.send block
       schedule_render
       true
@@ -253,7 +260,7 @@ module Crysterm
           # fiber runs it. A post refused (the window destroyed, under a full
           # queue or not) ends the read.
           io.each_line(chomp: false) do |line|
-            break unless try_post { block.call line }
+            break unless post? { block.call line }
           end
         rescue ex : IO::Error
           error = ex
@@ -274,7 +281,7 @@ module Crysterm
           # Listed before the post: a full queue parks this fiber in `send`,
           # and the render fiber may run the job before the post returns.
           @pump_releases << release
-          unless try_post { @pump_releases.delete release; release.call }
+          unless post? { @pump_releases.delete release; release.call }
             # With the window gone the callback runs here, as the doc above
             # says.
             @pump_releases.delete release
