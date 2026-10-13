@@ -610,8 +610,15 @@ module Crysterm
           bf, _ = block_format_from(node)
           bf = bf.merge(TextBlockFormat.new(code_language: code_language_of(node)))
           fmt = TextCharFormat.new(code: true)
-          plain_text_of(node).lchop('\n').chomp.split('\n').each do |line|
-            start_block(bf, collapse: false)
+          lines = plain_text_of(node).lchop('\n').chomp.split('\n')
+          # The element's margins are the block's: above its first line and
+          # below its last, none between its lines.
+          last = lines.size - 1
+          lines.each_with_index do |line, k|
+            lbf = bf
+            lbf = lbf.with_top_margin(nil) if k > 0
+            lbf = lbf.with_bottom_margin(nil) if k < last
+            start_block(lbf, collapse: false)
             @frags << TextFragment.new(line, fmt) unless line.empty?
             end_block
           end
