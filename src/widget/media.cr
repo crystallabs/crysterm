@@ -159,15 +159,24 @@ module Crysterm
       end
 
       # Selectable values of the `media.backend` config option: `Auto` (pick the
-      # best `Type` the terminal supports) plus one member per `Type`. Members
-      # must stay named identically to `Type`'s, so a non-`Auto` choice maps via
-      # `Type.parse?(choice.to_s)` (`#type`).
+      # best `Type` the terminal supports), `None` (draw no images) plus one
+      # member per `Type`. Those must stay named identically to `Type`'s, so a
+      # pinned choice maps via `Type.parse?(choice.to_s)` (`#type`).
+      #
+      # `None` draws none of the images Crysterm resolves a backend for itself
+      # (`.disabled?`): a `TextEdit`'s document images are neither fetched nor
+      # decoded — an image block shows its title in the picture's place
+      # (`TextEdit#images_enabled?`) — and a CSS `background-image` is not
+      # painted. What asks `.resolve` for a backend of its own (a `Media`
+      # widget an application constructs, `Video`, a `Graph::Canvas`) gets
+      # `Auto`'s pick: the application asked for that widget.
       #
       # `#label`, `#family` and `#available?` are what an application needs to
       # offer the choice in a menu: a name for each entry, a grouping, and
       # whether the entry can be picked on this terminal.
       enum Backend
         Auto # Pick the best backend the terminal supports (see `resolve`)
+        None # Draw no images Crysterm resolves itself (see above)
         Ansi
         AnsiTrueColor
         AnsiC256
@@ -189,19 +198,21 @@ module Crysterm
         Iterm
         Tek
 
-        # The `Type` this member pins, or `nil` for `Auto`, which pins none.
+        # The `Type` this member pins, or `nil` for `Auto` and `None`, which
+        # pin none.
         def type : Type?
           Type.parse?(to_s)
         end
 
-        # The family of the pinned backend, `nil` for `Auto`.
+        # The family of the pinned backend, `nil` for `Auto` and `None`.
         def family : Family?
           type.try &.family
         end
 
         # Whether this backend can be driven on the terminal *tput* describes
         # (the global window's by default): `Media.available?` of the pinned
-        # type; `Auto` always can, since it resolves to one that is. A UI
+        # type; `Auto` always can, since it resolves to one that is, and
+        # `None`, which needs nothing of the terminal. A UI
         # offering the backends disables the entries this refuses.
         def available?(tput : ::Tput? = nil) : Bool
           (t = type) ? Media.available?(t, tput) : true
@@ -212,6 +223,7 @@ module Crysterm
         def label : String
           case self
           in .auto?            then "Auto"
+          in .none?            then "None"
           in .ansi?            then "ANSI, one cell per pixel"
           in .ansi_true_color? then "ANSI, true color"
           in .ansi_c256?       then "ANSI, 256 colors"
@@ -300,12 +312,14 @@ module Crysterm
       # caller must come through here — it is the single point where a backend is
       # chosen, so none can silently diverge:
       #
-      # 1. A non-`auto` `media.backend` pin, when compatible with *content*, is
+      # 1. A `media.backend` pin, when compatible with *content*, is
       #    authoritative: returned verbatim, *skipping* the terminal-capability
       #    gate. The user named a backend, so it is used even where the terminal
       #    can't drive it — failing loudly beats a silent downgrade. Unknown names
       #    fall back to `Ansi`. A pin that can't serve the category is ignored and
-      #    resolution continues at (2).
+      #    resolution continues at (2). `Auto` pins nothing, nor does `None`,
+      #    which the media Crysterm resolves itself checks before asking
+      #    (`.disabled?`); for anything else it is `Auto`.
       # 2. Otherwise it walks the ranked candidate list for *content*, skips any
       #    excluded via `media.exclude`, and returns the first the terminal
       #    supports — falling back to the universal cell grid (`Ansi`).
@@ -318,12 +332,19 @@ module Crysterm
         # capability — but only where it's compatible with the content category,
         # so a background never gets a can't-sit-under-text backend forced on it.
         backend = Crysterm::Config.media_backend
-        unless backend.auto?
+        unless backend.auto? || backend.none?
           pinned = Type.parse?(backend.to_s) || Type::Ansi
           return pinned if backend_applicable?(pinned, content)
         end
 
         auto_type content, tput
+      end
+
+      # Whether `media.backend` is `None`: the images Crysterm resolves a
+      # backend for itself — a `TextEdit`'s document images, a CSS
+      # `background-image` — are not drawn, nor fetched or decoded for it.
+      def self.disabled? : Bool
+        Crysterm::Config.media_backend.none?
       end
 
       # The backend `Type` automatic selection picks for *content* — step (2)

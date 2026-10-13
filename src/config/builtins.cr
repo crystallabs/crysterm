@@ -161,7 +161,7 @@ module Superconf
 
   # -- Images ----------------------------------------------------------------
   option "media.backend", Crysterm::Widget::Media::Backend::Auto,
-    description: "Default Widget::Media backend (auto|ansi|glyph|overlay|ueberzug|sixel|regis|kitty|iterm|tek); 'auto' picks the best one the terminal supports"
+    description: "Default Widget::Media backend (auto|none|ansi|glyph|overlay|ueberzug|sixel|regis|kitty|iterm|tek); 'auto' picks the best one the terminal supports; 'none' draws no document or background images (a TextEdit shows an image's title instead) and is 'auto' for Media widgets an application builds"
   option "media.unsupported", Crysterm::Widget::Media::Unsupported::Ignore,
     description: "What a Widget::Media backend does when asked for a feature it can't do (error|ignore)"
   option "media.exclude", "",

@@ -123,12 +123,15 @@ module Crysterm
       # and holds no buffer positions (block margins and frame border rows).
       # `fborder` marks a frame border row: `{path index of the frame, top?}` —
       # painted as the frame's horizontal border with corners, the enclosing
-      # frames' side bars running through it.
+      # frames' side bars running through it. `label` is a margin row's text
+      # painted at `offset`: a line of an image's title standing in its
+      # picture's place (`text_edit/images.cr`, `Media.disabled?`).
       private record RowMeta,
         offset : Int32,
         marker : String? = nil,
         margin : Bool = false,
-        fborder : Tuple(Int32, Bool)? = nil
+        fborder : Tuple(Int32, Bool)? = nil,
+        label : String? = nil
 
       # One block's cached wrap plus the decoration widths it was wrapped
       # for — list renumbering can change a marker's width (`"9. "` →
@@ -514,6 +517,7 @@ module Crysterm
         # The pictures (`text_edit/images.cr`): rows reserved per image
         # block below, capped for this viewport.
         @image_slots.clear
+        @image_blocks_laid_out = false
         images = @images_enabled
         image_cap = @image_cap_laid_out = image_row_cap
         @image_cells_laid_out = image_cell_pixels
@@ -602,13 +606,26 @@ module Crysterm
           # shrunk to the text width and the cap. No caret sits beside a
           # picture, so it may take the caret's end-of-line column, though
           # not the scroll bar's. An image that cannot be measured reserves
-          # nothing.
-          if images && (img = bf.image) && (slot = image_slot(img, cl.size, deco, avail + caret_cols, image_cap))
-            @image_slots << slot
-            slot.rows.times do
-              cl.rtof << bi
-              meta << RowMeta.new(0, margin: true)
-              cl.push ""
+          # nothing. With `media.backend` at `None` the picture's place holds
+          # the image's title instead, wrapped as the text is.
+          if images && (img = bf.image)
+            @image_blocks_laid_out = true
+            # Follow the option from now on, pictures or not, so a change
+            # into or out of `None` lays the images out again.
+            Media.watch_config
+            if Media.disabled?
+              image_title_lines(img, Math.max(colwidth - deco - rdeco, 2), key[3]).each do |text|
+                cl.rtof << bi
+                meta << RowMeta.new(deco, margin: true, label: text)
+                cl.push ""
+              end
+            elsif slot = image_slot(img, cl.size, deco, avail + caret_cols, image_cap)
+              @image_slots << slot
+              slot.rows.times do
+                cl.rtof << bi
+                meta << RowMeta.new(0, margin: true)
+                cl.push ""
+              end
             end
           end
 

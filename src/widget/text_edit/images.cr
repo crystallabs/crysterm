@@ -61,6 +61,16 @@ module Crysterm
       # server never stalls the view: until it arrives the block shows its
       # caption alone, then the layout takes the picture in — a shift of the
       # rows below, as a browser's page shifts when its images arrive.
+      #
+      # No pictures. With `media.backend` at `None` (`Media.disabled?`) no
+      # image is fetched, decoded or drawn: an image with a title
+      # (`![alt](src "title")`, `TextImageFormat#title`) shows it in the
+      # picture's place — the picture glyph and the title, muted, on margin
+      # rows wrapped to the text width — over the caption row; one without
+      # (or whose title is its alt text) is its caption row alone, the
+      # picture glyph and the alt text, as with images off. A change of the
+      # option into or out of `None` lays the images out again
+      # (`#reset_resolved_media`).
 
       # The cell size in pixels (width, height) a picture is measured in
       # when the terminal reports none (`Screen#cell_pixel_width`/`_height`
@@ -113,6 +123,11 @@ module Crysterm
       # The pictures of the current layout, in document order (rebuilt by
       # `#rebuild_layout`).
       @image_slots = [] of ImageSlot
+
+      # Whether the current layout laid out an image block with images on —
+      # a picture, a title in its place, or a caption alone — so a change of
+      # the media options must lay it out again (`#reset_resolved_media`).
+      @image_blocks_laid_out = false
 
       # Natural pixel sizes by resolved source; `nil` is a source that could
       # not be read or decoded, kept so it is not retried every frame.
@@ -224,6 +239,18 @@ module Crysterm
         cols = (natural_cols * scale).round.to_i.clamp(1, avail)
         rows = (natural_rows * scale).round.to_i.clamp(1, cap)
         ImageSlot.new(row, rows, offset, cols, src)
+      end
+
+      # The lines of *img*'s title shown in its picture's place when
+      # `media.backend` is `None`: the picture glyph and the title, wrapped
+      # to *wrap_width* as the block's text is (`#wrap_block`), one line
+      # when not wrapping; none when the image has no title or its title is
+      # its alt text, which the caption row already shows.
+      private def image_title_lines(img : TextImageFormat, wrap_width : Int32, margin : Int32) : Array(String)
+        title = img.title.try(&.strip.gsub(/\s+/, ' ')).presence
+        return [] of String if title.nil? || title == img.alt
+        text = "#{Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)} #{title}"
+        wrap_content? ? wrap_lines(text, wrap_width, margin: margin).lines : [text]
       end
 
       # *src*'s natural size in pixels, or `nil` when it has none yet: a
@@ -339,12 +366,13 @@ module Crysterm
 
       # A run-time change of the media options (`Media.rebuild_resolved`)
       # drops the picture children with the background layer; the next
-      # frame builds them for the backend resolved now.
+      # frame builds them for the backend resolved now. The images are laid
+      # out again too, as `None` (`Media.disabled?`) puts titles where the
+      # pictures were, and back.
       def reset_resolved_media : Nil
         super
-        return if @block_images.empty?
         drop_block_images
-        update!
+        invalidate_images if @image_blocks_laid_out
       end
     end
   end

@@ -146,6 +146,7 @@ module Crysterm
           # on an `fborder` row — the frame's horizontal border with corners.
           if meta && meta.margin
             paint_frame_margin_row(line, xi, region_w, meta, blk.block_format.frame_formats, base_attr)
+            meta.label.try { |text| paint_row_label(line, xi, region_w, min_col, meta.offset, text, base_attr, fu) }
             next
           end
 
@@ -463,6 +464,40 @@ module Crysterm
             end
           end
           off += (f.border? ? 2 : 0) + f.margin
+        end
+      end
+
+      # Paints a margin row's *text* (`RowMeta#label`, an image's title in
+      # its picture's place) from the text's left edge *offset*, muted as the
+      # image's own text is, up to the region's edge. A wide glyph that would
+      # straddle the edge is left out.
+      private def paint_row_label(line, xi : Int32, region_w : Int32, min_col : Int32, offset : Int32, text : String, base_attr : Int64, fu : Bool) : Nil
+        attr = deco_attr(@palette.muted, base_attr, nil, nil)
+        col = offset - @child_base_x
+        each_glyph(text, fu) do |ch, cluster, _|
+          w = 1
+          if fu
+            w = cluster ? ::Crysterm::Unicode.width(cluster) : ::Crysterm::Unicode.width(ch)
+            w = 1 if w <= 0
+          end
+          break if col + w > region_w
+          if col >= min_col && (cell = line[xi + col]?)
+            if cluster
+              if cell.attr != attr || !cell.grapheme_eq?(cluster)
+                cell.attr = attr
+                cell.grapheme = cluster
+                line.mark_dirty xi + col
+              end
+            else
+              cell.set_if_changed(attr, ch)
+            end
+            if w == 2 && (nxt = line[xi + col + 1]?)
+              nxt.attr = attr
+              nxt.continuation!
+              line.mark_dirty(xi + col + 1)
+            end
+          end
+          col += w
         end
       end
 

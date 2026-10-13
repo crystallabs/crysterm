@@ -118,10 +118,11 @@ describe "Widget::Media backend change at run time" do
 end
 
 describe "Widget::Media::Backend" do
-  it "maps each member but Auto to its Type" do
+  it "maps each member but Auto and None to its Type" do
     Widget::Media::Backend::Auto.type.should be_nil
+    Widget::Media::Backend::None.type.should be_nil
     Widget::Media::Backend.values.each do |backend|
-      next if backend.auto?
+      next if backend.auto? || backend.none?
       backend.type.should eq Widget::Media::Type.parse(backend.to_s)
     end
   end
@@ -144,16 +145,17 @@ describe "Widget::Media::Backend" do
     Widget::Media::Backend::Tek.family.should eq Widget::Media::Family::Window
   end
 
-  it "says whether a member can be driven here, Auto always" do
+  it "says whether a member can be driven here, Auto and None always" do
     s = headless_screen(80, 24, default_quit_keys: true)
     begin
       Widget::Media::Backend::Auto.available?(s.tput).should be_true
+      Widget::Media::Backend::None.available?(s.tput).should be_true
       Widget::Media::Backend::Ansi.available?(s.tput).should be_true
       Widget::Media::Backend::GlyphAscii.available?(s.tput).should be_true
       Widget::Media::Backend::Regis.available?(s.tput).should be_false # no detection
       Widget::Media::Backend::Tek.available?(s.tput).should be_false
       Widget::Media::Backend.values.each do |backend|
-        next if backend.auto?
+        next if backend.auto? || backend.none?
         backend.available?(s.tput).should eq Widget::Media.available?(backend.type.not_nil!, s.tput)
       end
     ensure

@@ -82,8 +82,14 @@ module Crysterm
 
     # The backend `Media.resolve` picks for a background on this terminal
     # (Kitty when available, else the cell-grid fallback), or `nil` when this
-    # widget has no window yet.
+    # widget has no window yet or `media.backend` is `None`
+    # (`Media.disabled?`), which paints no background image.
     private def background_backend : Media::Type?
+      if Media.disabled?
+        # Follow the option still, so the image comes back once it is not.
+        Media.watch_config
+        return
+      end
       return unless s = window?
       Media.resolve Media::Content::Background, s.tput
     end
@@ -101,14 +107,20 @@ module Crysterm
     # Drops the background layer, so the next frame builds it again for the
     # backend `Media.resolve` picks then (see `#reset_resolved_media`). The
     # old layer is destroyed, so its backend erases its image; a widget
-    # without a layer is left alone.
+    # with a background image but no layer (none was built under
+    # `media.backend: none`) is repainted, to build one; a widget with
+    # neither is left alone.
     def reset_background_media : Nil
-      return unless bg = @background_media
-      bg.destroy
-      @background_media = nil
-      @background_url = nil
+      if bg = @background_media
+        bg.destroy
+        @background_media = nil
+        @background_url = nil
+      else
+        return unless style.background_image
+      end
       # Marked damaged, not just dirty: a clean widget's frame would be
-      # skipped, and the image would be gone until something else repainted.
+      # skipped, and the image would be gone (or not come) until something
+      # else repainted.
       update!
     end
 
