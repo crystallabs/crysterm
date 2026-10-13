@@ -79,6 +79,10 @@ module Crysterm
         yi += ebt + ept
         yl -= ebb + epb
         yl -= hscrollbar_rows
+        # The vertical bar's columns in the text area are not the rows':
+        # full-width fills and frame bars stop short of them, as the wrap
+        # does.
+        xl -= scrollbar_overlap
         region_w = xl - xi
         return if region_w <= 0 || yl <= yi
 
@@ -220,6 +224,20 @@ module Crysterm
           raw = blk.text
           ls = row_start - bp
           le = row_end - bp
+          # A TAB the wrap split between two rows (a row's bounds round a
+          # column inside it down to the TAB, `#unexpand_col_in`) paints on
+          # each the part of its expansion the row holds: the window takes
+          # in a TAB straddling the row's end, and each expansion character
+          # is painted only within the row's tab-expanded span
+          # `[exp_prefix, exp_next)`. `exp_ls` is the window start's
+          # tab-expanded offset, below `exp_prefix` when the row starts
+          # inside a TAB.
+          exp_ls = exp_prefix
+          if raw.includes?('\t')
+            exp_ls = expanded_offset(raw, ls, tab_expansion.size) if raw[ls]? == '\t'
+            le += 1 if raw[le]? == '\t'
+          end
+          tabs_seen = 0
 
           # Viewport column of the row text's first character: the row's
           # decoration offset, shifted left by the horizontal scroll when not
@@ -258,7 +276,12 @@ module Crysterm
             end
 
             if ch == '\t'
+              e = exp_ls + (lp - ls) + tabs_seen * (tab_expansion.size - 1)
+              tabs_seen += 1
               tab_expansion.each_char do |tc|
+                in_row = exp_prefix <= e < exp_next
+                e += 1
+                next unless in_row
                 break if col >= region_w
                 if col >= min_col && (cell = line[xi + col]?)
                   cell.set_if_changed(overlay_attr(run_attr, col, sel_cols, row_xsels, full_fmt), tc)
@@ -409,6 +432,17 @@ module Crysterm
             cell.set_if_changed(gap_attr, bch)
           end
         end
+      end
+
+      # The tab-expanded offset of codepoint *upto* in *raw*, a TAB counting
+      # *tab_width* (the units of the layout's rows).
+      private def expanded_offset(raw : String, upto : Int32, tab_width : Int32) : Int32
+        n = 0
+        raw.each_char_with_index do |ch, i|
+          break if i >= upto
+          n += ch == '\t' ? tab_width : 1
+        end
+        n
       end
 
       # Paints the right-side bars of a block's bordered frames — fixed

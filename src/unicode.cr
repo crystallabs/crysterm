@@ -130,13 +130,24 @@ class Tput
           # path must measure the whole run — presentation selectors like VS16/VS15
           # can flip a cluster's width, so a bounded window is not provably
           # byte-identical.
+          #
+          # The run's end is found by byte search for the next `\e` that opens
+          # an SGR run (UTF-8 continuation bytes are never 0x1B), not by
+          # decoding every char: a cut is wanted for each row of a long line,
+          # and decoding the whole rest of it each time made wrapping one long
+          # line quadratic in its length.
           run_byte_start = reader.pos
-          run_cp_start = cp
-          while reader.pos < bytesize && sgr.run_len(bytes, reader.pos, bytesize).nil?
-            reader.next_char; cp += 1
+          run_end = bytesize
+          search = run_byte_start + 1
+          while search < bytesize && (esc = bytes.index(0x1B_u8, search))
+            if sgr.run_len(bytes, esc, bytesize)
+              run_end = esc
+              break
+            end
+            search = esc + 1
           end
-          pos = run_cp_start
-          line.byte_slice(run_byte_start, reader.pos - run_byte_start).each_grapheme do |g|
+          pos = cp
+          line.byte_slice(run_byte_start, run_end - run_byte_start).each_grapheme do |g|
             gs = g.to_s
             w = width gs
             # Cut before this cluster once we already have content placed.
@@ -144,6 +155,8 @@ class Tput
             total += w
             pos += gs.size
           end
+          reader.pos = run_end
+          cp = pos
         else
           # One column per visible codepoint (legacy). Walk only until the column
           # budget is met rather than to the end of the run. Before reading the

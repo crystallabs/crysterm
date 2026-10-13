@@ -213,13 +213,19 @@ describe Crysterm::Neovim::Handler do
       h.sync
       nvh_type w, "0dw"
       w.value.should eq "first\nsecond"
+      # Neovim's undo takes back the outside change too.
+      nvh_type w, "u"
+      w.value.should eq "first\nnew second"
+      nvh_type w, "u"
+      w.value.should eq "first\nsecond"
       w.value = "replaced text"
       h.sync
       nvh_type w, "0x"
       w.value.should eq "eplaced text"
-      # Neovim's undo takes back the outside change too.
+      # `value=` resets the document, clearing its undo stack: Neovim's
+      # history goes too, so `u` brings back nothing from before.
       nvh_type w, "uu"
-      w.value.should eq "first\nsecond"
+      w.value.should eq "replaced text"
     end
   end
 

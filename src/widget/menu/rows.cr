@@ -260,6 +260,10 @@ module Crysterm
         strip_item_box_model
         sync_tear_off_chrome
         autosize
+        # An open submenu follows its parent's box (`menu/popup.cr`).
+        if (pm = parent_menu) && pm.@submenu_open.same?(self)
+          pm.place_submenu self
+        end
         size_rows
         size_separators
         ret = super

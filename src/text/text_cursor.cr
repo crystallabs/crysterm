@@ -346,8 +346,23 @@ module Crysterm
       end
     end
 
+    # A block keeps its table whatever *format* says (Qt keeps a block in its
+    # table frame): a table block takes *format* with its own table reference,
+    # so setting a format on a row cannot tear the table.
     def set_block_format(format : TextBlockFormat) : Nil
-      @document.apply_block_format(selection_start, selection_end, format)
+      from, to = selection_start, selection_end
+      bs = @document.blocks
+      b1 = @document.block_at(from).index
+      b2 = @document.block_at(to).index
+      if format.table_format || (b1..b2).none? { |i| bs[i].block_format.table_format }
+        return @document.apply_block_format(from, to, format)
+      end
+      @document.edit do
+        (b1..b2).each do |i|
+          pos = @document.block_position(i)
+          @document.apply_block_format(pos, pos, format.with_table_format(bs[i].block_format.table_format))
+        end
+      end
     end
 
     # `=`-setter spelling of `#set_block_format`.

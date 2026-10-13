@@ -250,34 +250,19 @@ module Crysterm
         window.apply_stylesheet
 
         # Size the child like a top-level popup, then float it right of the
-        # selected row — flipping to the *left* of the parent only when it can't
-        # fit on the right. `Overlay.place_child` owns the fit choice, the
-        # on-window clamp, and the absolute→window-local inset conversion. When
-        # the menu draws a border, folding `-border` into the anchor width keeps
-        # the right-side baseline on the parent's right border column (the
-        # shared-divider overlap); a borderless theme sits flush. Both `Right` and
-        # `Left` share the same row `y`, so the flip is purely horizontal and
-        # vertical overflow is clamped on-window. Further gap comes from the
-        # submenu's `style.margin`, not a hardcoded offset.
+        # selected row (`#place_submenu`).
         child.fit_to_content
-        begin
-          lp = last_rendered_position
-          border = style.border_view.any? ? 1 : 0
-          row_top = lp.yi + itop + (current_index - @child_base)
-          Overlay.place_child(child,
-            {lp.xi, row_top, (lp.xl - lp.xi) - border, 1},
-            {child.width_spec.as?(Int) || 1, child.height_spec.as?(Int) || 1},
-            [Overlay::Side::Right, Overlay::Side::Left])
-        rescue
+        @submenu_open = child
+        @submenu_action = action
+        @submenu_anchor = @item_boxes[current_index]?
+        @submenu_placed = nil
+        unless place_submenu child
           child.left = 0
           child.top = 0
         end
 
         child.to_front
         child.focus
-        @submenu_open = child
-        @submenu_action = action
-        @submenu_anchor = @item_boxes[current_index]?
 
         # The top-level menu watches for a click anywhere outside the open chain
         # and dismisses the submenus. In popup mode the `#popup` watcher already
@@ -303,6 +288,42 @@ module Crysterm
         end
 
         update!
+      end
+
+      # What `#place_submenu` last placed the open submenu against: this menu's
+      # rendered box, border and anchor row, the submenu's size and the
+      # window's.
+      @submenu_placed : Tuple(Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32)?
+
+      # Floats *child*, the open submenu, right of the selected row — flipping
+      # to the *left* of this menu only when it can't fit on the right.
+      # `Overlay.place_child` owns the fit choice, the on-window clamp, and the
+      # absolute→window-local inset conversion. When the menu draws a border,
+      # folding `-border` into the anchor width keeps the right-side baseline
+      # on this menu's right border column (the shared-divider overlap); a
+      # borderless theme sits flush. Both sides share the row's `y`, so the
+      # flip is purely horizontal and vertical overflow is clamped on-window.
+      # Further gap comes from the submenu's `style.margin`.
+      #
+      # Run on open, and again from the submenu's own `#paint` once both menus
+      # have re-fitted to the frame's style (Qt's `QMenu` places a submenu as
+      # it shows it; here a theme switch under an open submenu re-sizes the
+      # menus in place, which would leave it over this menu's ▶ column or a gap
+      # beside it). Skipped while nothing it depends on changed. Returns
+      # `false` when this menu has no rendered position to anchor to.
+      protected def place_submenu(child : Menu) : Bool
+        lp = last_rendered_position? || return false
+        border = style.border_view.any? ? 1 : 0
+        row_top = lp.yi + itop + (current_index - @child_base)
+        w = child.width_spec.as?(Int) || 1
+        h = child.height_spec.as?(Int) || 1
+        win = window
+        key = {lp.xi, lp.xl, row_top, border, w, h, win.awidth, win.aheight}
+        return true if key == @submenu_placed
+        @submenu_placed = key
+        Overlay.place_child(child, {lp.xi, row_top, (lp.xl - lp.xi) - border, 1}, {w, h},
+          [Overlay::Side::Right, Overlay::Side::Left])
+        true
       end
 
       # Closes this menu's open child submenu (recursively), refocusing this menu

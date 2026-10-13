@@ -405,17 +405,23 @@ module Crysterm
     private def normalize! : Nil
       invalidate!
       @fragments.reject!(&.text.empty?)
+      return if @fragments.size < 2
+      # Each run of fragments alike in appearance becomes its first, its text
+      # joined in one build: appending and deleting pairwise was quadratic in
+      # the run's length (a long paragraph imports as many pieces).
+      merged = [] of TextFragment
       i = 0
-      while i < @fragments.size - 1
+      while i < @fragments.size
         a = @fragments[i]
-        b = @fragments[i + 1]
-        if a.format.same_appearance?(b.format)
-          a.text += b.text
-          @fragments.delete_at(i + 1)
-        else
-          i += 1
+        j = i + 1
+        while j < @fragments.size && a.format.same_appearance?(@fragments[j].format)
+          j += 1
         end
+        a.text = String.build { |io| (i...j).each { |k| io << @fragments[k].text } } if j > i + 1
+        merged << a
+        i = j
       end
+      @fragments.replace merged
     end
 
     private def invalidate! : Nil

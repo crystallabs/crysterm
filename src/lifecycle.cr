@@ -52,6 +52,7 @@ module Crysterm
     Window.instances.dup.each do |w|
       next unless w.connected?
       begin
+        w.suspend_cursor
         w.tput.pause
       rescue
       end
@@ -68,6 +69,7 @@ module Crysterm
       next unless w.connected?
       begin
         w.tput.resume
+        w.resume_cursor
         w.realloc
         w.update
       rescue

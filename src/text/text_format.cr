@@ -363,13 +363,13 @@ module Crysterm
     # A full-field copy overriding exactly the given nil-able properties. Every
     # field is forwarded from the `@`-ivars, so adding a block property means
     # editing this once.
-    private def copy_with(*, list_format = @list_format, checked = @checked, frame_formats = @frame_formats, top_margin = @top_margin, bottom_margin = @bottom_margin) : TextBlockFormat
+    private def copy_with(*, list_format = @list_format, checked = @checked, table_format = @table_format, frame_formats = @frame_formats, top_margin = @top_margin, bottom_margin = @bottom_margin) : TextBlockFormat
       TextBlockFormat.new(
         alignment: @alignment, indent: @indent, top_margin: top_margin,
         bottom_margin: bottom_margin, bg: @bg, heading_level: @heading_level,
         non_breakable: @non_breakable, quote_level: @quote_level,
         horizontal_rule: @horizontal_rule, checked: checked, list_format: list_format,
-        table_format: @table_format, frame_formats: frame_formats, alert_kind: @alert_kind,
+        table_format: table_format, frame_formats: frame_formats, alert_kind: @alert_kind,
         code_language: @code_language, image: @image)
     end
 
@@ -383,6 +383,12 @@ module Crysterm
     # cannot set `false` over a stored value, same as `#with_list_format`.
     def with_checked(checked : Bool?) : TextBlockFormat
       copy_with(checked: checked)
+    end
+
+    # A copy with the table reference replaced, or cleared with `nil`, same as
+    # `#with_list_format`.
+    def with_table_format(tf : TextTableFormat?) : TextBlockFormat
+      copy_with(table_format: tf)
     end
 
     # A copy with the frame path replaced, or `nil` to move the block to the

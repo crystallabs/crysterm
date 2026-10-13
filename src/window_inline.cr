@@ -167,15 +167,14 @@ module Crysterm
       # `[offset, offset + aheight - 1]`; hand the whole terminal back.
       tput.set_scroll_region(0, tput.screen.height - 1)
 
-      show_cursor
-      # Same as in `#leave`: the artificial branch of `show_cursor` never emits
-      # cnorm, so directly undo the civis `apply_cursor`'s artificial branch
-      # emitted (or any other stray hide) before handing the tty back.
-      show_hardware_cursor
+      # Same as in `#leave`: undo, on the device, the civis `apply_cursor`'s
+      # artificial branch emitted (or any other stray hide) before handing the
+      # tty back.
+      @screen.show_hardware_cursor
       # Park below the region's *actual* on-screen footprint (which, under
       # auto-grow, may be smaller than `aheight`).
       tput.cursor_pos render_row_offset + @inline_visible, 0
-      reset_cursor if cursor.applied?
+      release_cursor
       # The terminal's own title back (`Tput#title=` saved it).
       tput.restore_title
 

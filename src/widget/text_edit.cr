@@ -521,6 +521,10 @@ module Crysterm
         # in document order — the marker numbering source.
         list_items = {} of UInt64 => Int32
 
+        # The reservation's columns other than the scroll bar's (the caret's
+        # end-of-line column), which do not depend on the rows.
+        caret_cols = content_margin_x - scrollbar_overlap
+
         fresh = @block_layouts_swap
         fresh.clear
         # Frame path of the previous block — boundary rows (frame borders)
@@ -540,7 +544,7 @@ module Crysterm
           deco = block_deco_cells(bf, marker)
           rdeco = frame_inset(bf)
           entry = @block_layouts[blk.object_id]?
-          bl = entry && entry.deco == deco && entry.rdeco == rdeco ? entry.lines : wrap_block(blk, Math.max(colwidth - deco - rdeco, 2))
+          bl = entry && entry.deco == deco && entry.rdeco == rdeco ? entry.lines : wrap_block(blk, Math.max(colwidth - deco - rdeco, 2), key[3])
           fresh[blk.object_id] = BlockLayout.new(deco, rdeco, bl)
 
           # Frame boundary rows: close the frames the previous block was in
@@ -575,18 +579,21 @@ module Crysterm
           end
 
           # Center/right alignment is a per-wrapped-row extra shift within
-          # the space the decorations leave. Wrap mode only: non-wrap rows
-          # are viewport slices of arbitrarily long lines, where alignment
-          # has no stable meaning.
+          # the width the rows wrap to: what the decorations and the
+          # right-edge reservation (the scroll bar, the caret's column)
+          # leave. Wrap mode only: non-wrap rows are viewport slices of
+          # arbitrarily long lines, where alignment has no stable meaning.
           align = bf.alignment
           align = nil unless wrap_content? && align && (align.h_center? || align.right?)
-          avail = Math.max(colwidth - deco - rdeco, 0)
+          avail = Math.max(colwidth - key[3] - deco - rdeco, 0)
 
           # A block image's picture: margin rows above the block's text row
           # (its caption), at the text's left edge, at its natural size or
-          # shrunk to the text width and the cap. An image that cannot be
-          # measured reserves nothing.
-          if images && (img = bf.image) && (slot = image_slot(img, cl.size, deco, avail, image_cap))
+          # shrunk to the text width and the cap. No caret sits beside a
+          # picture, so it may take the caret's end-of-line column, though
+          # not the scroll bar's. An image that cannot be measured reserves
+          # nothing.
+          if images && (img = bf.image) && (slot = image_slot(img, cl.size, deco, avail + caret_cols, image_cap))
             @image_slots << slot
             slot.rows.times do
               cl.rtof << bi
@@ -655,17 +662,20 @@ module Crysterm
       # wrap engine (`wrap_lines`) the base pipeline uses — identical cut
       # points, wide-char handling and `content_margin_x` reservation, and the
       # non-wrap `_hslice` viewport window. `wrap_width` is the column width left
-      # after the block's decorations. TABs must be pre-expanded to match the
-      # tab-expanded column units all the shared caret math runs in.
+      # after the block's decorations and *margin* the layout's reservation
+      # (`layout_cache_key`): taken before `@wrapped_lines` is reset, as an
+      # `AsNeeded` bar's presence reads its row count. TABs must be
+      # pre-expanded to match the tab-expanded column units all the shared
+      # caret math runs in.
       #
       # A table row is cut into its display lines (`TextTable.display_lines`:
       # a wrapped row is its lines one after another, each the table's
       # width) — rows of the grid, not of prose.
-      private def wrap_block(blk : TextBlock, wrap_width : Int32) : CLines
+      private def wrap_block(blk : TextBlock, wrap_width : Int32, margin : Int32) : CLines
         text = blk.text
         text = text.gsub('\t', style.tab_char * style.tab_size) if text.includes?('\t')
         text = TextTable.display_text(text) if blk.block_format.table_format
-        wrap_lines(text, wrap_width)
+        wrap_lines(text, wrap_width, margin: margin)
       end
 
       # Decoration cells left of a block's text: frame insets (borders +

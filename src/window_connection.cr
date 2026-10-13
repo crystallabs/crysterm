@@ -344,11 +344,10 @@ module Crysterm
       # window and its claim on the tty are gone.
       was_listening = @screen.listening?
       @screen.stop_input
-      # The replacement gets its own copy of the cursor (incl. its `Style`):
-      # `#reparent_onto`'s destroy of THIS window runs `reset_cursor` on its
-      # cursor object during `leave`, which would clobber a shared one back to
-      # a default block. `#applied?` is cleared so the new window's `enter` applies
-      # the carried shape/blink/color to the NEW terminal.
+      # The replacement gets its own copy of the cursor (incl. its `Style`),
+      # not one object shared with THIS window, which `#reparent_onto`'s
+      # destroy leaves (`release_cursor`). The new window's `enter` applies the
+      # carried shape/blink/color to the NEW terminal.
       carried_cursor = @cursor.dup
       carried_cursor.style = @cursor.style.dup
       carried_cursor.applied = false

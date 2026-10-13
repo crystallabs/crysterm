@@ -135,7 +135,10 @@ module Crysterm
     # * **Undo.** `u` and `Ctrl-R` are Neovim's, with its undo steps (an
     #   insert is one); the widget's mirror of each change is an undo step of
     #   the widget too, so an application's own Undo still works on the
-    #   widget, and what it undoes reaches Neovim as an outside change.
+    #   widget, and what it undoes reaches Neovim as an outside change. A
+    #   reset of the widget's document (`value=` on a `Widget::TextEdit` or
+    #   `Widget::PlainTextEdit`, `TextDocument#set_plain_text`), which clears
+    #   its undo stack, clears Neovim's undo history too.
     # * **A single line.** A single-line widget's buffer is kept to one line:
     #   what would make another (`o`, a pasted line break, a linewise put) is
     #   joined back on with a space, as `Widget::LineEdit` flattens a paste.
@@ -249,6 +252,9 @@ module Crysterm
       # then no outside change.
       @applying = false
       @text_dirty = false
+      # Set when the widget's document was reset (`set_plain_text`, which
+      # clears its undo stack): Neovim's undo history goes too.
+      @text_reset = false
       @caret_dirty = false
       @flush_scheduled = false
       @seq = 0_i64
@@ -374,7 +380,7 @@ module Crysterm
         @subs.on(widget, ::Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) { |e| key_pressed e }
         @subs.on(widget, ::Crysterm::Event::Paste, at: ::EventHandler.at_beginning) { |e| pasted e }
         @subs.on(widget, ::Crysterm::Event::TextChanged) { outside_change text: true }
-        target.on_document_change(@subs) { outside_change text: true }
+        target.on_document_change(@subs) { |reset| outside_change text: true, reset: reset }
         @subs.on(widget, ::Crysterm::Event::CursorPositionChanged) { outside_change caret: true }
         @subs.on(widget, ::Crysterm::Event::SelectionChanged) { outside_change caret: true }
         @subs.on(widget, ::Crysterm::Event::FocusIn) { focused }
@@ -414,6 +420,7 @@ module Crysterm
         @buffer = nil
         @widget = nil
         @target = nil
+        @text_reset = false
         if w = @waiter
           @waiter = nil
           w[1].send nil
@@ -667,9 +674,9 @@ module Crysterm
           v = flat_position vrow, vcol
           if cur >= v
             anchor = v
-            cur = Math.min(cur + 1, target.buf_size)
+            cur = Math.min(char_end(row, col), target.buf_size)
           else
-            anchor = Math.min(v + 1, target.buf_size)
+            anchor = Math.min(char_end(vrow, vcol), target.buf_size)
           end
         end
         applying { target.set_caret cur, anchor }
@@ -691,6 +698,19 @@ module Crysterm
       private def flat_position(row : Int32, col : Int32) : Int32
         line = line_at(row)
         line_offset(row.clamp(0, @lines.size - 1)) + char_column(line, col)
+      end
+
+      # The widget position just past the character at byte column *col* of
+      # line *row*, the end of a Visual selection: a whole grapheme cluster
+      # (a letter with its combining marks, a flag), which Neovim selects as
+      # one character, or past the line's end, its line break.
+      private def char_end(row : Int32, col : Int32) : Int32
+        line = line_at(row)
+        size = 1
+        if 0 <= col < line.bytesize
+          line.byte_slice(col).each_grapheme { |g| size = g.size; break }
+        end
+        flat_position(row, col) + size
       end
 
       private def char_column(line : String, col : Int32) : Int32
@@ -856,9 +876,10 @@ module Crysterm
 
       # The widget changed by other means than the handler's: sent to Neovim
       # once the current fiber yields, or before the next key.
-      private def outside_change(text : Bool = false, caret : Bool = false) : Nil
+      private def outside_change(text : Bool = false, caret : Bool = false, reset : Bool = false) : Nil
         return if @applying
         @text_dirty ||= text
+        @text_reset ||= reset
         @caret_dirty ||= caret
         return if @flush_scheduled
         @flush_scheduled = true
@@ -907,11 +928,20 @@ module Crysterm
         end
       end
 
-      # Sends Neovim the lines that differ between its buffer and the widget.
+      # Sends Neovim the lines that differ between its buffer and the widget;
+      # after a reset of the widget's document, all of them, with Neovim's
+      # undo history cleared as the widget's was, so `u` cannot bring back
+      # the text from before (another file's).
       private def push_text(client : Client, target : Target) : Nil
         buf = @buffer || return
         new, @eol = split_lines target
         old = @lines
+        if @text_reset
+          @text_reset = false
+          @lines = new
+          client.request "nvim_exec_lua", "crysterm_vi.reset(...)", [buf, new]
+          return
+        end
         return if new == old
         p, q = common_ends(old, new)
         @lines = new
@@ -956,8 +986,9 @@ module Crysterm
         abstract def edit(from : Int32, to : Int32, text : String) : Nil
         # Subscribes *block* to the changes of the widget's document, for a
         # widget with one (`Mixin::TextEditing::DocumentBuffer`), whose edits
-        # by a `TextCursor` tell no `Event::TextChanged`.
-        abstract def on_document_change(subs : ::Crysterm::Subscriptions, &block : ->) : Nil
+        # by a `TextCursor` tell no `Event::TextChanged`; *block* is told
+        # whether the change reset the document (`TextDocument#set_plain_text`).
+        abstract def on_document_change(subs : ::Crysterm::Subscriptions, &block : Bool ->) : Nil
       end
 
       private class TargetOf(W) < Target
@@ -1007,10 +1038,10 @@ module Crysterm
           end
         end
 
-        def on_document_change(subs : ::Crysterm::Subscriptions, &block : ->) : Nil
+        def on_document_change(subs : ::Crysterm::Subscriptions, &block : Bool ->) : Nil
           w = @w
           if w.is_a?(Mixin::TextEditing::DocumentBuffer)
-            subs.on(w.document, ::Crysterm::Event::ContentsChanged) { block.call }
+            subs.on(w.document, ::Crysterm::Event::ContentsChanged) { |e| block.call e.kind.replace? }
           end
         end
       end
@@ -1028,6 +1059,41 @@ module Crysterm
         vim.o.more = false
         vim.o.swapfile = false
 
+        -- The changes of a buffer not yet sent, as one: lines `first` to
+        -- `last` (0-based, exclusive) as the handler has them are now
+        -- `first` to `new_last`. Neovim reports some commands line by line
+        -- (an undo of `:%s`, `:g`), which as many notifications, each an
+        -- edit and an undo step of the widget, took minutes on a long
+        -- document; they go as one when Neovim is next idle, or before
+        -- anything else is sent about the buffer.
+        C.pending = C.pending or {}
+
+        function C.flush(buf)
+          local p = C.pending[buf]
+          if not p then return end
+          C.pending[buf] = nil
+          if not vim.api.nvim_buf_is_loaded(buf) then return end
+          vim.rpcnotify(C.chan, 'crysterm_vi_lines', buf, p.first, p.last, vim.api.nvim_buf_get_lines(buf, p.first, p.new_last, false))
+        end
+
+        local function changed(buf, first, last, new_last)
+          local p = C.pending[buf]
+          if not p then
+            C.pending[buf] = { first = first, last = last, new_last = new_last }
+            vim.schedule(function() C.flush(buf) end)
+            return
+          end
+          -- Lines before the pending change are where they were; lines
+          -- after it are moved by its count.
+          if last > p.new_last then
+            p.last = p.last + last - p.new_last
+            p.new_last = new_last
+          else
+            p.new_last = p.new_last + new_last - last
+          end
+          p.first = math.min(p.first, first)
+        end
+
         local function quit(bang, all, write)
           local buf = vim.api.nvim_get_current_buf()
           if write == 'write' then
@@ -1035,6 +1101,7 @@ module Crysterm
           elseif write == 'update' then
             vim.cmd('update')
           end
+          C.flush(buf)
           vim.rpcnotify(C.chan, 'crysterm_vi_quit', buf, bang, all)
         end
         for name, spec in pairs({
@@ -1104,10 +1171,28 @@ module Crysterm
           callback = function() vim.schedule(restore) end,
         })
 
+        -- The widget's lines, also into a buffer made read-only for a
+        -- read-only widget, whose text the application still sets.
         function C.set_lines(buf, first, last, lines)
+          C.flush(buf)
+          local bo = vim.bo[buf]
+          local modifiable = bo.modifiable
           C.quiet[buf] = true
+          bo.modifiable = true
           local ok, err = pcall(vim.api.nvim_buf_set_lines, buf, first, last, false, lines)
+          bo.modifiable = modifiable
           C.quiet[buf] = nil
+          if not ok then error(err) end
+        end
+
+        -- All of the widget's lines, with no undo history before them.
+        function C.reset(buf, lines)
+          local bo = vim.bo[buf]
+          local undolevels = bo.undolevels
+          bo.undolevels = -1
+          local ok, err = pcall(C.set_lines, buf, 0, -1, lines)
+          bo.undolevels = undolevels
+          bo.modified = false
           if not ok then error(err) end
         end
 
@@ -1133,21 +1218,17 @@ module Crysterm
           bo.buftype = 'acwrite'
           bo.bufhidden = 'hide'
           vim.api.nvim_buf_set_name(buf, 'crysterm://' .. buf)
-          local undolevels = bo.undolevels
-          bo.undolevels = -1
-          C.set_lines(buf, 0, -1, lines)
-          bo.undolevels = undolevels
-          bo.modified = false
+          C.reset(buf, lines)
           bo.modifiable = modifiable
           vim.api.nvim_buf_attach(buf, false, {
             on_lines = function(_, b, _, first, last, new_last)
-              if C.quiet[b] then return end
-              vim.rpcnotify(C.chan, 'crysterm_vi_lines', b, first, last, vim.api.nvim_buf_get_lines(b, first, new_last, true))
+              if not C.quiet[b] then changed(b, first, last, new_last) end
             end,
             -- Unloaded (`:bwipeout`, `:bdelete`, `:edit!`): its lines are
             -- no longer reported, so the handler lets go of it.
             on_detach = function(_, b)
               C.own[b] = nil
+              C.pending[b] = nil
               vim.rpcnotify(C.chan, 'crysterm_vi_detach', b)
             end,
           })
@@ -1157,6 +1238,7 @@ module Crysterm
               local path = a.match
               if path == vim.api.nvim_buf_get_name(buf) then path = vim.NIL end
               vim.bo[buf].modified = false
+              C.flush(buf)
               vim.rpcnotify(C.chan, 'crysterm_vi_write', buf, path, vim.v.cmdbang == 1)
             end,
           })
@@ -1169,6 +1251,7 @@ module Crysterm
         end
 
         function C.state(buf, seq)
+          C.flush(buf)
           local m = vim.api.nvim_get_mode().mode
           local c = vim.api.nvim_win_get_cursor(0)
           local v = vim.fn.getpos('v')

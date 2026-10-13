@@ -112,27 +112,56 @@ module Crysterm
 
       # Recomputes `@column_margins` for a box *width* cells wide: the text
       # area left after the frame, the chrome and the reserved right-edge
-      # columns (`#content_margin_x`, the scroll bar) is the column at most,
-      # and the slack is split by the alignment. A changed pair drops the
-      # cached frame insets, which the next inset read rebuilds with it. The
-      # scroll bar's reservation is the previous frame's: a bar that appears
-      # or goes shifts the text by its width for one frame, and the next
-      # frame settles — the text keeps its width either way, so the bar's
-      # presence does not flip back.
+      # columns other than the scroll bar's (`#content_margin_x`, the caret's
+      # end-of-line column) is the column at most, and the slack is split by
+      # the alignment. A scroll bar the policy may show takes its columns of
+      # the slack into the right inset whether it shows or not: the bar sits
+      # at the frame (`#update_scrollbar_widget`), so it is then beside the
+      # column rather than in it (`#scrollbar_overlap`), and an `AsNeeded`
+      # bar coming or going moves neither the text nor its wrap — which,
+      # were the column to narrow for the bar, could add the rows that keep
+      # the bar, and take them away again a frame later. A changed pair
+      # drops the cached frame insets, which the next inset read rebuilds
+      # with it.
       private def sync_line_wrap_column(width : Int32) : Nil
         left, right = @column_margins
         new_left = new_right = 0
         if (column = @line_wrap_column) > 0
-          slack = width - ihorizontal + left + right - content_margin_x - column
+          slack = width - ihorizontal + left + right - (content_margin_x - scrollbar_overlap) - column
           if slack > 0
+            bar = scrollable? && scrollbar? ? Math.min(scrollbar_width, slack) : 0
+            slack -= bar
             align = @line_wrap_column_alignment
             new_left = align.h_center? ? slack // 2 : align.right? ? slack : 0
-            new_right = slack - new_left
+            new_right = slack - new_left + bar
           end
         end
         return if new_left == left && new_right == right
         @column_margins = {new_left, new_right}
         @_frame_insets = nil
+      end
+
+      # The columns of the vertical scroll bar that fall in the text area
+      # this frame: the bar is pinned to the frame, outside the column's
+      # right inset and the right viewport margin, so only what of its
+      # width those leave. 0 without a bar.
+      protected def scrollbar_overlap : Int32
+        return 0 unless show_scrollbar?
+        Math.max(scrollbar_width - @column_margins[1] - viewport_margins.right, 0)
+      end
+
+      # The right-edge reservation (`Widget#content_margin_x`) holds only
+      # the scroll bar's columns that are in the text area
+      # (`#scrollbar_overlap`): a bar beside the column, in its right inset,
+      # takes nothing from the text.
+      def content_margin_x : Int32
+        scrollbar_overlap
+      end
+
+      # :ditto: — what an empty widget would reserve.
+      def content_margin_x_empty : Int32
+        return 0 if super == 0
+        Math.max(super - @column_margins[1] - viewport_margins.right, 0)
       end
 
       # The column's insets ride on the viewport margins: the same band

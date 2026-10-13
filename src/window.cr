@@ -106,10 +106,10 @@ module Crysterm
       # Re-enter + repaint invalidates descendants' memoized device.
       enter
       realloc
-      # Re-assert per-window terminal state on the new device: `enter` skips
-      # `apply_cursor` for an already-applied cursor, and nothing else pushes
-      # the stored title here — without this a migration loses both until the
-      # next `activate`.
+      # Re-assert per-window terminal state on the new device: `enter` sends
+      # the stored title only for the device's active window, and nothing else
+      # pushes it here — without this a migration loses it until the next
+      # `activate`.
       reassert_terminal_state
       application.try do |app|
         # Back-link the new device to the dispatcher so its input read fiber
@@ -194,24 +194,30 @@ module Crysterm
       to: @screen
 
     # The writing primitives reach the device only while this window drives
-    # its terminal (`#drives_terminal?`): a disconnected window's cursor
-    # changes are recorded on its `Cursor` and nowhere else.
+    # its terminal (`#drives_terminal?`) and shows on it (`#visible?`): a
+    # disconnected or hidden window's cursor changes are recorded on its
+    # `Cursor` and nowhere else, and `#enter` applies them on `#show`.
     {% for name in %w[reset_hardware_cursor_color show_hardware_cursor hide_hardware_cursor reset_hardware_cursor] %}
       # :ditto:
       def {{ name.id }} : Nil
-        @screen.{{ name.id }} if drives_terminal?
+        @screen.{{ name.id }} if presents_cursor?
       end
     {% end %}
 
     # :ditto:
     def apply_hardware_cursor_shape(shape : ::Tput::CursorShape, *, blink : Bool = false) : Nil
-      @screen.apply_hardware_cursor_shape shape, blink: blink if drives_terminal?
+      @screen.apply_hardware_cursor_shape shape, blink: blink if presents_cursor?
     end
 
     # :ditto: (`delegate` can't forward assignment.)
     def hardware_cursor_color=(color : Int32)
-      @screen.hardware_cursor_color = color if drives_terminal?
+      @screen.hardware_cursor_color = color if presents_cursor?
       color
+    end
+
+    # Whether the hardware-cursor primitives above may write to the device.
+    private def presents_cursor? : Bool
+      drives_terminal? && @visible
     end
 
     # Device-side OSC escape-sequence transport: OSC-52 clipboard, OSC 7 cwd,
@@ -745,9 +751,9 @@ module Crysterm
     end
 
     def enter
-      if !@cursor.applied?
-        apply_cursor
-      end
+      # Always: `#leave` gave the terminal its own cursor back (`#release_cursor`),
+      # and a change made while hidden reached only the `Cursor`.
+      apply_cursor
 
       {% if flag? :windows %}
         `cls`
@@ -815,20 +821,21 @@ module Crysterm
         tput.set_scroll_region(0, tput.screen.height - 1)
       end
 
-      # Order matters and is deliberate: `show_cursor` (the DECTCEM `\e[?25h`)
-      # MUST run before `alloc`, whose tail emits the screen clear (`tput.clear`,
-      # `\e[2J`) when this window owns the device. On the Linux VT console,
-      # clearing first and only then re-showing the cursor leaves the cursor
-      # hidden after the return to the normal buffer below — show-then-clear is
-      # the order that reliably restores it there (xterm-family terminals tolerate
-      # either). Do not reorder these two lines.
-      show_cursor
-      # `show_cursor` dispatches on the active cursor and its artificial branch
-      # never reaches the terminal (it only records `hidden?`), while
-      # `apply_cursor`'s artificial branch emits civis — and `tput.reset_cursor`
-      # below resets only shape/color, not DECTCEM. Re-show the hardware cursor
-      # directly so the tty isn't left cursorless after exit.
-      show_hardware_cursor
+      # Order matters and is deliberate: showing the cursor (the DECTCEM
+      # `\e[?25h`) MUST run before `alloc`, whose tail emits the screen clear
+      # (`tput.clear`, `\e[2J`) when this window owns the device. On the Linux
+      # VT console, clearing first and only then re-showing the cursor leaves
+      # the cursor hidden after the return to the normal buffer below —
+      # show-then-clear is the order that reliably restores it there
+      # (xterm-family terminals tolerate either). Do not reorder these two lines.
+      #
+      # The hardware cursor directly, on the device: `apply_cursor`'s artificial
+      # branch emits civis, `tput.reset_cursor` below resets only shape/color,
+      # not DECTCEM, and the tty must not be left cursorless. Not `show_cursor`,
+      # which would record the active cursor as shown, so one the app hid would
+      # come back shown on `#show`; nor the window's own primitive, silent once
+      # `#hide` has marked the window hidden.
+      @screen.show_hardware_cursor
       alloc
 
       # Disabling here clears the device's `mouse_enabled` flag, so a
@@ -839,9 +846,7 @@ module Crysterm
       # its `smcup` saved.
       tput.restore_title
       tput.normal_buffer
-      if cursor.applied?
-        reset_cursor
-      end
+      release_cursor
 
       tput.flush
 

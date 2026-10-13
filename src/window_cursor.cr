@@ -257,6 +257,32 @@ module Crysterm
       set_cursor_hidden c, true
     end
 
+    # Gives the terminal its own cursor (shape, blink, color) back as the
+    # window leaves it (`#leave`), when this window had set one. The window's
+    # cursors keep their settings, unlike `#reset_cursor`'s, so `#enter` applies
+    # them again on `#show`. On the device directly: `#hide` has marked the
+    # window hidden already.
+    private def release_cursor : Nil
+      ac = active_cursor
+      return unless @cursor.applied? || ac.applied?
+      @screen.reset_hardware_cursor
+      @cursor.applied = false
+      ac.applied = false
+    end
+
+    # :nodoc: `Crysterm.suspend_terminals`: the shell gets the terminal's own
+    # cursor back while the process is stopped, as on `#leave`.
+    def suspend_cursor : Nil
+      release_cursor if @visible
+    end
+
+    # :nodoc: `Crysterm.resume_terminals`: this window's cursor again, from
+    # the device's active window (`Tput#resume` re-enters the modes, not the
+    # cursor).
+    def resume_cursor : Nil
+      apply_cursor if @visible && device_active_window?
+    end
+
     # Re-enables and resets the hardware cursor; any artificial cursor is
     # turned off and erased (via re-render). Resets cursor `c` (screen default
     # by default; a `Widget` resets its own via `Widget#reset_cursor`).
