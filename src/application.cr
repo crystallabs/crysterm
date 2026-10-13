@@ -99,9 +99,11 @@ module Crysterm
     # but only when no widget/handler `#accept`ed the key and no widget has
     # grabbed the keyboard, so `q` typed into a reading `LineEdit`/`TextEdit`
     # edits instead of quitting the app. Windows that opt out never quit here.
-    # The window is asked first, through `Window#request_close`: an
-    # `Event::CloseRequest` handler that `#ignore`s (unsaved changes) keeps
-    # the app running.
+    # Every window is asked first, through `Window#request_close` — the one
+    # the key arrived on, then the others, stopping at the first that
+    # refuses, as `QApplication::closeAllWindows` asks each top-level
+    # window: an `Event::CloseRequest` handler that `#ignore`s (unsaved
+    # changes) keeps the app running, whichever window it is on.
     def route_input(screen : Screen, e : ::Tput::InputEvent) : Nil
       # An in-band resize report (DEC 2048) describes the DEVICE, not a
       # surface — and the flag is device-level, so the SIGWINCH path stands
@@ -119,11 +121,11 @@ module Crysterm
       return unless win
 
       # Dispatch to the window first, then quit only if the resulting `KeyPress`
-      # came back un-`accepted?`, no widget is grabbing the keyboard, and the
-      # window's `CloseRequest` handlers (if any) did not veto.
+      # came back un-`accepted?`, no widget is grabbing the keyboard, and no
+      # window's `CloseRequest` handlers vetoed (`.close_requests_accepted?`).
       ev = win.handle_input e
 
-      if ev && win.default_quit_keys? && quit_gesture?(win, ev) && win.request_close
+      if ev && win.default_quit_keys? && quit_gesture?(win, ev) && self.class.close_requests_accepted?(win, @windows)
         # Through `#quit`, not a bare `exit`: handlers get `Event::AboutToQuit`
         # (their only chance to save state), and *every* window this app drives
         # is torn down, not just the one the key arrived on.
@@ -149,6 +151,16 @@ module Crysterm
     # :ditto:
     private def quit_gesture?(w, ev) : Bool
       self.class.quit_gesture? w, ev
+    end
+
+    # Whether every window of *windows* agrees to close (`Window#request_close`),
+    # asking *first* — the window the quit came from — before the others and
+    # stopping at the first refusal, as `QApplication::closeAllWindows` does:
+    # the quit gesture tears every window down, so a window with unsaved
+    # changes must be able to refuse it even when the key arrived elsewhere.
+    def self.close_requests_accepted?(first : Window, windows : Enumerable(Window)) : Bool
+      return false unless first.request_close
+      windows.all? { |w| w.same?(first) || w.destroyed? || w.request_close }
     end
 
     # Channel `#quit` uses to hand its exit status to the `#exec` loop.
@@ -528,11 +540,11 @@ module Crysterm
         end
         w.on(Crysterm::Event::KeyPress) do |e|
           # Quit only when no widget consumed the key, nothing is grabbing
-          # the keyboard, and the window agrees (`Window#request_close`) — the
-          # same guards `#route_input` applies. Without them, typing `q` into a
+          # the keyboard, and every window agrees (`.close_requests_accepted?`)
+          # — the same guards `#route_input` applies. Without them, typing `q` into a
           # reading `LineEdit`/`TextEdit` closes every window, and an app with
           # unsaved changes could not refuse.
-          windows.each { |o| o.destroy unless o.destroyed? } if quit_gesture?(w, e) && w.request_close
+          windows.each { |o| o.destroy unless o.destroyed? } if quit_gesture?(w, e) && close_requests_accepted?(w, windows)
         end
         w.on(Crysterm::Event::WindowClosed) { w.destroy unless w.destroyed? }
         w.on(Crysterm::Event::OutputFailed) { |e| fail_all.call e.error }

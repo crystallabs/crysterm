@@ -97,6 +97,35 @@ describe "Application#route_input asks the window before quitting" do
   end
 end
 
+describe "Application#route_input asks every window before quitting" do
+  it "does not quit when another window's handler ignores, asking the key's window first" do
+    app = Application.new
+    first = Crysterm::Window.new input: IO::Memory.new, output: IO::Memory.new,
+      width: 40, height: 10, default_quit_keys: true
+    second = Crysterm::Window.new input: IO::Memory.new, output: IO::Memory.new,
+      width: 40, height: 10, default_quit_keys: true
+    app.add first
+    app.add second
+    begin
+      asked = [] of String
+      first.on(Event::CloseRequest) { asked << "first" }
+      second.on(Event::CloseRequest) do |e|
+        asked << "second"
+        e.ignore # unsaved changes there
+      end
+      # A quit here would `exit` the process: reaching the assertions proves
+      # the second window's veto held.
+      app.route_input first.screen, ::Tput::InputEvent.new('q')
+      asked.should eq ["first", "second"]
+      first.destroyed?.should be_false
+      second.destroyed?.should be_false
+    ensure
+      first.destroy
+      second.destroy
+    end
+  end
+end
+
 describe "Application.exec_all asks the window before closing its windows" do
   it "keeps the windows when a handler ignores, closes them when none does" do
     w = Crysterm::Window.new input: IO::Memory.new, output: IO::Memory.new,
@@ -125,6 +154,41 @@ describe "Application.exec_all asks the window before closing its windows" do
       w.destroyed?.should be_true
     ensure
       w.destroy
+    end
+  end
+
+  it "keeps the windows when another window's handler ignores" do
+    first = Crysterm::Window.new input: IO::Memory.new, output: IO::Memory.new,
+      width: 40, height: 10, default_quit_keys: true
+    second = Crysterm::Window.new input: IO::Memory.new, output: IO::Memory.new,
+      width: 40, height: 10, default_quit_keys: true
+    begin
+      modified = true
+      second.on(Event::CloseRequest) { |e| e.ignore if modified }
+      done = Channel(Nil).new(1)
+      spawn do
+        Application.exec_all [first, second]
+        done.send nil
+      end
+      sleep 20.milliseconds # let exec_all install its quit-key handlers
+
+      first.emit Event::KeyPress.new 'q'
+      sleep 30.milliseconds
+      first.destroyed?.should be_false
+      second.destroyed?.should be_false
+
+      modified = false
+      first.emit Event::KeyPress.new 'q'
+      select
+      when done.receive
+      when timeout(2.seconds)
+        fail "exec_all did not return"
+      end
+      first.destroyed?.should be_true
+      second.destroyed?.should be_true
+    ensure
+      first.destroy
+      second.destroy
     end
   end
 end
