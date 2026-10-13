@@ -68,6 +68,15 @@ module Crysterm
     getter position : Int32 = 0
     getter anchor : Int32 = 0
 
+    # Whether the cursor keeps its position when text is inserted exactly at
+    # it, rather than moving along past the new text (Qt
+    # `keepPositionOnInsert`, default false). Text inserted before the
+    # position always moves it, text inserted after never does; only the
+    # position is kept, the anchor moves as it would (as in Qt). Useful for
+    # a cursor marking a place — where a search started, say — that an
+    # insertion there should leave in front of the new text.
+    property? keep_position_on_insert : Bool = false
+
     # Typing format set by `set_char_format`/`merge_char_format` without a
     # selection (Qt: the cursor's current character format). Consumed by the
     # next `insert_text`; movement clears it.
@@ -460,10 +469,13 @@ module Crysterm
 
     # Shifts position and anchor for an edit of `removed` -> `added` chars at
     # `pos`. Insertions push positions at the insertion point forward (that's
-    # how the editing cursor itself advances); positions inside a removed range
-    # collapse to its start.
+    # how the editing cursor itself advances) — but not the position of a
+    # cursor that `#keep_position_on_insert?`; positions inside a removed
+    # range collapse to its start.
     protected def adjust(pos : Int32, removed : Int32, added : Int32) : Nil
-      @position = TextDocument.shift_position(@position, pos, removed, added)
+      unless @keep_position_on_insert && removed == 0 && @position == pos
+        @position = TextDocument.shift_position(@position, pos, removed, added)
+      end
       @anchor = TextDocument.shift_position(@anchor, pos, removed, added)
     end
 
