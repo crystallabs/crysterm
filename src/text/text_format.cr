@@ -201,6 +201,34 @@ module Crysterm
       Important
       Warning
       Caution
+
+      # The alert's title as github.com writes it (`"Note"`, `"Tip"`, …):
+      # the text of its `markdown-alert-title` line in HTML.
+      def title : String
+        to_s
+      end
+
+      # The icon of the alert's title chip (`#marker`) — the "distinct per
+      # kind" look GitHub's alert admonitions use, from the `Glyphs::Role`
+      # icon palette.
+      def icon_role : Glyphs::Role
+        case self
+        in .note?      then Glyphs::Role::IconInfo
+        in .tip?       then Glyphs::Role::IconLightning
+        in .important? then Glyphs::Role::IconCritical
+        in .warning?   then Glyphs::Role::IconWarning
+        in .caution?   then Glyphs::Role::IconWarningSign
+        end
+      end
+
+      # The title chip a view paints at an alert block's text start on its
+      # first row, `"ℹ NOTE "` and so on: the icon at *tier*, the title in
+      # capitals and a space. It takes the place a list item's marker
+      # (`TextListFormat#marker`) has, so a text rendering of the document
+      # can show it where the view does.
+      def marker(tier : Glyphs::Tier = Glyphs::Tier::Unicode) : String
+        "#{Glyphs[icon_role, tier]} #{title.upcase} "
+      end
     end
 
     # Horizontal alignment; `nil` = default (left).
