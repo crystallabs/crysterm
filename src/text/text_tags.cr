@@ -201,9 +201,11 @@ module Crysterm
       esc
     end
 
-    # Parses tag markup into detached blocks.
+    # Parses tag markup into detached blocks. A `"\r\n"` or a lone `'\r'`
+    # is a line break as a `'\n'` is (`TextDocument.normalize_line_breaks`,
+    # as Qt's insertions take them), so no block keeps a `'\r'`.
     def self.parse(text : String) : Array(TextBlock)
-      Parser.new.parse(text)
+      Parser.new.parse(TextDocument.normalize_line_breaks(text))
     end
 
     # Serializes *blocks* to tag markup; `parse(generate(b))` restores the
