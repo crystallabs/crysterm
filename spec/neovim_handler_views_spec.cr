@@ -68,6 +68,44 @@ describe Crysterm::Neovim::Handler do
     end
   end
 
+  it "follows the focused view's caret and size, not another view's moves" do
+    wa, wb, a, b = nvv_views "one\ntwo\nthree"
+    h = Crysterm::Neovim::Handler.new
+    begin
+      h.attach(a).should be_true
+      h.add_view(b).should be_true
+      a.cursor_pos = 4
+      b.emit Crysterm::Event::FocusIn.new
+      h.active_widget.should be b
+      # Neovim's UI takes the active view's size, as Vim's window does.
+      h.sync
+      ui = h.client.not_nil!.request("nvim_list_uis")[0]
+      ui["width"].as_i.should eq 30
+      ui["height"].as_i.should eq 6
+
+      # B's caret is Neovim's cursor; A's, not active, is A's own.
+      b.cursor_pos = 8
+      a.cursor_pos = 0
+      nvv_type b, "x"
+      a.value.should eq "one\ntwo\nhree"
+      b.cursor_position.should eq 8
+      # A's caret stays, as another Vim window's cursor does.
+      a.cursor_position.should eq 0
+
+      # Focus back in A: Neovim's cursor goes to A's caret.
+      a.emit Crysterm::Event::FocusIn.new
+      h.active_widget.should be a
+      nvv_type a, "x"
+      a.value.should eq "ne\ntwo\nhree"
+      h.sync
+      h.client.not_nil!.request("nvim_list_uis")[0]["width"].as_i.should eq 40
+    ensure
+      h.detach
+      wa.destroy
+      wb.destroy
+    end
+  end
+
   it "sends an edit made in one view to Neovim once" do
     wa, wb, a, b = nvv_views "one\ntwo"
     h = Crysterm::Neovim::Handler.new

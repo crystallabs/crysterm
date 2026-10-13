@@ -45,9 +45,10 @@ module Crysterm
       # Where `#undo` leaves the caret: the end of the text it put back, or
       # where the text it took out was; `nil` for a change that moves no
       # text (a format change), which leaves the caret where it is. Unlike
-      # Qt: `QTextDocumentPrivate::undoRedo` returns -1 only for a block or
-      # group format change, and puts the caret after the range of a char
-      # format change.
+      # Qt, whose `QTextDocumentPrivate::undoRedo` moves the caret for a
+      # format change too: after the range of a char format change, and for
+      # a block or group format change to the end of the range the change
+      # re-laid out (its `docChangeFrom` fallback).
       def undo_position : Int32?
         nil
       end
