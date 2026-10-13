@@ -773,6 +773,28 @@ module Crysterm
       undo_stack.redo
     end
 
+    # Undoes the last edit step and puts *cursor* where the change was
+    # undone (Qt `QTextDocument::undo(QTextCursor*)`): after text it put
+    # back, or where text it took out was. A format-only step leaves
+    # *cursor* alone. Returns whether anything was undone.
+    def undo(cursor : TextCursor) : Bool
+      replay_into(cursor) { undo }
+    end
+
+    # Redoes the last undone edit step and puts *cursor* at the end of the
+    # change redone (Qt `QTextDocument::redo(QTextCursor*)`); as `#undo`
+    # otherwise.
+    def redo(cursor : TextCursor) : Bool
+      replay_into(cursor) { redo }
+    end
+
+    private def replay_into(cursor : TextCursor, &) : Bool
+      raise ArgumentError.new("cursor belongs to another document") unless cursor.document.same?(self)
+      return false unless yield
+      undo_stack.last_replay_position.try { |p| cursor.set_position(p) }
+      true
+    end
+
     def undo_available? : Bool
       undo_stack.undo_available?
     end

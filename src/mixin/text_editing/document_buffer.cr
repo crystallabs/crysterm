@@ -20,10 +20,10 @@ module Crysterm
         getter document : TextDocument { TextDocument.new }
 
         # Tracker cursor registered on the document, kept at the end of this
-        # view's last mutation. Because registered cursors are re-adjusted by
-        # every edit — including undo/redo replays — its position after
-        # `#undo`/`#redo` is where the replayed change landed, which is where
-        # the caret should go (Qt behavior).
+        # view's last mutation. `#undo`/`#redo` seed it with the caret and
+        # hand it to `TextDocument#undo(cursor)`, which moves it to the change
+        # replayed (or, for a format-only step, leaves it to the document's
+        # adjustment), and the caret then follows it (Qt behavior).
         getter edit_cursor : TextCursor { TextCursor.new(document) }
 
         # Char format applied to the next inserts (Qt's cursor "typing format").
@@ -293,19 +293,24 @@ module Crysterm
           @cursor_pos = @cursor_pos.clamp(0, buf_size)
         end
 
-        # Undoes the last document edit step. The caret follows the tracker
-        # cursor, which the replay just re-adjusted to the change site.
-        # Returns whether anything was undone.
+        # Undoes the last document edit step — whichever view or cursor made
+        # it, the document's undo stack being shared — and puts the caret
+        # where the change was undone (Qt `QWidgetTextControl::undo`, which
+        # calls `QTextDocument::undo(&cursor)`); a format-only step leaves
+        # it where it was. Returns whether anything was undone.
         def undo : Bool
-          return false unless as_self_edit { document.undo }
+          edit_cursor.set_position(@cursor_pos)
+          return false unless as_self_edit { document.undo(edit_cursor) }
           caret_to_tracker
           true
         end
 
         # Redoes the last undone document edit step; caret placement as in
-        # `#undo`. Returns whether anything was redone.
+        # `#undo`, at the end of the change redone. Returns whether anything
+        # was redone.
         def redo : Bool
-          return false unless as_self_edit { document.redo }
+          edit_cursor.set_position(@cursor_pos)
+          return false unless as_self_edit { document.redo(edit_cursor) }
           caret_to_tracker
           true
         end

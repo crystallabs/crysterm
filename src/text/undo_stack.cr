@@ -42,6 +42,19 @@ module Crysterm
       abstract def undo(doc : TextDocument) : Nil
       abstract def redo(doc : TextDocument) : Nil
 
+      # Where `#undo` leaves the caret: the end of the text it put back, or
+      # where the text it took out was; `nil` for a change that moves no
+      # text (a format change), which leaves the caret where it is (Qt's
+      # `QTextDocumentPrivate::undoRedo` returning -1).
+      def undo_position : Int32?
+        nil
+      end
+
+      # :ditto: (for `#redo`).
+      def redo_position : Int32?
+        nil
+      end
+
       # Attempts to absorb `other` (called on the newest command with the
       # incoming one). Returns true when absorbed.
       def try_merge(other : Command) : Bool
@@ -83,6 +96,14 @@ module Crysterm
         doc.raw_insert(@pos, text, @format)
       end
 
+      def undo_position : Int32?
+        @pos
+      end
+
+      def redo_position : Int32?
+        @pos + @size
+      end
+
       def try_merge(other : Command) : Bool
         return false unless other.is_a?(InsertCommand)
         return false if @has_newline || other.has_newline?
@@ -110,6 +131,14 @@ module Crysterm
 
       def redo(doc : TextDocument) : Nil
         doc.raw_remove(@pos, @fragment.size)
+      end
+
+      def undo_position : Int32?
+        @pos + @fragment.size
+      end
+
+      def redo_position : Int32?
+        @pos
       end
 
       def try_merge(other : Command) : Bool
@@ -161,6 +190,14 @@ module Crysterm
 
       def redo(doc : TextDocument) : Nil
         doc.raw_insert_fragment(@pos, @fragment)
+      end
+
+      def undo_position : Int32?
+        @pos
+      end
+
+      def redo_position : Int32?
+        @pos + @fragment.size
       end
     end
 
@@ -233,6 +270,18 @@ module Crysterm
       def redo(doc : TextDocument) : Nil
         @children.each &.redo(doc)
       end
+
+      # The position of the child replayed last that gives one: the first
+      # child's on undo (children undo in reverse), the last child's on redo.
+      def undo_position : Int32?
+        @children.each { |c| c.undo_position.try { |p| return p } }
+        nil
+      end
+
+      def redo_position : Int32?
+        @children.reverse_each { |c| c.redo_position.try { |p| return p } }
+        nil
+      end
     end
 
     @commands = [] of Command
@@ -253,6 +302,12 @@ module Crysterm
 
     def initialize(@document : TextDocument)
     end
+
+    # Where the last `#undo`/`#redo` left the caret (Qt's
+    # `QTextDocument::undo(QTextCursor*)` position): at the change it
+    # replayed, carried through the tables' re-fitting after it; `nil` when
+    # it moved no text (a format change) or nothing was replayed.
+    getter last_replay_position : Int32?
 
     def push(cmd : Command) : Nil
       # The re-renderings since the last move now precede this command.
@@ -304,17 +359,21 @@ module Crysterm
     end
 
     def undo : Bool
+      @last_replay_position = nil
       return false if in_macro? || @index == 0
       return false unless take_back_reflows
       @index -= 1
       cmd = @commands[@index]
       cmd.undo(document)
+      tracker = cmd.undo_position.try { |p| TextCursor.new(document, p) }
       cmd.reflows.try { |r| drop_history unless document.replay_reflows(r, backward: true) }
       refit
+      @last_replay_position = tracker.try &.position
       true
     end
 
     def redo : Bool
+      @last_replay_position = nil
       return false if in_macro? || @index == @commands.size
       return false unless take_back_reflows
       cmd = @commands[@index]
@@ -324,8 +383,10 @@ module Crysterm
         return false
       end
       cmd.redo(document)
+      tracker = cmd.redo_position.try { |p| TextCursor.new(document, p) }
       @index += 1
       refit
+      @last_replay_position = tracker.try &.position
       true
     end
 
