@@ -586,8 +586,9 @@ module Crysterm
     # launcher has no tty; pass explicit values to pin either axis.
     #
     # `frame` (`{x, y, width, height}`, as `#frame_geometry` gives it) puts
-    # the new window there and sizes it so ↔ `QWindow::setFramePosition` and
-    # `setGeometry` before `show`, where the launcher can place its windows
+    # the new window there and sizes it so, decorations included ↔
+    # `QWindow::setFramePosition` before `show` (Qt sizes the client area
+    # alone, with `resize`), where the launcher can place its windows
     # (Terminal.app and iTerm2 on macOS, `Terminal.frame_geometry_refusal`);
     # elsewhere it is ignored and the window manager places the window.
     #
@@ -623,8 +624,9 @@ module Crysterm
     # nil where it cannot be read: a window not opened by `Window.open` (the
     # terminal the program started in), a launcher that cannot report it
     # (`#frame_geometry_supported?`), or a window already gone. Runs
-    # `osascript` where supported (100-300 ms), so ask at close or off the
-    # render fiber, not per frame.
+    # `osascript` where supported (100-300 ms, nil after
+    # `Terminal::FRAME_READ_TIMEOUT` when the emulator does not answer), so
+    # ask at close or off the render fiber, not per frame.
     def frame_geometry : Terminal::Frame?
       window.try &.frame_geometry
     end

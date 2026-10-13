@@ -64,8 +64,10 @@ module Crysterm
 
       # The frame of the window this backend opened on *tty* (the device the
       # in-window helper reported) ↔ `QWindow::frameGeometry`, or nil when the
-      # backend cannot tell or the window is gone. Slow where supported (an
-      # `osascript` run, 100-300 ms): ask off the render path, at close, say.
+      # backend cannot tell, the window is gone or the emulator does not
+      # answer within `Terminal::FRAME_READ_TIMEOUT`. Slow where supported
+      # (an `osascript` run, 100-300 ms): ask off the render path, at close,
+      # say.
       def frame_geometry(tty : String) : Frame?
         @frame_reader.try &.call(tty)
       end

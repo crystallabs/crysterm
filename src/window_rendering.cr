@@ -220,7 +220,7 @@ module Crysterm
     # not be lost keeps its data where another window's job can find it.
     #
     # ```
-    # windows.select! { |w| w.post? { w.append line } } # drops the destroyed ones
+    # windows.select! { |w| w.post? { show line, in_window: w } } # drops the destroyed ones
     # ```
     def post?(&block : Proc(Nil)) : Bool
       @ui_queue.send block

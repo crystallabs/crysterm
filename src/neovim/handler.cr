@@ -110,7 +110,9 @@ module Crysterm
     #
     # It works on any widget that includes `Mixin::TextEditing`
     # (`Widget::TextEdit`, `Widget::PlainTextEdit`, `Widget::LineEdit`)
-    # through that mixin's buffer protocol, one Neovim buffer per widget:
+    # through that mixin's buffer protocol, one Neovim buffer per handler,
+    # for the widget attached to and the views of its document added to it
+    # (see **Several views** below):
     #
     # * **Keys.** A key press on the widget goes to Neovim (`nvim_input`) and
     #   no further, except the keys `#pass_through` lets on — by default the
@@ -320,10 +322,10 @@ module Crysterm
       end
 
       # The view whose key press, paste or focus came last (the one attached
-      # to until another has): the one Neovim's cursor, caret shape and
-      # window size follow, and the one an application asks for the editor
-      # a `Event::ViWriteRequested` or `Event::ViQuitRequested` came from.
-      # `nil` while detached.
+      # to until another has): the one Neovim's cursor and window size
+      # follow (the mode's caret shape is every view's), and the one an
+      # application asks for the editor a `Event::ViWriteRequested` or
+      # `Event::ViQuitRequested` came from. `nil` while detached.
       def active_widget : Widget?
         @target.try &.widget
       end
@@ -332,8 +334,9 @@ module Crysterm
       # in several windows: its keys and pastes go to Neovim as the attached
       # widget's do, and the view whose key, paste or focus came last becomes
       # `#active_widget`. *widget* must show the attached widget's
-      # `TextDocument` (`document=`), whose edits every view then shows;
-      # refused (false) otherwise, or while detached. True also when
+      # `TextDocument` (`document=`), whose edits every view then shows, and
+      # be single-line as it is or is not; refused (false) otherwise, or
+      # while detached. True also when
       # *widget* is a view already. A view destroyed is removed
       # (`#remove_view`), and so is one given another document, the first
       # included, while others are left.

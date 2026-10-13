@@ -166,7 +166,12 @@ them all to the block for building (so cross-window wiring needs no
 forward-declared locals), and blocks until the last one closes;
 `Application#exec` runs every window registered on an `Application` (and
 `Application.exec_all(windows)` any set of them) under one shared event loop
-with graceful quit. See `examples/screen/multiple/`.
+with graceful quit. See `examples/screen/multiple/`. Where the launcher can
+(Terminal.app and iTerm2 on macOS), `Window.open(frame: {x, y, width, height})`
+puts the new window at that frame and `Window#frame_geometry` reads back where
+the user moved it, for reopening windows where they were;
+`Window.frame_geometry_supported?` and `Terminal.frame_geometry_refusal` say
+whether it can.
 
 ### 2.4 Putting text on screen
 
@@ -333,7 +338,9 @@ If you ever compute something on another fiber
 and need to apply it to widgets, use `post(&block)`: it queues
 the closure to run *on the render fiber* just before the next frame, keeping all
 widget mutation on that one fiber. `update` / `schedule_render` are themselves
-safe to call from any fiber.
+safe to call from any fiber. `post?(&block)` does the same and says whether the
+job was queued: `false` once the window is destroyed, so a fiber feeding
+several windows can hand the work to another.
 
 ---
 
@@ -1279,7 +1286,9 @@ block.block_number       # its index; also `#position`, `#next`, `#previous`, `#
 
 `doc.undo_redo_enabled = false` suspends recording (and clears the stack) —
 what a bulk importer wants — and `doc.edit { }` groups a run of changes into one
-undoable step.
+undoable step. `doc.undo(cursor)` and `doc.redo(cursor)` also put *cursor*
+where the step was replayed (Qt's `QTextDocument::undo(QTextCursor*)`),
+whichever view made it.
 
 ### 7.8 Editing through the cursor
 
@@ -1627,7 +1636,10 @@ runs on the input fiber — so a key handler that wants to ask a question spawns
   application shows `#mode` and `#command_line` from `Event::ViModeChanged`
   and `ViCommandLineChanged`, and saves and quits on `Event::ViWriteRequested`
   and `ViQuitRequested` (`:w`, `:q`). `#attach` returns false when `nvim`
-  cannot run, and the widget edits on its own.
+  cannot run, and the widget edits on its own. Other widgets showing the same
+  `TextDocument` join the buffer with `#add_view` (and leave with
+  `#remove_view`), as Vim shows one buffer in several windows; `#active_widget`
+  is the one typed in last, whose caret Neovim's cursor follows.
 
   ```crystal
   vi = Neovim::Handler.new
@@ -1802,6 +1814,9 @@ re-runs the block whenever one of them changes, for as long as the owner lives;
 with a collection. Owners are any `EventHandler` — a `Window`, a `Widget`, an
 `Action`, a model object of your own. `PropertyBase#on_change` returns a
 `Subscription`, and the layer's change event is `Event::ReactiveChanged`.
+`Reactive.link(a, b, owner)` keeps two properties of one type equal both ways
+(*b* takes *a*'s value first), for one setting shown in two places, until the
+owner is destroyed or the returned `PropertyLink` is disposed.
 
 The mixing rule is asymmetric, by design:
 

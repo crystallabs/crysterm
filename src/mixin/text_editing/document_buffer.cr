@@ -22,8 +22,9 @@ module Crysterm
         # Tracker cursor registered on the document, kept at the end of this
         # view's last mutation. `#undo`/`#redo` seed it with the caret and
         # hand it to `TextDocument#undo(cursor)`, which moves it to the change
-        # replayed (or, for a format-only step, leaves it to the document's
-        # adjustment), and the caret then follows it (Qt behavior).
+        # replayed (or, for a format-only step, leaves it where it was), and
+        # the caret then follows it, as Qt's caret does except for the
+        # format-only step (see `TextUndoStack::Command#undo_position`).
         getter edit_cursor : TextCursor { TextCursor.new(document) }
 
         # Char format applied to the next inserts (Qt's cursor "typing format").
@@ -302,7 +303,8 @@ module Crysterm
         # it, the document's undo stack being shared — and puts the caret
         # where the change was undone (Qt `QWidgetTextControl::undo`, which
         # calls `QTextDocument::undo(&cursor)`); a format-only step leaves
-        # it where it was. Returns whether anything was undone.
+        # it where it was, where Qt moves it after the range formatted.
+        # Returns whether anything was undone.
         def undo : Bool
           edit_cursor.set_position(@cursor_pos)
           return false unless as_self_edit { document.undo(edit_cursor) }
