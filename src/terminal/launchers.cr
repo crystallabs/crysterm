@@ -363,13 +363,28 @@ module Crysterm
       "#{backend.name} cannot place its windows or report where they are (only Terminal.app and iTerm2 on macOS can)"
     end
 
-    # Runs the frame *script* through `osascript` and reads its answer, or
-    # nil when it fails or names no window.
-    private def self.read_frame(script : String) : Frame?
+    # How long `.read_frame` waits for its answer. An application that is
+    # busy, or one waiting on a dialog, leaves an Apple event unanswered for
+    # two minutes, AppleScript's own timeout: the window closing would wait
+    # as long.
+    FRAME_READ_TIMEOUT = 3.seconds
+
+    # Runs the frame *script* through `osascript` (*command*, the script its
+    # last argument) and reads its answer, or nil when it fails, names no
+    # window, or gives none within *timeout*, when it is killed.
+    def self.read_frame(script : String, command : Array(String) = ["osascript", "-e"],
+                        timeout : Time::Span = FRAME_READ_TIMEOUT) : Frame?
       output = IO::Memory.new
-      status = Process.run("osascript", ["-e", script], output: output, error: Process::Redirect::Close)
-      return unless status.success?
-      parse_bounds output.to_s
+      process = Process.new(command[0], command[1..] + [script], output: output, error: Process::Redirect::Close)
+      done = Channel(Process::Status).new 1
+      spawn(name: "Crysterm::Terminal frame reader") { done.send process.wait }
+      select
+      when status = done.receive
+        parse_bounds output.to_s if status.success?
+      when timeout(timeout)
+        process.signal Signal::KILL rescue nil
+        nil
+      end
     rescue
       nil
     end

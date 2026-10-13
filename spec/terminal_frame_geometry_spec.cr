@@ -42,6 +42,16 @@ describe "Crysterm::Terminal frame geometry" do
     Crysterm::Terminal.parse_bounds("10, 10, 5, 20").should be_nil
   end
 
+  it "reads a frame through the reader's command, giving up on one that does not answer" do
+    sh = ["sh", "-c"]
+    Crysterm::Terminal.read_frame("echo '10, 20, 110, 70'", sh).should eq({10, 20, 100, 50})
+    Crysterm::Terminal.read_frame("echo garbage", sh).should be_nil
+    Crysterm::Terminal.read_frame("echo '1, 2, 3, 4'; exit 1", sh).should be_nil
+    started = Time.instant
+    Crysterm::Terminal.read_frame("exec sleep 10", sh, 100.milliseconds).should be_nil
+    (Time.instant - started).should be < 2.seconds
+  end
+
   it "reports which launchers can place and read windows" do
     Crysterm::Terminal::LAUNCHERS.each do |launcher|
       supported = launcher.name.in?("terminal.app", "iterm2")

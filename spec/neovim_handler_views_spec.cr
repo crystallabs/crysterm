@@ -150,6 +150,92 @@ describe Crysterm::Neovim::Handler do
     end
   end
 
+  it "sends the caret of the view made active while a change was on its way to Neovim" do
+    wa, wb, a, b = nvv_views "one\ntwo\nthree"
+    h = Crysterm::Neovim::Handler.new
+    begin
+      h.attach(a).should be_true
+      h.add_view(b).should be_true
+      a.cursor_pos = 0
+      h.sync
+      b.cursor_pos = 5
+      # An outside edit queues a flush; B takes the focus on another fiber
+      # while that flush waits for Neovim to take the text.
+      Crysterm::TextCursor.new(a.document, a.document.size).insert_text "!"
+      spawn { b.emit Crysterm::Event::FocusIn.new }
+      sleep 100.milliseconds
+      h.active_widget.should be b
+      h.sync
+      nvv_type b, "x"
+      b.value.should eq "one\nto\nthree!"
+    ensure
+      h.detach
+      wa.destroy
+      wb.destroy
+    end
+  end
+
+  it "goes on with the views left when the one typed in is destroyed by the event its keys caused" do
+    wa, wb, a, b = nvv_views
+    h = Crysterm::Neovim::Handler.new
+    begin
+      h.attach(a).should be_true
+      h.add_view(b).should be_true
+      a.cursor_pos = 1
+      h.on(Crysterm::Event::ViModeChanged) { |e| wb.destroy if e.mode.insert? }
+      # B's caret, at the start, is where the keys typed in it go; A's,
+      # once B is gone.
+      nvv_type b, "i"
+      h.attached?.should be_true
+      h.views.should eq [a] of Crysterm::Widget
+      h.active_widget.should be a
+      nvv_type a, "Z<Esc>"
+      a.value.should eq "aZbc"
+      # And a view added back from inside an event of the handler.
+      h.on(Crysterm::Event::ViModeChanged) { |e| h.add_view(Crysterm::Widget::PlainTextEdit.new(parent: wa, top: 8, width: 10, height: 1, document: a.document)) if e.mode.insert? && h.views.size == 1 }
+      nvv_type a, "A"
+      h.views.size.should eq 2
+      nvv_type a, "!<Esc>"
+      a.value.should eq "aZbc!"
+    ensure
+      h.detach
+      wa.destroy
+      wb.destroy
+    end
+  end
+
+  it "gives every view its keys back, and says so once, when Neovim dies under a key" do
+    wa, wb, a, b = nvv_views
+    h = Crysterm::Neovim::Handler.new
+    exits = 0
+    h.on(Crysterm::Event::ProcessExited) { exits += 1 }
+    own = {a.cursor_shape, b.cursor_shape}
+    begin
+      h.attach(a).should be_true
+      h.add_view(b).should be_true
+      Process.signal Signal::KILL, h.client.not_nil!.pid
+      # The key may find Neovim gone or still be on its way when its exit
+      # is seen: either way every view is let go of.
+      nvv_type b, "x"
+      wait_until { exits > 0 }
+      h.attached?.should be_false
+      h.views.should be_empty
+      sleep 50.milliseconds
+      exits.should eq 1
+      # The keys are the views' own again.
+      [a, b].each do |v|
+        e = Crysterm::Event::KeyPress.new('y', nil)
+        v.emit e
+        e.char.should eq 'y'
+      end
+      {a.cursor_shape, b.cursor_shape}.should eq own
+    ensure
+      h.detach
+      wa.destroy
+      wb.destroy
+    end
+  end
+
   it "goes on with the views left when the first is removed" do
     wa, wb, a, b = nvv_views
     h = Crysterm::Neovim::Handler.new

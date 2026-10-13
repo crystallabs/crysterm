@@ -66,4 +66,18 @@ describe "DocumentBuffer on destroy" do
     doc.cursor(0).insert_text("y")
     a.cursor_pos.should eq 1
   end
+
+  it "does not subscribe a destroyed view to a document given to it afterwards" do
+    s = headless_screen(40, 6, default_quit_keys: true)
+    doc = TextDocument.new("x")
+    base = contents_handlers(doc)
+    a = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 4
+    t = Widget::TextEdit.new parent: s, left: 0, top: 4, width: 40, height: 2
+    s.destroy
+    a.document = doc
+    t.document = doc
+    contents_handlers(doc).should eq base
+    doc.cursor(0).insert_text("y")
+    a.cursor_pos.should eq 0
+  end
 end

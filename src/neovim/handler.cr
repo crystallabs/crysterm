@@ -1140,7 +1140,10 @@ module Crysterm
           # then too, which is placed on the lines with the change).
           return unless push_text client, target
         end
-        if @caret_dirty
+        # The caret of the view active now: `#push_text`'s call let other
+        # fibers run, which may have made another view active (its focus,
+        # the active one removed) or detached the handler.
+        if @caret_dirty && (target = @target)
           @caret_dirty = false
           if client.shown_buffer == @buffer
             push_caret client, target, @mode

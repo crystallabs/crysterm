@@ -42,6 +42,11 @@ module Crysterm
         # `#wire_document` installs it.
         @ev_contents_change : ::EventHandler::Subscription?
 
+        # Set once the view is destroyed (`#leave_document`): a document given
+        # to it afterwards is not wired, which would subscribe the dead view
+        # again.
+        @document_left = false
+
         def buf_text : String
           document.to_plain_text
         end
@@ -374,7 +379,7 @@ module Crysterm
           clear_selection
           @goal_col = nil
           reset_document_caches
-          wire_document
+          wire_document unless @document_left
           update
           update! if window?
           emit Crysterm::Event::DocumentChanged, doc
@@ -627,6 +632,7 @@ module Crysterm
         # into a dead widget nor keeps it alive, and the tracker cursor and
         # extra selections registered on the document are dropped.
         private def leave_document : Nil
+          @document_left = true
           unwire_document
           @edit_cursor = nil
           @extra_selections = [] of Widget::TextEdit::ExtraSelection
