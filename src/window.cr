@@ -963,6 +963,16 @@ module Crysterm
         end
       end
 
+      # The `#pump` `done` callbacks posted but not run are not dropped with
+      # the queue's other jobs: they release what their readers held.
+      if ex = run_pump_releases
+        if error
+          ::Log.error(exception: ex) { "Crysterm: a Window#pump done callback raised during Window#destroy" }
+        else
+          error = ex
+        end
+      end
+
       # Tear down the terminal connection (restores the terminal, stops the
       # input fiber, closes owned IO and any spawned window). For the
       # launching screen this is `leave` plus line-discipline restore;

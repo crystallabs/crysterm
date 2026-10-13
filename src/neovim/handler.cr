@@ -26,6 +26,13 @@ module Crysterm
     # itself, the application closes the editor or quits as its own commands
     # do. *bang* is `:q!`'s (discard changes), *all* `:qa`'s.
     event ViQuitRequested, bang : Bool = false, all : Bool = false
+
+    # Emitted by a `Neovim::Handler` that detached itself from its widget
+    # while Neovim kept running: the widget's buffer was closed in Neovim
+    # (`:bwipeout`, `:bdelete`, `:edit!`), or Neovim answered a call with an
+    # error. *reason* says which. Not emitted by `Neovim::Handler#detach`, nor
+    # when Neovim exits (`Event::ProcessExited`).
+    event ViDetached, reason : String
   end
 
   module Neovim
@@ -146,8 +153,10 @@ module Crysterm
     #   `quitRequested`), and Neovim keeps running.
     # * **Neovim gone.** When Neovim cannot be started `#attach` returns
     #   false and leaves the widget alone; when it exits, the handler detaches
-    #   and emits `Event::ProcessExited`. Either way the widget edits as it
-    #   does without one.
+    #   and emits `Event::ProcessExited`, and when the widget's buffer is
+    #   closed in Neovim (`:bwipeout`) or a call to Neovim fails, it detaches
+    #   and emits `Event::ViDetached`. Either way the widget edits as it does
+    #   without one.
     #
     # Neovim runs as `nvim --embed` with `#args` (`--headless --clean -n` by
     # default; leave out `--clean` for the user's own config). The handler
@@ -245,18 +254,9 @@ module Crysterm
       @saved_shape : ::Tput::CursorShape? = nil
       @saved_blink = false
       @read_only = false
-
-      # Neovim the handler is on, by client, for the buffer shown in its
-      # window (several handlers sharing one client).
-      @@shown = {} of UInt64 => Int64
-
-      # One lock per client, held by a handler while it sends Neovim a change
-      # and then keys. `nvim_input` is a fast call: its keys reach Neovim's
-      # typeahead at once, ahead of a call sent before them still waiting in
-      # Neovim's event queue (a buffer switch, the widget's lines). So such a
-      # call is a request, its answer awaited before any key is sent, and the
-      # lock keeps a handler sharing the client from sending keys meanwhile.
-      @@locks = {} of UInt64 => Mutex
+      # Set during `#setup`, whose failure `#attach` reports by its result
+      # rather than by an event.
+      @setting_up = false
 
       # *client* is a Neovim to share (never ended by the handler); without
       # one the handler starts its own at `#attach` with *args*.
@@ -289,12 +289,15 @@ module Crysterm
         end
         @client = client
         @owns_client = owns
+        @setting_up = true
         begin
           setup client, target
         rescue ex : Error
           ::Log.warn { "Crysterm::Neovim::Handler: #{ex.message}" }
           teardown
           return false
+        ensure
+          @setting_up = false
         end
         # A Neovim that ended during the setup's last step (its first state,
         # which reports a failure by detaching) has left the widget already.
@@ -324,8 +327,8 @@ module Crysterm
           client.notify "nvim_input", keys
         end
         sync
-      rescue Error
-        gone
+      rescue ex : Error
+        gone ex.message
       end
 
       # Waits until the widget mirrors everything Neovim did so far (at most
@@ -355,7 +358,7 @@ module Crysterm
         # Neovim may be between its own buffer switch and its keys.
         exclusive(client) do
           client.request "nvim_win_set_buf", 0_i64, buf
-          @@shown[client.object_id] = buf
+          client.shown_buffer = buf
           begin
             client.request "nvim_ui_attach", *ui_size(widget), {"ext_linegrid" => true, "ext_cmdline" => true, "ext_messages" => true, "rgb" => true}
           rescue Error
@@ -393,9 +396,8 @@ module Crysterm
         end
         @exit_handler = nil
         if client
-          @@shown.delete(client.object_id) if @@shown[client.object_id]? == @buffer
+          client.shown_buffer = nil if client.shown_buffer == @buffer
           if @owns_client
-            @@locks.delete client.object_id
             # Let go of the client first: its exit, reported while `#close`
             # waits for it, is then no Neovim ending under the widget
             # (`#exited`), and emits no `Event::ProcessExited`.
@@ -427,13 +429,25 @@ module Crysterm
       # The client's Neovim exited: the widget is on its own again.
       private def exited(client : Client, code : Int32?) : Nil
         return unless client.same?(@client) && attached?
-        gone
-        emit ::Crysterm::Event::ProcessExited, code
+        detach
+        emit ::Crysterm::Event::ProcessExited, code unless @setting_up
       end
 
-      # Neovim cannot be reached any more.
-      private def gone : Nil
+      # Neovim cannot be worked with any more, for *reason*: the handler
+      # detaches and says so — as `#exited` does when Neovim turns out to
+      # have exited, which its exit, still to be reported, no longer will.
+      private def gone(reason : String?) : Nil
+        return unless attached?
+        client = @client
+        running = client.try &.running?
         detach
+        # `#attach` says so itself, by returning false.
+        return if @setting_up
+        if client && !running
+          emit ::Crysterm::Event::ProcessExited, client.exit_code
+        else
+          emit ::Crysterm::Event::ViDetached, reason || "Neovim failed"
+        end
       end
 
       private def ui_size(widget : Widget) : {Int32, Int32}
@@ -494,16 +508,16 @@ module Crysterm
           client.request "nvim_paste", e.content, true, -1
         end
         sync
-      rescue Error
-        gone
+      rescue ex : Error
+        gone ex.message
       end
 
       # Makes the widget's buffer the one in Neovim's window, for a shared
       # Neovim whose window showed another handler's.
       private def show_buffer(client : Client) : Nil
         buf = @buffer || return
-        return if @@shown[client.object_id]? == buf
-        @@shown[client.object_id] = buf
+        return if client.shown_buffer == buf
+        client.shown_buffer = buf
         client.request "nvim_win_set_buf", 0_i64, buf
         if t = @target
           push_caret client, t, @mode
@@ -525,12 +539,12 @@ module Crysterm
         if c = @client
           exclusive(c) { show_buffer c }
         end
-      rescue Error
-        gone
+      rescue ex : Error
+        gone ex.message
       end
 
       private def resized : Nil
-        return unless (c = @client) && (w = @widget) && @@shown[c.object_id]? == @buffer
+        return unless (c = @client) && (w = @widget) && c.shown_buffer == @buffer
         cols, rows = ui_size w
         c.notify "nvim_ui_try_resize", cols, rows
       rescue Error
@@ -561,8 +575,8 @@ module Crysterm
             @waiter = nil
           end
         end
-      rescue Error
-        gone
+      rescue ex : Error
+        gone ex.message
       end
 
       # Neovim's notifications, on the client's dispatch fiber, in order.
@@ -583,8 +597,11 @@ module Crysterm
         when "crysterm_vi_quit"
           return unless params[0]?.as?(Int).try(&.to_i64) == buf
           emit ::Crysterm::Event::ViQuitRequested, params[1]? == true, params[2]? == true
+        when "crysterm_vi_detach"
+          return unless params[0]?.as?(Int).try(&.to_i64) == buf
+          gone "The buffer was closed in Neovim"
         when "redraw"
-          redraw params if @@shown[client.object_id]? == buf
+          redraw params if client.shown_buffer == buf
         when "nvim_error_event"
           show_message params[1]?.to_s, "emsg"
         end
@@ -848,13 +865,19 @@ module Crysterm
         @flush_scheduled = false
         client = @client || return
         exclusive(client) { flush_pending }
-      rescue Error
-        gone
+      rescue ex : Error
+        gone ex.message
       end
 
-      # Holds *client*'s lock (`@@locks`) for the block.
+      # Holds *client*'s lock (`Client#handler_lock`) for the block, while a
+      # handler sends Neovim a change and then keys. `nvim_input` is a fast
+      # call: its keys reach Neovim's typeahead at once, ahead of a call sent
+      # before them still waiting in Neovim's event queue (a buffer switch,
+      # the widget's lines). So such a call is a request, its answer awaited
+      # before any key is sent, and the lock keeps a handler sharing the
+      # client from sending keys meanwhile.
       private def exclusive(client : Client, &)
-        (@@locks[client.object_id] ||= Mutex.new).synchronize { yield }
+        client.handler_lock.synchronize { yield }
       end
 
       # Sends what changed outside Neovim; under the client's lock.
@@ -873,7 +896,7 @@ module Crysterm
         end
         if @caret_dirty
           @caret_dirty = false
-          if @@shown[client.object_id]? == @buffer
+          if client.shown_buffer == @buffer
             push_caret client, target, @mode
             request_state wait: false
           end
@@ -1066,6 +1089,11 @@ module Crysterm
             on_lines = function(_, b, _, first, last, new_last)
               if C.quiet[b] then return end
               vim.rpcnotify(C.chan, 'crysterm_vi_lines', b, first, last, vim.api.nvim_buf_get_lines(b, first, new_last, true))
+            end,
+            -- Unloaded (`:bwipeout`, `:bdelete`, `:edit!`): its lines are
+            -- no longer reported, so the handler lets go of it.
+            on_detach = function(_, b)
+              vim.rpcnotify(C.chan, 'crysterm_vi_detach', b)
             end,
           })
           vim.api.nvim_create_autocmd('BufWriteCmd', {

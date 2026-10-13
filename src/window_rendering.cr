@@ -100,6 +100,12 @@ module Crysterm
     # connection / `postEvent`).
     @ui_queue = Channel(Proc(Nil)).new UI_QUEUE_CAPACITY
 
+    # The `done` callbacks of `#pump`s posted to `@ui_queue` and not yet run
+    # there. `#destroy` runs what is left (`#run_pump_releases`): the queue's
+    # other jobs are dropped with the window, but these release what their
+    # reader held (a pipe, a child process).
+    @pump_releases = [] of Proc(Nil)
+
     # How many `#post` jobs wait before a poster blocks (`Channel` capacity).
     UI_QUEUE_CAPACITY = 1024
 
@@ -228,7 +234,9 @@ module Crysterm
     # render fiber that would have shown it is gone) and *done* runs at once,
     # on the reader fiber — the only one left, and nothing else touches the
     # widgets by then — so what it releases (a pipe, a child process) is
-    # released. *io* itself is the caller's to close.
+    # released. The same goes for a *done* posted but not yet run when the
+    # window is destroyed: `#destroy` runs it. *io* itself is the caller's to
+    # close.
     #
     # ```
     # window.pump(STDIN, done: ->(e : IO::Error?) { viewer.flush_markdown }) do |line|
@@ -251,10 +259,27 @@ module Crysterm
           error = ex
         end
         if finish = done
+          # Runs *done* once, whichever of the render fiber (the posted job)
+          # and `#destroy` (the job dropped with the window) gets to it first.
           # The explicit `nil` breaks the inference cycle when *done* itself
-          # ends up posting (a refresh in the callback). With the window gone
-          # the callback runs here, as the doc above says.
-          finish.call(error) unless try_post { finish.call(error); nil }
+          # ends up posting (a refresh in the callback).
+          released = false
+          release = -> do
+            unless released
+              released = true
+              finish.call(error)
+            end
+            nil
+          end
+          # Listed before the post: a full queue parks this fiber in `send`,
+          # and the render fiber may run the job before the post returns.
+          @pump_releases << release
+          unless try_post { @pump_releases.delete release; release.call }
+            # With the window gone the callback runs here, as the doc above
+            # says.
+            @pump_releases.delete release
+            release.call
+          end
         elsif error
           # With no one to tell, an error that cut the stream short is at
           # least on record.
@@ -263,13 +288,36 @@ module Crysterm
       end
     end
 
+    # Runs the `#pump` `done` callbacks still queued when the window is
+    # destroyed (see `@pump_releases`), returning the first error one raised
+    # (later ones are logged) for `#destroy` to re-raise once it is through.
+    private def run_pump_releases : Exception?
+      error = nil
+      while release = @pump_releases.shift?
+        begin
+          release.call
+        rescue ex
+          if error
+            ::Log.error(exception: ex) { "Crysterm: another Window#pump done callback raised during Window#destroy" }
+          else
+            error = ex
+          end
+        end
+      end
+      error
+    end
+
     # Runs every currently-queued `post` closure on the render fiber. Drains
     # without blocking (stops as soon as the queue is empty).
     private def drain_ui_queue
       loop do
+        # A job that destroyed the window (or one `#destroy` ran under, while
+        # it waited) ends the drain: a closed channel still hands out what it
+        # buffered, and the jobs left are dropped with the window.
+        break if @render_stop
         select
         when job = @ui_queue.receive?
-          # `nil` once `Window#destroy` closed the queue under the loop.
+          # `nil` once the queue is closed and empty.
           break unless job
           begin
             job.call

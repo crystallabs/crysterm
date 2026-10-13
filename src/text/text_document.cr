@@ -716,11 +716,20 @@ module Crysterm
     protected def insert_fragment(pos : Int32, frag : TextDocumentFragment) : Int32
       return 0 if frag.size == 0
       pos = pos.clamp(0, size)
-      # Its tables at this document's width — on copies, the fragment being
-      # the caller's.
+      # Its tables as tables of their own, at this document's width — on
+      # copies, the fragment being the caller's. A table format's identity
+      # is its table's, so a pasted table gets a new one (Qt's
+      # `QTextCopyHelper` creates the table anew), not one that makes it
+      # more rows of the table it was copied from.
       if frag.blocks.any?(&.block_format.table_format)
         copy = frag.blocks.map(&.clone)
-        frag = TextDocumentFragment.new(copy) if TextTable.fit_blocks(copy, @text_width)
+        fresh = {} of TextTableFormat => TextTableFormat
+        copy.each do |b|
+          tf = b.block_format.table_format || next
+          b.block_format = b.block_format.merge(TextBlockFormat.new(table_format: fresh[tf] ||= tf.dup))
+        end
+        TextTable.fit_blocks(copy, @text_width)
+        frag = TextDocumentFragment.new(copy)
       end
       # A multi-block insertion at a block start replaces the head block's
       # format with the fragment's; record the original so undo restores it.
@@ -836,22 +845,31 @@ module Crysterm
       hay = flags.case_sensitive? ? text : fold.call(text)
       nee = flags.case_sensitive? ? subject : fold.call(subject)
       len = nee.size
+      # The candidates are walked by byte offset (`String#byte_index`): a
+      # char index costs a scan from the start of a text with non-ASCII, so
+      # a walk by char index is quadratic in it. The fold keeps a char's
+      # word class, so the folded text's boundaries are the text's.
+      nb = nee.bytesize
       if flags.backward?
+        return if from < len
+        limit = from >= hay.size ? hay.bytesize : hay.char_index_to_byte_index(from) || return
         best = nil
-        i = hay.index(nee)
-        while i && i + len <= from
-          best = i if word_boundaries_ok?(text, i, len, flags)
-          i = hay.index(nee, i + 1)
+        b = hay.byte_index(nee)
+        while b && b + nb <= limit
+          best = b if word_boundaries_ok?(hay, b, b + nb, flags)
+          b = hay.byte_index(nee, b + 1)
         end
         found = best
       else
-        i = hay.index(nee, from.clamp(0, size))
-        while i && !word_boundaries_ok?(text, i, len, flags)
-          i = hay.index(nee, i + 1)
+        b = hay.char_index_to_byte_index(from.clamp(0, size)).try { |start| hay.byte_index(nee, start) }
+        while b && !word_boundaries_ok?(hay, b, b + nb, flags)
+          b = hay.byte_index(nee, b + 1)
         end
-        found = i
+        found = b
       end
-      found ? selection_cursor(found, found + len) : nil
+      return unless found
+      i = hay.byte_index_to_char_index(found) || return
+      selection_cursor(i, i + len)
     end
 
     # :ditto:
@@ -872,24 +890,25 @@ module Crysterm
         # against the prefix end rather than the document end — the coherent
         # choice given Crystal's Regex API has no endpos/match-limit param.
         hay = from == text.size ? text : text[0, from]
-        while (m = subject.match(hay, pos))
-          s = m.begin(0)
-          e = s + m[0].size
+        # By byte offset, as the `String` overload walks.
+        while pos <= hay.bytesize && (m = subject.match_at_byte_index(hay, pos))
+          s = m.byte_begin(0)
+          e = m.byte_end(0)
           # An empty match at `from` itself is where a backward walk stands.
-          best = {s, e} if s < from && word_boundaries_ok?(text, s, e - s, flags)
+          best = {s, e} if s < hay.bytesize && word_boundaries_ok?(text, s, e, flags)
           # Standard non-overlapping enumeration: continue past the match (a
           # `s + 1` restart would re-match suffixes, e.g. "3" inside "333").
-          pos = e > s ? e : s + 1
+          pos = e > s ? e : s + next_char_bytesize(hay, s)
         end
-        best.try { |(s, e)| selection_cursor(s, e) }
+        best.try { |(s, e)| byte_selection_cursor(text, s, e) }
       else
         return if from > text.size
-        pos = Math.max(from, 0)
-        while (m = subject.match(text, pos))
-          s = m.begin(0)
-          e = s + m[0].size
-          return selection_cursor(s, e) if word_boundaries_ok?(text, s, e - s, flags)
-          pos = s + 1
+        pos = text.char_index_to_byte_index(Math.max(from, 0)) || return
+        while pos <= text.bytesize && (m = subject.match_at_byte_index(text, pos))
+          s = m.byte_begin(0)
+          e = m.byte_end(0)
+          return byte_selection_cursor(text, s, e) if word_boundaries_ok?(text, s, e, flags)
+          pos = s + next_char_bytesize(text, s)
         end
         nil
       end
@@ -969,6 +988,7 @@ module Crysterm
         if off == 0
           block.block_format = fblocks[0].block_format
           block.source_line = fblocks[0].source_line
+          block.table_cells_entry = fblocks[0].table_cells_entry
         end
         fblocks[0].fragments.each { |f| block.insert(block.size, f.text, f.format) }
         new_blocks = Array(TextBlock).new(fblocks.size - 1)
@@ -980,6 +1000,7 @@ module Crysterm
         end
         tail.block_format = fblocks.last.block_format
         tail.source_line = fblocks.last.source_line
+        tail.table_cells_entry = fblocks.last.table_cells_entry
         new_blocks << tail
         adopt(new_blocks)
         blocks_mut[bi + 1, 0] = new_blocks
@@ -1157,16 +1178,30 @@ module Crysterm
       end
     end
 
-    private def word_boundaries_ok?(text : String, i : Int32, len : Int32, flags : FindFlag) : Bool
+    # Whether the match at byte offsets `[from, to)` of *text* stands on
+    # word boundaries, or *flags* do not ask for them.
+    private def word_boundaries_ok?(text : String, from : Int32, to : Int32, flags : FindFlag) : Bool
       return true unless flags.whole_words?
-      before = i > 0 ? text[i - 1] : nil
-      after = i + len < text.size ? text[i + len] : nil
+      before = from > 0 ? Char::Reader.new(text, from).previous_char : nil
+      after = to < text.bytesize ? Char::Reader.new(text, to).current_char : nil
       (before.nil? || !TextDocument.word_char?(before)) &&
         (after.nil? || !TextDocument.word_char?(after))
     end
 
+    # The byte size of the char at byte offset *at* of *text* — at least 1,
+    # so a walk past an empty match at the end moves too.
+    private def next_char_bytesize(text : String, at : Int32) : Int32
+      at < text.bytesize ? Char::Reader.new(text, at).current_char_width : 1
+    end
+
     private def selection_cursor(from : Int32, to : Int32) : TextCursor
       TextCursor.new(self, from, to)
+    end
+
+    # `#selection_cursor` for byte offsets `[from, to)` of *text*.
+    private def byte_selection_cursor(text : String, from : Int32, to : Int32) : TextCursor
+      s = text.byte_index_to_char_index(from) || 0
+      selection_cursor(s, s + text.byte_slice(from, to - from).size)
     end
   end
 end

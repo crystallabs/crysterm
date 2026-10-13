@@ -43,6 +43,17 @@ describe "Crysterm.strip_toolkit_args" do
     Crysterm.strip_toolkit_args(["a.md", "--crysterm-dump-config", "notes.md", "b.md"]).should eq ["a.md", "notes.md", "b.md"]
   end
 
+  it "leaves the application's own dump flag its format, as the toolkit reads the arguments" do
+    argv = ["--crysterm-dump-config", "--dump-config", "json"]
+    Crysterm.strip_toolkit_args(argv).should eq ["--dump-config", "json"]
+    Crysterm.configure!("", env: false, argv: argv, defer_dump: true)
+    Superconf.pending_dump.should eq Superconf::Format::Yaml
+    Crysterm.configure!("", env: false, argv: ["--crysterm-dump-config", "json", "--dump-config", "env"], defer_dump: true)
+    Superconf.pending_dump.should eq Superconf::Format::Json
+  ensure
+    Superconf.pending_dump = nil
+  end
+
   it "keeps the flags the application names as its own" do
     argv = [bool_flag, "--crysterm-config=c.yml", "f"]
     Crysterm.strip_toolkit_args(argv, except: {bool_flag, "--crysterm-config"}).should eq [bool_flag, "--crysterm-config=c.yml", "f"]

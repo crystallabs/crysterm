@@ -105,6 +105,27 @@ describe "Window#pump" do
     wait(done).should be_nil
     lines.should eq ["shown\n"]
   end
+
+  it "runs a done posted but not yet run when the window is destroyed, once" do
+    s = headless_screen(default_quit_keys: true)
+    ran = 0
+    # A job holding the render fiber keeps it from draining the queue, so
+    # the done the reader posts behind it is still queued when the window
+    # goes.
+    gate = Channel(Nil).new
+    s.post { gate.receive }
+    lines = [] of String
+    s.pump(IO::Memory.new("line\n"), done: ->(_e : IO::Error?) { ran += 1; nil }) { |l| lines << l }
+    wait_until { ran == 0 && s.@pump_releases.size == 1 }
+    s.destroy
+    ran.should eq 1
+    # The held render fiber, let go, runs none of the jobs left: they went
+    # with the window.
+    gate.send nil
+    3.times { Fiber.yield }
+    lines.should be_empty
+    ran.should eq 1
+  end
 end
 
 describe "TextEdit#stream_markdown" do

@@ -208,19 +208,17 @@ module Crysterm
       end
     end
 
-    # A wrapped table row read as other cells though its rendering stays
-    # (`TextDocument#change_wrapped_cells`).
-    class WrappedCellsCommand < Command
-      def initialize(@pos : Int32?, @format : TextTableFormat, @text : String,
-                     @was : Array(String)?, @now : Array(String)?)
+    # A table row block given other cells (`TextDocument#set_table_cells`).
+    class TableCellsCommand < Command
+      def initialize(@pos : Int32, @was : {String, Array(String)}?, @now : {String, Array(String)}?)
       end
 
       def undo(doc : TextDocument) : Nil
-        doc.raw_set_wrapped_cells(@pos, @format, @text, @was)
+        doc.raw_set_table_cells(@pos, @was)
       end
 
       def redo(doc : TextDocument) : Nil
-        doc.raw_set_wrapped_cells(@pos, @format, @text, @now)
+        doc.raw_set_table_cells(@pos, @now)
       end
     end
 
@@ -337,9 +335,8 @@ module Crysterm
     #
     # A table re-rendered again is kept as one re-rendering, from its
     # rendering at the last move to the latest, and dropped when that is
-    # where it started (a resize back and forth), the texts it went through
-    # reading as before again, so a drag through many widths holds one copy
-    # per table. The tables are apart and each
+    # where it started (a resize back and forth), so a drag through many
+    # widths holds one copy per table. The tables are apart and each
     # re-rendering keeps the block count, so they need no order among them.
     def reflowed(reflows : Array(TextDocument::TableReflow)) : Nil
       return if reflows.empty? || !(undo_available? || redo_available?)
@@ -347,20 +344,12 @@ module Crysterm
       reflows.each do |r|
         if i = @reflows.index { |q| q.first == r.first && q.new.size == r.old.size }
           q = @reflows[i]
-          # The readings each changed, from the first's was to the last's now.
-          cells = q.cells.dup
-          r.cells.each do |text, (was, now)|
-            cells[text] = {q.cells.has_key?(text) ? q.cells[text][0] : was, now}
-          end
-          cells.reject! { |_, (was, now)| was == now }
-          texts = r.new.map(&.text)
-          if q.old.map(&.text) == texts && cells.none? { |text, _| texts.includes?(text) }
-            # Back where it started: the texts the table went through on the
-            # way read as they did before.
-            q.format.apply_wrapped_cells(cells, before: true)
+          # Back where it started: the same texts, and the same cells kept
+          # for them, or for a text an undo may give the block back.
+          if q.old.each_with_index.all? { |b, k| b.text == r.new[k].text && b.table_cells_entry == r.new[k].table_cells_entry }
             @reflows.delete_at(i)
           else
-            @reflows[i] = TextDocument::TableReflow.new(q.first, q.old, r.new, q.format, cells)
+            @reflows[i] = TextDocument::TableReflow.new(q.first, q.old, r.new)
           end
         else
           @reflows << r

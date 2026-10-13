@@ -52,19 +52,45 @@ module Crysterm
   # A copy of *argv* speaking Superconf's built-in flag names: the namespaced
   # spellings are translated to the generic ones Superconf registers, and any
   # genuinely generic `--config`/`--dump-config` is dropped so Superconf does not
-  # claim the application's own flag. Every other argument is passed through
-  # untouched (registered options keep their own derived flags).
+  # claim the application's own flag. A namespaced flag's separate-word value
+  # is joined to it (`--config=FILE`, `--dump-config=FORMAT`), taken as
+  # `.strip_toolkit_args` takes it, so a dropped application flag never hands
+  # its own value to the toolkit's (`--crysterm-dump-config --dump-config
+  # json` dumps YAML, the `json` left to the application). Every other
+  # argument is passed through untouched (registered options keep their own
+  # derived flags), and nothing from `--` on is translated.
   private def self.namespaced_argv(argv : Array(String)) : Array(String)
-    argv.compact_map do |arg|
-      name = arg.split('=', 2).first
+    out = [] of String
+    i = 0
+    while i < argv.size
+      arg = argv[i]
+      i += 1
+      if arg == "--"
+        out.concat argv[i - 1..]
+        break
+      end
+      name, eq, _ = arg.partition('=')
       if name == CONFIG_FLAG || name == DUMP_CONFIG_FLAG
-        arg.sub "--crysterm-", "--"
-      elsif name == "--config" || name == "--dump-config"
-        nil
-      else
-        arg
+        generic = name.sub "--crysterm-", "--"
+        if !eq.empty?
+          out << arg.sub("--crysterm-", "--")
+        elsif name == CONFIG_FLAG
+          # a required value: the next word, whatever it is
+          if file = argv[i]?
+            out << "#{generic}=#{file}"
+            i += 1
+          end
+        elsif (word = argv[i]?) && Superconf.dump_format?(word)
+          out << "#{generic}=#{word}"
+          i += 1
+        else
+          out << "#{generic}=yaml"
+        end
+      elsif name != "--config" && name != "--dump-config"
+        out << arg
       end
     end
+    out
   end
 
   # No flags of the application's own (the `except:` default below).

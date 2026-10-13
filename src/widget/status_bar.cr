@@ -231,8 +231,13 @@ module Crysterm
       # The cells a message had left of the permanent fields and sections
       # in the last frame painted without covering them, or `nil` before
       # the first: what decides whether a full-width message fits beside
-      # them or covers them.
+      # them or covers them. While they are covered, a change of the bar's
+      # width moves it by as much (see `#measure_message_room`).
       @message_room : Int32?
+
+      # The bar's interior width `@message_room` was last measured or
+      # moved for.
+      @message_room_width = 0
 
       # Whether the correction of `@covering` a frame found wanting is
       # already posted (see `#paint`), so later frames do not post it again.
@@ -270,15 +275,29 @@ module Crysterm
 
       # Measures `@message_room` from the frame just laid out: the cells
       # from the bar's left edge to a cell short of the left-most permanent
-      # field or section. Only while nothing is covered (covered fields have
-      # no place to measure) and no question is open. Reads the geometry
+      # field or section. Only while no question is open. Reads the geometry
       # the paint left (`#lpos`), not `#with_inner_coords`, which would
       # render the bar again over the sections.
+      #
+      # Covered fields have no place to measure, so while they are covered
+      # a resize moves the room by the change of the bar's width. That is
+      # exact for fields of fixed width and too much for growing ones when
+      # the bar widens — never too little, so a message that may fit now
+      # uncovers them, and the frame after measures again for real (and
+      # covers them again if it was wrong).
       private def measure_message_room : Nil
-        return if @covering || prompting?
+        return if prompting?
         return unless own = lpos
         xi = own.xi + ileft
         xl = own.xl - iright
+        if @covering
+          if room = @message_room
+            @message_room = room + (xl - xi) - @message_room_width
+          end
+          @message_room_width = xl - xi
+          return
+        end
+        @message_room_width = xl - xi
         edge = nil.as(Int32?)
         @permanent_widgets.each do |w|
           next unless w.visible?

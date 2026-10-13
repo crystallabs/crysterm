@@ -45,10 +45,16 @@ module Crysterm
     def exclusive=(value : Bool) : Bool
       return value if @exclusive == value
       @exclusive = value
-      # A menu draws an exclusive group's members with radio marks.
-      @actions.each &.notify_changed
+      # A menu draws an exclusive group's members with radio marks, so each
+      # member reports a change — once: one made checkable here already did.
+      @actions.each do |action|
+        if value && !action.checkable?
+          action.checkable = true
+        else
+          action.notify_changed
+        end
+      end
       if value
-        @actions.each(&.checkable=(true))
         if first = @actions.find &.checked?
           enforce_exclusivity first
         end

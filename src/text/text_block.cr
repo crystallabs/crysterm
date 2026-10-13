@@ -63,6 +63,21 @@ module Crysterm
     # edit, not an import).
     property source_line : Int32?
 
+    # The cells of the table row this block renders, when its text would not
+    # read back as them (`TextTable.row_cells`): a cell wrapped with a word
+    # broken in the middle, or one that fits its column only with a run of
+    # spaces closed up. Kept per block with the text it was rendered as,
+    # like Qt's `QTextBlockUserData`, so two rows that render alike each
+    # keep their own; nil once the text is no longer that rendering. The
+    # table build sets it, `TextDocument#set_table_cells` undoably; `#clone`
+    # and a whole-block `#slice` copy it.
+    def table_cells : Array(String)?
+      (tc = @table_cells_entry) && tc[0] == text ? tc[1] : nil
+    end
+
+    # `#table_cells` with the text it stands for, as stored.
+    protected property table_cells_entry : {String, Array(String)}?
+
     # Overlay format runs `{from, to, patch}` a `SyntaxHighlighter` laid over
     # this block (Qt's layout `additionalFormats`): purely presentational,
     # never merged into the fragments, so highlighting doesn't touch the
@@ -170,6 +185,7 @@ module Crysterm
     def clone : TextBlock
       b = TextBlock.new(@fragments.map { |f| TextFragment.new(f.text, f.format) }, @block_format)
       b.source_line = @source_line
+      b.table_cells_entry = @table_cells_entry
       b
     end
 
@@ -203,11 +219,12 @@ module Crysterm
       normalize!
     end
 
-    # Replaces the runs with copies of *fragments* — a whole new text, for
-    # the document internals that re-render a block in place (a table's
-    # reflow, `TextDocument#text_width`).
-    protected def replace_fragments(fragments : Enumerable(TextFragment)) : Nil
-      @fragments = fragments.map { |f| TextFragment.new(f.text, f.format) }.to_a
+    # Gives this block *other*'s text — copies of its runs — and
+    # `#table_cells`: a block re-rendered in place, for the document
+    # internals (a table's reflow, `TextDocument#text_width`).
+    protected def rerender_as(other : TextBlock) : Nil
+      @fragments = other.fragments_mut.map { |f| TextFragment.new(f.text, f.format) }
+      @table_cells_entry = other.table_cells_entry
       normalize!
     end
 
@@ -256,7 +273,9 @@ module Crysterm
         e = clip_to - fstart
         frags << TextFragment.new(f.text[s, e - s], f.format)
       end
-      TextBlock.new(frags, @block_format)
+      b = TextBlock.new(frags, @block_format)
+      b.table_cells_entry = @table_cells_entry if from <= 0 && to >= size
+      b
     end
 
     # Clamps a `[from, to)` position pair to the valid `0..size` range.

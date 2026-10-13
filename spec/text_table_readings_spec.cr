@@ -60,4 +60,54 @@ describe TextTable do
     doc.redo.should be_true
     tbl.cell_text(1, 0).should eq spaced
   end
+
+  it "reads two rows that render alike each as its own cells" do
+    doc = TextDocument.new
+    doc.text_width = 12
+    doc.set_markdown "| A | B |\n| --- | --- |\n| abcdefghijkl | x |\n| y | x |"
+    tbl = readings_table_of(doc)
+    spaced = TextTable.split_data_row(tbl.row_block(1).not_nil!.text)[0]
+    tbl.set_cell_text(2, 0, spaced).should be_true
+    tbl.row_block(2).not_nil!.text.should eq tbl.row_block(1).not_nil!.text
+    tbl.cell_text(1, 0).should eq "abcdefghijkl"
+    tbl.cell_text(2, 0).should eq spaced
+    doc.text_width = nil
+    tbl.cell_text(1, 0).should eq "abcdefghijkl"
+    tbl.cell_text(2, 0).should eq spaced
+    doc.text_width = 12
+    doc.undo.should be_true
+    tbl.cell_text(1, 0).should eq "abcdefghijkl"
+    tbl.cell_text(2, 0).should eq "y"
+    doc.redo.should be_true
+    tbl.cell_text(2, 0).should eq spaced
+  end
+
+  it "gives back a cut wrapped row's cells on undo" do
+    doc = TextDocument.new
+    doc.text_width = 12
+    doc.set_markdown "| A | B |\n| --- | --- |\n| abcdefghijkl | x |\n| y | x |"
+    tbl = readings_table_of(doc)
+    b = tbl.row_block(1).not_nil!
+    doc.cursor(b.position - 1, b.position + b.size).remove_selected_text
+    tbl.cell_text(1, 0).should eq "y"
+    doc.undo.should be_true
+    tbl.cell_text(1, 0).should eq "abcdefghijkl"
+  end
+
+  it "makes a pasted copy of a table a table of its own" do
+    doc = TextDocument.new
+    doc.text_width = 12
+    doc.set_markdown "| A | B |\n| --- | --- |\n| abcdefghijkl | x |\n\npara"
+    tbl = readings_table_of(doc)
+    frag = doc.copy_fragment(0, tbl.row_block(1).not_nil!.position + 200)
+    doc.cursor(doc.size).insert_fragment(frag)
+    formats = doc.blocks.compact_map(&.block_format.table_format).uniq!(&.object_id)
+    formats.size.should eq 2
+    copy = TextTable.new(doc, formats[1])
+    copy.cell_text(1, 0).should eq "abcdefghijkl"
+    tbl.rows.should eq 2
+    tbl.set_cell_text(1, 0, "z").should be_true
+    copy.cell_text(1, 0).should eq "abcdefghijkl"
+    doc.to_markdown.scan("| abcdefghijkl |").size.should eq 1
+  end
 end

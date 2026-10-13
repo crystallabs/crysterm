@@ -118,6 +118,14 @@ module Crysterm
       @request_handler : RequestHandler? = nil
       @channel_id : Int64? = nil
 
+      # The buffer in Neovim's window, as the `Handler`s sharing this client
+      # last showed it.
+      protected property shown_buffer : Int64? = nil
+
+      # Held by a `Handler` while it sends Neovim a change and then keys
+      # (`Handler#exclusive`).
+      protected getter handler_lock = Mutex.new
+
       # Starts `nvim --embed` followed by *args* (`--clean`, `-u NONE`,
       # `--noplugin`, a file to edit, …). Without `--headless` among them,
       # Neovim answers requests at once but holds its startup (the user's

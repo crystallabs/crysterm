@@ -125,6 +125,20 @@ describe Crysterm::ActionGroup do
       g.checked_action.should eq b
     end
 
+    it "reports each member changed once" do
+      g = Crysterm::ActionGroup.new exclusive: false
+      a = Crysterm::Action.new "Icons"
+      b = Crysterm::Action.new "List", checkable: true
+      g << a << b
+      counts = {a => 0, b => 0}
+      {a, b}.each { |m| m.on(Crysterm::Event::Changed) { counts[m] += 1 } }
+
+      g.exclusive = true
+      counts.should eq({a => 1, b => 1})
+      g.exclusive = false
+      counts.should eq({a => 2, b => 2})
+    end
+
     it "reconciles down to one checked member when several were already checked" do
       g = Crysterm::ActionGroup.new exclusive: false
       a = Crysterm::Action.new "Icons", checkable: true, checked: true

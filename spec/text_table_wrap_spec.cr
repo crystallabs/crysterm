@@ -105,7 +105,7 @@ describe TextTable do
     it "wraps wide characters by their display width" do
       blocks = TextTable.build(["名前", "説明"], [["漢字", "日本語の説明文です"]], text_width: 16)
       TextTable.display_lines(blocks[3].text).each { |l| width_of(l).should be <= 16 }
-      TextTable.split_data_row(blocks[3].text, blocks[3].block_format.table_format).should eq ["漢字", "日本語の説明文です"]
+      TextTable.row_cells(blocks[3]).should eq ["漢字", "日本語の説明文です"]
     end
   end
 
@@ -115,12 +115,12 @@ describe TextTable do
       TextTable.split_data_row(blocks[3].text).should eq ["one two three four", "x"]
     end
 
-    it "gives a word broken in the middle back exactly through the table format" do
+    it "gives a word broken in the middle back exactly through the row's block" do
       blocks = TextTable.build(["A", "B"], [["abcdefghijkl", "x"]], text_width: 12)
       row = blocks[3].text
       TextTable.display_lines(row).size.should be > 1
-      TextTable.split_data_row(row, blocks[3].block_format.table_format).should eq ["abcdefghijkl", "x"]
-      # Without the table it is read as it looks: a space at each break.
+      TextTable.row_cells(blocks[3]).should eq ["abcdefghijkl", "x"]
+      # Without the block it is read as it looks: a space at each break.
       TextTable.split_data_row(row)[0].should_not eq "abcdefghijkl"
     end
   end

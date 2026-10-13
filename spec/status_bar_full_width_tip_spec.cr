@@ -115,6 +115,29 @@ describe "StatusBar full-width messages" do
     row(s, 40).should start_with "z" * 36
   end
 
+  it "uncovers the fields when the bar grows wide enough for the message, and covers them again when it shrinks" do
+    s = headless_screen(60, 3)
+    bar = Widget::StatusBar.new parent: s, bottom: 0, left: 0, width: 40, height: 1
+    pos = bar.add_permanent_widget field("Ln 1", width: 10)
+    s.repaint
+    bar.show_message "q" * 32, full_width: true
+    pos.visible?.should be_false
+
+    bar.width = 60
+    s.repaint
+    settle s
+    pos.visible?.should be_true
+    s.repaint
+    line = row s, 60
+    line.should start_with "q" * 32
+    line[50, 4].should eq "Ln 1"
+
+    bar.width = 40
+    s.repaint
+    settle s
+    pos.visible?.should be_false
+  end
+
   it "lets the timeout of a full-width message clear only its own message" do
     s = headless_screen(40, 3)
     bar, _name, pos = bar_with_fields s
