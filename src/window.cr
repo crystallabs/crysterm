@@ -585,6 +585,12 @@ module Crysterm
     # window opens as big as the one it was launched from), or 80×24 when the
     # launcher has no tty; pass explicit values to pin either axis.
     #
+    # `frame` (`{x, y, width, height}`, as `#frame_geometry` gives it) puts
+    # the new window there and sizes it so ↔ `QWindow::setFramePosition` and
+    # `setGeometry` before `show`, where the launcher can place its windows
+    # (Terminal.app and iTerm2 on macOS, `Terminal.frame_geometry_refusal`);
+    # elsewhere it is ignored and the window manager places the window.
+    #
     # Pass `start_input: true` to start reading input immediately, so a single
     # spawned window is interactive without a separate `#start_input`/`#exec`
     # call (the caller still has to keep the process alive, e.g. with `sleep`).
@@ -593,9 +599,10 @@ module Crysterm
     def self.open(*, launcher : Terminal::Launcher | String? = nil,
                   cols : Int32? = nil, rows : Int32? = nil,
                   title : String? = nil, env : Process::Env = nil,
-                  start_input : Bool = false, into : Window? = nil) : Window
+                  start_input : Bool = false, into : Window? = nil,
+                  frame : Terminal::Frame? = nil) : Window
       win = Terminal.spawn_window(launcher: launcher, cols: cols, rows: rows,
-        title: title, env: env)
+        title: title, env: env, frame: frame)
 
       if window = into
         window.connect win.input, win.output, win
@@ -609,6 +616,31 @@ module Crysterm
       window.start_input if start_input
       window.emit Crysterm::Event::WindowOpened, window
       window
+    end
+
+    # This window's frame on the desktop, `{x, y, width, height}`, read from
+    # the emulator that opened it (`Window.open`) ↔ `QWindow::frameGeometry`;
+    # nil where it cannot be read: a window not opened by `Window.open` (the
+    # terminal the program started in), a launcher that cannot report it
+    # (`#frame_geometry_supported?`), or a window already gone. Runs
+    # `osascript` where supported (100-300 ms), so ask at close or off the
+    # render fiber, not per frame.
+    def frame_geometry : Terminal::Frame?
+      window.try &.frame_geometry
+    end
+
+    # Whether `#frame_geometry` can answer for this window: it was opened by
+    # `Window.open` through a launcher that reads frames back.
+    def frame_geometry_supported? : Bool
+      window.try(&.launcher).try(&.frame_geometry_supported?) || false
+    end
+
+    # Whether `Window.open` through *launcher* (a `Terminal::Launcher`, a
+    # backend name, or nil to auto-detect as `Window.open` does) can place
+    # the windows it opens and read their frames back
+    # (`Terminal.frame_geometry_refusal` says why not).
+    def self.frame_geometry_supported?(launcher : Terminal::Launcher | String? = nil) : Bool
+      Terminal.frame_geometry_refusal(launcher).nil?
     end
 
     # Convenience: open *window_count* emulator windows, yield them all to the

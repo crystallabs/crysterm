@@ -26,10 +26,22 @@ module Crysterm
       # mirroring STDIN/STDOUT.
       getter input : IO::FileDescriptor
       getter output : IO::FileDescriptor
+      # The backend that opened the window, when known: what reads the
+      # window's frame back (`#frame_geometry`).
+      getter launcher : Launcher?
 
       @closed = false
 
-      def initialize(@process, @socket, @path, @tty, @input, @output)
+      def initialize(@process, @socket, @path, @tty, @input, @output, @launcher = nil)
+      end
+
+      # This window's frame on the desktop, `{x, y, width, height}`
+      # (`Launcher#frame_geometry`), or nil when its backend cannot tell
+      # (any but Terminal.app and iTerm2) or the window is closed. Runs
+      # `osascript` where supported, 100-300 ms: not for the render path.
+      def frame_geometry : Frame?
+        return if @closed
+        @launcher.try &.frame_geometry(@tty)
       end
 
       # Closes the window and releases all resources. Idempotent. Closing the
@@ -65,11 +77,14 @@ module Crysterm
     # Spawns a terminal window/pane/session via *launcher*, waits for the
     # in-window helper to report its TTY, opens that TTY, and returns an
     # `EmulatorWindow`. Raises if no backend is available, the binary can't be
-    # found, or the helper does not connect in time.
+    # found, or the helper does not connect in time. With *frame*, a backend
+    # that can place its windows puts the new one there (`Launcher#launch`);
+    # any other ignores it.
     def self.spawn_window(*, launcher : Launcher | String? = nil,
                           cols : Int32? = nil, rows : Int32? = nil,
                           title : String? = nil,
-                          env : Process::Env = nil) : EmulatorWindow
+                          env : Process::Env = nil,
+                          frame : Frame? = nil) : EmulatorWindow
       cols, rows = resolve_spawn_size cols, rows
       backend = resolve_launcher(launcher)
       raise "No terminal backend found (tried $TERMINAL and: #{LAUNCHERS.map(&.name).join(", ")})" unless backend
@@ -97,7 +112,7 @@ module Crysterm
         env.try &.each { |k, v| inner << "#{k}=#{v}" if v }
         inner << exe
 
-        process = backend.launch(inner, cols, rows, title)
+        process = backend.launch(inner, cols, rows, title, frame)
 
         socket = accept_with_timeout(server)
         unless socket
@@ -131,7 +146,7 @@ module Crysterm
           terminate_and_reap(process)
           raise "Could not open window TTY #{tty}: #{ex.message}"
         end
-        win = EmulatorWindow.new(process, socket, path, tty, input, output)
+        win = EmulatorWindow.new(process, socket, path, tty, input, output, backend)
         success = true # the EmulatorWindow now owns the socket file; leave it for #close
         win
       ensure

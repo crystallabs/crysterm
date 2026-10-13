@@ -16,6 +16,13 @@ module Crysterm
   # environment: a running tmux/window server does not inherit our process's
   # environment, so only an inlined value reaches the helper.
   module Terminal
+    # A spawned window's frame on the desktop, `{x, y, width, height}` in
+    # screen points from the top-left corner of the main display — what
+    # `QWindow::frameGeometry` gives as a `QRect` (the window manager's
+    # decorations included). Only some launchers can set or read it
+    # (`Launcher#frame_geometry_supported?`).
+    alias Frame = {Int32, Int32, Int32, Int32}
+
     # A registered way to launch a command in a new terminal window/pane/session.
     class Launcher
       getter name : String
@@ -34,7 +41,33 @@ module Crysterm
       # unset, `#available?` looks the name up on the PATH.
       @available : Proc(Bool)?
 
-      def initialize(@name, @command, @spawn = nil, @available = nil)
+      # Optional spawner that also puts the new window at a given frame
+      # (`#launch` with `frame:`): the same arguments as `@spawn`, plus the
+      # frame. Only backends that can place their windows have one.
+      @placed_spawn : Proc(Array(String), Int32, Int32, String?, Frame, Process)?
+
+      # Optional reader of a spawned window's frame, given the window's TTY
+      # (what the in-window helper reported): nil when it cannot be read.
+      @frame_reader : Proc(String, Frame?)?
+
+      def initialize(@name, @command, @spawn = nil, @available = nil,
+                     @placed_spawn = nil, @frame_reader = nil)
+      end
+
+      # Whether this backend can both place a new window at a frame
+      # (`#launch` with `frame:`) and read a window's frame back
+      # (`#frame_geometry`): Terminal.app and iTerm2 on macOS, through
+      # AppleScript; no other backend.
+      def frame_geometry_supported? : Bool
+        !@placed_spawn.nil? && !@frame_reader.nil?
+      end
+
+      # The frame of the window this backend opened on *tty* (the device the
+      # in-window helper reported) ↔ `QWindow::frameGeometry`, or nil when the
+      # backend cannot tell or the window is gone. Slow where supported (an
+      # `osascript` run, 100-300 ms): ask off the render path, at close, say.
+      def frame_geometry(tty : String) : Frame?
+        @frame_reader.try &.call(tty)
       end
 
       # Whether this backend is present on the system.
@@ -55,9 +88,15 @@ module Crysterm
       end
 
       # Launches *inner* (the env-inlined helper command) in a new window/pane,
-      # returning the backing process.
-      def launch(inner : Array(String), cols : Int32, rows : Int32, title : String?) : Process
-        if custom = @spawn
+      # returning the backing process. With *frame*, a backend that can place
+      # its windows (`#frame_geometry_supported?`) puts the new one there,
+      # sized by the frame rather than by *cols* and *rows*; every other
+      # backend leaves the placement to the window manager.
+      def launch(inner : Array(String), cols : Int32, rows : Int32, title : String?,
+                 frame : Frame? = nil) : Process
+        if frame && (placed = @placed_spawn)
+          placed.call(inner, cols, rows, title, frame)
+        elsif custom = @spawn
           custom.call(inner, cols, rows, title)
         else
           argv = @command.call(inner, cols, rows, title)
@@ -102,7 +141,11 @@ module Crysterm
           ->(inner : Array(String), c : Int32, r : Int32, t : String?) do
             Process.new("osascript", ["-e", terminal_app_script(inner, c, r, t)])
           end,
-          -> { File.exists?("/System/Applications/Utilities/Terminal.app") || File.exists?("/Applications/Utilities/Terminal.app") }),
+          -> { File.exists?("/System/Applications/Utilities/Terminal.app") || File.exists?("/Applications/Utilities/Terminal.app") },
+          ->(inner : Array(String), c : Int32, r : Int32, t : String?, f : Frame) do
+            Process.new("osascript", ["-e", terminal_app_script(inner, c, r, t, f)])
+          end,
+          ->(tty : String) { read_frame terminal_app_frame_script(tty) }),
         # The command is typed into the new window's shell (`write text`),
         # as for Terminal.app, not given as the window's `command`: iTerm2
         # runs that one itself, split by its own rules and with no shell, so
@@ -112,7 +155,11 @@ module Crysterm
           ->(inner : Array(String), c : Int32, r : Int32, t : String?) do
             Process.new("osascript", ["-e", iterm2_script(inner, c, r, t)])
           end,
-          -> { application_bundle?("iTerm.app") }),
+          -> { application_bundle?("iTerm.app") },
+          ->(inner : Array(String), c : Int32, r : Int32, t : String?, f : Frame) do
+            Process.new("osascript", ["-e", iterm2_script(inner, c, r, t, f)])
+          end,
+          ->(tty : String) { read_frame iterm2_frame_script(tty) }),
         # Ghostty's macOS build has no `-e`, no `+new-window`, and a second
         # instance started by `open -n` with `--command=` shows no window the
         # helper can report from (tried 1.3.1): no launcher for it yet.
@@ -203,8 +250,11 @@ module Crysterm
 
     # The AppleScript the `terminal.app` launcher runs: *inner* typed into a
     # new Terminal.app window (`do script`), the tab titled *title* and the
-    # window sized *cols* by *rows* where the application allows it.
-    def self.terminal_app_script(inner : Array(String), cols : Int32, rows : Int32, title : String?) : String
+    # window sized *cols* by *rows* where the application allows it. With
+    # *frame*, the window is then put there (`set bounds`), which sizes it
+    # too.
+    def self.terminal_app_script(inner : Array(String), cols : Int32, rows : Int32, title : String?,
+                                 frame : Frame? = nil) : String
       String.build do |s|
         s << "tell application \"Terminal\"\n"
         s << "  set t to do script " << applescript_string(shell_command(inner)) << "\n"
@@ -214,14 +264,21 @@ module Crysterm
         s << "    set number of columns of w to " << cols << "\n"
         s << "    set number of rows of w to " << rows << "\n"
         s << "  end try\n"
+        if frame
+          s << "  try\n"
+          s << "    set bounds of (first window whose selected tab is t) to " << applescript_bounds(frame) << "\n"
+          s << "  end try\n"
+        end
         s << "end tell\n"
       end
     end
 
     # The AppleScript the `iterm2` launcher runs: a new window on the default
     # profile, *inner* typed into its session (`write text`), named *title*
-    # and sized *cols* by *rows*.
-    def self.iterm2_script(inner : Array(String), cols : Int32, rows : Int32, title : String?) : String
+    # and sized *cols* by *rows*. With *frame*, the window is then put there
+    # (`set bounds`), which sizes it too.
+    def self.iterm2_script(inner : Array(String), cols : Int32, rows : Int32, title : String?,
+                           frame : Frame? = nil) : String
       String.build do |s|
         s << "tell application \"iTerm2\"\n"
         s << "  set w to (create window with default profile)\n"
@@ -233,8 +290,95 @@ module Crysterm
         s << "      set rows to " << rows << "\n"
         s << "    end try\n"
         s << "  end tell\n"
+        if frame
+          s << "  try\n"
+          s << "    set bounds of w to " << applescript_bounds(frame) << "\n"
+          s << "  end try\n"
+        end
         s << "end tell\n"
       end
+    end
+
+    # The AppleScript that reads the frame of the Terminal.app window whose
+    # tab runs on *tty*: its `bounds` (`left, top, right, bottom`), or
+    # nothing when no tab has that device. Asks nothing of an application
+    # that is not running, so reading never starts Terminal.app.
+    def self.terminal_app_frame_script(tty : String) : String
+      String.build do |s|
+        s << "if application \"Terminal\" is running then\n"
+        s << "  tell application \"Terminal\"\n"
+        s << "    repeat with w in windows\n"
+        s << "      try\n"
+        s << "        repeat with t in tabs of w\n"
+        s << "          if tty of t is " << applescript_string(tty) << " then return bounds of w\n"
+        s << "        end repeat\n"
+        s << "      end try\n"
+        s << "    end repeat\n"
+        s << "  end tell\n"
+        s << "end if\n"
+      end
+    end
+
+    # The AppleScript that reads the frame of the iTerm2 window one of whose
+    # sessions runs on *tty*: its `bounds`, or nothing when no session has
+    # that device or iTerm2 is not running (it is not started to ask).
+    def self.iterm2_frame_script(tty : String) : String
+      String.build do |s|
+        s << "if application \"iTerm2\" is running then\n"
+        s << "  tell application \"iTerm2\"\n"
+        s << "    repeat with w in windows\n"
+        s << "      try\n"
+        s << "        repeat with t in tabs of w\n"
+        s << "          repeat with s in sessions of t\n"
+        s << "            if tty of s is " << applescript_string(tty) << " then return bounds of w\n"
+        s << "          end repeat\n"
+        s << "        end repeat\n"
+        s << "      end try\n"
+        s << "    end repeat\n"
+        s << "  end tell\n"
+        s << "end if\n"
+      end
+    end
+
+    # The frame *output* of a frame script names (`osascript` prints a
+    # rectangle as `left, top, right, bottom`), or nil when it names none.
+    def self.parse_bounds(output : String) : Frame?
+      parts = output.split(',').map(&.strip.to_i?)
+      return unless parts.size == 4
+      left, top, right, bottom = parts
+      return unless left && top && right && bottom && right > left && bottom > top
+      {left, top, right - left, bottom - top}
+    end
+
+    # Why `Window.open(frame:)` cannot place a window here and
+    # `Window#frame_geometry` cannot read one, in a sentence for the user,
+    # or nil when they can: the backend `.resolve_launcher` picks for
+    # *launcher* is not one that can (only Terminal.app and iTerm2, on
+    # macOS), or there is none. What a program's "remember window
+    # positions" entry disables itself on.
+    def self.frame_geometry_refusal(launcher : Launcher | String? = nil) : String?
+      backend = resolve_launcher(launcher)
+      return "no terminal emulator found to open windows with" unless backend
+      return if backend.frame_geometry_supported?
+      "#{backend.name} cannot place its windows or report where they are (only Terminal.app and iTerm2 on macOS can)"
+    end
+
+    # Runs the frame *script* through `osascript` and reads its answer, or
+    # nil when it fails or names no window.
+    private def self.read_frame(script : String) : Frame?
+      output = IO::Memory.new
+      status = Process.run("osascript", ["-e", script], output: output, error: Process::Redirect::Close)
+      return unless status.success?
+      parse_bounds output.to_s
+    rescue
+      nil
+    end
+
+    # *frame* (`{x, y, width, height}`) as an AppleScript `bounds` rectangle,
+    # `{left, top, right, bottom}`.
+    private def self.applescript_bounds(frame : Frame) : String
+      x, y, w, h = frame
+      "{#{x}, #{y}, #{x + w}, #{y + h}}"
     end
 
     # *inner* as one shell command line, for the backends that take a string
