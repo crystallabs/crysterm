@@ -233,7 +233,9 @@ module Crysterm
       # The widget the handler is attached to, or `nil`. With several views
       # (`#add_view`), the first of `#views`: the one attached to, or, once
       # that one is removed, the oldest view left.
-      getter widget : Widget?
+      def widget : Widget?
+        @views.first?.try &.widget
+      end
 
       # The active view seen through `Mixin::TextEditing`, with its concrete
       # type (a value typed by the module alone would be its classes' common
@@ -312,13 +314,13 @@ module Crysterm
 
       # Whether the handler is attached to a widget.
       def attached? : Bool
-        !@widget.nil?
+        !@views.empty?
       end
 
       # The widgets that show the buffer: the one attached to and those added
       # with `#add_view`, oldest first; empty while detached.
       def views : Array(Widget)
-        @views.map { |v| v.widget.as(Widget) }
+        @views.map &.widget.as(Widget)
       end
 
       # The view whose key press, paste or focus came last (the one attached
@@ -370,10 +372,8 @@ module Crysterm
         restore_cursor view
         if i == 0
           # The document's changes were followed through this view.
-          primary = @views.first
-          @widget = primary.widget
           @subs.off
-          watch_document primary
+          watch_document @views.first
         end
         activate @views.first if active?(view)
       end
@@ -418,7 +418,7 @@ module Crysterm
       # shape, and deletes the buffer from a shared Neovim or ends the
       # handler's own.
       def detach : Nil
-        views = @views.dup
+        views = @views # `#teardown` puts a new array in its place
         teardown
         views.each { |v| restore_cursor v }
       end
@@ -460,7 +460,6 @@ module Crysterm
         client.request "nvim_exec_lua", LUA, [chan]
         buf = client.request("nvim_create_buf", true, false).as_i64
         @buffer = buf
-        @widget = widget
         @target = target
         @views = [target] of Target
         @lines, @eol = split_lines target
@@ -486,21 +485,19 @@ module Crysterm
           push_caret client, target, Mode::Normal
         end
 
-        watch_view target, document: true
+        watch_view target
+        watch_document target
         save_cursor target
         apply_cursor_shape
         request_state wait: true
       end
 
-      # Subscribes to *target*'s events, into its own bag (`Target#subs`); with
-      # *document*, also to the document's changes (`#watch_document`), in
-      # between, in the order the handler has always subscribed them.
-      private def watch_view(target : Target, document : Bool = false) : Nil
+      # Subscribes to *target*'s events, into its own bag (`Target#subs`).
+      private def watch_view(target : Target) : Nil
         widget = target.widget
         subs = target.subs
         subs.on(widget, ::Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) { |e| key_pressed target, e }
         subs.on(widget, ::Crysterm::Event::Paste, at: ::EventHandler.at_beginning) { |e| pasted target, e }
-        watch_document target if document
         # The caret and selection of the active view only: another view's
         # move with the edits of the document they share.
         subs.on(widget, ::Crysterm::Event::CursorPositionChanged) { outside_change caret: true if active?(target) }
@@ -570,7 +567,6 @@ module Crysterm
           end
         end
         @buffer = nil
-        @widget = nil
         @target = nil
         @views = [] of Target
         @text_reset = false
