@@ -622,8 +622,11 @@ module Crysterm
       p
     end
 
-    # {start, end} of the word around `pos`; the preceding word when between
-    # words. Collapses to {pos, pos} in whitespace-only surroundings.
+    # {start, end} of the word around `pos`; the preceding word in the same
+    # block when between words. Collapses to {pos, pos} with no word before
+    # `pos` in its block — Qt's word moves work within a block's layout, so
+    # `WordUnderCursor` on an empty line, or before a line's first word,
+    # selects nothing rather than a word lines above.
     private def word_bounds_at(pos : Int32) : {Int32, Int32}
       s = pos
       @document.each_char_backward(pos) do |c|
@@ -636,7 +639,8 @@ module Crysterm
       if s == e
         # Not inside a word: take the word ending at or before pos.
         prev = word_left_from(pos)
-        return word_bounds_at(prev) if prev != pos
+        start = @document.block_position(@document.block_at(pos).index)
+        return word_bounds_at(prev) if prev != pos && prev >= start
       end
       {s, e}
     end

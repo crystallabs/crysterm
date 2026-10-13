@@ -84,6 +84,18 @@ describe Crysterm::TextCursor do
       c.selected_text.should eq "bar"
     end
 
+    it "selects the word before the cursor between words, but none from an earlier block" do
+      _, c = doc_and_cursor("foo bar  baz", 8) # between "bar" and "baz"
+      c.select :word_under_cursor
+      c.selected_text.should eq "bar"
+      _, c = doc_and_cursor("foo\n\n- [ ] x", 7) # inside "[ ]", no word before it on its line
+      c.select :word_under_cursor
+      c.selection?.should be_false
+      _, c = doc_and_cursor("foo\n", 4) # an empty last line
+      c.select :word_under_cursor
+      c.selection?.should be_false
+    end
+
     it "selects the block under the cursor" do
       _, c = doc_and_cursor("one\ntwo\nthree", 5)
       c.select :block_under_cursor
