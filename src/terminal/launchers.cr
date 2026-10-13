@@ -57,7 +57,8 @@ module Crysterm
       # Whether this backend can both place a new window at a frame
       # (`#launch` with `frame:`) and read a window's frame back
       # (`#frame_geometry`): Terminal.app and iTerm2 on macOS, through
-      # AppleScript; no other backend.
+      # AppleScript, and Ghostty on macOS, through its options and the
+      # window server; no other backend.
       def frame_geometry_supported? : Bool
         !@placed_spawn.nil? && !@frame_reader.nil?
       end
@@ -162,9 +163,32 @@ module Crysterm
             Process.new("osascript", ["-e", iterm2_script(inner, c, r, t, f)])
           end,
           ->(tty : String) { read_frame iterm2_frame_script(tty) }),
-        # Ghostty's macOS build has no `-e`, no `+new-window`, and a second
-        # instance started by `open -n` with `--command=` shows no window the
-        # helper can report from (tried 1.3.1): no launcher for it yet.
+        # Ghostty (tried 1.3.1): each window is a new instance of the
+        # application, `open -na Ghostty --args <config>`, running the
+        # command as its `--initial-command=` and quitting when its window
+        # closes (`.ghostty_arguments`). Ways that do not work on macOS:
+        # `-e` is ignored there (a script path after it is opened as a
+        # document and typed into a login shell, its arguments dropped),
+        # `ghostty +new-window` says "not supported on this platform", there
+        # is no `ghostty://` URL scheme, and opening a `.command` file in
+        # the running instance adds a tab to the front window
+        # (`macos-dock-drop-behavior`). Its AppleScript dictionary (`new
+        # window with configuration` given a `command`) opens a window in
+        # the running instance, but every program that sends it events
+        # needs the user's Automation permission (error -1743 until given)
+        # and it has no window bounds to place or read. A window is placed
+        # by `--window-position-x/y`, sized in cells by `--window-width` and
+        # `--window-height` (`.ghostty_placement`), and its frame read from
+        # the window server by the instance's pid (`.ghostty_frame`); none
+        # of it needs a permission.
+        Launcher.new("ghostty",
+          ->(inner : Array(String), c : Int32, r : Int32, _t : String?) { ["open"] + ghostty_arguments(inner, c, r) },
+          available: -> { application_bundle?("Ghostty.app") },
+          placed_spawn: ->(inner : Array(String), c : Int32, r : Int32, _t : String?, f : Frame) do
+            x, y, cols, rows = ghostty_placement(f, c, r, ghostty_screen_insets, ghostty_cell_points)
+            Process.new("open", ghostty_arguments(inner, cols, rows, {x, y}))
+          end,
+          frame_reader: ->(tty : String) { ghostty_frame(tty) }),
       ]
     {% else %}
       MACOS_LAUNCHERS = [] of Launcher
@@ -342,6 +366,147 @@ module Crysterm
       end
     end
 
+    # The `open` arguments of the `ghostty` launcher: a new instance of
+    # Ghostty (`-n`, the running one takes no command from outside) that
+    # runs *inner* as its `--initial-command`, a shell command line (Ghostty
+    # runs it as `bash -c 'exec -l <command>'`, so it is not `exec`ed here as
+    # for Terminal.app), in a window *cols* by *rows* cells, at *position*
+    # (`--window-position-x/y`, in points from the top-left of the primary
+    # display's visible area) when given. The instance quits with its window
+    # (`quit-after-last-window-closed`) and saves no window state, which
+    # would otherwise be what the user's own Ghostty restores at its next
+    # start. No `--title`: Ghostty's `title` holds the window's title at
+    # that value and ignores the program's own (OSC 0).
+    def self.ghostty_arguments(inner : Array(String), cols : Int32, rows : Int32,
+                               position : {Int32, Int32}? = nil) : Array(String)
+      args = ["-na", "Ghostty", "--args",
+              "--quit-after-last-window-closed=true", "--window-save-state=never",
+              "--window-width=#{cols}", "--window-height=#{rows}"]
+      if position
+        args << "--window-position-x=#{position[0]}" << "--window-position-y=#{position[1]}"
+      end
+      args << "--initial-command=" + inner.map { |a| Process.quote(a) }.join(" ")
+    end
+
+    # What a Ghostty window adds around its cells, `{width, height}` in
+    # points: the default padding, and the title bar. Measured on 1.3.1
+    # (80 by 24 cells of 8 by 17 points: a 648 by 448 frame).
+    GHOSTTY_DECORATIONS = {8, 40}
+
+    # Where and how big to open a Ghostty window for *frame*, as
+    # `.ghostty_arguments` takes it: `{x, y, cols, rows}`. *insets*
+    # (`.ghostty_screen_insets`) is what Ghostty measures its position from,
+    # the primary display's visible area, from the display's corner; *cell*
+    # (`.ghostty_cell_points`), a cell's size in points, turns the frame's
+    # size into cells, to the nearest cell, as Ghostty sizes a new window
+    # in cells only. Without *cell* the window keeps *cols* by *rows*.
+    def self.ghostty_placement(frame : Frame, cols : Int32, rows : Int32,
+                               insets : {Int32, Int32}, cell : {Float64, Float64}?) : {Int32, Int32, Int32, Int32}
+      x, y, width, height = frame
+      if cell
+        cols = Math.max(10, ((width - GHOSTTY_DECORATIONS[0]) / cell[0]).round.to_i)
+        rows = Math.max(4, ((height - GHOSTTY_DECORATIONS[1]) / cell[1]).round.to_i)
+      end
+      {x - insets[0], y - insets[1], cols, rows}
+    end
+
+    # The JavaScript (for `osascript -l JavaScript`) that prints the primary
+    # display's visible-area insets from its top-left corner and its
+    # backing scale, as `left top scale`: what the menu bar and a Dock on
+    # the left take. AppKit only, no Apple event: no permission asked.
+    GHOSTTY_SCREEN_SCRIPT = <<-JS
+      ObjC.import('AppKit');
+      var s = $.NSScreen.screens.objectAtIndex(0), f = s.frame, v = s.visibleFrame;
+      [v.origin.x - f.origin.x, (f.origin.y + f.size.height) - (v.origin.y + v.size.height), s.backingScaleFactor].join(' ');
+      JS
+
+    # `osascript` running JavaScript, the script its last argument.
+    JXA_COMMAND = ["osascript", "-l", "JavaScript", "-e"]
+
+    # The primary display's visible-area insets, `{left, top}` in points
+    # (`GHOSTTY_SCREEN_SCRIPT`), or `{0, 0}` when they cannot be read.
+    def self.ghostty_screen_insets : {Int32, Int32}
+      parts = ghostty_screen_values
+      parts ? {parts[0].to_i, parts[1].to_i} : {0, 0}
+    end
+
+    # The size of a cell of the Ghostty window this program runs in,
+    # `{width, height}` in points (`TIOCGWINSZ`'s pixels over the display's
+    # backing scale), or nil when it does not run in Ghostty or the size
+    # cannot be read: the cell a new window, on the same configuration,
+    # will have.
+    def self.ghostty_cell_points : {Float64, Float64}?
+      return unless current_emulator == "ghostty"
+      scale = ghostty_screen_values.try(&.[2]) || return
+      return unless scale > 0
+      {STDOUT, STDIN, STDERR}.each do |io|
+        next unless io.tty?
+        ws = LibC::Winsize.new
+        next unless LibC.ioctl(io.fd, LibC::TIOCGWINSZ, pointerof(ws)) == 0
+        cols, rows = ws.ws_col.to_i, ws.ws_row.to_i
+        next unless cols > 0 && rows > 0 && ws.ws_xpixel > 0 && ws.ws_ypixel > 0
+        return {(ws.ws_xpixel.to_i // cols) / scale, (ws.ws_ypixel.to_i // rows) / scale}
+      end
+      nil
+    end
+
+    # `GHOSTTY_SCREEN_SCRIPT`'s three numbers, or nil when it gives none.
+    private def self.ghostty_screen_values : Array(Float64)?
+      output = run_script(GHOSTTY_SCREEN_SCRIPT, JXA_COMMAND) || return
+      parts = output.split.compact_map(&.to_f?)
+      parts if parts.size == 3
+    end
+
+    # The frame of the Ghostty window running on *tty*: the Ghostty
+    # instance whose descendant has the device (`.ghostty_instance`), its
+    # one window as the window server has it (`.ghostty_frame_script`), or
+    # nil when there is no such instance or it shows more than one window.
+    def self.ghostty_frame(tty : String) : Frame?
+      output = IO::Memory.new
+      status = Process.run("ps", ["-A", "-o", "pid=,ppid=,tty=,comm="], output: output, error: Process::Redirect::Close)
+      return unless status.success?
+      pid = ghostty_instance(tty, output.to_s) || return
+      read_frame ghostty_frame_script(pid), JXA_COMMAND
+    rescue
+      nil
+    end
+
+    # The pid of the Ghostty process an ancestor of a process on *tty*
+    # (`/dev/ttys004`) is, from *processes*, `ps -A -o
+    # pid=,ppid=,tty=,comm=`'s lines, or nil when there is none.
+    def self.ghostty_instance(tty : String, processes : String) : Int64?
+      device = tty.lchop("/dev/")
+      table = processes.lines.compact_map do |line|
+        fields = line.strip.split(limit: 4)
+        next unless fields.size == 4 && (pid = fields[0].to_i64?) && (ppid = fields[1].to_i64?)
+        {pid, ppid, fields[2], fields[3]}
+      end
+      parents = table.to_h { |row| {row[0], row} }
+      table.each do |row|
+        next unless row[2] == device
+        current = row
+        16.times do
+          return current[0] if File.basename(current[3]) == "ghostty"
+          current = parents[current[1]]? || break
+        end
+      end
+      nil
+    end
+
+    # The JavaScript (for `osascript -l JavaScript`) that prints the bounds
+    # of the one on-screen window of process *pid* as `left, top, right,
+    # bottom`, from the window server (`CGWindowListCopyWindowInfo`), or
+    # nothing when it shows no window or more than one. Its tabs not shown
+    # are off screen. No Apple event: no permission asked.
+    def self.ghostty_frame_script(pid : Int64) : String
+      <<-JS
+        ObjC.import('CoreGraphics');
+        var all = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, 0))) || [];
+        var b = all.filter(function (w) { return w.kCGWindowOwnerPID == #{pid} && w.kCGWindowLayer == 0; }).map(function (w) { return w.kCGWindowBounds; });
+        b.length == 1 ? [b[0].X, b[0].Y, b[0].X + b[0].Width, b[0].Y + b[0].Height].join(', ') : '';
+        JS
+    end
+
     # The frame *output* of a frame script names (`osascript` prints a
     # rectangle as `left, top, right, bottom`), or nil when it names none.
     def self.parse_bounds(output : String) : Frame?
@@ -355,14 +520,14 @@ module Crysterm
     # Why `Window.open(frame:)` cannot place a window here and
     # `Window#frame_geometry` cannot read one, in a sentence for the user,
     # or nil when they can: the backend `.resolve_launcher` picks for
-    # *launcher* is not one that can (only Terminal.app and iTerm2, on
-    # macOS), or there is none. What a program's "remember window
-    # positions" entry disables itself on.
+    # *launcher* is not one that can (only Terminal.app, iTerm2 and
+    # Ghostty, on macOS), or there is none. What a program's "remember
+    # window positions" entry disables itself on.
     def self.frame_geometry_refusal(launcher : Launcher | String? = nil) : String?
       backend = resolve_launcher(launcher)
       return "no terminal emulator found to open windows with" unless backend
       return if backend.frame_geometry_supported?
-      "#{backend.name} cannot place its windows or report where they are (only Terminal.app and iTerm2 on macOS can)"
+      "#{backend.name} cannot place its windows or report where they are (only Terminal.app, iTerm2 and Ghostty on macOS can)"
     end
 
     # How long `.read_frame` waits for its answer. An application that is
@@ -376,13 +541,21 @@ module Crysterm
     # window, or gives none within *timeout*, when it is killed.
     def self.read_frame(script : String, command : Array(String) = ["osascript", "-e"],
                         timeout : Time::Span = FRAME_READ_TIMEOUT) : Frame?
+      run_script(script, command, timeout).try { |output| parse_bounds output }
+    end
+
+    # What *script* prints, run by *command* (the script its last
+    # argument), or nil when it fails or gives no answer within *timeout*,
+    # when it is killed.
+    private def self.run_script(script : String, command : Array(String),
+                                timeout : Time::Span = FRAME_READ_TIMEOUT) : String?
       output = IO::Memory.new
       process = Process.new(command[0], command[1..] + [script], output: output, error: Process::Redirect::Close)
       done = Channel(Process::Status).new 1
-      spawn(name: "Crysterm::Terminal frame reader") { done.send process.wait }
+      spawn(name: "Crysterm::Terminal script runner") { done.send process.wait }
       select
       when status = done.receive
-        parse_bounds output.to_s if status.success?
+        output.to_s if status.success?
       when timeout(timeout)
         process.signal Signal::KILL rescue nil
         nil

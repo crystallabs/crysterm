@@ -2,7 +2,9 @@ require "./spec_helper"
 
 # Frame geometry of spawned windows (`Window.open(frame:)`,
 # `Window#frame_geometry`): Terminal.app and iTerm2 place a new window and
-# read its frame back through AppleScript; no other launcher can. String
+# read its frame back through AppleScript, Ghostty through its options and
+# the window server (terminal_ghostty_launcher_spec.cr); no other launcher
+# can. String
 # checks on the generated scripts only: nothing runs `osascript`.
 describe "Crysterm::Terminal frame geometry" do
   inner = ["env", "CRYSTERM_WINDOW_HELPER=/tmp/x.sock", "/bin/md"]
@@ -54,7 +56,7 @@ describe "Crysterm::Terminal frame geometry" do
 
   it "reports which launchers can place and read windows" do
     Crysterm::Terminal::LAUNCHERS.each do |launcher|
-      supported = launcher.name.in?("terminal.app", "iterm2")
+      supported = launcher.name.in?("terminal.app", "iterm2", "ghostty")
       launcher.frame_geometry_supported?.should eq(supported)
     end
     xterm = Crysterm::Terminal::LAUNCHERS.find! { |l| l.name == "xterm" }

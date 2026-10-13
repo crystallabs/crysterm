@@ -37,7 +37,7 @@ module Crysterm
 
       # This window's frame on the desktop, `{x, y, width, height}`
       # (`Launcher#frame_geometry`), or nil when its backend cannot tell
-      # (any but Terminal.app and iTerm2) or the window is closed. Runs
+      # (any but Terminal.app, iTerm2 and Ghostty) or the window is closed. Runs
       # `osascript` where supported, 100-300 ms: not for the render path.
       def frame_geometry : Frame?
         return if @closed

@@ -589,8 +589,10 @@ module Crysterm
     # the new window there and sizes it so, decorations included ↔
     # `QWindow::setFramePosition` before `show` (Qt sizes the client area
     # alone, with `resize`), where the launcher can place its windows
-    # (Terminal.app and iTerm2 on macOS, `Terminal.frame_geometry_refusal`);
-    # elsewhere it is ignored and the window manager places the window.
+    # (Terminal.app, iTerm2 and Ghostty on macOS,
+    # `Terminal.frame_geometry_refusal`; Ghostty sizes a window in whole
+    # cells, to the nearest); elsewhere it is ignored and the window
+    # manager places the window.
     #
     # Pass `start_input: true` to start reading input immediately, so a single
     # spawned window is interactive without a separate `#start_input`/`#exec`
