@@ -767,7 +767,6 @@ module Crysterm
       def merge_current_char_format(fmt : TextCharFormat) : Nil
         if r = selection_range
           document.apply_char_format(r.begin, r.end, fmt, merge: true)
-          edit_cursor.set_position(r.end)
         else
           self.typing_format = current_char_format.merge(fmt)
         end
@@ -778,7 +777,6 @@ module Crysterm
       def current_char_format=(fmt : TextCharFormat) : Nil
         if r = selection_range
           document.apply_char_format(r.begin, r.end, fmt)
-          edit_cursor.set_position(r.end)
         else
           self.typing_format = fmt
         end

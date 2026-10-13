@@ -19,14 +19,6 @@ module Crysterm
         # same document, Qt semantics).
         getter document : TextDocument { TextDocument.new }
 
-        # Tracker cursor registered on the document, kept at the end of this
-        # view's last mutation. `#undo`/`#redo` seed it with the caret and
-        # hand it to `TextDocument#undo(cursor)`, which moves it to the change
-        # replayed (or, for a format-only step, leaves it where it was), and
-        # the caret then follows it, as Qt's caret does except for the
-        # format-only step (see `TextUndoStack::Command#undo_position`).
-        getter edit_cursor : TextCursor { TextCursor.new(document) }
-
         # Char format applied to the next inserts (Qt's cursor "typing format").
         # `nil` inherits the format at the insertion point. Deviation from Qt:
         # persists across cursor movement until replaced or cleared.
@@ -67,13 +59,11 @@ module Crysterm
         def buf_insert(pos : Int32, str : String) : Nil
           return if str.empty?
           as_self_edit { document.insert_text(pos, str, @typing_format) }
-          edit_cursor.set_position(pos + str.size)
         end
 
         def buf_delete(from : Int32, to : Int32) : Nil
           return if to <= from
           as_self_edit { document.remove(from, to - from) }
-          edit_cursor.set_position(from)
         end
 
         # `'\n'` is the block separator, so both index scans resolve from the
@@ -162,7 +152,6 @@ module Crysterm
           edit_replacing_selection do
             @goal_col = nil
             @cursor_pos += as_self_edit { document.insert_fragment(@cursor_pos, frag) }
-            edit_cursor.set_position(@cursor_pos)
           end
           true
         end
@@ -302,30 +291,31 @@ module Crysterm
         # Undoes the last document edit step — whichever view or cursor made
         # it, the document's undo stack being shared — and puts the caret
         # where the change was undone (Qt `QWidgetTextControl::undo`, which
-        # calls `QTextDocument::undo(&cursor)`); a format-only step leaves
-        # it where it was, where Qt moves it after the range formatted.
+        # calls `QTextDocument::undo(&cursor)`): after text it put back,
+        # where text it took out was, after a range whose format it changed.
         # Returns whether anything was undone.
         def undo : Bool
-          edit_cursor.set_position(@cursor_pos)
-          return false unless as_self_edit { document.undo(edit_cursor) }
-          caret_to_tracker
-          true
+          replay { |cursor| document.undo(cursor) }
         end
 
         # Redoes the last undone document edit step; caret placement as in
         # `#undo`, at the end of the change redone. Returns whether anything
         # was redone.
         def redo : Bool
-          edit_cursor.set_position(@cursor_pos)
-          return false unless as_self_edit { document.redo(edit_cursor) }
-          caret_to_tracker
-          true
+          replay { |cursor| document.redo(cursor) }
         end
 
-        private def caret_to_tracker : Nil
-          @cursor_pos = edit_cursor.position.clamp(0, buf_size)
+        # Runs an undo or redo through a cursor at the caret, which the
+        # document moves to the change replayed (or leaves, for a step with
+        # no place, such as a table's cells), and puts the caret there, the
+        # selection dropped.
+        private def replay(& : TextCursor -> Bool) : Bool
+          cursor = TextCursor.new(document, @cursor_pos)
+          return false unless as_self_edit { yield cursor }
+          @cursor_pos = cursor.position.clamp(0, buf_size)
           clear_selection
           @goal_col = nil
+          true
         end
 
         # Handles the undo/redo editing keys: `C-z` undo, `M-z` redo (`C-S-z` is
@@ -374,8 +364,7 @@ module Crysterm
         protected def swap_document(doc : TextDocument) : Nil
           unwire_document
           @document = doc
-          # The tracker cursor and typing format belong to the old document.
-          @edit_cursor = nil
+          # The typing format belongs to the old document.
           @typing_format = nil
           @cursor_pos = 0
           clear_selection
@@ -631,12 +620,11 @@ module Crysterm
         # connections to its document die with it: the `ContentsChanged`
         # handler goes (`#unwire_document`), so a document outliving the view
         # — shared with another, or kept by the application — no longer calls
-        # into a dead widget nor keeps it alive, and the tracker cursor and
-        # extra selections registered on the document are dropped.
+        # into a dead widget nor keeps it alive, and the extra selections
+        # registered on the document are dropped.
         private def leave_document : Nil
           @document_left = true
           unwire_document
-          @edit_cursor = nil
           @extra_selections = [] of Widget::TextEdit::ExtraSelection
         end
 

@@ -775,9 +775,9 @@ module Crysterm
 
     # Undoes the last edit step and puts *cursor* where the change was
     # undone (Qt `QTextDocument::undo(QTextCursor*)`): after text it put
-    # back, or where text it took out was, its selection dropped. A
-    # format-only step leaves *cursor* alone, where Qt moves it after the
-    # range formatted (`TextUndoStack::Command#undo_position`). Raises
+    # back, where text it took out was, or after a range whose format it
+    # changed, its selection dropped (`TextUndoStack::Command#undo_position`).
+    # Raises
     # `ArgumentError` for a cursor on another document, which Qt instead
     # replaces with one on this. Returns whether anything was undone.
     def undo(cursor : TextCursor) : Bool

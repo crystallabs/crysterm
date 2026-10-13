@@ -6,7 +6,7 @@ include Crysterm
 # `QTextDocument::undo(QTextCursor*)` / `redo(QTextCursor*)`, which
 # `QWidgetTextControl::undo` calls with its own cursor) — also when the step
 # undone was made by another view sharing the document's undo stack, and
-# not at all for a format-only step.
+# after the range of a format-only step, which Qt shows the same way.
 
 private def new_pte(s, doc : TextDocument? = nil)
   pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 6, document: doc
@@ -71,14 +71,25 @@ describe "TextDocument#undo(cursor) / #redo(cursor)" do
     c.position.should eq 11
   end
 
-  it "leaves the cursor on a format-only step" do
+  it "puts the cursor after the range of a char format step" do
     doc = TextDocument.new("hello world")
     doc.cursor(0, 5).set_char_format(TextCharFormat.new(bold: true))
     c = doc.cursor(8)
     doc.undo(c).should be_true
-    c.position.should eq 8
+    c.position.should eq 5
+    c.selection?.should be_false
     doc.redo(c).should be_true
-    c.position.should eq 8
+    c.position.should eq 5
+  end
+
+  it "puts the cursor at the end of the last block of a block format step" do
+    doc = TextDocument.new("one\ntwo\nthree")
+    doc.cursor(1, 5).set_block_format(TextBlockFormat.new(bg: 4))
+    c = doc.cursor(12)
+    doc.undo(c).should be_true
+    c.position.should eq 7 # the end of "two"
+    doc.redo(c).should be_true
+    c.position.should eq 7
   end
 
   it "returns false and leaves the cursor with nothing to replay" do
@@ -161,7 +172,7 @@ describe "PlainTextEdit undo/redo caret" do
     b.cursor_pos.should eq line_start(doc, 16) + 1
   end
 
-  it "leaves the caret on a format-only undo" do
+  it "puts the caret after the range of a format-only undo" do
     s = headless_screen(40, 6, default_quit_keys: true)
     doc = twenty_lines
     pte = new_pte s, doc
@@ -172,6 +183,6 @@ describe "PlainTextEdit undo/redo caret" do
     undo_key pte
     doc.blocks[2].text.should eq "line 3"
     doc.blocks[0].text.should eq "xline 1"
-    pte.cursor_pos.should eq line_start(doc, 12) + 2
+    pte.cursor_pos.should eq line_start(doc, 4)
   end
 end

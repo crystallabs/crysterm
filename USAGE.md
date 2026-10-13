@@ -1288,7 +1288,8 @@ block.block_number       # its index; also `#position`, `#next`, `#previous`, `#
 what a bulk importer wants — and `doc.edit { }` groups a run of changes into one
 undoable step. `doc.undo(cursor)` and `doc.redo(cursor)` also put *cursor*
 where the step was replayed (Qt's `QTextDocument::undo(QTextCursor*)`),
-whichever view made it.
+whichever view made it: after text put back, where text taken out was, or
+after a range whose format changed.
 
 ### 7.8 Editing through the cursor
 
