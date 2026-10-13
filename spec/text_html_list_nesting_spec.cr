@@ -18,7 +18,7 @@ describe "TextHtml list nesting export" do
   it "writes an item's continuation paragraph and code inside its li" do
     doc = Crysterm::TextDocument.from_markdown("- a\n\n  para\n\n  ```\n  code\n  ```\n- b\n")
     html = doc.to_html
-    html.should eq "<ul><li>a<p>para</p><pre><code>code</code></pre></li>\n<li>b</li></ul>"
+    html.should eq "<ul><li>a<br>para<pre><code>code</code></pre></li>\n<li>b</li></ul>"
     html.should_not contain "margin-left"
   end
 

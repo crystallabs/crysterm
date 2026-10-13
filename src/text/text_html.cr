@@ -107,7 +107,8 @@ module Crysterm
             run_end = code_run_end(blocks, i)
             write_pre(io, blocks, i, run_end, in_item)
           else
-            write_block_element(io, b, lf, list_items, in_item)
+            run_end = line_run_end(blocks, i)
+            write_block_element(io, blocks, i, run_end, list_items, in_item)
           end
           open_items[-1] = true if lf
         end
@@ -215,6 +216,43 @@ module Crysterm
       j
     end
 
+    # The index of the last line of the paragraph whose line *i* is: the
+    # lines after it that a hard break started (`  ` or `\` at a line's end
+    # in Markdown, `<br>` in HTML), which the model keeps as blocks of their
+    # own — no margin between, the same kind of text block in the same quote
+    # and alignment, or a list item's continuation at its content column.
+    # Written as one element, a `<br>` between lines (Qt's `toHtml` writes
+    # its line separator so), they read as one paragraph, as on screen,
+    # rather than as paragraphs a margin apart.
+    private def self.line_run_end(blocks : Array(TextBlock), i : Int32) : Int32
+      head = blocks[i].block_format
+      return i unless text_line?(head)
+      j = i
+      while (n = blocks[j + 1]?) && line_continues?(head, blocks[j].block_format, n.block_format)
+        j += 1
+      end
+      j
+    end
+
+    # Whether *cf*'s block goes on the line after *pf*'s in the element that
+    # *head*'s block opens: what the importer makes of a `<br>` there.
+    private def self.line_continues?(head : TextBlockFormat, pf : TextBlockFormat, cf : TextBlockFormat) : Bool
+      return false unless pf.bottom_margin == 0 && cf.top_margin == 0 && text_line?(cf) && cf.list_format.nil?
+      return false unless cf.quote_level == head.quote_level && cf.alert_kind == head.alert_kind &&
+                          cf.alignment == head.alignment && cf.bg == head.bg
+      if lf = head.list_format
+        head.heading_level == 0 && cf.heading_level == 0 && cf.indent == lf.indent * 2
+      else
+        cf.heading_level == head.heading_level && cf.indent == head.indent
+      end
+    end
+
+    # Whether a block of *bf* is a line of text: not a rule, a code line, a
+    # table row or an image.
+    private def self.text_line?(bf : TextBlockFormat) : Bool
+      !bf.horizontal_rule? && !bf.code_block? && bf.table_format.nil? && bf.image.nil?
+    end
+
     # Lines *first* to *last* of a fenced code block as one `<pre>`, a line
     # break between lines — the element a browser shows as one block and the
     # importer splits back into its lines — rather than a `<pre>` per line,
@@ -238,12 +276,16 @@ module Crysterm
       io << "</pre>"
     end
 
-    # *b* as its element: `<p>`, `<h*>`, `<pre>`, `<hr>`, a bare `<br>` for
-    # an empty line — or, for a list item, its `<li>` left open, `generate`
-    # closing it once the item's content ends. *in_item*, the block is a list
-    # item's continuation, inside its `<li>`, which indents it.
-    private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32), in_item : Bool = false) : Nil
+    # Blocks *first* to *last*, the lines of one paragraph (`line_run_end`),
+    # as their element, a `<br>` between lines: `<p>`, `<h*>`, `<pre>`,
+    # `<hr>`, a bare `<br>` for a lone empty line — or, for a list item, its
+    # `<li>` left open, `generate` closing it once the item's content ends.
+    # *in_item*, the block is a list item's continuation, inside its `<li>`,
+    # which indents it.
+    private def self.write_block_element(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32, list_items : Hash(UInt64, Int32), in_item : Bool = false) : Nil
+      b = blocks[first]
       bf = b.block_format
+      lf = bf.list_format
       if bf.horizontal_rule?
         style = block_style(bf, b, in_item)
         io << "<hr"
@@ -254,7 +296,7 @@ module Crysterm
       # A fully-default empty block exports as a bare `<br>`: `<p></p>` is
       # exactly the spacing shape the importer folds into the next block's
       # top margin, which would mutate "a\n\nb" into "a\nb" on a round-trip.
-      if lf.nil? && b.fragments.empty? && bf == TextBlockFormat.default
+      if last == first && lf.nil? && b.fragments.empty? && bf == TextBlockFormat.default
         io << "<br>"
         return
       end
@@ -267,7 +309,8 @@ module Crysterm
         # element — so the fence survives an HTML round-trip.
         tag = lvl > 0 ? "h#{lvl.clamp(1, 6)}" : (bf.code_block? ? "pre" : "p")
       end
-      style = block_style(bf, b, in_item)
+      style = block_style(bf, b, in_item, blocks[last].block_format.bottom_margin,
+        (first + 1..last).any? { |k| pre_wrap?(blocks[k].text) })
       io << '<' << tag
       io << " style=\"" << style << '"' unless style.empty?
       write_language_class(io, bf) if tag == "pre"
@@ -293,7 +336,10 @@ module Crysterm
       if img = bf.image
         write_image(io, img, b)
       else
-        b.fragments.each { |f| write_fragment(io, f) }
+        (first..last).each do |k|
+          io << "<br>" if k > first
+          blocks[k].fragments.each { |f| write_fragment(io, f) }
+        end
       end
       io << "</pre>" if inner_pre
       io << "</" << inner_heading << '>' if inner_heading
@@ -324,8 +370,11 @@ module Crysterm
     end
 
     # *bf*'s CSS for *b*'s element; *in_item*, without the indent, which the
-    # list item's `<li>` holding the element gives it.
-    private def self.block_style(bf : TextBlockFormat, b : TextBlock, in_item : Bool = false) : String
+    # list item's `<li>` holding the element gives it. An element of several
+    # lines takes the *bottom* margin of its last, and keeps whitespace when
+    # any of them needs it (*pre*).
+    private def self.block_style(bf : TextBlockFormat, b : TextBlock, in_item : Bool = false,
+                                 bottom : Int32 = bf.bottom_margin, pre : Bool = false) : String
       props = [] of String
       if (a = bf.alignment) && (name = TextAlign.align_name(a))
         props << "text-align:#{name}"
@@ -338,8 +387,8 @@ module Crysterm
       if (m = bf.top_margin) > 0
         props << "margin-top:#{m}em"
       end
-      if (m = bf.bottom_margin) > 0
-        props << "margin-bottom:#{m}em"
+      if bottom > 0
+        props << "margin-bottom:#{bottom}em"
       end
       # Block indent as `margin-left` in `ch` (1 column each), parsed back
       # by the importer — a list continuation paragraph keeps its column.
@@ -348,8 +397,14 @@ module Crysterm
       end
       # Significant whitespace (list indents, aligned columns, TABs) must
       # survive the reader's HTML collapsing.
-      props << "white-space:pre-wrap" if b.text.matches?(/\A |  | \z|\t/)
+      props << "white-space:pre-wrap" if pre || pre_wrap?(b.text)
       props.join(';')
+    end
+
+    # Whether *text* has whitespace the importer's HTML collapsing would
+    # lose: a leading, trailing or doubled space, or a TAB.
+    private def self.pre_wrap?(text : String) : Bool
+      text.matches?(/\A |  | \z|\t/)
     end
 
     private def self.write_fragment(io : IO, f : TextFragment) : Nil
