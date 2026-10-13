@@ -1222,8 +1222,9 @@ module Crysterm
         # Replaces `[from, to)` with *text*, one undo step told of as an edit.
         abstract def edit(from : Int32, to : Int32, text : String) : Nil
         # Subscribes *block* to the changes of the widget's document, for a
-        # widget with one (`Mixin::TextEditing::DocumentBuffer`), whose edits
-        # by a `TextCursor` tell no `Event::TextChanged`; *block* is told
+        # widget with one (`Mixin::TextEditing::DocumentBuffer`): its
+        # `Event::TextChanged` tells of every change of the text but not of a
+        # format change nor whether the document was reset; *block* is told
         # whether the change reset the document (`TextDocument#set_plain_text`,
         # or another document set on the widget).
         abstract def on_document_change(subs : ::Crysterm::Subscriptions, &block : Bool ->) : Nil

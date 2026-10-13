@@ -35,6 +35,10 @@ module Crysterm
         # `#wire_document` installs it.
         @ev_contents_change : ::EventHandler::Subscription?
 
+        # `ContentsChangeFinished` handler on the current document
+        # (`#wire_document_text_changed`), detached with `@ev_contents_change`.
+        @ev_contents_change_finished : ::EventHandler::Subscription?
+
         # Set once the view is destroyed (`#leave_document`): a document given
         # to it afterwards is not wired, which would subscribe the dead view
         # again.
@@ -393,6 +397,20 @@ module Crysterm
         private def unwire_document : Nil
           @ev_contents_change.try &.off
           @ev_contents_change = nil
+          @ev_contents_change_finished.try &.off
+          @ev_contents_change_finished = nil
+          @_document_text_changed = false
+        end
+
+        # Has the view tell of a change of its document that it did not make
+        # once the change is finished (`Event::ContentsChangeFinished`,
+        # `#emit_document_text_changed`); the includer's `#wire_document` calls
+        # it beside subscribing its `ContentsChanged` handler, which notes the
+        # change's steps (`#note_document_text_change`).
+        private def wire_document_text_changed : Nil
+          @ev_contents_change_finished = document.on(Crysterm::Event::ContentsChangeFinished) do
+            emit_document_text_changed
+          end
         end
 
         # Marks the document mutations made inside the block as this view's

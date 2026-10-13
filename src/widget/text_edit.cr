@@ -368,6 +368,7 @@ module Crysterm
         @ev_contents_change = document.on(Crysterm::Event::ContentsChanged) do |e|
           on_contents_change(e.position, e.chars_removed, e.chars_added, e.kind)
         end
+        wire_document_text_changed
       end
 
       # Document edit hook: drop the layout cache entries of the blocks now
@@ -382,8 +383,9 @@ module Crysterm
       # The caret also follows here: an edit made by another actor on a shared
       # document shifts this view's caret/selection like a registered cursor. The
       # widget's own edits are skipped — the mixin moves the caret itself.
-      # A change this view did not make is then told of
-      # (`#emit_document_text_changed`), as Qt's every view does.
+      # A change this view did not make is noted
+      # (`#note_document_text_change`) and told of once it is finished, as
+      # Qt's every view does.
       private def on_contents_change(pos : Int32, removed : Int32, added : Int32, kind : TextDocument::ChangeKind) : Nil
         follow_document_change(kind, pos, removed, added)
         @doc_revision += 1
@@ -398,7 +400,7 @@ module Crysterm
         end
         update
         update! if window?
-        emit_document_text_changed kind, removed, added
+        note_document_text_change kind, removed, added
       end
 
       # === Layout ===

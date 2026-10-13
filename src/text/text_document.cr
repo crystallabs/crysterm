@@ -17,8 +17,10 @@ module Crysterm
   # Live `TextCursor`s register here (weakly) and are position-adjusted on
   # every edit, Qt's guarantee that makes multiple cursors and views safe.
   #
-  # Emits `Event::ContentsChanged`, `Event::BlockCountChanged`,
-  # `Event::ModificationChanged`, `Event::UndoAvailable`, `Event::RedoAvailable`.
+  # Emits `Event::ContentsChanged` (per edit step),
+  # `Event::ContentsChangeFinished` (per edit, at its outermost block's end),
+  # `Event::BlockCountChanged`, `Event::ModificationChanged`,
+  # `Event::UndoAvailable`, `Event::RedoAvailable`.
   class TextDocument
     include EventHandler
 
@@ -861,8 +863,10 @@ module Crysterm
       each_cursor &.rewind_to_start
       undo_stack.clear
       @block_positions = nil
-      finish_edit(0, old_size, size, kind: :replace)
-      refresh_undo_state
+      edit_step do
+        finish_edit(0, old_size, size, kind: :replace)
+        refresh_undo_state
+      end
     end
 
     def clear : Nil
@@ -895,8 +899,10 @@ module Crysterm
       return 0 if text.empty?
       pos = pos.clamp(0, size)
       format ||= typing_format_at(pos)
-      raw_insert(pos, text, format)
-      record_undo TextUndoStack::InsertCommand.new(pos, text, format)
+      edit_step do
+        raw_insert(pos, text, format)
+        record_undo TextUndoStack::InsertCommand.new(pos, text, format)
+      end
       text.size
     end
 
@@ -907,8 +913,9 @@ module Crysterm
       pos = pos.clamp(0, size)
       count = Math.min(count, size - pos)
       return TextDocumentFragment.new([TextBlock.new]) if count <= 0
-      frag = raw_remove(pos, count)
-      record_undo TextUndoStack::RemoveCommand.new(pos, frag)
+      frag = edit_step do
+        raw_remove(pos, count).tap { |f| record_undo TextUndoStack::RemoveCommand.new(pos, f) }
+      end
       # A copy, never the instance the undo record holds: mutating the returned
       # fragment must not rewrite what undo will restore.
       TextDocumentFragment.new(frag.blocks.map(&.clone))
@@ -940,8 +947,10 @@ module Crysterm
       # format with the fragment's; record the original so undo restores it.
       loc = block_at(pos)
       old_bf = loc.offset == 0 && frag.blocks.size > 1 ? blocks[loc.index].block_format : nil
-      raw_insert_fragment(pos, frag)
-      record_undo TextUndoStack::InsertFragmentCommand.new(pos, frag, old_bf)
+      edit_step do
+        raw_insert_fragment(pos, frag)
+        record_undo TextUndoStack::InsertFragmentCommand.new(pos, frag, old_bf)
+      end
       frag.size
     end
 
@@ -951,8 +960,10 @@ module Crysterm
       from, to = clamp_range(from, to)
       return if to <= from
       old_runs = char_format_runs(from, to)
-      raw_apply_char_format(from, to, format, merge)
-      record_undo TextUndoStack::CharFormatCommand.new(from, to, format, merge, old_runs)
+      edit_step do
+        raw_apply_char_format(from, to, format, merge)
+        record_undo TextUndoStack::CharFormatCommand.new(from, to, format, merge, old_runs)
+      end
     end
 
     # Applies or merges a block format to every block touched by `[from, to]`.
@@ -961,8 +972,10 @@ module Crysterm
       b1 = block_at(from).index
       b2 = block_at(to).index
       old_formats = (b1..b2).map { |i| {block_position(i), blocks[i].block_format} }
-      raw_apply_block_format(from, to, format, merge)
-      record_undo TextUndoStack::BlockFormatCommand.new(from, to, format, merge, old_formats)
+      edit_step do
+        raw_apply_block_format(from, to, format, merge)
+        record_undo TextUndoStack::BlockFormatCommand.new(from, to, format, merge, old_formats)
+      end
     end
 
     # Pushes an undo command, unless recording is off (`#undo_redo_enabled=`).
@@ -970,12 +983,17 @@ module Crysterm
       undo_stack.push(cmd) if @undo_redo_enabled
     end
 
+    # Undoes the last edit step; returns whether anything was undone. Its
+    # replay is one change, told of by one `Event::ContentsChangeFinished`
+    # after its `ContentsChanged` steps, as Qt's undo runs in an edit block.
     def undo : Bool
-      undo_stack.undo
+      edit_step { undo_stack.undo }
     end
 
+    # Redoes the last undone edit step; returns whether anything was redone.
+    # Told of as `#undo` is.
     def redo : Bool
-      undo_stack.redo
+      edit_step { undo_stack.redo }
     end
 
     # Undoes the last edit step and puts *cursor* where the change was
@@ -1012,12 +1030,59 @@ module Crysterm
     end
 
     # Groups subsequent edits into one undo step (Qt `beginEditBlock`); nests.
+    # The edits are told of step by step (`Event::ContentsChanged`) and, when
+    # the outermost block ends, once as a whole
+    # (`Event::ContentsChangeFinished`).
     def begin_edit_block : Nil
+      @edit_depth += 1
       undo_stack.begin_macro
     end
 
+    # Ends the block `#begin_edit_block` opened (Qt `endEditBlock`); the end
+    # of the outermost one emits `Event::ContentsChangeFinished` when
+    # anything in it changed. Without an open block it does nothing.
     def end_edit_block : Nil
+      return if @edit_depth == 0
       undo_stack.end_macro
+      @edit_depth -= 1
+      finish_contents_change if @edit_depth == 0
+    end
+
+    # How many edit blocks, or operations of several steps (`#edit_step`),
+    # are open: `Event::ContentsChangeFinished` waits for the last to end.
+    # Kept apart from the undo stack's macro depth, which an undo stack
+    # cleared mid-block (`#set_plain_text`, `#undo_redo_enabled=`) resets.
+    @edit_depth = 0
+
+    # Set by an edit step made while an edit is open (`@edit_depth`), so its
+    # end emits `Event::ContentsChangeFinished` (Qt's `docChangeFrom >= 0`).
+    @contents_change_pending = false
+
+    # Runs the block as one edit, as an edit block does but recording no undo
+    # macro of its own: the steps it makes emit their `ContentsChanged` as
+    # they are made and one `ContentsChangeFinished` at its end, after the
+    # undo command it records and the undo state's events — Qt's order, where
+    # `modificationChanged` comes before `contentsChanged`. An undo and a
+    # redo run in one, as Qt's run in an edit block: opening no undo macro,
+    # it leaves them free to run (`TextUndoStack#undo` refuses inside one).
+    private def edit_step(& : -> U) : U forall U
+      @edit_depth += 1
+      begin
+        result = yield
+      ensure
+        @edit_depth -= 1
+      end
+      finish_contents_change if @edit_depth == 0
+      result
+    end
+
+    # Emits `Event::ContentsChangeFinished` when an edit step was made since
+    # the last; run once no edit is open (Qt's `QTextDocumentPrivate::
+    # contentsChanged`, from `finishEdit`).
+    private def finish_contents_change : Nil
+      return unless @contents_change_pending
+      @contents_change_pending = false
+      emit Crysterm::Event::ContentsChangeFinished
     end
 
     # Block form of `#begin_edit_block`/`#end_edit_block`: yields the document
@@ -1367,7 +1432,9 @@ module Crysterm
     end
 
     # Common tail of every raw edit: bring the block positions up to date,
-    # shift live cursors, emit change signals. Only `Edit` shifts cursors —
+    # shift live cursors, emit change signals: `ContentsChanged` for the
+    # step, and `ContentsChangeFinished` too unless an edit is open
+    # (`@edit_depth`), whose end emits it. Only `Edit` shifts cursors —
     # `Format` reports a changed range but must not move cursors within it,
     # and `Replace` has already rewound them. The kind rides on
     # `ContentsChanged` so views can mirror the adjustment on their own carets.
@@ -1396,6 +1463,8 @@ module Crysterm
       ensure
         @position_remap = nil
       end
+      @contents_change_pending = true
+      finish_contents_change if @edit_depth == 0
     end
 
     @position_remap : Proc(Int32, Int32)?

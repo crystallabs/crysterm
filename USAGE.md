@@ -1346,7 +1346,10 @@ should reflect), while `doc.char_format_of(pos)` is the format of the character
 
 Four events report editing, and together they make a status line:
 
-- `Event::TextChanged, value` — the text changed, from any cause.
+- `Event::TextChanged, value` — the text changed, from any cause. A view of a
+  shared `TextDocument` emits it for a change made anywhere — in itself, in
+  another view, through a `TextCursor` — once per change: an edit block, an
+  undo or a whole-text set is one change however many steps it takes.
 - `Event::TextEdited, value` — the text changed *because the user typed*;
   programmatic assignment does not emit it.
 - `Event::CursorPositionChanged, position` — the caret moved.
@@ -1759,7 +1762,12 @@ the `Action`, not on each widget presenting it.
 - **Content.** `Event::ContentSet` is the widget event (a widget's content was
   assigned); `Event::ContentsChanged` is the *document* event, carrying
   `position`, `chars_removed`, `chars_added` and `kind`. The names differ by one
-  letter because the two are genuinely different layers.
+  letter because the two are genuinely different layers. `ContentsChanged` is
+  emitted for every step of an edit (Qt's `contentsChange`);
+  `Event::ContentsChangeFinished` once the edit is complete — at the end of the
+  outermost edit block, after a lone edit, an undo or redo, a whole-text set —
+  with no payload (Qt's `contentsChanged`). Follow the first to keep positions
+  of your own in step, the second to react to a change once.
 - **Focus.** `Event::FocusIn#previous_focused` and
   `Event::FocusOut#next_focused` name the other end of the transition.
 - **Floating.** `Event::TopLevelChanged, floating : Bool` reports a dock widget

@@ -6,7 +6,7 @@ include Crysterm
 # `Event::TextChanged`, as Qt's views do (`QWidgetTextControl` connects the
 # document's `contentsChanged` to its `textChanged`): the view that edited
 # once, from its edit, and every other view once, from the document's
-# `ContentsChanged`. `Event::TextEdited` stays the editing view's alone.
+# `ContentsChangeFinished`. `Event::TextEdited` stays the editing view's alone.
 
 private class Tally
   getter changed = 0
@@ -103,6 +103,20 @@ end
 {% end %}
 
 describe Widget::TextEdit do
+  it "tells of a cursor's edit block once in each view" do
+    doc, a, b = views Widget::TextEdit
+    ta, tb = Tally.new(a), Tally.new(b)
+    cur = TextCursor.new(doc, 0)
+    cur.edit do |c|
+      c.insert_text "a"
+      c.insert_text "b"
+      c.set_position 7
+      c.insert_text "c"
+    end
+    {ta.changed, tb.changed}.should eq({1, 1})
+    tb.values.should eq ["abhelloc"]
+  end
+
   it "tells no view of a format change" do
     doc, a, b = views Widget::TextEdit
     ta, tb = Tally.new(a), Tally.new(b)
@@ -136,12 +150,14 @@ describe Widget::TextEdit do
       steps += 1 if e.kind.replace? || (e.kind.edit? && (e.chars_removed > 0 || e.chars_added > 0))
     end
     a._listener key('x')
-    # The typing view tells of its keystroke once; the other view of each
-    # step of the table's re-rendering, each its own `ContentsChanged`
-    # (Qt tells of an edit block once).
+    # The table's re-rendering takes many steps, each its own
+    # `ContentsChanged`, in one edit block: each view tells of the
+    # keystroke once, the typing view from its edit, the other at the
+    # block's end (`ContentsChangeFinished`), as Qt's `contentsChanged`.
+    steps.should be > 1
     ta.changed.should eq 1
     ta.edited.should eq 1
-    tb.changed.should eq steps
+    tb.changed.should eq 1
     tb.edited.should eq 0
   end
 end

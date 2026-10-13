@@ -195,14 +195,16 @@ module Crysterm
           # view's caret (own edits are skipped — the mixin moves the caret
           # itself). An edit patches the lines it touched right here;
           # anything else leaves the display to the next frame's full push
-          # (`#sync_display`). A change this view did not make is then told
-          # of (`#emit_document_text_changed`), as Qt's every view does.
+          # (`#sync_display`). A change this view did not make is noted
+          # (`#note_document_text_change`) and told of once it is finished,
+          # as Qt's every view does.
           follow_document_change(e.kind, e.position, e.chars_removed, e.chars_added)
           patch_display e.kind, e.position, e.chars_removed, e.chars_added
           sync_line_number_width if @line_numbers
           update! if window?
-          emit_document_text_changed e.kind, e.chars_removed, e.chars_added
+          note_document_text_change e.kind, e.chars_removed, e.chars_added
         end
+        wire_document_text_changed
       end
 
       # Patches the displayed lines for an edit, via

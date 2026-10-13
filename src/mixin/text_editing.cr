@@ -132,29 +132,43 @@ module Crysterm
         end
       end
 
-      # Emits `Event::TextChanged` for a change of the view's document that
-      # the view does not tell of itself: one made by another view sharing
-      # the document, a `TextCursor`, or a direct `TextDocument` call. A
-      # document-backed view calls it from its `Event::ContentsChanged`
-      # handler, after following the change, so every view on a document
-      # tells of every change to its text, as Qt's do
-      # (`QWidgetTextControl` connects the document's `contentsChanged` to
-      # its `textChanged`). The view's own edits (`#as_self_edit`,
-      # `#reporting_edit`) are left to the edit's own emit, so a view tells
-      # of a change once. `Event::TextEdited` is not emitted: the change
-      # was not this view's user's.
+      # Set by `#note_document_text_change` for a change of the text the
+      # view does not tell of itself, until `#emit_document_text_changed`
+      # tells of it.
+      @_document_text_changed = false
+
+      # Notes a step of a change of the view's document (its
+      # `Event::ContentsChanged`) that the view does not tell of itself: one
+      # made by another view sharing the document, a `TextCursor`, or a
+      # direct `TextDocument` call. A document-backed view calls it from its
+      # `ContentsChanged` handler, after following the step; the change is
+      # told of once, when it is finished (`#emit_document_text_changed`).
+      # The view's own edits (`#as_self_edit`, `#reporting_edit`) are left to
+      # the edit's own emit, so a view tells of a change once.
       #
       # Only changes of the text count (`ChangeKind::Edit` that moved
       # something, `Replace`): Qt's `contentsChanged` also fires for a
       # format applied, but Crysterm's views tell of no format change of
       # their own either, and a format-only `ContentsChanged` also stands
       # for a block's overlay changing (`TextBlock#user_state=`, a syntax
-      # highlighter's formats), which Qt keeps out of `contentsChanged`.
-      # Qt tells of the steps of one edit block once, at its end; here each
-      # step is told of, being its own `ContentsChanged`.
-      private def emit_document_text_changed(kind : TextDocument::ChangeKind, removed : Int32, added : Int32) : Nil
+      # highlighter's formats).
+      private def note_document_text_change(kind : TextDocument::ChangeKind, removed : Int32, added : Int32) : Nil
         return if @self_edit || @_reporting_edit
         return unless kind.replace? || (kind.edit? && (removed > 0 || added > 0))
+        @_document_text_changed = true
+      end
+
+      # Emits `Event::TextChanged` for the change `#note_document_text_change`
+      # noted, once for all its steps: a document-backed view calls it from
+      # its document's `Event::ContentsChangeFinished`, the end of an edit
+      # block or of a lone edit, so every view on a document tells of every
+      # change to its text once, as Qt's do (`QWidgetTextControl` connects
+      # the document's `contentsChanged`, emitted at an edit block's end, to
+      # its `textChanged`). `Event::TextEdited` is not emitted: the change
+      # was not this view's user's.
+      private def emit_document_text_changed : Nil
+        return unless @_document_text_changed
+        @_document_text_changed = false
         return unless has_handlers?(Crysterm::Event::TextChanged)
         emit Crysterm::Event::TextChanged, text_change_value
       end

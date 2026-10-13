@@ -393,9 +393,16 @@ module Crysterm
       end
     end
 
-    # Emitted on every keystroke as an editable text widget's (e.g.
-    # `Widget::LineEdit`) text changes, not just on submit. Mirrors Qt's
-    # `QLineEdit#textChanged(QString)`.
+    # Emitted when an editable text widget's text changed, from any cause:
+    # every keystroke (not just on submit), a programmatic set (`value=`),
+    # an undo or redo. Mirrors Qt's `QLineEdit#textChanged(QString)` and
+    # `QPlainTextEdit`/`QTextEdit#textChanged()`. A view of a `TextDocument`
+    # (`Widget::PlainTextEdit`, `Widget::TextEdit`) emits it for every change
+    # of the document's text, whoever made it — this view, another view
+    # sharing the document, a `TextCursor` — once per change: once for its
+    # own edit, and once per `ContentsChangeFinished` (an edit block, or a
+    # lone edit) for any other, as Qt's views emit it from the document's
+    # `contentsChanged()`. A change of format alone emits none.
     class TextChanged < ::EventHandler::Event
       include TextValue
     end
@@ -458,15 +465,32 @@ module Crysterm
     # of the old document's `ContentsChanged` follows the new one from here.
     event DocumentChanged, document : Crysterm::TextDocument
 
-    # Emitted by a `TextDocument` after every edit: `chars_removed` then
+    # Emitted by a `TextDocument` after every edit step: `chars_removed` then
     # `chars_added` characters at `position`. Format-only changes report
     # `chars_removed == chars_added` over the affected range. Mirrors Qt's
     # `QTextDocument#contentsChange(int, int, int)`, plus `kind`, which says how
     # positions moved — a view holding its own `Int32` carets must adjust them by
-    # it, as registered `TextCursor`s are adjusted automatically. Also stands in
-    # for Qt's parameterless `contentsChanged()` — both of Qt's post-edit
-    # signals collapse onto this one unified event.
+    # it, as registered `TextCursor`s are adjusted automatically. Unlike Qt's,
+    # which sums an edit block's changes into one, it is emitted for each step
+    # as it is made, so a view can follow every step; `ContentsChangeFinished`
+    # tells when the steps of an edit are all made. A block's overlay changing
+    # (`TextBlock#user_state=`, a syntax highlighter's formats) is announced
+    # here too, as a zero-length format change.
     event ContentsChanged, position : Int32, chars_removed : Int32, chars_added : Int32, kind : Crysterm::TextDocument::ChangeKind = :edit
+
+    # Emitted by a `TextDocument` once an edit is complete: when its
+    # outermost edit block ends (`TextDocument#end_edit_block`,
+    # `TextDocument#edit`, a `TextCursor` operation of several steps), after
+    # an edit made outside any block, after an undo or redo, and after a
+    # whole-text set (`TextDocument#set_plain_text`, the interchange
+    # setters) — once for all the `ContentsChanged` steps it made, with the
+    # undo state (`ModificationChanged`, `UndoAvailable`) already current.
+    # Mirrors Qt's parameterless `QTextDocument#contentsChanged()`; Crysterm's
+    # `ContentsChanged` being Qt's per-change `contentsChange`, the name
+    # says that the change it reports has finished. As in Qt, a change of
+    # format counts; a block's overlay changing (`TextBlock#user_state=`, a
+    # syntax highlighter's formats) does not, being presentation.
+    event ContentsChangeFinished
 
     # Emitted by a `TextDocument` when its number of blocks (paragraphs)
     # changes. Mirrors Qt's `QTextDocument#blockCountChanged(int)`.
