@@ -165,6 +165,14 @@ module Crysterm
     #   buffer: another put there (`:enew`, `:e FILE`, `:b N`) or another
     #   window entered (`:split`, `:new`) is left again at once, with an
     #   error message, so the keys keep editing what the widget shows.
+    # * **Several views.** Other widgets showing the same `TextDocument` can
+    #   be added as views of the buffer (`#add_view`), as Vim shows one buffer
+    #   in several windows: the keys and pastes of each go to the one buffer,
+    #   the view whose key, paste or focus came last is `#active_widget`,
+    #   whose caret Neovim's cursor and whose size Neovim's window follow,
+    #   and the mode's caret shape is every view's. The mode, command line
+    #   and message events are emitted once, by the handler. A view
+    #   destroyed is removed (`#remove_view`), the last one detaching.
     # * **Neovim gone.** When Neovim cannot be started `#attach` returns
     #   false and leaves the widget alone; when it exits, the handler detaches
     #   and emits `Event::ProcessExited`, and when the widget's buffer is
@@ -218,13 +226,18 @@ module Crysterm
       # Whether the caret's shape follows the mode (see the class docs).
       property? cursor_shapes : Bool = true
 
-      # The widget the handler is attached to, or `nil`.
+      # The widget the handler is attached to, or `nil`. With several views
+      # (`#add_view`), the first of `#views`: the one attached to, or, once
+      # that one is removed, the oldest view left.
       getter widget : Widget?
 
-      # The widget seen through `Mixin::TextEditing`, with its concrete type
-      # (a value typed by the module alone would be its classes' common
+      # The active view seen through `Mixin::TextEditing`, with its concrete
+      # type (a value typed by the module alone would be its classes' common
       # ancestor to the compiler, which has none of the mixin's methods).
       @target : Target?
+
+      # Every view of the buffer, the attached widget first (`#add_view`).
+      @views = [] of Target
 
       # The Neovim spoken to while attached: the one given to share, or the
       # handler's own.
@@ -279,9 +292,6 @@ module Crysterm
       @seq = 0_i64
       @waiter : {Int64, Channel(Nil)}? = nil
       @mode_dirty = false
-      # The widget's own caret shape, given back at `#detach`.
-      @saved_shape : ::Tput::CursorShape? = nil
-      @saved_blink = false
       @read_only = false
       # Set during `#setup`, whose failure `#attach` reports by its result
       # rather than by an event.
@@ -299,6 +309,67 @@ module Crysterm
       # Whether the handler is attached to a widget.
       def attached? : Bool
         !@widget.nil?
+      end
+
+      # The widgets that show the buffer: the one attached to and those added
+      # with `#add_view`, oldest first; empty while detached.
+      def views : Array(Widget)
+        @views.map { |v| v.widget.as(Widget) }
+      end
+
+      # The view whose key press, paste or focus came last (the one attached
+      # to until another has): the one Neovim's cursor, caret shape and
+      # window size follow, and the one an application asks for the editor
+      # a `Event::ViWriteRequested` or `Event::ViQuitRequested` came from.
+      # `nil` while detached.
+      def active_widget : Widget?
+        @target.try &.widget
+      end
+
+      # Adds *widget* as another view of the buffer, as Vim shows one buffer
+      # in several windows: its keys and pastes go to Neovim as the attached
+      # widget's do, and the view whose key, paste or focus came last becomes
+      # `#active_widget`. *widget* must show the attached widget's
+      # `TextDocument` (`document=`), whose edits every view then shows;
+      # refused (false) otherwise, or while detached. True also when
+      # *widget* is a view already. A view destroyed is removed
+      # (`#remove_view`), and one given another document is let go of.
+      def add_view(widget : Mixin::TextEditing) : Bool
+        add_view_target TargetOf.new(widget)
+      end
+
+      private def add_view_target(target : Target) : Bool
+        return false unless (first = @views.first?) && @buffer
+        return true if @views.any? &.widget.same?(target.widget)
+        doc = target.document
+        return false unless doc && (fd = first.document) && doc.same?(fd) && target.single_line? == first.single_line?
+        @views << target
+        watch_view target
+        save_cursor target
+        apply_cursor_shape
+        true
+      end
+
+      # Removes *widget* from the views of the buffer and gives it back its
+      # own keys and caret shape. Removing the active view makes the oldest
+      # view left active; removing the last detaches (`#detach`).
+      def remove_view(widget : Widget) : Nil
+        i = @views.index(&.widget.same?(widget)) || return
+        if @views.size == 1
+          detach
+          return
+        end
+        view = @views.delete_at i
+        view.subs.off
+        restore_cursor view
+        if i == 0
+          # The document's changes were followed through this view.
+          primary = @views.first
+          @widget = primary.widget
+          @subs.off
+          watch_document primary
+        end
+        activate @views.first if active?(view)
       end
 
       # Attaches to *widget*, detaching from any other first: starts Neovim
@@ -336,13 +407,14 @@ module Crysterm
         attached?
       end
 
-      # Gives the widget back its own key handling: drops the handler's
-      # subscriptions, restores the caret's shape, and deletes the buffer
-      # from a shared Neovim or ends the handler's own.
+      # Gives the widget (and every other view, `#add_view`) back its own key
+      # handling: drops the handler's subscriptions, restores the caret's
+      # shape, and deletes the buffer from a shared Neovim or ends the
+      # handler's own.
       def detach : Nil
-        w = @widget
+        views = @views.dup
         teardown
-        restore_cursor w if w
+        views.each { |v| restore_cursor v }
       end
 
       # Sends *keys*, in Neovim's key notation (`"dd"`, `"<Esc>"`, `":w<CR>"`),
@@ -384,6 +456,7 @@ module Crysterm
         @buffer = buf
         @widget = widget
         @target = target
+        @views = [target] of Target
         @lines, @eol = split_lines target
         @version = 0_i64
         @mode = Mode::Normal
@@ -407,25 +480,66 @@ module Crysterm
           push_caret client, target, Mode::Normal
         end
 
-        @subs.on(widget, ::Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) { |e| key_pressed e }
-        @subs.on(widget, ::Crysterm::Event::Paste, at: ::EventHandler.at_beginning) { |e| pasted e }
-        @subs.on(widget, ::Crysterm::Event::TextChanged) { outside_change text: true }
-        target.on_document_change(@subs) { |reset| outside_change text: true, reset: reset }
-        @subs.on(widget, ::Crysterm::Event::CursorPositionChanged) { outside_change caret: true }
-        @subs.on(widget, ::Crysterm::Event::SelectionChanged) { outside_change caret: true }
-        @subs.on(widget, ::Crysterm::Event::FocusIn) { focused }
-        @subs.on(widget, ::Crysterm::Event::Resize) { resized }
-        @subs.auto_dispose(widget) { detach }
-
-        @saved_shape = widget.cursor.try &.shape
-        @saved_blink = widget.cursor.try(&.blink) || false
+        watch_view target, document: true
+        save_cursor target
         apply_cursor_shape
         request_state wait: true
+      end
+
+      # Subscribes to *target*'s events, into its own bag (`Target#subs`); with
+      # *document*, also to the document's changes (`#watch_document`), in
+      # between, in the order the handler has always subscribed them.
+      private def watch_view(target : Target, document : Bool = false) : Nil
+        widget = target.widget
+        subs = target.subs
+        subs.on(widget, ::Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) { |e| key_pressed target, e }
+        subs.on(widget, ::Crysterm::Event::Paste, at: ::EventHandler.at_beginning) { |e| pasted target, e }
+        watch_document target if document
+        # The caret and selection of the active view only: another view's
+        # move with the edits of the document they share.
+        subs.on(widget, ::Crysterm::Event::CursorPositionChanged) { outside_change caret: true if active?(target) }
+        subs.on(widget, ::Crysterm::Event::SelectionChanged) { outside_change caret: true if active?(target) }
+        subs.on(widget, ::Crysterm::Event::FocusIn) { focused target }
+        subs.on(widget, ::Crysterm::Event::Resize) { resized if active?(target) }
+        subs.auto_dispose(widget) { remove_view widget }
+        subs.on(widget, ::Crysterm::Event::DocumentChanged) { drop_strayed_views }
+      end
+
+      # Follows the changes of the views' document, through *target* (the
+      # first view): once for all views, so an edit made in one is one
+      # outside change.
+      private def watch_document(target : Target) : Nil
+        @subs.on(target.widget, ::Crysterm::Event::TextChanged) { outside_change text: true }
+        target.on_document_change(@subs) { |reset| outside_change text: true, reset: reset }
+      end
+
+      # Lets go of the views given a document other than the first view's,
+      # which no longer show the buffer.
+      private def drop_strayed_views : Nil
+        first = @views.first? || return
+        doc = first.document
+        @views.reject { |v| v.same?(first) || ((d = v.document) && doc && d.same?(doc)) }.each { |v| remove_view v.widget }
+      end
+
+      # Whether *target* is the active view.
+      private def active?(target : Target) : Bool
+        (t = @target) ? t.same?(target) : false
+      end
+
+      # Makes *target* the active view, the one Neovim's cursor follows:
+      # its caret is sent to Neovim, as Vim's cursor is the entered window's,
+      # and Neovim's window takes its size.
+      private def activate(target : Target) : Nil
+        return if active?(target)
+        @target = target
+        outside_change caret: true
+        resized
       end
 
       # Undoes `#setup`, as far as it got.
       private def teardown : Nil
         @subs.off
+        @views.each &.subs.off
         client = @client
         if client && (h = @notification)
           client.off_notification h
@@ -450,6 +564,7 @@ module Crysterm
         @buffer = nil
         @widget = nil
         @target = nil
+        @views = [] of Target
         @text_reset = false
         @hung = false
         if w = @waiter
@@ -458,14 +573,22 @@ module Crysterm
         end
       end
 
-      private def restore_cursor(widget : Widget) : Nil
+      # Remembers *target*'s own caret shape, given back by `#restore_cursor`.
+      private def save_cursor(target : Target) : Nil
+        cursor = target.widget.cursor
+        target.saved_shape = cursor.try &.shape
+        target.saved_blink = cursor.try(&.blink) || false
+      end
+
+      private def restore_cursor(target : Target) : Nil
         return unless @cursor_shapes
-        if shape = @saved_shape
-          widget.set_cursor shape, blink: @saved_blink
+        widget = target.widget
+        if shape = target.saved_shape
+          widget.set_cursor shape, blink: target.saved_blink
         else
           widget.reset_cursor
         end
-        @saved_shape = nil
+        target.saved_shape = nil
       end
 
       # The client's Neovim exited: the widget is on its own again.
@@ -521,9 +644,9 @@ module Crysterm
 
       # Keys ---------------------------------------------------------------
 
-      private def key_pressed(e : ::Crysterm::Event::KeyPress) : Nil
+      private def key_pressed(target : Target, e : ::Crysterm::Event::KeyPress) : Nil
         return if e.accepted?
-        return unless target = @target
+        return unless @target
         return if @pass_through.call(e)
         keys = Keys.notation(e) || return
         if target.single_line?
@@ -536,14 +659,16 @@ module Crysterm
         e.accept
         e.key = nil
         e.char = '\u0000'
+        activate target
         input keys
       end
 
-      private def pasted(e : ::Crysterm::Event::Paste) : Nil
+      private def pasted(target : Target, e : ::Crysterm::Event::Paste) : Nil
         return if e.accepted?
         client = @client || return
-        return if @target.try &.read_only?
+        return if target.read_only?
         e.accept
+        activate target
         exclusive(client) do
           flush_pending
           show_buffer client
@@ -585,7 +710,8 @@ module Crysterm
         raise Error.new "Neovim did not answer within #{@request_timeout.total_seconds.format(decimal_places: 1, only_significant: true)} s"
       end
 
-      private def focused : Nil
+      private def focused(target : Target) : Nil
+        activate target
         apply_cursor_shape
         if c = @client
           exclusive(c) { show_buffer c }
@@ -595,7 +721,7 @@ module Crysterm
       end
 
       private def resized : Nil
-        return unless (c = @client) && (w = @widget) && c.shown_buffer == @buffer
+        return unless (c = @client) && (w = active_widget) && c.shown_buffer == @buffer
         cols, rows = ui_size w
         c.notify "nvim_ui_try_resize", cols, rows
       rescue Error
@@ -691,14 +817,16 @@ module Crysterm
 
       private def apply_cursor_shape : Nil
         return unless @cursor_shapes
-        widget = @widget || return
         shape =
           case @mode
           when .insert?, .command_line?      then ::Tput::CursorShape::Line
           when .replace?, .operator_pending? then ::Tput::CursorShape::Underline
           else                                    ::Tput::CursorShape::Block
           end
-        widget.set_cursor shape unless widget.cursor_shape == shape
+        @views.each do |view|
+          widget = view.widget
+          widget.set_cursor shape unless widget.cursor_shape == shape
+        end
       end
 
       # Puts the widget's caret and selection where Neovim's cursor and
@@ -1066,7 +1194,16 @@ module Crysterm
       # The widget as the handler uses it: the `Mixin::TextEditing` calls,
       # made on the widget's own type (see `@target`).
       private abstract class Target
+        # The handler's subscriptions to this view's events.
+        getter subs = ::Crysterm::Subscriptions.new
+        # The view's own caret shape, given back when the handler lets go.
+        property saved_shape : ::Tput::CursorShape? = nil
+        property saved_blink : Bool = false
+
         abstract def widget : Widget
+        # The document the widget shows, for a widget with one
+        # (`Mixin::TextEditing::DocumentBuffer`).
+        abstract def document : TextDocument?
         abstract def value : String
         abstract def single_line? : Bool
         abstract def read_only? : Bool
@@ -1091,6 +1228,11 @@ module Crysterm
 
         def widget : Widget
           @w
+        end
+
+        def document : TextDocument?
+          w = @w
+          w.document if w.is_a?(Mixin::TextEditing::DocumentBuffer)
         end
 
         def value : String
