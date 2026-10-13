@@ -552,7 +552,7 @@ module Crysterm
         @fmt ||= begin
           attrs = TextCharFormat::Attr::None
           @depth.each { |a, d| attrs |= a if d > 0 }
-          TextCharFormat.new(attrs, attrs, @fg.last?, @bg.last?, @links.last?)
+          TextCharFormat.new(attrs, attrs, @fg.last?, @bg.last?, @links.last?, nil)
         end
       end
 

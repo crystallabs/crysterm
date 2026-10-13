@@ -693,8 +693,9 @@ module Crysterm
         when .emphasis?
           with_patch(TextCharFormat.new(italic: true)) { walk_children(node) }
         when .link?
+          # The title goes to the tool tip, as Qt's importer puts it there.
           url = node.data["destination"]?.try(&.as(String))
-          with_patch(TextCharFormat.new(anchor_href: url)) { walk_children(node) }
+          with_patch(TextCharFormat.new(anchor_href: url, tool_tip: node_title(node))) { walk_children(node) }
         when .image?
           # No inline images on a cell grid: degrade to a picture-frame glyph
           # and the alt text. The glyph comes from the registry (so
@@ -704,8 +705,11 @@ module Crysterm
           # above use: those must stay box-drawing to join borders, while the
           # placeholder is content, and the picture is what the emoji-capable
           # terminals this is read on draw. An importer has no screen to ask
-          # for the effective tier. `dim` marks it muted for the view.
-          with_patch(TextCharFormat.new(dim: true)) do
+          # for the effective tier. `dim` marks it muted for the view; the
+          # image's title is the run's tool tip (Qt's importer sets an image
+          # format's `TextToolTip` to it), which a view not drawing pictures
+          # shows (`Widget::TextEdit`'s block images).
+          with_patch(TextCharFormat.new(dim: true, tool_tip: node_title(node))) do
             push_frag "#{image_placeholder} "
             walk_children(node)
           end
@@ -764,11 +768,16 @@ module Crysterm
         sole = sole_child(node) || return
         sole = sole_child(sole) || return if sole.type.link?
         return unless sole.type.image?
-        title = sole.data["title"]?.try(&.as(String))
         TextImageFormat.new(
           name: sole.data["destination"]?.try(&.as(String)) || "",
           alt: alt_text(sole),
-          title: title.presence)
+          title: node_title(sole))
+      end
+
+      # A link's or image's title (`[x](u "title")`), or `nil` when it has
+      # none.
+      private def node_title(node : Markd::Node) : String?
+        node.data["title"]?.try(&.as(String)).presence
       end
 
       # *node*'s one child besides whitespace (blank text, a soft break), or
@@ -1841,10 +1850,18 @@ module Crysterm
         elsif bf.indent > 0
           io << " " * continuation_col(bf)
         end
-        href = b.fragments.first?.try(&.format.anchor_href)
+        first = b.fragments.first?.try(&.format)
+        href = first.try(&.anchor_href)
         io << '[' if href
         write_image(io, img)
-        io << "](" << encode_url(href) << ')' if href
+        if href
+          io << "](" << encode_url(href)
+          # The text's tool tip is the image's title, or the link's when the
+          # image has none (the inner title is the one kept).
+          tip = first.try(&.tool_tip)
+          write_title(io, tip) if tip && tip != img.title
+          io << ')'
+        end
       end
 
       # A list item's first block: its marker, then its text. A heading
@@ -1878,10 +1895,24 @@ module Crysterm
         else
           io << name
         end
-        if title = img.title
-          io << " \"" << title.gsub('"', "\\\"") << '"'
-        end
+        img.title.try { |title| write_title(io, title) }
         io << ')'
+      end
+
+      # A link's or image's title after its destination: ` "title"`, a
+      # backslash and a double quote in it escaped, and a line break, which
+      # a title in the document (an HTML `title` attribute) may hold, as a
+      # space — a blank line in a title would end the paragraph.
+      private def write_title(io : IO, title : String) : Nil
+        io << " \""
+        title.each_char do |c|
+          case c
+          when '\\', '"'  then io << '\\' << c
+          when '\n', '\r' then io << ' '
+          else                 io << c
+          end
+        end
+        io << '"'
       end
 
       # A thematic break: nothing but rule glyphs (or plain dashes, which
@@ -1921,7 +1952,9 @@ module Crysterm
             else
               write_emphasis(io, t, fmt)
             end
-            io << "](" << encode_url(url) << ')'
+            io << "](" << encode_url(url)
+            fmt.tool_tip.try { |title| write_title(io, title) }
+            io << ')'
           elsif fmt.code?
             write_code_span(io, t, fmt)
           else

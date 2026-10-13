@@ -11,7 +11,9 @@ module Crysterm
   # span[style] font[color]`,
   # plus the style properties `color`, `background(-color)`, `font-weight`,
   # `font-style`, `text-decoration(-line)`, `text-align` and `white-space:
-  # pre*`; the `align` attribute works too. Unknown elements are transparent
+  # pre*`; the `align` attribute works too. Any element's `title` attribute
+  # is the tool tip of the text in it (`TextCharFormat#tool_tip`, Qt's
+  # reading), written back as an `<a>`'s `title` or a `<span title>`. Unknown elements are transparent
   # (children walked); `script`/`style`/`head` subtrees are skipped.
   #
   # Whitespace collapses HTML-style (runs → one space, block-edge trimmed)
@@ -361,8 +363,16 @@ module Crysterm
     # block's text carries, when it does — rather than the stand-in text, so
     # the picture survives an HTML round-trip (`Importer#sole_image`).
     private def self.write_image(io : IO, img : TextImageFormat, b : TextBlock) : Nil
-      href = b.fragments.first?.try(&.format.anchor_href)
-      io << "<a href=\"" << escape_attr(href) << "\">" if href
+      first = b.fragments.first?.try(&.format)
+      href = first.try(&.anchor_href)
+      if href
+        io << "<a href=\"" << escape_attr(href) << '"'
+        # The link's title, when the text's tool tip is not the image's own
+        # (the Markdown exporter's rule).
+        tip = first.try(&.tool_tip)
+        io << " title=\"" << escape_attr(tip) << '"' if tip && tip != img.title
+        io << '>'
+      end
       io << "<img src=\"" << escape_attr(img.name) << "\" alt=\"" << escape_attr(img.alt) << '"'
       if title = img.title
         io << " title=\"" << escape_attr(title) << '"'
@@ -425,18 +435,25 @@ module Crysterm
       bg = fmt.bg
       has_color = (fg && fg >= 0) || (bg && bg >= 0)
       anchor = fmt.anchor_href
+      tip = fmt.tool_tip
       code = fmt.code? && !in_code
       # Unstyled fast path (the common fragment): just its escaped text — no
       # opener/closer tags, no `closers` array, no color-span `String.build`.
-      unless anchor || has_color ||
+      unless anchor || tip || has_color ||
              fmt.bold? || fmt.italic? || fmt.underline? || fmt.strike? || code
         io << escape_html(f.text)
         return
       end
       # Openers, outermost first; matching closers are known literals emitted
-      # in reverse below (no array needed).
+      # in reverse below (no array needed). The tool tip is the anchor's
+      # `title`, or a `<span title>`'s around text that is no anchor, as
+      # Qt's `toHtml` writes it.
       if a = anchor
-        io << "<a href=\"" << escape_attr(a) << "\">"
+        io << "<a href=\"" << escape_attr(a) << '"'
+        io << " title=\"" << escape_attr(tip) << '"' if tip
+        io << '>'
+      elsif tip
+        io << "<span title=\"" << escape_attr(tip) << "\">"
       end
       {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s"} %}
         io << "<{{ tag.id }}>" if fmt.{{ a.id }}?
@@ -465,7 +482,11 @@ module Crysterm
       {% for a, tag in {strike: "s", underline: "u", italic: "i", bold: "b"} %}
         io << "</{{ tag.id }}>" if fmt.{{ a.id }}?
       {% end %}
-      io << "</a>" if anchor
+      if anchor
+        io << "</a>"
+      elsif tip
+        io << "</span>"
+      end
     end
 
     # Escapes *text* for HTML text content, or — with *quotes* — for a
@@ -565,6 +586,17 @@ module Crysterm
           return # comments, doctypes
         end
 
+        # An element's `title` attribute is the tool tip of the text in it,
+        # as Qt's HTML parser sets the char format's tool tip from it.
+        if title = attr_val(node, "title").presence
+          with_patch(TextCharFormat.new(tool_tip: title)) { walk_element node }
+        else
+          walk_element node
+        end
+      end
+
+      # *node*, an element, by its tag.
+      private def walk_element(node : HTML5::Node) : Nil
         return if walk_inline_element(node)
 
         case node.data

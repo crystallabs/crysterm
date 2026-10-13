@@ -59,6 +59,13 @@ module Crysterm
     # Hyperlink target (Qt `anchorHref`); rendered via OSC 8 where supported.
     getter anchor_href : String?
 
+    # The text's tool tip (Qt `toolTip`): what the importers keep of a
+    # Markdown link's or image's title (`[x](u "title")`, `![a](s "title")`)
+    # and of an HTML element's `title` attribute, as Qt's importers do, and
+    # what the exporters write back as that title. Text, not appearance:
+    # a view paints it as the text around it.
+    getter tool_tip : String?
+
     # Shared all-defaults instance, so empty formats don't allocate per use.
     class_getter default : TextCharFormat { new }
 
@@ -76,6 +83,7 @@ module Crysterm
       fg : Int32 | String? = nil,
       bg : Int32 | String? = nil,
       anchor_href : String? = nil,
+      tool_tip : String? = nil,
     )
       attrs = Attr::None
       mask = Attr::None
@@ -90,9 +98,10 @@ module Crysterm
       @fg = Colors.to_native fg
       @bg = Colors.to_native bg
       @anchor_href = anchor_href
+      @tool_tip = tool_tip
     end
 
-    protected def initialize(@attributes, @attr_mask, @fg, @bg, @anchor_href)
+    protected def initialize(@attributes, @attr_mask, @fg, @bg, @anchor_href, @tool_tip)
     end
 
     {% for a in %w[bold italic underline strike inverse dim blink code rule] %}
@@ -107,7 +116,7 @@ module Crysterm
 
     # Returns this format overridden by `patch` (Qt `mergeCharFormat`
     # semantics): boolean attributes copy only the bits `patch` explicitly
-    # specifies; colors/anchor copy when non-nil. Un-setting a color or anchor
+    # specifies; colors/anchor/tool tip copy when non-nil. Un-setting a color or anchor
     # through a merge is not expressible (`nil` means "unspecified") — use
     # `TextCursor#set_char_format` (replace) for that.
     def merge(patch : TextCharFormat) : TextCharFormat
@@ -117,14 +126,18 @@ module Crysterm
         patch.fg || @fg,
         patch.bg || @bg,
         patch.anchor_href || @anchor_href,
+        patch.tool_tip || @tool_tip,
       )
     end
 
     # Visual identity — what fragment normalization merges on. Unlike `==`,
-    # ignores `attr_mask`, which is patch bookkeeping.
+    # ignores `attr_mask`, which is patch bookkeeping. The tool tip counts,
+    # as the anchor does: runs with different titles stay apart, so each
+    # keeps its own.
     def same_appearance?(other : TextCharFormat) : Bool
       @attributes == other.attributes && @fg == other.fg &&
-        @bg == other.bg && @anchor_href == other.anchor_href
+        @bg == other.bg && @anchor_href == other.anchor_href &&
+        @tool_tip == other.tool_tip
     end
 
     # Applies this format over a packed cell-attr word (`::Crysterm::Attr` —
@@ -169,7 +182,7 @@ module Crysterm
       ::Crysterm::Attr.pack(flags, fg, bg)
     end
 
-    def_equals_and_hash @attributes, @attr_mask, @fg, @bg, @anchor_href
+    def_equals_and_hash @attributes, @attr_mask, @fg, @bg, @anchor_href, @tool_tip
   end
 
   # Paragraph-level format (Qt `QTextBlockFormat`). All properties are
