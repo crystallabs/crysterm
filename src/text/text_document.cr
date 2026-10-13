@@ -1000,7 +1000,11 @@ module Crysterm
         end
         tail.block_format = fblocks.last.block_format
         tail.source_line = fblocks.last.source_line
-        tail.table_cells_entry = fblocks.last.table_cells_entry
+        # The fragment's cells where they are the tail's, else the split
+        # block's (an undo putting back a row's text puts back its cells).
+        if (entry = fblocks.last.table_cells_entry) && entry[0] == tail.text
+          tail.table_cells_entry = entry
+        end
         new_blocks << tail
         adopt(new_blocks)
         blocks_mut[bi + 1, 0] = new_blocks

@@ -21,7 +21,7 @@ describe "Crysterm::Window title" do
     push = out.index!("\e[22;0t")
     title = out.index!("\e]0;doc.md • MD\a")
     alt = out.index("\e[?1049h") || out.index("\e[?47h")
-    alt.try { |a| a.should be < push }
+    alt.try(&.should(be < push))
     push.should be < title
     out.scan("\e]0;").size.should eq 1
     window.destroy

@@ -71,7 +71,7 @@ describe "Media::Kitty overdraw" do
     at = kitty_at(emitted).should_not be_nil
     # The frame's cells come first, then the picture on top of them.
     emitted.index("\e[2;").should_not be_nil
-    emitted.index("\e[2;").not_nil!.should be < at
+    emitted.index!("\e[2;").should be < at
     # Nothing changed: no re-emit.
     kitty_at(frame s, buf).should be_nil
     # The full re-emission (as when the terminal's polarity arrives) writes
@@ -79,7 +79,7 @@ describe "Media::Kitty overdraw" do
     s.invalidate_region 0, s.awidth, 0, s.aheight
     emitted = frame s, buf
     at = kitty_at(emitted).should_not be_nil
-    emitted.rindex("\e[5;").not_nil!.should be < at
+    emitted.rindex!("\e[5;").should be < at
     # Placed again by its id, its pixels not sent again.
     emitted.should_not contain("\e_Ga=T")
     emitted.should contain("\e_Ga=p,i=")
@@ -117,12 +117,12 @@ describe "Media::Kitty overdraw" do
     emitted = frame s, buf
     tb.block_media[0].should be_a(Widget::Media::Kitty)
     at = kitty_at(emitted).should_not be_nil
-    emitted.index("After").not_nil!.should be < at
+    emitted.index!("After").should be < at
     kitty_at(frame s, buf).should be_nil
     s.invalidate_region 0, s.awidth, 0, s.aheight
     emitted = frame s, buf
     at = kitty_at(emitted).should_not be_nil
-    emitted.index("After").not_nil!.should be < at
+    emitted.index!("After").should be < at
   ensure
     Config.reset "media.backend"
     s.try &.destroy

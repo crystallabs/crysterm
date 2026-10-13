@@ -449,7 +449,7 @@ module Crysterm
           ensure_tear_off_border
           autosize
           TEAR_OFF_EDGES.each do |edge|
-            place_tear_off_handle tear_off_handle?(edge) || build_tear_off_handle(edge)
+            place_tear_off_handle(tear_off_handle?(edge) || build_tear_off_handle(edge))
           end
           if torn_off?
             close = @tear_off_close ||= build_tear_off_close

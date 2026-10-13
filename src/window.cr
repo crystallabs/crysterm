@@ -196,10 +196,10 @@ module Crysterm
     # The writing primitives reach the device only while this window drives
     # its terminal (`#drives_terminal?`): a disconnected window's cursor
     # changes are recorded on its `Cursor` and nowhere else.
-    {% for name in %w(reset_hardware_cursor_color show_hardware_cursor hide_hardware_cursor reset_hardware_cursor) %}
+    {% for name in %w[reset_hardware_cursor_color show_hardware_cursor hide_hardware_cursor reset_hardware_cursor] %}
       # :ditto:
-      def {{name.id}} : Nil
-        @screen.{{name.id}} if drives_terminal?
+      def {{ name.id }} : Nil
+        @screen.{{ name.id }} if drives_terminal?
       end
     {% end %}
 

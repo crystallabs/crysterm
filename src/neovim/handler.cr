@@ -151,6 +151,10 @@ module Crysterm
     #   `Event::ViWriteRequested`, `:q`, `:qa`, `:wq`, `:x`, `ZZ` and `ZQ`
     #   emit `Event::ViQuitRequested` (FakeVim's `writeAllRequested`,
     #   `quitRequested`), and Neovim keeps running.
+    # * **One buffer, one window.** Neovim's window keeps the widget's
+    #   buffer: another put there (`:enew`, `:e FILE`, `:b N`) or another
+    #   window entered (`:split`, `:new`) is left again at once, with an
+    #   error message, so the keys keep editing what the widget shows.
     # * **Neovim gone.** When Neovim cannot be started `#attach` returns
     #   false and leaves the widget alone; when it exits, the handler detaches
     #   and emits `Event::ProcessExited`, and when the widget's buffer is
@@ -357,7 +361,7 @@ module Crysterm
         # Under the client's lock, as `#show_buffer`: a handler sharing the
         # Neovim may be between its own buffer switch and its keys.
         exclusive(client) do
-          client.request "nvim_win_set_buf", 0_i64, buf
+          client.request "nvim_exec_lua", "crysterm_vi.show(...)", [buf]
           client.shown_buffer = buf
           begin
             client.request "nvim_ui_attach", *ui_size(widget), {"ext_linegrid" => true, "ext_cmdline" => true, "ext_messages" => true, "rgb" => true}
@@ -518,7 +522,7 @@ module Crysterm
         buf = @buffer || return
         return if client.shown_buffer == buf
         client.shown_buffer = buf
-        client.request "nvim_win_set_buf", 0_i64, buf
+        client.request "nvim_exec_lua", "crysterm_vi.show(...)", [buf]
         if t = @target
           push_caret client, t, @mode
           resized
@@ -1012,8 +1016,9 @@ module Crysterm
       end
 
       # The Lua side, run once per attach (idempotent): `crysterm_vi.attach`
-      # sets a buffer up, `state` answers with the mode and cursor, and
-      # `set_lines` takes the widget's changes without sending them back.
+      # sets a buffer up, `show` puts one in Neovim's window, `state`
+      # answers with the mode and cursor, and `set_lines` takes the widget's
+      # changes without sending them back.
       LUA = <<-LUA
         local chan = ...
         local C = _G.crysterm_vi or { quiet = {} }
@@ -1050,6 +1055,33 @@ module Crysterm
         end
         vim.keymap.set('n', 'ZZ', '<Cmd>CrystermExit<CR>')
         vim.keymap.set('n', 'ZQ', '<Cmd>CrystermQuit!<CR>')
+
+        -- The window the handlers show their buffers in, and the buffer it
+        -- shows. Another buffer put there from Neovim (`:enew`, `:e FILE`,
+        -- `:b N`), or another window entered (`:split`, `:new`), would take
+        -- the keys of a widget still mirroring its own: the window and its
+        -- buffer come back, as the handler's `show_buffer` would bring the
+        -- buffer before its next key, and an error says why.
+        function C.show(buf)
+          C.win = vim.api.nvim_get_current_win()
+          C.shown = buf
+          vim.api.nvim_win_set_buf(C.win, buf)
+        end
+
+        local function restore()
+          local buf = C.shown
+          if not (buf and vim.api.nvim_buf_is_loaded(buf)) or vim.fn.getcmdwintype() ~= '' then return end
+          local cur = vim.api.nvim_get_current_win()
+          if not (C.win and vim.api.nvim_win_is_valid(C.win)) then C.win = cur end
+          if cur == C.win and vim.api.nvim_win_get_buf(cur) == buf then return end
+          if pcall(vim.api.nvim_set_current_win, C.win) and pcall(vim.api.nvim_win_set_buf, C.win, buf) then
+            vim.api.nvim_echo({ { "Only the widget's own buffer can be edited here" } }, true, { err = true })
+          end
+        end
+        vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
+          group = vim.api.nvim_create_augroup('crysterm_vi', { clear = true }),
+          callback = function() vim.schedule(restore) end,
+        })
 
         function C.set_lines(buf, first, last, lines)
           C.quiet[buf] = true

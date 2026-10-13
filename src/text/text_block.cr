@@ -69,8 +69,10 @@ module Crysterm
     # spaces closed up. Kept per block with the text it was rendered as,
     # like Qt's `QTextBlockUserData`, so two rows that render alike each
     # keep their own; nil once the text is no longer that rendering. The
-    # table build sets it, `TextDocument#set_table_cells` undoably; `#clone`
-    # and a whole-block `#slice` copy it.
+    # table build sets it, `TextDocument#set_table_cells` undoably; `#clone`,
+    # `#slice` and `#split` copy it and `#merge_with` onto an empty block
+    # takes it, so an edit taken back gives a row its cells back with its
+    # text.
     def table_cells : Array(String)?
       (tc = @table_cells_entry) && tc[0] == text ? tc[1] : nil
     end
@@ -274,7 +276,7 @@ module Crysterm
         frags << TextFragment.new(f.text[s, e - s], f.format)
       end
       b = TextBlock.new(frags, @block_format)
-      b.table_cells_entry = @table_cells_entry if from <= 0 && to >= size
+      b.table_cells_entry = @table_cells_entry
       b
     end
 
@@ -363,12 +365,16 @@ module Crysterm
       tail = @fragments[idx..]
       @fragments[idx..] = [] of TextFragment
       invalidate!
-      TextBlock.new(tail, @block_format)
+      b = TextBlock.new(tail, @block_format)
+      b.table_cells_entry = @table_cells_entry
+      b
     end
 
     # Appends `other`'s fragments (block-merge on separator removal). The
     # receiver's block format survives, matching Qt's backspace-join.
     def merge_with(other : TextBlock) : Nil
+      # Nothing of this block's own text is left: the text is *other*'s.
+      @table_cells_entry = other.table_cells_entry if size == 0
       @fragments.concat(other.fragments)
       normalize!
     end

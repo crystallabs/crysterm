@@ -110,4 +110,29 @@ describe TextTable do
     copy.cell_text(1, 0).should eq "abcdefghijkl"
     doc.to_markdown.scan("| abcdefghijkl |").size.should eq 1
   end
+
+  it "gives back a wrapped row's cells on undoing a removal that joined the row to the block above" do
+    doc = TextDocument.new
+    doc.text_width = 12
+    doc.set_markdown "para\n\n| A | B |\n| --- | --- |\n| abcdefghijkl | x |"
+    tbl = readings_table_of(doc)
+    b = tbl.row_block(1).not_nil!
+    # From inside the paragraph to the row's start: the row's text joins
+    # the paragraph's block.
+    doc.cursor(2, b.position).remove_selected_text
+    doc.undo.should be_true
+    readings_table_of(doc).cell_text(1, 0).should eq "abcdefghijkl"
+  end
+
+  it "gives back a wrapped row's cells on undoing blocks inserted at the row's start" do
+    {TextDocumentFragment.from_markdown("p1\n\np2"), nil}.each do |frag|
+      doc = TextDocument.new
+      doc.text_width = 12
+      doc.set_markdown "| A | B |\n| --- | --- |\n| abcdefghijkl | x |\n\npara"
+      pos = readings_table_of(doc).row_block(1).not_nil!.position
+      frag ? doc.cursor(pos).insert_fragment(frag) : doc.cursor(pos).insert_text("\n")
+      doc.undo.should be_true
+      readings_table_of(doc).cell_text(1, 0).should eq "abcdefghijkl"
+    end
+  end
 end

@@ -35,7 +35,7 @@ private def close_restore_check(tail : String) : Nil
   if hidden = tail.rindex("\e[?25l")
     hidden.should be < shown
   end
-  tail[tail.rindex("\e[?1049l").not_nil!..].should_not contain "\e[?25l"
+  tail[tail.rindex!("\e[?1049l")..].should_not contain "\e[?25l"
 end
 
 describe "Window#close restores the terminal" do
