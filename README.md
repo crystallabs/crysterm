@@ -10,7 +10,7 @@ iterations.
 
 Main features:
 
-## Widgets
+# Widgets
 
 More than 90 concrete widgets with Qt-modeled APIs and behavior.
 Some demoed below:
