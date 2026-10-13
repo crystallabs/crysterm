@@ -247,7 +247,10 @@ module Crysterm
       # `#disconnect` has marked the window disconnected already; the
       # cursor writes of the restore must still reach the terminal.
       @restoring_terminal = true
-      restore_step(true) { leave }
+      # A hidden window (`#hide`) has handed its presentation back already;
+      # leaving again would move the cursor about on the shell's screen (an
+      # inline region's `#leave` is not guarded as the alternate screen's is).
+      restore_step(true) { leave } if @visible
 
       # A no-op on the alt-screen path (`leave` above already disabled the
       # mouse). Matters on the non-alt path, where `leave` early-returns

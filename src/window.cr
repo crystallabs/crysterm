@@ -276,7 +276,10 @@ module Crysterm
       # sibling, and a disconnected window's owned fds are closed (the write
       # would raise). `Application#activate`, `#connect` and the sibling
       # hand-back re-assert the stored title via `#reassert_terminal_state`.
-      return unless @connected && device_active_window?
+      # A hidden window has handed the terminal back (`#hide`): its title,
+      # sent by `#enter` on `#show`, must not retitle what is shown there
+      # now, nor save a title its `#leave` already gave back.
+      return unless @connected && @visible && device_active_window?
       if t = @title
         tput.title = t
       else
@@ -295,7 +298,7 @@ module Crysterm
     # emits even before the caller's activation bookkeeping settles.
     def reassert_terminal_state : Nil
       apply_cursor
-      @title.try { |t| tput.title = t }
+      @title.try { |t| tput.title = t } if @visible
     end
 
     # Rendering performance figures are not drawn by the window itself; add a
@@ -757,6 +760,10 @@ module Crysterm
       # screen — not a sibling window's `enter` on a device already there.
       fresh_alternate = @alternate && !tput.is_alt
       tput.alternate_buffer if @alternate
+      # The alternate screen comes up blank, pictures painted outside the cell
+      # buffer gone with what they held (as after a clear: `#wiped?`), as on
+      # `#show` after `#hide`.
+      note_overdraw_all if fresh_alternate
       # The title after the switch: the terminal's own title is saved before
       # this window's is set (`Tput#title=`), and a terminfo `smcup` that
       # saves the title as well (`CSI 22 t`) must not save this window's, or

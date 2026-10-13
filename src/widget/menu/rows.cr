@@ -87,13 +87,18 @@ module Crysterm
         end
       end
 
-      # Rebuilds the rows after one action's display state changed, preserving the
-      # highlighted row across it (the item count can shift when visibility
-      # toggles). The body every `#watch_action` handler runs.
+      # Rebuilds the rows after one action's display state changed, keeping the
+      # highlight on the action it was on (Qt's `QMenu` keeps its active
+      # action): a row shown or hidden above it moves its index, and holding the
+      # index instead would move the highlight to another action — and close a
+      # submenu open off the highlighted row. When the highlighted action itself
+      # went, the highlight stays at its index. The body every `#watch_action`
+      # handler runs.
       private def refresh_rows : Nil
         sel = current_index
+        act = selected_action
         sync_items
-        self.current_index = sel
+        self.current_index = act.try { |a| @visible_actions.index a } || sel
         update!
       end
 

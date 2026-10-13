@@ -62,4 +62,31 @@ describe "Crysterm::Window title" do
     output.to_s.should contain "\e[22;0t\e]0;doc.md • MD\a"
     window.destroy
   end
+
+  it "keeps a title set while hidden off the terminal until it is shown again" do
+    window, output = titled_window "a • MD"
+    window.hide
+    window.tput.flush
+    output.clear
+    window.title = "b • MD"
+    window.tput.flush
+    output.to_s.should_not contain "\e]0;"
+    output.to_s.should_not contain "\e[22;0t"
+    window.show
+    window.tput.flush
+    output.to_s.should contain "\e[22;0t\e]0;b • MD\a"
+    output.clear
+    window.destroy
+    output.to_s.should contain "\e[23;0t"
+  end
+
+  it "leaves nothing to restore when a hidden window is destroyed" do
+    window, output = titled_window "a • MD"
+    window.hide
+    window.title = "b • MD"
+    window.destroy
+    text = output.to_s
+    text.scan("\e[22;0t").size.should eq text.scan("\e[23;0t").size
+    text.should_not contain "\e]0;b • MD\a"
+  end
 end

@@ -307,6 +307,8 @@ module Crysterm
     # reading (a program driving windows by hand). Returns *window*.
     def show(window : Window) : Window
       add window
+      # A `Window#hide`n one takes its terminal back first.
+      window.show
       window.update
       window.start_input
       window

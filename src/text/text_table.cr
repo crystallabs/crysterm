@@ -75,11 +75,13 @@ module Crysterm
     end
 
     # The trimmed text of cell (*row*, *column*), or nil when out of range.
-    # A wrapped cell's lines are joined by single spaces.
+    # A wrapped cell's lines are joined by single spaces. A row that raw
+    # edits cut short has empty cells past its end, as `#set_cell_text`
+    # takes it.
     def cell_text(row : Int32, column : Int32) : String?
-      return if column < 0
+      return if column < 0 || column >= columns
       b = row_block(row) || return
-      TextTable.row_cells(b)[column]?
+      TextTable.row_cells(b)[column]? || ""
     end
 
     # === Cell cursors / editing ===
@@ -190,8 +192,7 @@ module Crysterm
       # `grid` already recovers every data row, so the row bound comes out of
       # its result — asking `#rows` first would scan the document once more.
       header, body = grid
-      cells = row == 0 ? header : body[row - 1]?
-      return false unless cells && column < cells.size
+      cells = row == 0 ? header : body[row - 1]? || return false
       cells[column] = text
       rebuild_content(header, body)
       true
@@ -252,7 +253,7 @@ module Crysterm
       return false if at < 0 || at >= columns || columns == 1
       header, body = grid
       header.delete_at(at)
-      body.each { |r| r.delete_at(at) if at < r.size }
+      body.each(&.delete_at(at))
       als = @format.alignments.try(&.dup)
       als.try { |a| a.delete_at(at) if at < a.size }
       ntf = TextTableFormat.new(columns: columns - 1, margin: @format.margin, border: @format.border?, alignments: als)
@@ -260,9 +261,16 @@ module Crysterm
       true
     end
 
-    # The current grid as `{header cells, body rows}` (trimmed texts).
+    # The current grid as `{header cells, body rows}` (trimmed texts), each
+    # row exactly `#columns` cells — as it renders: a row that raw edits left
+    # short (its text cut mid-row) reads as empty cells past its end, the
+    # cells past the last column are not shown.
     private def grid : {Array(String), Array(Array(String))}
-      texts = data_row_indexed.map { |(_, b)| TextTable.row_cells(b) }
+      cols = columns
+      texts = data_row_indexed.map do |(_, b)|
+        cells = TextTable.row_cells(b)
+        cells.size < cols ? cells.concat(Array.new(cols - cells.size, "")) : cells[0, cols]
+      end
       header = texts.first? || [] of String
       {header, texts.size > 1 ? texts[1..] : [] of Array(String)}
     end
@@ -298,59 +306,52 @@ module Crysterm
     # the row count changed — grouped into ONE undo step. *new_format*
     # (column ops) additionally moves every block to the new
     # `TextTableFormat` and re-points this view at it.
+    #
+    # The table is its member blocks wherever they are: raw `TextCursor`
+    # edits can leave other blocks between them (a fragment pasted in a row
+    # splits it), and those stay where they are — the *k*th member becomes
+    # the rendering's *k*th block, new rows go after the last member and
+    # surplus members go from the end.
     private def rebuild_content(header : Array(String), body : Array(Array(String)), new_format : TextTableFormat? = nil) : Nil
       doc = document
-      first_bi = nil
-      old_count = 0
-      doc.blocks.each_with_index do |b, i|
-        if member?(b)
-          first_bi ||= i
-          old_count += 1
-        end
-      end
-      return unless first_bi
+      members = [] of Int32
+      doc.blocks.each_with_index { |b, i| members << i if member?(b) }
+      first_bi = members.first? || return
       tf = new_format || @format
       first_block = doc.blocks[first_bi]
       base_bf = first_block.block_format
       bf = new_format ? base_bf.merge(TextBlockFormat.new(table_format: tf)) : base_bf
       fresh = TextTable.build_blocks(header, body, tf.alignments, tf.columns, bf, TextTable.border_char_format(first_block),
         TextTable.available_width(doc.text_width, base_bf))
-      common = Math.min(old_count, fresh.size)
+      common = Math.min(members.size, fresh.size)
       doc.edit do
         (0...common).each do |k|
-          bi = first_bi + k
+          bi = members[k]
           b = doc.blocks[bi]
           nb = fresh[k]
           next if b.text == nb.text
           bp = doc.block_position(bi)
           doc.remove(bp, b.size) if b.size > 0
-          acc = bp
-          nb.fragments.each do |f|
-            doc.insert_text(acc, f.text, f.format)
-            acc += f.size
-          end
+          insert_fragments(bp, nb)
         end
-        # Row count grew: split new blocks off the end of the run.
+        # Row count grew: split new blocks off after the last member.
         (common...fresh.size).each do |k|
-          bi = first_bi + k - 1
+          bi = members[k - 1]
           pos = doc.block_position(bi) + doc.blocks[bi].size
           doc.insert_text(pos, "\n")
-          acc = pos + 1
-          fresh[k].fragments.each do |f|
-            doc.insert_text(acc, f.text, f.format)
-            acc += f.size
-          end
+          insert_fragments(pos + 1, fresh[k])
+          members << bi + 1
         end
-        # Row count shrank: remove the leftover blocks (with their leading
-        # separators).
-        (fresh.size...old_count).each do
-          bi = first_bi + fresh.size
+        # Row count shrank: remove the surplus members (with their leading
+        # separators), the last first so the earlier indexes hold.
+        while members.size > fresh.size
+          bi = members.pop
           bp = doc.block_position(bi)
           doc.remove(bp - 1, doc.blocks[bi].size + 1)
         end
         if ntf = new_format
-          (0...fresh.size).each do |k|
-            pos = doc.block_position(first_bi + k)
+          members.each do |mi|
+            pos = doc.block_position(mi)
             doc.apply_block_format(pos, pos, TextBlockFormat.new(table_format: ntf), merge: true)
           end
           @format = ntf
@@ -360,9 +361,17 @@ module Crysterm
         # included (a space typed where a word was broken mid-way renders
         # as the broken word did).
         fresh.each_with_index do |nb, k|
-          b = doc.blocks[first_bi + k]
-          doc.set_table_cells(doc.block_position(first_bi + k), nb.table_cells_entry) unless b.table_cells == nb.table_cells
+          bi = members[k]
+          doc.set_table_cells(doc.block_position(bi), nb.table_cells_entry) unless doc.blocks[bi].table_cells == nb.table_cells
         end
+      end
+    end
+
+    # Inserts *block*'s fragments, formats and all, at *pos*.
+    private def insert_fragments(pos : Int32, block : TextBlock) : Nil
+      block.fragments.each do |f|
+        document.insert_text(pos, f.text, f.format)
+        pos += f.size
       end
     end
 
@@ -895,8 +904,12 @@ module Crysterm
     end
 
     # Yields the `{first, last}` indexes of each run of consecutive *blocks*
-    # sharing one table format — each table.
+    # sharing one table format — each table. A table whose blocks are not
+    # all together (raw `TextCursor` edits put other blocks between them) is
+    # not yielded: none of its runs is the table.
     protected def self.each_run(blocks : Indexable(TextBlock), & : Int32, Int32 ->) : Nil
+      runs = [] of {TextTableFormat, Int32, Int32}
+      count = Hash(TextTableFormat, Int32).new(0).compare_by_identity
       i = 0
       while i < blocks.size
         tf = blocks[i].block_format.table_format
@@ -908,9 +921,11 @@ module Crysterm
         while j + 1 < blocks.size && blocks[j + 1].block_format.table_format.same?(tf)
           j += 1
         end
-        yield i, j
+        runs << {tf, i, j}
+        count[tf] += 1
         i = j + 1
       end
+      runs.each { |(tf, first, last)| yield first, last if count[tf] == 1 }
     end
   end
 

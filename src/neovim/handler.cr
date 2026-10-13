@@ -1061,7 +1061,13 @@ module Crysterm
         -- `:b N`), or another window entered (`:split`, `:new`), would take
         -- the keys of a widget still mirroring its own: the window and its
         -- buffer come back, as the handler's `show_buffer` would bring the
-        -- buffer before its next key, and an error says why.
+        -- buffer before its next key, and an error says why. The other
+        -- windows (not floating ones) are closed, as the widget shows none
+        -- of them, and a file buffer they or the window showed is wiped
+        -- unless modified, a handler's (`C.own`) or still in a window, so
+        -- that no hidden buffer is left for `:bufdo` or `:wall` to change.
+        C.own = C.own or {}
+
         function C.show(buf)
           C.win = vim.api.nvim_get_current_win()
           C.shown = buf
@@ -1073,9 +1079,24 @@ module Crysterm
           if not (buf and vim.api.nvim_buf_is_loaded(buf)) or vim.fn.getcmdwintype() ~= '' then return end
           local cur = vim.api.nvim_get_current_win()
           if not (C.win and vim.api.nvim_win_is_valid(C.win)) then C.win = cur end
-          if cur == C.win and vim.api.nvim_win_get_buf(cur) == buf then return end
+          local left = {}
+          for _, w in ipairs(vim.api.nvim_list_wins()) do
+            if w ~= C.win and vim.api.nvim_win_get_config(w).relative == '' then
+              left[vim.api.nvim_win_get_buf(w)] = true
+              pcall(vim.api.nvim_win_close, w, false)
+            end
+          end
+          local was = vim.api.nvim_win_get_buf(C.win)
+          if cur == C.win and was == buf and next(left) == nil then return end
+          left[was] = true
           if pcall(vim.api.nvim_set_current_win, C.win) and pcall(vim.api.nvim_win_set_buf, C.win, buf) then
             vim.api.nvim_echo({ { "Only the widget's own buffer can be edited here" } }, true, { err = true })
+          end
+          for b in pairs(left) do
+            if not C.own[b] and vim.api.nvim_buf_is_valid(b) and vim.bo[b].buftype == ''
+                and not vim.bo[b].modified and #vim.fn.win_findbuf(b) == 0 then
+              pcall(vim.api.nvim_buf_delete, b, {})
+            end
           end
         end
         vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
@@ -1106,6 +1127,7 @@ module Crysterm
         end
 
         function C.attach(buf, single, lines, modifiable)
+          C.own[buf] = true
           local bo = vim.bo[buf]
           bo.swapfile = false
           bo.buftype = 'acwrite'
@@ -1125,6 +1147,7 @@ module Crysterm
             -- Unloaded (`:bwipeout`, `:bdelete`, `:edit!`): its lines are
             -- no longer reported, so the handler lets go of it.
             on_detach = function(_, b)
+              C.own[b] = nil
               vim.rpcnotify(C.chan, 'crysterm_vi_detach', b)
             end,
           })

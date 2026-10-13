@@ -66,12 +66,20 @@ module Crysterm
     # so the change must land on that snapshot too or the next cascade silently
     # undoes it (a hidden widget reappears; a faded one snaps back to full opacity).
     # Widgets no cascade ever touched have no snapshot — no-op for them.
+    #
+    # The inline style is made for the change when the widget has none
+    # (`#inline_style_carrier?`); one so made keeps carrying later changes
+    # while the widget is unstyled, for the next cascade to fold in, and the
+    # snapshot takes every change, so the per-state styles the widget is
+    # reset to when CSS lets go of it have it too.
     protected def persist_inline_style(& : ::Crysterm::Style ->) : Nil
-      if css_styled?
-        yield (@style ||= ::Crysterm::Style.new)
-      elsif base = css_base_normal_if_captured
-        yield base
+      if (inline = @style) && (css_styled? || inline_style_carrier?)
+        yield inline
+      elsif css_styled?
+        @inline_style_carrier = true
+        yield (@style = ::Crysterm::Style.new)
       end
+      css_base_normal_if_captured.try { |base| yield base }
     end
 
     # Shows or hides the widget (Qt's `QWidget#setVisible`). Routes through

@@ -214,7 +214,7 @@ module Crysterm
       # this directly and `#move` the result. This menu is left as it is — the
       # strip's gesture closes its chain separately (`#tear_off_finished`).
       def tear_off : Menu
-        torn = Menu.new(window: window, style: inline_style.try(&.dup))
+        torn = Menu.new(window: window, style: assigned_inline_style.try(&.dup))
         torn.adopt_torn_off self
         # One row rebuild for the whole copy (see `#begin_update`).
         torn.batch_update { @actions.each { |a| torn << a } }

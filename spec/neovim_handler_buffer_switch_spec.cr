@@ -4,7 +4,9 @@ require "./spec_helper"
 # `:b N`), or another window entered (`:split`, `:new`), took the keys
 # meant for the widget's buffer, while the handler still took its own for
 # the one shown: the widget stopped mirroring what the keys did. The
-# window and the widget's buffer come back, with an error.
+# window and the widget's buffer come back, with an error. The other
+# windows are closed and the file buffers left behind wiped, unless
+# modified, so no hidden buffer is left for `:bufdo` or `:wall` to change.
 
 private def nvs_window
   Crysterm::Window.new(
@@ -20,7 +22,7 @@ describe Crysterm::Neovim::Handler do
 
   path = File.tempname("crysterm-nvs", ".txt")
 
-  {"enew", "e #{path}", "b 1", "bnext", "split", "vnew"}.each do |cmd|
+  {"enew", "e #{path}", "b 1", "bnext", "split", "vnew", "tabnew"}.each do |cmd|
     it "keeps the widget's buffer in the window on :#{cmd.split.first}" do
       File.write path, "other\n"
       window = nvs_window
@@ -32,6 +34,9 @@ describe Crysterm::Neovim::Handler do
       h.on(Crysterm::Event::ViMessageChanged) { |e| messages << {e.text, e.kind} }
       h.on(Crysterm::Event::ViDetached) { detached += 1 }
       h.attach(w).should be_true
+      client = h.client.not_nil!
+      loaded = "return table.concat(vim.tbl_filter(vim.api.nvim_buf_is_loaded, vim.api.nvim_list_bufs()), ' ')"
+      before = client.request("nvim_exec_lua", loaded, [] of String).as_s.split
       h.input ":#{cmd}<CR>"
       h.input "0x"
       w.value.should eq "bc"
@@ -41,11 +46,35 @@ describe Crysterm::Neovim::Handler do
       detached.should eq 0
       wait_until { messages.any? { |m| m[0].try &.includes?("widget's own buffer") } }
       File.read(path).should eq "other\n"
+      client.request("nvim_list_wins").as_a.size.should eq 1
+      after = client.request("nvim_exec_lua", loaded, [] of String).as_s.split
+      (after - before).should be_empty
+      after.should contain h.buffer.to_s
     ensure
       h.try &.detach
       window.try &.destroy
       File.delete?(path)
     end
+  end
+
+  it "keeps a modified buffer it put back" do
+    File.write path, "other\n"
+    window = nvs_window
+    w = Crysterm::Widget::PlainTextEdit.new parent: window, width: 40, height: 8
+    w.value = "abc"
+    h = Crysterm::Neovim::Handler.new
+    h.attach(w).should be_true
+    h.input ":e #{path} | s/other/x/<CR>"
+    h.input "0x"
+    w.value.should eq "bc"
+    client = h.client.not_nil!
+    client.request("nvim_exec_lua", "return table.concat(vim.api.nvim_buf_get_lines(vim.fn.bufnr(...), 0, -1, false), ' ')", [path])
+      .as_s.should eq "x"
+    File.read(path).should eq "other\n"
+  ensure
+    h.try &.detach
+    window.try &.destroy
+    File.delete?(path)
   end
 
   it "keeps each sharing handler's buffer its own" do

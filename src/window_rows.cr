@@ -499,8 +499,9 @@ module Crysterm
       # screen — so its next frame diff emits nothing and the terminal stays
       # blank. A non-active window is fully repainted via `Application#activate`
       # anyway, so it never needs the physical clear; the buffer resets above
-      # stay unconditional.
-      if do_clear && device_active_window?
+      # stay unconditional. Nor may a hidden window (`#hide`), which has
+      # handed the terminal back: `#show` repaints it whole.
+      if do_clear && @visible && device_active_window?
         note_overdraw_all
         if @alternate
           tput.clear

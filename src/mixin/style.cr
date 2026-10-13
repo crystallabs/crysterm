@@ -135,6 +135,7 @@ module Crysterm
       def style=(style : ::Crysterm::Style?)
         invalidate_frame_style
         @style = style
+        @inline_style_carrier = false
         # Like `#state=`: the swap is invisible to the tracked geometry setters,
         # so flag damage explicitly — otherwise an idle UI never repaints with
         # the new style.
@@ -147,6 +148,25 @@ module Crysterm
       # per-state `@styles` at its own tier.
       def inline_style : ::Crysterm::Style?
         @style
+      end
+
+      # Whether `@style` is not one the program set but one
+      # `Widget#persist_inline_style` made to carry a runtime change
+      # (`visible` from `hide`/`show`, a fade's `opacity`) through the cascade
+      # of a CSS-styled widget. It folds in as any inline style does, but it
+      # does not stand in for the widget's per-state styles once CSS stops
+      # styling the widget (a theme switched off): an inline style wins there
+      # wholesale, and this one, a bare `Style.new`, would drop the floor look
+      # — an overlay's border — the widget had before the theme. The change
+      # it carries is persisted onto the pristine snapshot as well, which those
+      # per-state styles are reset from.
+      getter? inline_style_carrier : Bool = false
+
+      # The inline style the program set (`#inline_style=`, `style:`), or
+      # `nil` — `#inline_style` without a `#inline_style_carrier?`: what a
+      # widget copying its look onto another (a menu onto its submenu) takes.
+      def assigned_inline_style : ::Crysterm::Style?
+        @style unless @inline_style_carrier
       end
 
       # Set by the CSS cascade once it has computed this widget's `@styles`
@@ -172,7 +192,7 @@ module Crysterm
       # `Style::FrozenError` (a focused `Button` could never be hidden).
       def state_style : ::Crysterm::Style
         unless @css_styled
-          @style.try { |style| return style }
+          assigned_inline_style.try { |style| return style }
         end
         per_state_style
       end
@@ -284,7 +304,7 @@ module Crysterm
           # Skip `ensure_floor_border` when an inline `@style` wins wholesale: it
           # bypasses `@styles.normal`, so the border would never be observed —
           # pure waste on a path that runs ~10× per widget per frame.
-          if style = @style
+          if style = assigned_inline_style
             return style
           end
           ensure_floor_border

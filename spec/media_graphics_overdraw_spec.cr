@@ -107,6 +107,23 @@ describe "Media::Kitty overdraw" do
     s.try &.destroy
   end
 
+  it "sends the picture whole again when the window is shown after being hidden" do
+    buf = IO::Memory.new
+    s = overdraw_window buf
+    k = Widget::Media::Kitty.new parent: s, top: 1, left: 2, width: 8, height: 4,
+      cell_pixel_width: 10, cell_pixel_height: 20
+    k.bitmap = solid
+    frame s, buf
+    s.hide
+    # Entering the alternate screen again finds it blank, kitty's images and
+    # their data gone with it: placing the old image by id would show nothing.
+    s.show
+    frame(s, buf).should contain("\e_Ga=T")
+    kitty_at(frame s, buf).should be_nil
+  ensure
+    s.try &.destroy
+  end
+
   it "keeps a view's picture on top of the cells re-emitted once the terminal's colors are known" do
     Config.media_backend = Widget::Media::Backend::Kitty
     buf = IO::Memory.new

@@ -231,7 +231,7 @@ module Crysterm
         # freshly-created child unstyled until the next cascade, flashing a
         # borderless copy during rapid reopening. Falls back to the theme when
         # this menu has no inline style.
-        child = Menu.new(window: window, style: inline_style.try(&.dup))
+        child = Menu.new(window: window, style: assigned_inline_style.try(&.dup))
         # One row rebuild for the whole submenu, not one per action: this runs on
         # *every* open, so per-add `#sync_items` would make opening O(A²).
         child.batch_update { subs.each { |a| child << a } }

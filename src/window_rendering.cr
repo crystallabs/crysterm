@@ -445,7 +445,9 @@ module Crysterm
         # While disconnected (between a window closing and a reattach), keep
         # the fiber alive but don't paint — `repaint` would write to a
         # closed/absent output. `#connect` renders explicitly once bound again.
-        next unless @connected
+        # Nor while hidden (`#hide`): the terminal is handed back, and a frame
+        # would land on the shell's screen. `#show` repaints everything.
+        next unless @connected && @visible
 
         # On a device shared by several windows, only the device-active window
         # may paint the shared terminal: a background sibling still gets rung by
@@ -484,7 +486,7 @@ module Crysterm
         # sibling (shared device). The `rescue IO::Error` below only covers the
         # closed-fd case, not those still-open outputs.
         break if @render_stop || generation != @loop_generation
-        next unless @connected
+        next unless @connected && @visible
         # Re-check device ownership after the throttle sleep too: an
         # `activate` on another fiber can hand the display to a sibling while
         # we sleep, and painting now would write over it (mirrors the

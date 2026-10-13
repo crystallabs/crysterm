@@ -1000,11 +1000,13 @@ module Crysterm
         end
         tail.block_format = fblocks.last.block_format
         tail.source_line = fblocks.last.source_line
-        # The fragment's cells where they are the tail's, else the split
-        # block's (an undo putting back a row's text puts back its cells).
-        if (entry = fblocks.last.table_cells_entry) && entry[0] == tail.text
-          tail.table_cells_entry = entry
-        end
+        # The tail's cells: at a block start the tail is that block moved
+        # down, so it keeps its own (`#split` copies them); past it, the
+        # tail is the fragment's last block with the split one's rest, so
+        # it takes that block's, none included — an undo putting back a
+        # row's text puts back its cells, never the split row's, which
+        # another row rendering alike would read as its own.
+        tail.table_cells_entry = fblocks.last.table_cells_entry if off > 0
         new_blocks << tail
         adopt(new_blocks)
         blocks_mut[bi + 1, 0] = new_blocks
