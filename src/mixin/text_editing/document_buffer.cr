@@ -606,11 +606,26 @@ module Crysterm
 
         # Post-`super` half of a document-backed widget's constructor: installs
         # the shared editing keys and then this view's document
-        # `ContentsChanged` handler (`#wire_document`, defined by the includer).
+        # `ContentsChanged` handler (`#wire_document`, defined by the includer),
+        # and has the view leave its document when it is destroyed
+        # (`#leave_document`).
         protected def finish_document_setup(input_on_focus, install_enter) : Nil
           setup_text_editing input_on_focus: input_on_focus, install_enter: install_enter
           wire_document
+          on(Crysterm::Event::Destroy, once: true) { leave_document }
           @buf_content_delegated = true
+        end
+
+        # Lets go of the document as the view is destroyed, as a Qt view's
+        # connections to its document die with it: the `ContentsChanged`
+        # handler goes (`#unwire_document`), so a document outliving the view
+        # — shared with another, or kept by the application — no longer calls
+        # into a dead widget nor keeps it alive, and the tracker cursor and
+        # extra selections registered on the document are dropped.
+        private def leave_document : Nil
+          unwire_document
+          @edit_cursor = nil
+          @extra_selections = [] of Widget::TextEdit::ExtraSelection
         end
 
         # Once true, a document-backed widget MAY re-point the widget-level
