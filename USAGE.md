@@ -1291,6 +1291,15 @@ where the step was replayed (Qt's `QTextDocument::undo(QTextCursor*)`),
 whichever view made it: after text put back, where text taken out was, or
 after a range whose format changed.
 
+`doc.plain_text = text` replaces the text as a reset (Qt's `setPlainText`:
+the history cleared, cursors rewound). `doc.replace_plain_text(text)`
+replaces it as an edit instead, changing only what differs (a line diff,
+narrowed to the characters that differ) as one undoable step, so the history
+stays and cursors and the views' carets away from the changes keep their
+place — the way an editor reloads a file changed on disk; after it,
+`doc.modified = false` makes the new text the clean state, and an undo makes
+the document modified again.
+
 ### 7.8 Editing through the cursor
 
 A `TextCursor` is the way documents are edited; the document's own

@@ -643,6 +643,206 @@ module Crysterm
       set_plain_text(text)
     end
 
+    # Makes the text *text* by an edit rather than a reset: only what
+    # differs is changed, as one undo step (an edit block), so the history
+    # stays and an undo takes the whole change back — Qt Creator's reload,
+    # which applies the difference from the file on disk as a `ChangeSet`
+    # instead of resetting with `setPlainText`. The difference is found line
+    # by line (Myers' diff, `LineDiff`) and each changed run of lines is
+    # narrowed to the characters that differ, so a cursor, and a view's
+    # caret and selection, away from the changes keeps its place in the
+    # text, and one inside a change moves as for any edit
+    # (`.shift_position`). The text inserted takes the format where it
+    # goes, as typing does; formats elsewhere are left alone.
+    #
+    # The modified flag follows the undo stack as after any edit; a caller
+    # for whom the new text is the saved one (a reload) sets `#modified=`
+    # false after it, making the state after the step the clean one (Qt's
+    # `QTextDocumentPrivate::setModified`, `QUndoStack::setClean`), so that
+    # undoing the step makes the document modified again. Returns whether
+    # anything changed; the same text makes no step at all.
+    #
+    # The name sets it beside `#set_plain_text`, which replaces the text as
+    # a reset: this one replaces it as an edit.
+    def replace_plain_text(text : String) : Bool
+      old = to_plain_text
+      return false if old == text
+      old_lines = LineDiff.lines(old)
+      new_lines = LineDiff.lines(text)
+      old_starts = LineDiff.offsets(old_lines)
+      # Top to bottom, a running *delta* keeping the old positions true, so
+      # an undo, which takes the step's edits back in reverse, ends at the
+      # first change and puts a caret there.
+      delta = 0
+      edit do
+        LineDiff.diff(old_lines, new_lines).each do |(a, b, c, d)|
+          from = old_starts[a]
+          was = old_lines[a...b].join
+          now = new_lines[c...d].join
+          # Narrowed to the characters that differ within the run.
+          prefix = LineDiff.common_prefix(was, now)
+          suffix = LineDiff.common_suffix(was, now, prefix)
+          at = from + delta + prefix
+          count = was.size - prefix - suffix
+          added = now[prefix, now.size - prefix - suffix]
+          remove(at, count) if count > 0
+          insert_text(at, added) unless added.empty?
+          delta += added.size - count
+        end
+      end
+      true
+    end
+
+    # The line diff behind `#replace_plain_text`: the lines of two texts
+    # compared whole, each with its line break (the last without), and the
+    # runs of lines that differ found with Myers' algorithm ("An O(ND)
+    # Difference Algorithm and Its Variations", 1986) once the lines the
+    # texts start and end with in common are set aside. A difference too
+    # large to search at a reasonable cost (`MAX_STEPS` lines put in or
+    # taken out, or `BUDGET` lines compared) is given up on: the lines
+    # between the common start and end are then one run.
+    module LineDiff
+      # The most lines put in or taken out the search looks for.
+      MAX_STEPS = 2000
+
+      # The work, in lines passed over, after which the search gives up.
+      BUDGET = 50_000_000_i64
+
+      # A run of lines that differ: the old lines `a...b` that the new
+      # lines `c...d` replace (either may be empty).
+      alias Hunk = {Int32, Int32, Int32, Int32}
+
+      # *text*'s lines, each with its `'\n'` but the last.
+      def self.lines(text : String) : Array(String)
+        lines = text.split('\n')
+        (0...lines.size - 1).each { |i| lines[i] += "\n" }
+        lines
+      end
+
+      # Where each of *lines* starts in their text, and the end after them.
+      def self.offsets(lines : Array(String)) : Array(Int32)
+        starts = Array(Int32).new(lines.size + 1)
+        at = 0
+        lines.each do |line|
+          starts << at
+          at += line.size
+        end
+        starts << at
+        starts
+      end
+
+      # The runs of lines in which *new* differs from *old*, in order.
+      def self.diff(old : Array(String), new : Array(String)) : Array(Hunk)
+        head = 0
+        while head < old.size && head < new.size && old[head] == new[head]
+          head += 1
+        end
+        tail = 0
+        while tail < old.size - head && tail < new.size - head && old[old.size - 1 - tail] == new[new.size - 1 - tail]
+          tail += 1
+        end
+        n = old.size - head - tail
+        m = new.size - head - tail
+        return [] of Hunk if n == 0 && m == 0
+        whole = [{head, head + n, head, head + m}]
+        return whole if n == 0 || m == 0
+        # The lines as numbers, so the search compares integers.
+        ids = {} of String => Int32
+        x = Array(Int32).new(n) { |i| ids.put_if_absent(old[head + i]) { ids.size } }
+        y = Array(Int32).new(m) { |j| ids.put_if_absent(new[head + j]) { ids.size } }
+        myers(x, y, head) || whole
+      end
+
+      # Myers' greedy search for the shortest edit script turning *x* into
+      # *y* (the lines in between, *base* their first's index), keeping each
+      # round's furthest reaching paths to trace the script back; nil when
+      # it would cost more than `MAX_STEPS` or `BUDGET`.
+      private def self.myers(x : Array(Int32), y : Array(Int32), base : Int32) : Array(Hunk)?
+        n, m = x.size, y.size
+        max = n + m
+        offset = max + 1
+        v = Array(Int32).new(2 * max + 3, 0)
+        # The paths as each round started, for k in -d-1..d+1 (at k+d+1).
+        trace = [] of Array(Int32)
+        work = 0_i64
+        (0..max).each do |d|
+          return if d > MAX_STEPS || work > BUDGET
+          trace << v[offset - d - 1, 2 * d + 3]
+          (-d..d).step(2) do |k|
+            px = if k == -d || (k != d && v[offset + k - 1] < v[offset + k + 1])
+                   v[offset + k + 1]
+                 else
+                   v[offset + k - 1] + 1
+                 end
+            py = px - k
+            while px < n && py < m && x[px] == y[py]
+              px += 1
+              py += 1
+            end
+            v[offset + k] = px
+            return trace_back(trace, n, m, base) if px >= n && py >= m
+          end
+          work += max
+        end
+        nil
+      end
+
+      # Back from the end of the script along the rounds' paths: each
+      # round's step is a line put in or taken out, before a run of equal
+      # lines; steps that touch are joined into one run.
+      private def self.trace_back(trace : Array(Array(Int32)), px : Int32, py : Int32, base : Int32) : Array(Hunk)
+        steps = [] of Hunk
+        (trace.size - 1).downto(1) do |d|
+          prev = trace[d]
+          k = px - py
+          down = k == -d || (k != d && prev[k - 1 + d + 1] < prev[k + 1 + d + 1])
+          pk = down ? k + 1 : k - 1
+          sx = prev[pk + d + 1]
+          sy = sx - pk
+          steps << (down ? {base + sx, base + sx, base + sy, base + sy + 1} : {base + sx, base + sx + 1, base + sy, base + sy})
+          px, py = sx, sy
+        end
+        steps.reverse!
+        hunks = [] of Hunk
+        steps.each do |s|
+          if (last = hunks.last?) && last[1] == s[0] && last[3] == s[2]
+            hunks[-1] = {last[0], s[1], last[2], s[3]}
+          else
+            hunks << s
+          end
+        end
+        hunks
+      end
+
+      # How many characters *a* and *b* start with in common.
+      def self.common_prefix(a : String, b : String) : Int32
+        ra = Char::Reader.new(a)
+        rb = Char::Reader.new(b)
+        count = 0
+        while ra.has_next? && rb.has_next? && ra.current_char == rb.current_char
+          count += 1
+          ra.next_char
+          rb.next_char
+        end
+        count
+      end
+
+      # How many characters *a* and *b* end with in common, short of their
+      # first *skip*.
+      def self.common_suffix(a : String, b : String, skip : Int32) : Int32
+        ra = Char::Reader.new(at_end: a)
+        rb = Char::Reader.new(at_end: b)
+        limit = Math.min(a.size, b.size) - skip
+        count = 0
+        while count < limit && ra.current_char == rb.current_char
+          count += 1
+          ra.previous_char if ra.has_previous?
+          rb.previous_char if rb.has_previous?
+        end
+        count
+      end
+    end
+
     # Swaps in *new_blocks* wholesale with `set_plain_text`'s reset semantics:
     # undo stack cleared, cursors rewound, document unmodified. The blocks are
     # adopted, not copied — callers must hand over freshly built ones.
