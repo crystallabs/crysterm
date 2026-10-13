@@ -214,7 +214,10 @@ module Crysterm
     # queue — `#pump`'s reader with no render fiber left to drain it). A
     # caller serving several windows learns from it that this one is gone
     # and can hand the job to another, as a reader feeding a document shown
-    # in more than one window does.
+    # in more than one window does. `true` does not promise the job runs:
+    # one still queued when the window is destroyed is dropped with it (as
+    # Qt drops the events posted to a deleted object), so a job that must
+    # not be lost keeps its data where another window's job can find it.
     #
     # ```
     # windows.select! { |w| w.post? { w.append line } } # drops the destroyed ones

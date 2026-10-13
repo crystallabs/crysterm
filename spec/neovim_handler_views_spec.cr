@@ -183,4 +183,35 @@ describe Crysterm::Neovim::Handler do
       wb.destroy
     end
   end
+
+  it "lets go of the first view given another document, the buffer staying with the others" do
+    wa, wb, a, b = nvv_views
+    h = Crysterm::Neovim::Handler.new
+    begin
+      h.attach(a).should be_true
+      h.add_view(b).should be_true
+      nvv_type b, "Ay<Esc>"
+      b.value.should eq "abcy"
+      # What a view alone puts on a document, the handler's not counted.
+      alone = Crysterm::TextDocument.new("x")
+      Crysterm::Widget::PlainTextEdit.new parent: wa, top: 8, width: 10, height: 1, document: alone
+      own = alone.handlers(Crysterm::Event::ContentsChanged).size
+
+      other = Crysterm::TextDocument.new("other")
+      a.document = other
+      h.views.should eq [b] of Crysterm::Widget
+      h.widget.should be b
+      h.active_widget.should be b
+      # The handler follows nothing of A's new document.
+      other.handlers(Crysterm::Event::ContentsChanged).size.should eq own
+      # The buffer stayed with B, not reset: Neovim's undo is still there.
+      nvv_type b, "u"
+      b.value.should eq "abc"
+      a.value.should eq "other"
+    ensure
+      h.detach
+      wa.destroy
+      wb.destroy
+    end
+  end
 end

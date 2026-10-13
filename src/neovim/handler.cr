@@ -172,7 +172,9 @@ module Crysterm
     #   whose caret Neovim's cursor and whose size Neovim's window follow,
     #   and the mode's caret shape is every view's. The mode, command line
     #   and message events are emitted once, by the handler. A view
-    #   destroyed is removed (`#remove_view`), the last one detaching.
+    #   destroyed or given another document is removed (`#remove_view`),
+    #   the last one detaching; a lone view takes the buffer to its new
+    #   document, as before.
     # * **Neovim gone.** When Neovim cannot be started `#attach` returns
     #   false and leaves the widget alone; when it exits, the handler detaches
     #   and emits `Event::ProcessExited`, and when the widget's buffer is
@@ -333,7 +335,8 @@ module Crysterm
       # `TextDocument` (`document=`), whose edits every view then shows;
       # refused (false) otherwise, or while detached. True also when
       # *widget* is a view already. A view destroyed is removed
-      # (`#remove_view`), and one given another document is let go of.
+      # (`#remove_view`), and so is one given another document, the first
+      # included, while others are left.
       def add_view(widget : Mixin::TextEditing) : Bool
         add_view_target TargetOf.new(widget)
       end
@@ -502,7 +505,9 @@ module Crysterm
         subs.on(widget, ::Crysterm::Event::FocusIn) { focused target }
         subs.on(widget, ::Crysterm::Event::Resize) { resized if active?(target) }
         subs.auto_dispose(widget) { remove_view widget }
-        subs.on(widget, ::Crysterm::Event::DocumentChanged) { drop_strayed_views }
+        # Ahead of the document's reset (`#watch_document`), which a view
+        # let go of here is spared.
+        subs.on(widget, ::Crysterm::Event::DocumentChanged, at: ::EventHandler.at_beginning) { view_document_changed target }
       end
 
       # Follows the changes of the views' document, through *target* (the
@@ -513,12 +518,12 @@ module Crysterm
         target.on_document_change(@subs) { |reset| outside_change text: true, reset: reset }
       end
 
-      # Lets go of the views given a document other than the first view's,
-      # which no longer show the buffer.
-      private def drop_strayed_views : Nil
-        first = @views.first? || return
-        doc = first.document
-        @views.reject { |v| v.same?(first) || ((d = v.document) && doc && d.same?(doc)) }.each { |v| remove_view v.widget }
+      # *target* was given another document: with other views left, it no
+      # longer shows their buffer and is let go of, whichever view it is,
+      # the buffer staying with the others; the only view takes the buffer
+      # along to its new document (`#watch_document`'s reset).
+      private def view_document_changed(target : Target) : Nil
+        remove_view target.widget if @views.size > 1
       end
 
       # Whether *target* is the active view.
@@ -1281,6 +1286,10 @@ module Crysterm
             # Another document set on the widget: its changes are followed
             # instead, and its text replaces the old one's as a reset.
             subs.on(w, ::Crysterm::Event::DocumentChanged) do |e|
+              # Not once *subs* was let go of during this very event (the
+              # handler dropping the view): re-armed, *doc* would outlive
+              # the bag.
+              next unless doc.active?
               doc.on(e.document, ::Crysterm::Event::ContentsChanged) { |c| block.call c.kind.replace? }
               block.call true
             end
