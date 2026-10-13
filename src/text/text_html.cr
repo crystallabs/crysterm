@@ -42,13 +42,18 @@ module Crysterm
 
     # Serializes *blocks* to HTML (a body fragment, one element per block,
     # plus the structural wrappers): consecutive same-instance list members
-    # group under one `<ul>`/`<ol>` (nested lists as direct child lists, the
-    # form the importer reads back), quote levels nest `<blockquote>`s, rule
-    # blocks emit `<hr>`.
+    # group under one `<ul>`/`<ol>`, an item's `<li>` holding what belongs to
+    # it — a nested list, a continuation paragraph or code block at its
+    # content column — as HTML nests them (the shape the importer reads back);
+    # quote levels nest `<blockquote>`s, rule blocks emit `<hr>`.
     def self.generate(blocks : Array(TextBlock)) : String
       String.build do |io|
         qdepth = 0
         open_lists = [] of TextListFormat
+        # Per open list level, whether its last item's `<li>` is still open:
+        # an item ends where the next one at its level, or anything outside
+        # it, starts.
+        open_items = [] of Bool
         # Items emitted so far per list instance — numbers a group reopened
         # after an interruption via `<ol start=…>`.
         list_items = {} of UInt64 => Int32
@@ -61,7 +66,7 @@ module Crysterm
           # Quote wrappers first; a level change closes any open lists
           # (lists don't span quote boundaries).
           if bf.quote_level != qdepth
-            close_lists(io, open_lists)
+            close_lists(io, open_lists, open_items)
             while qdepth < bf.quote_level
               io << "<blockquote>"
               qdepth += 1
@@ -71,15 +76,28 @@ module Crysterm
               qdepth -= 1
             end
           end
+          in_item = false
           if lf = bf.list_format
             # Close lists deeper than this item, or a different list at the
-            # same depth; open this one down to its nesting level.
+            # same depth, and the previous item of this one; open this list
+            # down to its nesting level.
             while (top = open_lists.last?) && (open_lists.size > lf.indent || (open_lists.size == lf.indent && !top.same?(lf)))
-              io << (top.style.numbered? ? "</ol>" : "</ul>")
-              open_lists.pop
+              close_lists(io, open_lists, open_items, open_lists.size - 1)
+            end
+            if open_lists.size == lf.indent && open_items.last?
+              io << "</li>"
+              open_items[-1] = false
             end
             while open_lists.size < lf.indent
+              # A nested list goes inside an item of the level above: the
+              # open one, or a bare `<li>` where that level has none (an
+              # item that opens with a nested list, `- - a`).
+              if open_items.last? == false
+                io << "<li>"
+                open_items[-1] = true
+              end
               open_lists << lf
+              open_items << false
               if lf.style.numbered?
                 n = lf.start + (list_items[lf.object_id]? || 0)
                 io << (n != 1 ? %(<ol start="#{n}">) : "<ol>")
@@ -87,8 +105,13 @@ module Crysterm
                 io << "<ul>"
               end
             end
+          elsif depth = item_depth(bf, open_items)
+            # Content of the open item at *depth* (its continuation): inside
+            # its `<li>`, after closing the lists nested deeper.
+            close_lists(io, open_lists, open_items, depth)
+            in_item = true
           else
-            close_lists(io, open_lists)
+            close_lists(io, open_lists, open_items)
           end
           if tf = bf.table_format
             # One `<table>` per instance, emitted at its first block; the
@@ -99,15 +122,18 @@ module Crysterm
             end
             next
           end
-          io << '\n' if i > 0
+          # No line break inside an item's `<li>`: it would be the item's
+          # text there (a space, or a significant one under pre-wrap).
+          io << '\n' if i > 0 && !in_item
           if lf.nil? && bf.code_block? && bf.heading_level == 0
             run_end = code_run_end(blocks, i)
-            write_pre(io, blocks, i, run_end)
+            write_pre(io, blocks, i, run_end, in_item)
           else
-            write_block_element(io, b, lf, list_items)
+            write_block_element(io, b, lf, list_items, in_item)
           end
+          open_items[-1] = true if lf
         end
-        close_lists(io, open_lists)
+        close_lists(io, open_lists, open_items)
         while qdepth > 0
           io << "</blockquote>"
           qdepth -= 1
@@ -115,10 +141,23 @@ module Crysterm
       end
     end
 
-    private def self.close_lists(io : IO, open_lists : Array(TextListFormat)) : Nil
-      while top = open_lists.pop?
-        io << (top.style.numbered? ? "</ol>" : "</ul>")
+    # Closes the open lists (and their open items) deeper than *depth*.
+    private def self.close_lists(io : IO, open_lists : Array(TextListFormat), open_items : Array(Bool), depth : Int32 = 0) : Nil
+      while open_lists.size > depth
+        io << "</li>" if open_items.pop
+        io << (open_lists.pop.style.numbered? ? "</ol>" : "</ul>")
       end
+    end
+
+    # The list level whose open item *bf*'s block continues — a paragraph or
+    # code block indented to that item's content column (the importer's
+    # `2 × level`), not a table — or nil for a block outside every item.
+    private def self.item_depth(bf : TextBlockFormat, open_items : Array(Bool)) : Int32?
+      return if bf.list_format || bf.table_format
+      ind = bf.indent
+      return unless ind > 0 && ind.even?
+      depth = ind // 2
+      depth if open_items[depth - 1]?
     end
 
     # The consecutive pre-rendered run of *tf*'s blocks starting at *i*, as
@@ -172,10 +211,11 @@ module Crysterm
     # break between lines — the element a browser shows as one block and the
     # importer splits back into its lines — rather than a `<pre>` per line,
     # which a browser sets apart by its default margins. The block's margins
-    # are its first line's top and its last line's bottom.
-    private def self.write_pre(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32) : Nil
+    # are its first line's top and its last line's bottom; *in_item*, it
+    # sits in a list item's `<li>`, which indents it.
+    private def self.write_pre(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32, in_item : Bool = false) : Nil
       head = blocks[first]
-      style = block_style(head.block_format, head)
+      style = block_style(head.block_format, head, in_item)
       if (m = blocks[last].block_format.bottom_margin) > 0 && last != first
         style = style.empty? ? "margin-bottom:#{m}em" : "#{style};margin-bottom:#{m}em"
       end
@@ -190,10 +230,14 @@ module Crysterm
       io << "</pre>"
     end
 
-    private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32)) : Nil
+    # *b* as its element: `<p>`, `<h*>`, `<pre>`, `<hr>`, a bare `<br>` for
+    # an empty line — or, for a list item, its `<li>` left open, `generate`
+    # closing it once the item's content ends. *in_item*, the block is a list
+    # item's continuation, inside its `<li>`, which indents it.
+    private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32), in_item : Bool = false) : Nil
       bf = b.block_format
       if bf.horizontal_rule?
-        style = block_style(bf, b)
+        style = block_style(bf, b, in_item)
         io << "<hr"
         io << " style=\"" << style << '"' unless style.empty?
         io << '>'
@@ -215,7 +259,7 @@ module Crysterm
         # element — so the fence survives an HTML round-trip.
         tag = lvl > 0 ? "h#{lvl.clamp(1, 6)}" : (bf.code_block? ? "pre" : "p")
       end
-      style = block_style(bf, b)
+      style = block_style(bf, b, in_item)
       io << '<' << tag
       io << " style=\"" << style << '"' unless style.empty?
       write_language_class(io, bf) if tag == "pre"
@@ -245,7 +289,7 @@ module Crysterm
       end
       io << "</pre>" if inner_pre
       io << "</" << inner_heading << '>' if inner_heading
-      io << "</" << tag << '>'
+      io << "</" << tag << '>' unless lf
     end
 
     # A block image as the `<img>` it was read from (Qt's `toHtml` writes an
@@ -271,7 +315,9 @@ module Crysterm
       io << " class=\"language-" << escape_attr(lang) << '"'
     end
 
-    private def self.block_style(bf : TextBlockFormat, b : TextBlock) : String
+    # *bf*'s CSS for *b*'s element; *in_item*, without the indent, which the
+    # list item's `<li>` holding the element gives it.
+    private def self.block_style(bf : TextBlockFormat, b : TextBlock, in_item : Bool = false) : String
       props = [] of String
       if (a = bf.alignment) && (name = TextAlign.align_name(a))
         props << "text-align:#{name}"
@@ -289,7 +335,7 @@ module Crysterm
       end
       # Block indent as `margin-left` in `ch` (1 column each), parsed back
       # by the importer — a list continuation paragraph keeps its column.
-      if (ind = bf.indent) > 0
+      if (ind = bf.indent) > 0 && !in_item
         props << "margin-left:#{ind}ch"
       end
       # Significant whitespace (list indents, aligned columns, TABs) must
