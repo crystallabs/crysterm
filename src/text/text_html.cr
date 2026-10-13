@@ -45,8 +45,12 @@ module Crysterm
     # group under one `<ul>`/`<ol>`, an item's `<li>` holding what belongs to
     # it — a nested list, a continuation paragraph or code block at its
     # content column — as HTML nests them (the shape the importer reads back);
-    # quote levels nest `<blockquote>`s, rule blocks emit `<hr>`.
+    # quote levels nest `<blockquote>`s, rule blocks emit `<hr>`. An empty
+    # document — one empty, unformatted block — is no HTML at all, as a
+    # Markdown renderer gives for an empty file and the importer reads back.
     def self.generate(blocks : Array(TextBlock)) : String
+      return "" if blocks.size == 1 && (only = blocks[0]).fragments.empty? &&
+                   only.block_format == TextBlockFormat.default
       String.build do |io|
         qdepth = 0
         open_lists = [] of TextListFormat
@@ -78,33 +82,7 @@ module Crysterm
           end
           in_item = false
           if lf = bf.list_format
-            # Close lists deeper than this item, or a different list at the
-            # same depth, and the previous item of this one; open this list
-            # down to its nesting level.
-            while (top = open_lists.last?) && (open_lists.size > lf.indent || (open_lists.size == lf.indent && !top.same?(lf)))
-              close_lists(io, open_lists, open_items, open_lists.size - 1)
-            end
-            if open_lists.size == lf.indent && open_items.last?
-              io << "</li>"
-              open_items[-1] = false
-            end
-            while open_lists.size < lf.indent
-              # A nested list goes inside an item of the level above: the
-              # open one, or a bare `<li>` where that level has none (an
-              # item that opens with a nested list, `- - a`).
-              if open_items.last? == false
-                io << "<li>"
-                open_items[-1] = true
-              end
-              open_lists << lf
-              open_items << false
-              if lf.style.numbered?
-                n = lf.start + (list_items[lf.object_id]? || 0)
-                io << (n != 1 ? %(<ol start="#{n}">) : "<ol>")
-              else
-                io << "<ul>"
-              end
-            end
+            open_item_list(io, lf, open_lists, open_items, list_items)
           elsif depth = item_depth(bf, open_items)
             # Content of the open item at *depth* (its continuation): inside
             # its `<li>`, after closing the lists nested deeper.
@@ -137,6 +115,36 @@ module Crysterm
         while qdepth > 0
           io << "</blockquote>"
           qdepth -= 1
+        end
+      end
+    end
+
+    # Opens the list of item *lf* down to its nesting level, closing the
+    # lists deeper than it, a different list at its depth, and the previous
+    # item of its own.
+    private def self.open_item_list(io : IO, lf : TextListFormat, open_lists : Array(TextListFormat), open_items : Array(Bool), list_items : Hash(UInt64, Int32)) : Nil
+      while (top = open_lists.last?) && (open_lists.size > lf.indent || (open_lists.size == lf.indent && !top.same?(lf)))
+        close_lists(io, open_lists, open_items, open_lists.size - 1)
+      end
+      if open_lists.size == lf.indent && open_items.last?
+        io << "</li>"
+        open_items[-1] = false
+      end
+      while open_lists.size < lf.indent
+        # A nested list goes inside an item of the level above: the open
+        # one, or a bare `<li>` where that level has none (an item that
+        # opens with a nested list, `- - a`).
+        if open_items.last? == false
+          io << "<li>"
+          open_items[-1] = true
+        end
+        open_lists << lf
+        open_items << false
+        if lf.style.numbered?
+          n = lf.start + (list_items[lf.object_id]? || 0)
+          io << (n != 1 ? %(<ol start="#{n}">) : "<ol>")
+        else
+          io << "<ul>"
         end
       end
     end
