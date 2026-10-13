@@ -149,12 +149,14 @@ module Crysterm
       RadioChecked      # the mark when selected
       RadioUnchecked    # the mark when not selected
       # A whole indicator in one cell, no delimiters — what a menu's check
-      # column draws when the tier is above ASCII (`☐`/`☑`, `○`/`◉`), in
-      # place of the composed `[x]`, which stays the ASCII rendition.
+      # column draws when the tier is above ASCII (`☐`/`☑`, `◉` and a blank
+      # for an unselected radio entry, as Qt draws nothing for an unchecked
+      # exclusive action), in place of the composed `[x]`, which stays the
+      # ASCII rendition.
       CheckMarkChecked   # a checked checkbox: `☑`
       CheckMarkUnchecked # an unchecked one: `☐`
       RadioMarkChecked   # a selected radio button: `◉`
-      RadioMarkUnchecked # an unselected one: `○`
+      RadioMarkUnchecked # an unselected one: blank (override to show `○`)
 
       # -- Disclosure markers (Tree nodes, ToolBox section headers) ----------
       TreeExpanded
@@ -660,7 +662,7 @@ module Crysterm
       set_in t, Role::CheckMarkChecked, Entry.new('x', '☑')
       set_in t, Role::CheckMarkUnchecked, Entry.new(' ', '☐')
       set_in t, Role::RadioMarkChecked, Entry.new('*', '◉')
-      set_in t, Role::RadioMarkUnchecked, Entry.new(' ', '○')
+      set_in t, Role::RadioMarkUnchecked, Entry.new(' ')
 
       set_in t, Role::TreeExpanded, Entry.new('v', '▾')
       set_in t, Role::TreeCollapsed, Entry.new('>', '▸')

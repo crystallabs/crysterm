@@ -396,15 +396,16 @@ module Crysterm
       # (`Event::MessageChanged`). Nothing happens for an unchanged text,
       # beyond taking on *full_width* (`#show_message`).
       private def message_changed(text : String, full_width : Bool = false) : Nil
+        full_width &&= !text.empty?
         if @message == text
           return if @full_width_message == full_width
-          @full_width_message = full_width && !text.empty?
+          @full_width_message = full_width
           apply_cover
           update!
           return
         end
         @message = text
-        @full_width_message = full_width && !text.empty?
+        @full_width_message = full_width
         apply_message_to_fields
         apply_cover
         update!

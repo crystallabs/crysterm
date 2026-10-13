@@ -40,6 +40,29 @@ describe Crysterm::Neovim::Handler do
     window.destroy
   end
 
+  it "types nothing into a shared Neovim once detached" do
+    window = nvd_window
+    a = Crysterm::Widget::PlainTextEdit.new parent: window, width: 40, height: 4
+    b = Crysterm::Widget::PlainTextEdit.new parent: window, top: 5, width: 40, height: 4
+    a.value = "abc"
+    b.value = "xyz"
+    client = Crysterm::Neovim::Client.new(args: Crysterm::Neovim::Handler.default_args.dup)
+    ha = Crysterm::Neovim::Handler.new client
+    hb = Crysterm::Neovim::Handler.new client
+    ha.attach(a).should be_true
+    hb.attach(b).should be_true
+    hb.detach
+    # The window shows the other handler's buffer now; keys sent through
+    # the detached handler go nowhere.
+    hb.input "0x"
+    ha.sync
+    a.value.should eq "abc"
+    ha.detach
+  ensure
+    client.try &.close
+    window.try &.destroy
+  end
+
   it "leaves no exit block on a shared Neovim it detached from" do
     window = nvd_window
     w = Crysterm::Widget::PlainTextEdit.new parent: window, width: 40, height: 8

@@ -296,7 +296,9 @@ module Crysterm
           teardown
           return false
         end
-        true
+        # A Neovim that ended during the setup's last step (its first state,
+        # which reports a failure by detaching) has left the widget already.
+        attached?
       end
 
       # Gives the widget back its own key handling: drops the handler's
@@ -312,7 +314,9 @@ module Crysterm
       # as if typed into the widget, and waits until the widget mirrors what
       # they did (at most `#sync_timeout`).
       def input(keys : String) : Nil
-        client = @client || return
+        # Detached from a shared Neovim, the handler has the client still,
+        # but no buffer: the keys would go to whichever its window shows.
+        return unless (client = @client) && @buffer
         exclusive(client) do
           flush_pending
           show_buffer client
@@ -347,14 +351,18 @@ module Crysterm
         client.request "nvim_exec_lua", "crysterm_vi.attach(...)", [buf, target.single_line?, @lines, !@read_only]
         @notification = client.on_notification { |method, params| notified client, method, params }
         @exit_handler = client.on_exit { |code| exited client, code }
-        client.request "nvim_win_set_buf", 0_i64, buf
-        @@shown[client.object_id] = buf
-        begin
-          client.request "nvim_ui_attach", *ui_size(widget), {"ext_linegrid" => true, "ext_cmdline" => true, "ext_messages" => true, "rgb" => true}
-        rescue Error
-          # A shared Neovim has a UI attached already.
+        # Under the client's lock, as `#show_buffer`: a handler sharing the
+        # Neovim may be between its own buffer switch and its keys.
+        exclusive(client) do
+          client.request "nvim_win_set_buf", 0_i64, buf
+          @@shown[client.object_id] = buf
+          begin
+            client.request "nvim_ui_attach", *ui_size(widget), {"ext_linegrid" => true, "ext_cmdline" => true, "ext_messages" => true, "rgb" => true}
+          rescue Error
+            # A shared Neovim has a UI attached already.
+          end
+          push_caret client, target, Mode::Normal
         end
-        push_caret client, target, Mode::Normal
 
         @subs.on(widget, ::Crysterm::Event::KeyPress, at: ::EventHandler.at_beginning) { |e| key_pressed e }
         @subs.on(widget, ::Crysterm::Event::Paste, at: ::EventHandler.at_beginning) { |e| pasted e }

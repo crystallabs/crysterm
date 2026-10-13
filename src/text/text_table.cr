@@ -313,28 +313,30 @@ module Crysterm
       first_block = doc.blocks[first_bi]
       base_bf = first_block.block_format
       bf = new_format ? base_bf.merge(TextBlockFormat.new(table_format: tf)) : base_bf
-      # The cells the wrapped rows are remembered as before the build, which
-      # remembers its own: a row whose rendering stays can still stand for
-      # other cells (a space typed where a word was broken mid-way).
-      remembered = {} of String => Array(String)?
-      unless new_format
-        doc.blocks[first_bi, old_count].each do |b|
-          text = b.text
-          remembered[text] = @format.wrapped_cells[text]? if text.includes?(TextTable::LINE_SEAM)
-        end
-      end
+      # What the build changes of the rows' readings, each an undo step: a
+      # row whose rendering stays can still stand for other cells (a space
+      # typed where a word was broken mid-way), announced on that row, and
+      # a text another state of the table shows may now read otherwise, put
+      # back on undo. (A new format's readings are all new.)
+      journal = new_format ? nil : {} of String => Array(String)?
       fresh = TextTable.build_blocks(header, body, tf.alignments, tf.columns, bf, TextTable.border_char_format(first_block),
-        TextTable.available_width(doc.text_width, base_bf))
+        TextTable.available_width(doc.text_width, base_bf), journal)
+      changes = journal ? TextTable.journal_changes(@format, journal) : nil
+      common = Math.min(old_count, fresh.size)
+      kept = (0...common).select { |k| doc.blocks[first_bi + k].text == fresh[k].text }
       doc.edit do
-        common = Math.min(old_count, fresh.size)
+        if changes
+          kept.each { |k| changes.delete(fresh[k].text) }
+          changes.each { |text, (was, now)| doc.change_wrapped_cells(nil, @format, text, was, now) }
+        end
         (0...common).each do |k|
           bi = first_bi + k
           b = doc.blocks[bi]
           nb = fresh[k]
           if b.text == nb.text
             text = b.text
-            if remembered.has_key?(text)
-              was = remembered[text]
+            if journal && journal.has_key?(text)
+              was = journal[text]
               now = @format.wrapped_cells[text]?
               doc.change_wrapped_cells(doc.block_position(bi), @format, text, was, now) unless was == now
             end
@@ -457,7 +459,13 @@ module Crysterm
     # a row (a copy of part of it) is cut at its seams the same way.
     def self.display_lines(text : String) : Array(String)
       return [text] unless text.includes?(LINE_SEAM)
-      text.gsub(LINE_SEAM, "│\n│").split('\n')
+      display_text(text).split('\n')
+    end
+
+    # Row *text* with its display lines (`.display_lines`) joined by
+    # `'\n'`: what a view lays out and a plain-text copy gives.
+    def self.display_text(text : String) : String
+      text.includes?(LINE_SEAM) ? text.gsub(LINE_SEAM, "│\n│") : text
     end
 
     # The block offsets of each display line's bars in row *text*, line by
@@ -742,8 +750,10 @@ module Crysterm
     # `#build`'s core with the format objects supplied. The editing ops pass the
     # live table's own block format (identity matters) and border colors rather
     # than fresh ones. *width* is the table's own width limit, bars included
-    # (`.available_width`), or nil for natural widths.
-    protected def self.build_blocks(header : Array(String), body : Array(Array(String)), alignments : Array(Tput::AlignFlag)?, cols : Int32, bf : TextBlockFormat, border_fmt : TextCharFormat, width : Int32? = nil) : Array(TextBlock)
+    # (`.available_width`), or nil for natural widths. *journal*, when given,
+    # gets what each `TextTableFormat#wrapped_cells` entry the build sets or
+    # drops was before it (`.journal_changes`).
+    protected def self.build_blocks(header : Array(String), body : Array(Array(String)), alignments : Array(Tput::AlignFlag)?, cols : Int32, bf : TextBlockFormat, border_fmt : TextCharFormat, width : Int32? = nil, journal : Hash(String, Array(String)?)? = nil) : Array(TextBlock)
       # A v_char inside a cell renders indistinguishably from a column boundary,
       # so grid recovery (`split_data_row`) would read it as an extra cell. Map
       # it to an ASCII '|', which recovery never splits on and the markdown
@@ -759,10 +769,10 @@ module Crysterm
       h = Glyphs[Glyphs::Role::LineHorizontal, tier]
       blocks = [] of TextBlock
       blocks << border_block(widths, Glyphs[Glyphs::Role::BorderLineTL, tier], Glyphs[Glyphs::Role::JunctionTeeTop, tier], Glyphs[Glyphs::Role::BorderLineTR, tier], h, border_fmt, bf)
-      blocks << data_block(header, widths, alignments, bold: true, border_fmt: border_fmt, bf: bf)
+      blocks << data_block(header, widths, alignments, bold: true, border_fmt: border_fmt, bf: bf, journal: journal)
       blocks << border_block(widths, Glyphs[Glyphs::Role::JunctionTeeLeft, tier], Glyphs[Glyphs::Role::JunctionCross, tier], Glyphs[Glyphs::Role::JunctionTeeRight, tier], h, border_fmt, bf)
       body.each do |row|
-        blocks << data_block(row, widths, alignments, bold: false, border_fmt: border_fmt, bf: bf)
+        blocks << data_block(row, widths, alignments, bold: false, border_fmt: border_fmt, bf: bf, journal: journal)
       end
       blocks << border_block(widths, Glyphs[Glyphs::Role::BorderLineBL, tier], Glyphs[Glyphs::Role::JunctionTeeBottom, tier], Glyphs[Glyphs::Role::BorderLineBR, tier], h, border_fmt, bf)
       blocks
@@ -832,9 +842,11 @@ module Crysterm
 
     # One data row's block: its cells wrapped to their column *widths*,
     # one display line after another (see the class docs), each line's
-    # pieces aligned on their own. A wrapped row whose cells would not join
-    # back from their pieces is remembered on the table format.
-    private def self.data_block(cells, widths, alignments, bold : Bool, border_fmt, bf) : TextBlock
+    # pieces aligned on their own. A row whose cells would not join back
+    # from their pieces is remembered on the table format: a wrapped one, or
+    # one whose cell fits its column only with a run of spaces closed up
+    # (`K  ey` in a column of 4 is `K ey`).
+    private def self.data_block(cells, widths, alignments, bold : Bool, border_fmt, bf, journal : Hash(String, Array(String)?)? = nil) : TextBlock
       v = v_char.to_s
       cell_fmt = bold ? TextCharFormat.new(bold: true) : TextCharFormat.default
       wrapped = widths.map_with_index { |w, i| wrap_cell(cells[i]? || "", w) }
@@ -849,27 +861,48 @@ module Crysterm
         end
       end
       block = TextBlock.new(frags, bf)
-      if height > 1 && (tf = bf.table_format)
+      if tf = bf.table_format
+        # A cell `.wrap_cell` left as it was reads back as itself.
+        squeezed = wrapped.each_with_index.any? { |lines, i| lines.size > 1 || lines[0] != (cells[i]? || "") }
         text = block.text
-        exact = Array.new(widths.size) { |i| (cells[i]? || "").strip(' ') }
+        exact = Array.new(widths.size) { |i| (cells[i]? || "").strip(' ') } if squeezed
+        if journal && !journal.has_key?(text)
+          journal[text] = tf.wrapped_cells[text]?
+        end
         # A rendering that reads back as it looks forgets what it was
         # remembered for: the same lines can be a word broken mid-way or
         # the words of a space typed at that break, and the cells they
         # stand for now are these.
-        if split_data_row(text) == exact
-          tf.wrapped_cells.delete(text)
-        else
+        if exact && split_data_row(text) != exact
           tf.wrapped_cells[text] = exact
+        else
+          tf.wrapped_cells.delete(text) unless tf.wrapped_cells.empty?
         end
       end
       block
     end
 
+    # The `TextTableFormat#wrapped_cells` entries of *format* a build changed,
+    # from its *journal* (`.build_blocks`): `{was, now}` per row text, nil
+    # for the plain reading. A text can stand for other cells in another
+    # state of the document (a word broken mid-way at one width, the words
+    # of a space typed there at another), so whatever replays that state —
+    # undo, a re-rendering taken back — puts the entry back as it was.
+    protected def self.journal_changes(format : TextTableFormat, journal : Hash(String, Array(String)?)) : Hash(String, {Array(String)?, Array(String)?})
+      changes = {} of String => {Array(String)?, Array(String)?}
+      journal.each do |text, was|
+        now = format.wrapped_cells[text]?
+        changes[text] = {was, now} unless was == now
+      end
+      changes
+    end
+
     # *run* — one table's blocks, top border to bottom — rendered afresh for
     # *text_width* (`TextDocument#text_width`), from the grid it shows: the
     # new blocks, whose fragments are what *run*'s should become, or nil
-    # when they already are, or when *run* is not a whole table.
-    protected def self.rerender(run : Array(TextBlock), text_width : Int32?) : Array(TextBlock)?
+    # when they already are, or when *run* is not a whole table. *journal*
+    # as `.build_blocks`'.
+    protected def self.rerender(run : Array(TextBlock), text_width : Int32?, journal : Hash(String, Array(String)?)? = nil) : Array(TextBlock)?
       first = run.first? || return
       tf = first.block_format.table_format || return
       return if data_row?(first.text) || data_row?(run.last.text)
@@ -877,7 +910,7 @@ module Crysterm
       return if data.empty?
       rows = data.map { |b| split_data_row(b.text, tf) }
       fresh = build_blocks(rows[0], rows[1..], tf.alignments, tf.columns, first.block_format,
-        border_char_format(first), available_width(text_width, first.block_format))
+        border_char_format(first), available_width(text_width, first.block_format), journal)
       return unless fresh.size == run.size
       return if fresh.each_with_index.all? { |b, k| b.text == run[k].text }
       fresh
@@ -960,9 +993,12 @@ module Crysterm
 
     # One table's re-rendering to a new `#text_width`: the blocks from index
     # *first* on, with the fragments they had (*old*) and were given
-    # (*new*) — what `TextUndoStack` plays back and forth to replay a
-    # command at the width it was made at.
-    record TableReflow, first : Int32, old : Array(TextBlock), new : Array(TextBlock)
+    # (*new*), and the entries of the table's *format*'s
+    # `TextTableFormat#wrapped_cells` it changed, `{was, now}` per row text
+    # (`TextTable.journal_changes`) — what `TextUndoStack` plays back and
+    # forth to replay a command at the width it was made at.
+    record TableReflow, first : Int32, old : Array(TextBlock), new : Array(TextBlock),
+      format : TextTableFormat, cells : Hash(String, {Array(String)?, Array(String)?})
 
     # Re-renders every table whose rendering differs at *width*, returning
     # the re-renderings.
@@ -971,25 +1007,32 @@ module Crysterm
       bs = blocks_mut
       TextTable.each_run(bs) do |first, last|
         run = bs[first..last]
-        if fresh = TextTable.rerender(run, width)
+        journal = {} of String => Array(String)?
+        if (fresh = TextTable.rerender(run, width, journal)) && (tf = run.first.block_format.table_format)
           old = run.map(&.clone)
           raw_rerender_block_run(first, fresh)
-          reflows << TableReflow.new(first, old, fresh)
+          reflows << TableReflow.new(first, old, fresh, tf, TextTable.journal_changes(tf, journal))
         end
       end
       reflows
     end
 
     # Plays *reflows* forward, or *backward* (from the last, each table
-    # given back its old fragments), returning false — and stopping — at a
-    # table not found as the re-rendering left it (or found it).
+    # given back its old fragments and its old readings of row texts),
+    # returning false — and stopping — at a table not found as the
+    # re-rendering left it (or found it). The entries a re-rendering changed
+    # are those of the texts it gave: set ahead of them going forward, put
+    # back after them going backward, so the rows on show read right when
+    # the change is announced.
     protected def replay_reflows(reflows : Array(TableReflow), backward : Bool) : Bool
       bs = blocks_mut
       (backward ? reflows.reverse : reflows).each do |r|
         from, to = backward ? {r.new, r.old} : {r.old, r.new}
         return false unless r.first + from.size <= bs.size
         return false unless from.each_with_index.all? { |b, k| bs[r.first + k].text == b.text }
+        r.format.apply_wrapped_cells(r.cells, before: false) unless backward
         raw_rerender_block_run(r.first, to)
+        r.format.apply_wrapped_cells(r.cells, before: true) if backward
       end
       true
     end
@@ -997,21 +1040,24 @@ module Crysterm
     # Records, as an undo step, that *format* now reads its row at *pos*,
     # rendered *text*, as *now* rather than *was* (`TextTableFormat#wrapped_cells`,
     # nil for its plain reading): the cells changed though the text did not.
-    protected def change_wrapped_cells(pos : Int32, format : TextTableFormat, text : String, was : Array(String)?, now : Array(String)?) : Nil
+    # A nil *pos* is a text no row shows now, whose reading another state
+    # of the document needs back.
+    protected def change_wrapped_cells(pos : Int32?, format : TextTableFormat, text : String, was : Array(String)?, now : Array(String)?) : Nil
       raw_set_wrapped_cells(pos, format, text, now)
       record_undo TextUndoStack::WrappedCellsCommand.new(pos, format, text, was, now)
     end
 
     # Makes *format* read its row at *pos*, rendered *text*, as *cells* (nil
     # for its plain reading), announced as a format change of the row: its
-    # cells are new, its text and positions are not.
-    protected def raw_set_wrapped_cells(pos : Int32, format : TextTableFormat, text : String, cells : Array(String)?) : Nil
+    # cells are new, its text and positions are not. Unannounced with no
+    # *pos*.
+    protected def raw_set_wrapped_cells(pos : Int32?, format : TextTableFormat, text : String, cells : Array(String)?) : Nil
       if cells
         format.wrapped_cells[text] = cells.dup
       else
         format.wrapped_cells.delete(text)
       end
-      finish_edit(pos, text.size, text.size, kind: :format)
+      finish_edit(pos, text.size, text.size, kind: :format) if pos
     end
 
     # Gives the blocks from index *first* on the fragments of *fresh*, a

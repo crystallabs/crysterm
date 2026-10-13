@@ -396,8 +396,6 @@ module Crysterm
         when MessagePack::Token::ExtT
           handle = MessagePack::IOUnpacker.new(token.bytes).read rescue nil
           handle.as?(Int).try(&.to_i64) || 0_i64
-        else
-          nil
         end
       end
 

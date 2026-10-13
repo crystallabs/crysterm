@@ -164,6 +164,8 @@ module Crysterm
         # Enter (or a click on the already-selected row) emits `ItemActivated`;
         # activate the corresponding action.
         on(::Crysterm::Event::ItemActivated) { |e| activate_index e.index }
+        # A hidden menu keeps no active action (`#clear_active_action`).
+        on(::Crysterm::Event::Hide) { clear_active_action }
         # The highlight leaves with the menu (`menu/tips.cr`).
         wire_tips
       end
@@ -338,6 +340,16 @@ module Crysterm
       # cycling backward, so it starts from the bottom end).
       def select_last_action : Nil
         reveal_edge -1
+      end
+
+      # Qt's `QMenu::hideEvent`, which sets no current action: a hidden menu
+      # forgets its highlight, so it reopens as it first opened — no row
+      # highlighted, the current row back on the first selectable one —
+      # where Enter or Space revealing the highlight, or `#selected_action`,
+      # would pick up the row last hovered or clicked, a disabled one too.
+      private def clear_active_action : Nil
+        @show_highlight = false
+        edge_selectable(1).try { |i| self.current_index = i }
       end
 
       private def reveal_edge(dir : Int32) : Nil

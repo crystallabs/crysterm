@@ -150,45 +150,8 @@ module Crysterm
           when 'S' then "F4"
           when '~' then tilde_name ke.number
           when 'u'
-            case n = ke.number
-            when 27  then "Esc"
-            when 13  then "CR"
-            when 9   then "Tab"
-            when 127 then "BS"
-            when 32  then "Space"
-            when ::Tput::KeyEvent::KEYPAD
-              # Neovim names a keypad key apart from the key it stands for
-              # (unmapped, it acts as that key).
-              KEYPAD[n]?
-            when 57376..57398
-              # kitty's F13 (57376) through F35, which have no legacy form.
-              "F#{n - 57376 + 13}"
-            else
-              return if n < 0x20 || (0xE000 <= n <= 0xF8FF)
-              modded = ke.ctrl? || ke.alt? || ke.meta? || ke.super?
-              base = n.chr rescue return
-              if modded
-                # With Ctrl/Alt/Super the key itself is named, and Shift
-                # stays a modifier: `<C-S-a>`.
-                base.to_s
-              else
-                # A text key: the character it types — the terminal's text
-                # when it sent that, else the shifted character it reported
-                # (or a letter's capital) — Shift being in the character.
-                shift = false
-                ch =
-                  if (t = ke.text) && (c = t[0]?)
-                    c
-                  elsif ke.shift? && (s = ke.shifted)
-                    s.chr rescue base
-                  elsif ke.shift?
-                    base.upcase
-                  else
-                    base
-                  end
-                ch.to_s
-              end
-            end
+            key, shift = csi_u_name(ke) || return
+            key
           end
         return unless name
 
@@ -203,6 +166,53 @@ module Crysterm
         else
           "<#{mods}#{special_char_name(name)}>"
         end
+      end
+
+      # The name of a key reported with a `u` final (kitty's `CSI code u`),
+      # by its code, and whether Shift is still a modifier of it (not when
+      # it is in the character typed); `nil` for a code with no input.
+      private def csi_u_name(ke : ::Tput::KeyEvent) : {String, Bool}?
+        shift = ke.shift?
+        name =
+          case n = ke.number
+          when 27  then "Esc"
+          when 13  then "CR"
+          when 9   then "Tab"
+          when 127 then "BS"
+          when 32  then "Space"
+          when ::Tput::KeyEvent::KEYPAD
+            # Neovim names a keypad key apart from the key it stands for
+            # (unmapped, it acts as that key).
+            KEYPAD[n]?
+          when 57376..57398
+            # kitty's F13 (57376) through F35, which have no legacy form.
+            "F#{n - 57376 + 13}"
+          else
+            return if n < 0x20 || (0xE000 <= n <= 0xF8FF)
+            base = n.chr rescue return
+            if ke.ctrl? || ke.alt? || ke.meta? || ke.super?
+              # With Ctrl/Alt/Super the key itself is named, and Shift
+              # stays a modifier: `<C-S-a>`.
+              base.to_s
+            else
+              # A text key: the character it types — the terminal's text
+              # when it sent that, else the shifted character it reported
+              # (or a letter's capital) — Shift being in the character.
+              shift = false
+              ch =
+                if (t = ke.text) && (c = t[0]?)
+                  c
+                elsif ke.shift? && (s = ke.shifted)
+                  s.chr rescue base
+                elsif ke.shift?
+                  base.upcase
+                else
+                  base
+                end
+              ch.to_s
+            end
+          end
+        {name, shift} if name
       end
 
       # The name of a key reported with a `~` final, by its number.

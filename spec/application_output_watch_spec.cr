@@ -45,4 +45,20 @@ describe "Application#exec watching for output failures" do
       added.destroy
     end
   end
+
+  it "leaves no watch behind when exec returns from a headless capture" do
+    app = Crysterm::Application.new
+    window = headless_window
+    path = File.tempname("capture", ".txt")
+    prev = Crysterm::Config.window_dump
+    begin
+      Crysterm::Config.window_dump = path
+      app.exec(window).should eq 0
+      window.handlers(Crysterm::Event::OutputFailed).size.should eq 0
+    ensure
+      Crysterm::Config.window_dump = prev
+      File.delete? path
+      window.destroy
+    end
+  end
 end

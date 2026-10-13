@@ -39,12 +39,7 @@ module Crysterm
       String.build do |io|
         @blocks.each_with_index do |b, i|
           io << '\n' if i > 0
-          text = b.text
-          if b.block_format.table_format && text.includes?(TextTable::LINE_SEAM)
-            TextTable.display_lines(text).join(io, '\n')
-          else
-            io << text
-          end
+          io << (b.block_format.table_format ? TextTable.display_text(b.text) : b.text)
         end
       end
     end

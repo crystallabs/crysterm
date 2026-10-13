@@ -3,8 +3,9 @@ require "./spec_helper"
 include Crysterm
 
 # Above the ASCII tier a menu's check column draws one glyph per mark —
-# `☑`/`☐`, and `◉`/`○` for a member of an exclusive `ActionGroup` — two cells
-# with the gap before the label, where the ASCII tier keeps the composed
+# `☑`/`☐`, and for a member of an exclusive `ActionGroup` `◉` when selected and
+# a blank when not (Qt draws nothing for an unchecked exclusive action) — two
+# cells with the gap before the label, where the ASCII tier keeps the composed
 # `[x] `/`[ ] ` of four.
 
 private def check_menu(s)
@@ -32,7 +33,32 @@ describe "Menu check marks" do
   it "draws one glyph per mark, radio marks for an exclusive group, above the ASCII tier" do
     s = headless_screen(40, 10)
     menu = check_menu s
-    rows(menu).should eq ["☑ Wrap", "☐ Ruler", "  Reload", "○ Light", "◉ Dark"]
+    rows(menu).should eq ["☑ Wrap", "☐ Ruler", "  Reload", "  Light", "◉ Dark"]
+  end
+
+  it "marks only the selected entry of an exclusive group, the others blank and aligned" do
+    s = headless_screen(40, 10)
+    menu = check_menu s
+    light, dark = rows(menu)[3], rows(menu)[4]
+    dark.should eq "◉ Dark"
+    light.should eq "  Light"
+    light.index("Light").should eq dark.index("Dark")
+    menu.actions[3].checked = true
+    s.repaint
+    rows(menu)[3..].should eq ["◉ Light", "  Dark"]
+  end
+
+  it "keeps the check column when only unselected radio entries are shown" do
+    s = headless_screen(40, 10)
+    menu = Widget::Menu.new parent: s, top: 0, left: 0, width: 24, height: 4
+    group = ActionGroup.new
+    one = Action.new "One"
+    two = Action.new "Two"
+    group.add_action one
+    group.add_action two
+    menu << one << two
+    s.repaint
+    rows(menu).should eq ["  One", "  Two"]
   end
 
   it "keeps the composed bracketed marks at the ASCII tier" do

@@ -156,6 +156,21 @@ module Crysterm
       (base & ~COLOR_MASK) | (packed_bg & COLOR_MASK)
     end
 
+    # *attr*, built on the default attr *from*, carried onto the default *to*:
+    # each field (foreground, background, flags) still at *from*'s value takes
+    # *to*'s, and one an inline SGR changed stays. What a line whose start attr
+    # was parsed against a widget's own style begins with when it is painted
+    # under a style its parent substituted (`Widget#render_style_for`).
+    def self.rebase(attr : Int64, from : Int64, to : Int64) : Int64
+      return to if attr == from
+      attr = with_fg(attr, fg(to)) if fg(attr) == fg(from)
+      attr = with_bg(attr, bg(to)) if bg(attr) == bg(from)
+      if flags(attr) == flags(from)
+        attr = (attr & ~(FLAGS_MASK << FLAGS_SHIFT)) | (flags(to) << FLAGS_SHIFT)
+      end
+      attr
+    end
+
     # The foreground channel's alpha mode.
     @[AlwaysInline]
     def self.fg_alpha(attr : Int64) : Alpha

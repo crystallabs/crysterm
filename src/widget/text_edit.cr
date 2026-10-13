@@ -664,9 +664,7 @@ module Crysterm
       private def wrap_block(blk : TextBlock, wrap_width : Int32) : CLines
         text = blk.text
         text = text.gsub('\t', style.tab_char * style.tab_size) if text.includes?('\t')
-        if blk.block_format.table_format && text.includes?(TextTable::LINE_SEAM)
-          text = TextTable.display_lines(text).join('\n')
-        end
+        text = TextTable.display_text(text) if blk.block_format.table_format
         wrap_lines(text, wrap_width)
       end
 

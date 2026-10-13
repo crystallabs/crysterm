@@ -575,14 +575,27 @@ module Crysterm
     # Per-column horizontal alignment (GFM `:---:`); `nil`/missing = left.
     getter alignments : Array(Tput::AlignFlag)?
 
-    # The cells of the rows this table rendered with wrapped cells whose
-    # pieces, joined back with single spaces, would not give the cells as
-    # they were — a word broken in the middle, a run of spaces at a line
-    # break — keyed by the row block's text. `TextTable.split_data_row`
+    # The cells of the rows this table rendered with wrapped (or squeezed)
+    # cells whose pieces, joined back with single spaces, would not give the
+    # cells as they were — a word broken in the middle, a run of spaces at a
+    # line break or closed up to fit — keyed by the row block's text. `TextTable.split_data_row`
     # reads a row through it, so a wrapped row recovers its cells exactly
     # and a reflow to another width never accumulates spaces. Not a value:
     # instance identity stays the table's identity.
     protected getter wrapped_cells = {} of String => Array(String)
+
+    # Puts *changes* — `{was, now}` per row text, nil for the plain reading
+    # (`TextDocument::TableReflow#cells`) — into `#wrapped_cells`: each entry
+    # as it was *before*, or as it became.
+    protected def apply_wrapped_cells(changes : Hash(String, {Array(String)?, Array(String)?}), before : Bool) : Nil
+      changes.each do |text, (was, now)|
+        if cells = before ? was : now
+          @wrapped_cells[text] = cells.dup
+        else
+          @wrapped_cells.delete(text)
+        end
+      end
+    end
 
     def initialize(*, @columns : Int32 = 1, margin : Int32 = 0, border : Bool = true, @alignments : Array(Tput::AlignFlag)? = nil)
       super(margin: margin, border: border)

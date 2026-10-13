@@ -358,6 +358,8 @@ module Crysterm
       # driven by test/example tooling — render one frame, write the requested
       # artifact(s), and return instead of entering the interactive loop.
       if window.run_env_capture
+        # `#add` above watched the window: the loop was marked running.
+        unwatch_outputs
         @exec_running = false
         return 0
       end

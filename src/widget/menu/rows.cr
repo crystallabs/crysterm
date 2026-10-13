@@ -383,8 +383,9 @@ module Crysterm
       # *measured*: its width is the widest state's mark plus a gap, shared by
       # every row so labels start at a consistent column — and it vanishes
       # entirely when no item is checkable. Above the ASCII tier a mark is one
-      # glyph (`☑`/`☐`, and `◉`/`○` for a member of an exclusive
-      # `ActionGroup`), a two-cell column; at the ASCII tier it is the composed
+      # glyph (`☑`/`☐`, and for a member of an exclusive `ActionGroup` `◉` when
+      # selected and a blank when not, as Qt draws nothing for an unchecked
+      # exclusive action), a two-cell column; at the ASCII tier it is the composed
       # `[x]`, four cells.
       private def row_columns(acts : Array(Action)) : {Array(String), Array(String)}
         tier = glyph_tier
@@ -441,9 +442,14 @@ module Crysterm
       # The check mark *action* shows at *tier*: one glyph (a radio mark for a
       # member of an exclusive group), or the delimited checkbox at ASCII.
       private def check_mark(action : Action, tier : Glyphs::Tier) : String
-        on = action.checked?
+        check_mark action.checked?, !!action.action_group.try(&.exclusive?), tier
+      end
+
+      # :ditto: — the mark of a checked (*on*) or unchecked checkbox or, with
+      # *radio*, radio button.
+      private def check_mark(on : Bool, radio : Bool, tier : Glyphs::Tier) : String
         if single_check_marks?(tier)
-          role = if action.action_group.try(&.exclusive?)
+          role = if radio
                    on ? Glyphs::Role::RadioMarkChecked : Glyphs::Role::RadioMarkUnchecked
                  else
                    on ? Glyphs::Role::CheckMarkChecked : Glyphs::Role::CheckMarkUnchecked
@@ -456,18 +462,12 @@ module Crysterm
       end
 
       # The check column's width at *tier*: the widest mark any state can
-      # show, plus the gap before the label.
+      # show, plus the gap before the label. Measured on the marks the rows
+      # draw, as the rows pad them (`#str_width`), so a mark is never wider
+      # than its column — a multi-codepoint glyph override included.
       private def check_column_width(tier : Glyphs::Tier) : Int32
-        roles = if single_check_marks?(tier)
-                  {Glyphs::Role::CheckMarkChecked, Glyphs::Role::CheckMarkUnchecked,
-                   Glyphs::Role::RadioMarkChecked, Glyphs::Role::RadioMarkUnchecked}
-                else
-                  {Glyphs::Role::CheckboxChecked, Glyphs::Role::CheckboxUnchecked}
-                end
-        widest = roles.max_of { |r| Unicode.width(Glyphs.str(r, tier)) }
-        unless single_check_marks?(tier)
-          widest += Unicode.width(Glyphs[Glyphs::Role::CheckboxOpen, tier]) +
-                    Unicode.width(Glyphs[Glyphs::Role::CheckboxClose, tier])
+        widest = {false, true}.max_of do |radio|
+          {false, true}.max_of { |on| str_width check_mark(on, radio, tier) }
         end
         widest + 1
       end

@@ -35,10 +35,10 @@ describe Crysterm::Neovim::Handler do
     next
   end
 
-  {% for type in %w(PlainTextEdit TextEdit) %}
-    it "moves a {{type.id}}'s caret as the widget's own moves do: events, the current line's tint" do
+  {% for type in %w[PlainTextEdit TextEdit] %}
+    it "moves a {{ type.id }}'s caret as the widget's own moves do: events, the current line's tint" do
       window = nvc_window
-      w = Crysterm::Widget::{{type.id}}.new parent: window, left: 0, top: 0, width: 40, height: 8
+      w = Crysterm::Widget::{{ type.id }}.new parent: window, left: 0, top: 0, width: 40, height: 8
       w.value = "one\ntwo\nthree\nfour\nfive"
       w.cursor_pos = 0
       window.repaint

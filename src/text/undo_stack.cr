@@ -211,7 +211,7 @@ module Crysterm
     # A wrapped table row read as other cells though its rendering stays
     # (`TextDocument#change_wrapped_cells`).
     class WrappedCellsCommand < Command
-      def initialize(@pos : Int32, @format : TextTableFormat, @text : String,
+      def initialize(@pos : Int32?, @format : TextTableFormat, @text : String,
                      @was : Array(String)?, @now : Array(String)?)
       end
 
@@ -337,8 +337,9 @@ module Crysterm
     #
     # A table re-rendered again is kept as one re-rendering, from its
     # rendering at the last move to the latest, and dropped when that is
-    # where it started (a resize back and forth), so a drag through many
-    # widths holds one copy per table. The tables are apart and each
+    # where it started (a resize back and forth), the texts it went through
+    # reading as before again, so a drag through many widths holds one copy
+    # per table. The tables are apart and each
     # re-rendering keeps the block count, so they need no order among them.
     def reflowed(reflows : Array(TextDocument::TableReflow)) : Nil
       return if reflows.empty? || !(undo_available? || redo_available?)
@@ -346,10 +347,20 @@ module Crysterm
       reflows.each do |r|
         if i = @reflows.index { |q| q.first == r.first && q.new.size == r.old.size }
           q = @reflows[i]
-          if q.old.map(&.text) == r.new.map(&.text)
+          # The readings each changed, from the first's was to the last's now.
+          cells = q.cells.dup
+          r.cells.each do |text, (was, now)|
+            cells[text] = {q.cells.has_key?(text) ? q.cells[text][0] : was, now}
+          end
+          cells.reject! { |_, (was, now)| was == now }
+          texts = r.new.map(&.text)
+          if q.old.map(&.text) == texts && cells.none? { |text, _| texts.includes?(text) }
+            # Back where it started: the texts the table went through on the
+            # way read as they did before.
+            q.format.apply_wrapped_cells(cells, before: true)
             @reflows.delete_at(i)
           else
-            @reflows[i] = TextDocument::TableReflow.new(q.first, q.old, r.new)
+            @reflows[i] = TextDocument::TableReflow.new(q.first, q.old, r.new, q.format, cells)
           end
         else
           @reflows << r

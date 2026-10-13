@@ -388,6 +388,10 @@ module Crysterm
       # defensive fallback.
       default_attr = (style.same?(own_style) ? @_parse_attr_default : nil) || style_to_attr(style)
       attr = default_attr
+      # Under a substituted style (a menu's disabled row) the lines' start
+      # attrs, parsed against our own, are carried onto it (`Attr.rebase`), or
+      # a line with inline tags (a mnemonic's underline) paints in our own look.
+      parsed_default = style.same?(own_style) ? nil : @_parse_attr_default
 
       # Effective per-edge insets: on a scroll-clipped edge part (or all) of the
       # border/padding band is hidden past the ancestor's viewport, and `coords`
@@ -571,6 +575,7 @@ module Crysterm
           ridx = row_index(rows.unsafe_fetch(r), y - yi)
           last_row = r == row_count - 1
           attr = row_attrs.try(&.[r]?) || default_attr
+          attr = Attr.rebase(attr, parsed_default, default_attr) if parsed_default
           if keep_selected_fg && attr != default_attr
             attr = Attr.pack(Attr.flags(attr), Attr.fg(default_attr), Attr.bg(attr))
           end
