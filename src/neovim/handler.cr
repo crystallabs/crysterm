@@ -1027,6 +1027,10 @@ module Crysterm
         # Neovim's whole text.
         s, e, ins = edit || {0, target.buf_size, joined_lines(separator)}
         replace target, s, e, ins
+        # A `'\r'` in a line (`<C-v><CR>`) is a line break to the widget's
+        # document (`TextDocument.normalize_line_breaks`), which split the
+        # line there: Neovim takes the lines the widget has now.
+        outside_change(text: true) if !target.single_line? && data.any?(&.includes?('\r'))
       end
 
       # The widget's range and the text that replace lines *first*...*last*

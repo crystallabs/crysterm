@@ -636,8 +636,21 @@ module Crysterm
     # cursors rewind to the start. Returns the assigned text (the interchange
     # setters' shared convention).
     def set_plain_text(text : String) : String
-      replace_content(text.split('\n').map { |l| TextBlock.new(l) })
+      replace_content(TextDocument.normalize_line_breaks(text).split('\n').map { |l| TextBlock.new(l) })
       text
+    end
+
+    # *text* with every line break in it as the `'\n'` that separates a
+    # document's blocks: a `"\r\n"` pair and a lone `'\r'` each become one
+    # `'\n'`. Qt's `QTextCursor::insertText` (behind `setPlainText`,
+    # `QTextDocumentFragment::fromPlainText` and every insertion) takes
+    # `'\n'`, `"\r\n"` and `'\r'` alike as a paragraph break, so no block
+    # of a `QTextDocument` holds a `'\r'`; the plain-text setters and
+    # insertions here put their text through this for the same, and
+    # `#to_plain_text` gives `'\n'`s. A text without a `'\r'` is returned
+    # as is.
+    def self.normalize_line_breaks(text : String) : String
+      text.includes?('\r') ? text.gsub(/\r\n?/, "\n") : text
     end
 
     # `=`-setter spelling of `#set_plain_text`.
@@ -668,6 +681,7 @@ module Crysterm
     # The name sets it beside `#set_plain_text`, which replaces the text as
     # a reset: this one replaces it as an edit.
     def replace_plain_text(text : String) : Bool
+      text = TextDocument.normalize_line_breaks(text)
       old = to_plain_text
       return false if old == text
       old_lines = LineDiff.lines(old)
@@ -896,11 +910,13 @@ module Crysterm
     # editing either); these are its delegates, shared by the in-tree
     # structure views (`TextTable`, `TextToc`, …). ===
 
-    # Inserts `text` at `pos`; `'\n'`s split blocks. Without an explicit
-    # format, inherits the format at the insertion point. Returns the number
-    # of positions inserted.
+    # Inserts `text` at `pos`; line breaks (`'\n'`, `"\r\n"`, a lone `'\r'`
+    # — `.normalize_line_breaks`) split blocks. Without an explicit format,
+    # inherits the format at the insertion point. Returns the number of
+    # positions inserted.
     protected def insert_text(pos : Int32, text : String, format : TextCharFormat? = nil) : Int32
       return 0 if text.empty?
+      text = TextDocument.normalize_line_breaks(text)
       pos = pos.clamp(0, size)
       format ||= typing_format_at(pos)
       edit_step do

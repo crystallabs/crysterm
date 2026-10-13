@@ -13,13 +13,15 @@ module Crysterm
       raise ArgumentError.new("TextDocumentFragment requires at least one block") if @blocks.empty?
     end
 
-    # Builds a fragment from plain text, splitting on `'\n'`.
+    # Builds a fragment from plain text, one block per line: `'\n'`,
+    # `"\r\n"` and a lone `'\r'` each end one (Qt's `fromPlainText`, through
+    # `TextDocument.normalize_line_breaks`).
     def self.from_plain_text(
       text : String,
       format : TextCharFormat = TextCharFormat.default,
       block_format : TextBlockFormat = TextBlockFormat.default,
     ) : TextDocumentFragment
-      new(text.split('\n').map { |l| TextBlock.new(l, format, block_format) })
+      new(TextDocument.normalize_line_breaks(text).split('\n').map { |l| TextBlock.new(l, format, block_format) })
     end
 
     # Length in document coordinates: block sizes plus one per separator.

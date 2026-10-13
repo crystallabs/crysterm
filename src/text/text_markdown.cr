@@ -118,7 +118,13 @@ module Crysterm
     # such as an empty blockquote `>`). A document needs that block; a piece
     # `TextDocument#append_markdown` adds to one does not — appended, it
     # would be a blank line the whole text never had.
+    #
+    # Line breaks are taken as `TextDocument#set_plain_text` takes them: a
+    # `"\r\n"` or a lone `'\r'` is a `'\n'` (`TextDocument.normalize_line_breaks`),
+    # so a CRLF source imports to the same blocks as its LF copy, with no
+    # `'\r'` left in a code block's or a paragraph's text.
     def self.parse_piece(text : String) : Array(TextBlock)
+      text = TextDocument.normalize_line_breaks(text)
       doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
       fold_tocs(Importer.new(text).import(doc))
     end
@@ -387,6 +393,9 @@ module Crysterm
       getter piece_line = 1
       # Lines (`'\n'`s) released so far.
       @released_lines = 0
+      # The last chunk ended in a `'\r'`: a `'\n'` opening the next one is
+      # the rest of that `"\r\n"` break, already taken.
+      @after_cr = false
 
       # Byte offset into `@pending` of the first unscanned byte; only whole
       # `'\n'`-terminated lines are ever classified.
@@ -416,9 +425,20 @@ module Crysterm
 
       # Buffers *chunk* and returns the markdown now safe to parse in
       # isolation, or nil when everything (still) waits on future chunks.
+      #
+      # Line breaks are made `'\n'`s as they come in
+      # (`TextDocument.normalize_line_breaks`); a `"\r\n"` split across two
+      # chunks is one break, the `'\n'` that opens the second chunk going
+      # with the `'\r'` that ended the first.
       def append(chunk : String) : String?
         return if chunk.empty?
-        @pending += chunk
+        if @after_cr
+          @after_cr = false
+          chunk = chunk.lchop('\n')
+          return if chunk.empty?
+        end
+        @after_cr = chunk.ends_with?('\r')
+        @pending += TextDocument.normalize_line_breaks(chunk)
         scan
         release
       end
@@ -437,6 +457,7 @@ module Crysterm
 
       private def reset : Nil
         @pending = ""
+        @after_cr = false
         @scan_pos = 0
         @boundaries.clear
         @last_content_end = 0
@@ -451,7 +472,7 @@ module Crysterm
       # Classifies every newly complete line.
       private def scan : Nil
         while nl = @pending.byte_index('\n'.ord, @scan_pos)
-          line = @pending.byte_slice(@scan_pos, nl - @scan_pos).chomp('\r')
+          line = @pending.byte_slice(@scan_pos, nl - @scan_pos)
           @scan_pos = nl + 1
           classify(line, @scan_pos)
         end
