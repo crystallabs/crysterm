@@ -1491,6 +1491,7 @@ module Crysterm
       end
 
       def export(blocks : Array(TextBlock)) : String
+        opens = alert_opens(blocks)
         String.build do |io|
           i = 0
           while i < blocks.size
@@ -1505,7 +1506,7 @@ module Crysterm
               end
               write_table(io, run, tf)
             else
-              write_block(io, blocks[i], alert_open?(blocks, i))
+              write_block(io, blocks[i], opens[i])
               i += 1
             end
           end
@@ -1753,17 +1754,58 @@ module Crysterm
         col
       end
 
-      # Whether `blocks[i]` opens a new GFM alert run — the block `#write_block`
-      # must prefix with the `[!KIND]` title line: it carries an alert kind,
-      # and either sits first or follows a block whose kind or quote level
-      # differs (a fresh alert, not a continuation of the one above it, e.g.
-      # the blank quote-interior separator between two alert paragraphs).
-      private def alert_open?(blocks : Array(TextBlock), i : Int32) : Bool
-        cf = blocks[i].block_format
-        return false unless cf.alert_kind
-        return true if i == 0
-        pf = blocks[i - 1].block_format
-        pf.alert_kind != cf.alert_kind || pf.quote_level != cf.quote_level
+      # Per block, whether it opens a GFM alert — the block `#write_block`
+      # prefixes with the `[!KIND]` title line. A block of an alert opens one
+      # unless it is in that alert already: after a block of it, deeper in
+      # it (a quote nested in an alert is the alert's content, the importer's
+      # reading), or back in it from a quote nested in it. A blank line
+      # between two quotes — a top margin between two quoted blocks — ends
+      # every alert, so the next quote opens its own even of the same kind;
+      # a quote's blank `>` line before it (`#quote_blank?`) opens none.
+      private def alert_opens(blocks : Array(TextBlock)) : Array(Bool)
+        # The open alerts, outermost first: the quote level each opened at
+        # and its kind.
+        alerts = [] of {Int32, TextBlockFormat::AlertKind}
+        prev = nil
+        blocks.map_with_index do |b, i|
+          bf = b.block_format
+          next false if quote_blank?(blocks, i)
+          level = bf.quote_level
+          alerts.clear if level == 0 || (bf.top_margin > 0 && prev.try(&.quote_level.> 0))
+          prev = bf
+          while (last = alerts.last?) && last[0] > level
+            alerts.pop
+          end
+          kind = bf.alert_kind
+          next false if kind == alerts.last?.try(&.[1])
+          while (last = alerts.last?) && last[0] >= level
+            alerts.pop
+          end
+          next false unless kind
+          alerts << {level, kind}
+          true
+        end
+      end
+
+      # Whether `blocks[i]` is a quote's blank `>` line between two of its
+      # blocks: an empty, otherwise unformatted quoted block between two
+      # blocks of its quote that are not blank themselves (the separator
+      # the importer makes of that line).
+      private def quote_blank?(blocks : Array(TextBlock), i : Int32) : Bool
+        return false if i == 0
+        level = blocks[i].block_format.quote_level
+        return false unless level > 0 && blank_quote_line?(blocks[i])
+        pb = blocks[i - 1]
+        nb = blocks[i + 1]? || return false
+        pb.block_format.quote_level >= level && !blank_quote_line?(pb) &&
+          nb.block_format.quote_level >= level && !blank_quote_line?(nb)
+      end
+
+      # Whether *b* is an empty block with nothing to its format but its
+      # quote level and alert.
+      private def blank_quote_line?(b : TextBlock) : Bool
+        bf = b.block_format
+        b.fragments.empty? && bf == TextBlockFormat.new(quote_level: bf.quote_level, alert_kind: bf.alert_kind)
       end
 
       private def write_block(io : IO, b : TextBlock, open_alert : Bool = false) : Nil
