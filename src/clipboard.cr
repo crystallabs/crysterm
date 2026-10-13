@@ -191,10 +191,21 @@ module Crysterm
 
       # Runs *argv* with *input* on its standard input; its standard output,
       # or nil when the command is not there or exits with a failure.
+      #
+      # The output goes to a temporary file, read once the command exits,
+      # not to a pipe read to its end: a copy command may leave a process
+      # behind to serve the selection — `xclip` forks one that keeps the
+      # standard output it inherited — and the pipe would not end until that
+      # process does, at the next copy elsewhere, the caller hanging till then.
       def self.run_command(argv : Array(String), input : String) : String?
-        output = IO::Memory.new
-        status = Process.run(argv[0], argv[1..], input: IO::Memory.new(input), output: output, error: Process::Redirect::Close)
-        status.success? ? output.to_s : nil
+        output = File.tempfile("crysterm-clipboard")
+        begin
+          status = Process.run(argv[0], argv[1..], input: IO::Memory.new(input), output: output, error: Process::Redirect::Close)
+          status.success? ? File.read(output.path) : nil
+        ensure
+          output.close
+          output.delete
+        end
       rescue IO::Error
         nil
       end

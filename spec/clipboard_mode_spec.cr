@@ -165,6 +165,12 @@ describe Application::Clipboard do
     Application::Clipboard.run_command(["false"], "").should be_nil
     Application::Clipboard.run_command(["no-such-command-for-crysterm"], "").should be_nil
   end
+
+  it "returns once the command exits, though a process it left holds its output open (xclip's)" do
+    started = Time.instant
+    Application::Clipboard.run_command(["sh", "-c", "cat >/dev/null; echo copied; sleep 5 &"], "text").should eq "copied\n"
+    (Time.instant - started).should be < 3.seconds
+  end
 end
 
 describe "TextEditing#copy, #cut, #paste" do
