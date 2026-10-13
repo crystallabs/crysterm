@@ -22,7 +22,10 @@ module Crysterm
   # prefixes (list indents) round-trip.
   #
   # The block model matches `TextMarkdown`'s — `ul`/`ol` → one `TextList` per
-  # list element, `blockquote` nesting → `TextBlockFormat#quote_level`, `hr` → a
+  # list element, `blockquote` nesting → `TextBlockFormat#quote_level` (the
+  # quote's blank line between two of its paragraphs an empty block of its
+  # level, as Markdown's `>` line imports), github.com's `markdown-alert`
+  # `<div>` → a GFM alert's quote (`TextBlockFormat#alert_kind`), `hr` → a
   # `horizontal_rule` block, `pre` → `code_language` rows (one per line), an
   # `img` inline → the picture glyph and alt text, a `p` that is one `img` →
   # a block image (`TextBlockFormat#image`, written back as `<img>`) — so
@@ -47,14 +50,21 @@ module Crysterm
     # group under one `<ul>`/`<ol>`, an item's `<li>` holding what belongs to
     # it — a nested list, a continuation paragraph or code block at its
     # content column — as HTML nests them (the shape the importer reads back);
-    # quote levels nest `<blockquote>`s, rule blocks emit `<hr>`. An empty
+    # quote levels nest `<blockquote>`s, a GFM alert's quote is GitHub's
+    # `<div class="markdown-alert …">` with its title, rule blocks emit `<hr>`.
+    # A quote's blank line between two of its paragraphs (`quote_separator?`)
+    # is the boundary of their elements, and a top margin between two quoted
+    # blocks — a blank line between two quotes in Markdown — ends the quote
+    # and starts another, as a Markdown renderer has them. An empty
     # document — one empty, unformatted block — is no HTML at all, as a
     # Markdown renderer gives for an empty file and the importer reads back.
     def self.generate(blocks : Array(TextBlock)) : String
       return "" if blocks.size == 1 && (only = blocks[0]).fragments.empty? &&
                    only.block_format == TextBlockFormat.default
       String.build do |io|
-        qdepth = 0
+        # The open quotes, outermost first: per level, the alert kind it was
+        # opened as an alert of, or `nil` for a plain `<blockquote>`.
+        quotes = [] of TextBlockFormat::AlertKind?
         open_lists = [] of TextListFormat
         # Per open list level, whether its last item's `<li>` is still open:
         # an item ends where the next one at its level, or anything outside
@@ -64,22 +74,34 @@ module Crysterm
         # after an interruption via `<ol start=…>`.
         list_items = {} of UInt64 => Int32
         emitted_tables = Set(UInt64).new
+        separators = blocks.map_with_index { |_, i| quote_separator?(blocks, i) }
         # The last block of the code run already written whole (`write_pre`).
         run_end = -1
+        # The last block written (separators are not).
+        prev = nil
         blocks.each_with_index do |b, i|
-          next if i <= run_end
+          next if i <= run_end || separators[i]
           bf = b.block_format
-          # Quote wrappers first; a level change closes any open lists
+          # A top margin between two quoted blocks is the blank line between
+          # two quotes: the element is written without it (the importer
+          # gives a quote after a quote that row back).
+          quote_break = bf.quote_level > 0 && bf.top_margin > 0 &&
+                        prev.try { |p| blocks[p].block_format.quote_level > 0 } || false
+          top = quote_break ? bf.top_margin - 1 : bf.top_margin
+          prev = i
+          # Quote wrappers first; a quote change closes any open lists
           # (lists don't span quote boundaries).
-          if bf.quote_level != qdepth
+          keep = quote_break ? 0 : kept_quotes(quotes, bf)
+          if keep < quotes.size || quotes.size < bf.quote_level
             close_lists(io, open_lists, open_items)
-            while qdepth < bf.quote_level
-              io << "<blockquote>"
-              qdepth += 1
+            while quotes.size > keep
+              io << (quotes.pop ? "</div>" : "</blockquote>")
             end
-            while qdepth > bf.quote_level
-              io << "</blockquote>"
-              qdepth -= 1
+            while quotes.size < bf.quote_level
+              kind = bf.alert_kind
+              kind = nil if kind == alert_in(quotes, quotes.size)
+              open_quote(io, kind)
+              quotes << kind
             end
           end
           in_item = false
@@ -107,19 +129,84 @@ module Crysterm
           io << '\n' if i > 0 && !in_item
           if lf.nil? && bf.code_block? && bf.heading_level == 0
             run_end = code_run_end(blocks, i)
-            write_pre(io, blocks, i, run_end, in_item)
+            write_pre(io, blocks, i, run_end, in_item, top)
           else
-            run_end = line_run_end(blocks, i)
-            write_block_element(io, blocks, i, run_end, list_items, in_item)
+            run_end = line_run_end(blocks, i, separators)
+            write_block_element(io, blocks, i, run_end, list_items, in_item, top)
           end
+          prev = run_end
           open_items[-1] = true if lf
         end
         close_lists(io, open_lists, open_items)
-        while qdepth > 0
-          io << "</blockquote>"
-          qdepth -= 1
+        while quotes.size > 0
+          io << (quotes.pop ? "</div>" : "</blockquote>")
         end
       end
+    end
+
+    # Opens a quote: a `<blockquote>`, or for the alert of *kind* the shape
+    # github.com renders a GFM alert as — a `markdown-alert` `<div>` whose
+    # first child is the `markdown-alert-title` paragraph with the kind's
+    # title (GitHub's octicon left out), which the importer reads back.
+    private def self.open_quote(io : IO, kind : TextBlockFormat::AlertKind?) : Nil
+      if kind
+        name = kind.title.downcase
+        io << %(<div class="markdown-alert markdown-alert-) << name << %("><p class="markdown-alert-title">)
+        io << kind.title << "</p>"
+      else
+        io << "<blockquote>"
+      end
+    end
+
+    # How many of the open *quotes* a block of *bf* stays in: as many as
+    # its quote level allows whose alert is the block's, or under which the
+    # block's own alert can still open, deeper (a block of no alert leaves
+    # every alert, a block of another alert leaves its level's).
+    private def self.kept_quotes(quotes : Array(TextBlockFormat::AlertKind?), bf : TextBlockFormat) : Int32
+      kind = bf.alert_kind
+      level = bf.quote_level
+      keep = Math.min(level, quotes.size)
+      until keep == 0 || alert_in(quotes, keep) == kind || (kind && keep < level)
+        keep -= 1
+      end
+      keep
+    end
+
+    # The alert the first *depth* open *quotes* put a block in: the
+    # innermost alert among them (a quote nested in an alert is the alert's
+    # content), or `nil`.
+    private def self.alert_in(quotes : Array(TextBlockFormat::AlertKind?), depth : Int32) : TextBlockFormat::AlertKind?
+      (depth - 1).downto(0) do |level|
+        if kind = quotes[level]
+          return kind
+        end
+      end
+      nil
+    end
+
+    # Whether `blocks[i]` is a quote's blank line between two of its blocks
+    # — the `>` line between two paragraphs in Markdown, which the Markdown
+    # importer keeps as an empty block of the quote's level (that line shows
+    # the quote's bar) — rather than an empty line of a paragraph: an empty,
+    # otherwise unformatted quoted block after a block of its quote and
+    # before another, neither of them blank. HTML has the boundary between
+    # the two elements for it, and the importer puts the block back there.
+    private def self.quote_separator?(blocks : Array(TextBlock), i : Int32) : Bool
+      return false if i == 0
+      b = blocks[i]
+      level = b.block_format.quote_level
+      return false unless level > 0 && blank_quote_line?(b)
+      pb = blocks[i - 1]
+      nb = blocks[i + 1]? || return false
+      pb.block_format.quote_level >= level && !blank_quote_line?(pb) &&
+        nb.block_format.quote_level >= level && !blank_quote_line?(nb)
+    end
+
+    # Whether *b* is an empty block with nothing to its format but its quote
+    # level and alert.
+    private def self.blank_quote_line?(b : TextBlock) : Bool
+      bf = b.block_format
+      b.fragments.empty? && bf == TextBlockFormat.new(quote_level: bf.quote_level, alert_kind: bf.alert_kind)
     end
 
     # Opens the list of item *lf* down to its nesting level, closing the
@@ -225,12 +312,13 @@ module Crysterm
     # and alignment, or a list item's continuation at its content column.
     # Written as one element, a `<br>` between lines (Qt's `toHtml` writes
     # its line separator so), they read as one paragraph, as on screen,
-    # rather than as paragraphs a margin apart.
-    private def self.line_run_end(blocks : Array(TextBlock), i : Int32) : Int32
+    # rather than as paragraphs a margin apart. A quote's blank line between
+    # two of its paragraphs (*separators*, `quote_separator?`) ends it.
+    private def self.line_run_end(blocks : Array(TextBlock), i : Int32, separators : Array(Bool)) : Int32
       head = blocks[i].block_format
       return i unless text_line?(head)
       j = i
-      while (n = blocks[j + 1]?) && line_continues?(head, blocks[j].block_format, n.block_format)
+      while (n = blocks[j + 1]?) && !separators[j + 1] && line_continues?(head, blocks[j].block_format, n.block_format)
         j += 1
       end
       j
@@ -259,11 +347,12 @@ module Crysterm
     # break between lines — the element a browser shows as one block and the
     # importer splits back into its lines — rather than a `<pre>` per line,
     # which a browser sets apart by its default margins. The block's margins
-    # are its first line's top and its last line's bottom; *in_item*, it
-    # sits in a list item's `<li>`, which indents it.
-    private def self.write_pre(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32, in_item : Bool = false) : Nil
+    # are its first line's top (*top* rows) and its last line's bottom;
+    # *in_item*, it sits in a list item's `<li>`, which indents it.
+    private def self.write_pre(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32, in_item : Bool = false,
+                               top : Int32 = blocks[first].block_format.top_margin) : Nil
       head = blocks[first]
-      style = block_style(head.block_format, head, in_item)
+      style = block_style(head.block_format, head, in_item, top: top)
       if (m = blocks[last].block_format.bottom_margin) > 0 && last != first
         style = style.empty? ? "margin-bottom:#{m}em" : "#{style};margin-bottom:#{m}em"
       end
@@ -293,13 +382,14 @@ module Crysterm
     # `<hr>`, a bare `<br>` for a lone empty line — or, for a list item, its
     # `<li>` left open, `generate` closing it once the item's content ends.
     # *in_item*, the block is a list item's continuation, inside its `<li>`,
-    # which indents it.
-    private def self.write_block_element(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32, list_items : Hash(UInt64, Int32), in_item : Bool = false) : Nil
+    # which indents it. The element's top margin is *top* rows.
+    private def self.write_block_element(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32, list_items : Hash(UInt64, Int32), in_item : Bool = false,
+                                         top : Int32 = blocks[first].block_format.top_margin) : Nil
       b = blocks[first]
       bf = b.block_format
       lf = bf.list_format
       if bf.horizontal_rule?
-        style = block_style(bf, b, in_item)
+        style = block_style(bf, b, in_item, top: top)
         io << "<hr"
         io << " style=\"" << style << '"' unless style.empty?
         io << '>'
@@ -322,7 +412,7 @@ module Crysterm
         tag = lvl > 0 ? "h#{lvl.clamp(1, 6)}" : (bf.code_block? ? "pre" : "p")
       end
       style = block_style(bf, b, in_item, blocks[last].block_format.bottom_margin,
-        (first + 1..last).any? { |k| pre_wrap?(blocks[k].text) })
+        (first + 1..last).any? { |k| pre_wrap?(blocks[k].text) }, top)
       io << '<' << tag
       io << " style=\"" << style << '"' unless style.empty?
       write_language_class(io, bf) if tag == "pre"
@@ -392,9 +482,10 @@ module Crysterm
     # *bf*'s CSS for *b*'s element; *in_item*, without the indent, which the
     # list item's `<li>` holding the element gives it. An element of several
     # lines takes the *bottom* margin of its last, and keeps whitespace when
-    # any of them needs it (*pre*).
+    # any of them needs it (*pre*); its top margin is *top* rows.
     private def self.block_style(bf : TextBlockFormat, b : TextBlock, in_item : Bool = false,
-                                 bottom : Int32 = bf.bottom_margin, pre : Bool = false) : String
+                                 bottom : Int32 = bf.bottom_margin, pre : Bool = false,
+                                 top : Int32 = bf.top_margin) : String
       props = [] of String
       if (a = bf.alignment) && (name = TextAlign.align_name(a))
         props << "text-align:#{name}"
@@ -404,8 +495,8 @@ module Crysterm
       end
       # Block spacing as CSS margins (1em = one blank row), so it survives
       # the round-trip into the importer's `margin-*` parsing.
-      if (m = bf.top_margin) > 0
-        props << "margin-top:#{m}em"
+      if top > 0
+        props << "margin-top:#{top}em"
       end
       if bottom > 0
         props << "margin-bottom:#{bottom}em"
@@ -557,6 +648,11 @@ module Crysterm
       # Explicit empties stay real: `<br>`'s new block is marked non-virgin,
       # and trailing `end_block`s emit unconditionally.
       @block_virgin = false
+      # Per open quote, innermost last, the GFM alert its blocks belong to:
+      # the alert that quote is (a `markdown-alert` `<div>`), or — for a
+      # `<blockquote>` — the enclosing quote's, a quote nested in an alert
+      # being the alert's content (the Markdown importer's `@alert_stack`).
+      @alert_stack = [] of TextBlockFormat::AlertKind?
 
       # Node traversal / attribute access (`each_child`, `find_element`,
       # `attr_val`, ...) shared with the layout-DOM loader.
@@ -601,30 +697,16 @@ module Crysterm
 
         case node.data
         when "p", "div"
-          bf, collapse = block_format_from(node)
-          end_block(discard_virgin: true)
-          # An empty, unstyled, top-level paragraph is spacing, not content
-          # (hand-written HTML's separator): it becomes a top margin on
-          # whatever block follows. Styled or nested empty paragraphs stay
-          # real blocks (a quoted blank line renders its quote bar).
-          if @quote_depth == 0 && @list_stack.empty? &&
-             bf == TextBlockFormat.default && spacing_only?(node)
-            @pending_margin += 1
-            return
+          if node.data == "div" && (kind = alert_kind_of(node))
+            walk_quote(node, kind)
+          else
+            walk_paragraph(node)
           end
-          # A paragraph that is one image is a block image (the Markdown
-          # importer's reading): the block records it, the text is the
-          # stand-in the `<img>` branch appends.
-          if img = sole_image(node)
-            bf = bf.merge(TextBlockFormat.new(image: img))
-          end
-          start_block(bf, collapse)
-          walk_children(node)
-          end_block
         when "h1", "h2", "h3", "h4", "h5", "h6"
           lvl = node.data[1].to_i
           bf, collapse = block_format_from(node, heading: lvl)
           end_block(discard_virgin: true)
+          quote_separator
           start_block(bf, collapse)
           walk_children(node)
           end_block
@@ -645,11 +727,13 @@ module Crysterm
           @block_virgin = false
         when "hr"
           end_block(discard_virgin: true)
+          quote_separator
           bf, _ = block_format_from(node)
           start_block bf.merge(TextBlockFormat.new(horizontal_rule: true))
           end_block
         when "pre"
           end_block(discard_virgin: true)
+          quote_separator
           # The block's own style (indent, margins) is kept, so a fence that
           # was list continuation content stays at its column; the fence info
           # string rides on a `language-<lang>` class, on the `<pre>` itself
@@ -670,13 +754,10 @@ module Crysterm
             end_block
           end
         when "blockquote"
-          end_block(discard_virgin: true)
-          @quote_depth += 1
-          walk_children(node)
-          @quote_depth -= 1
-          end_block
+          walk_quote(node)
         when "ul", "ol"
           end_block(discard_virgin: true)
+          quote_separator
           # `to_i?` accepts values up to `Int32::MAX`, which overflow the
           # plain-Int32 marker/numbering arithmetic downstream; route through
           # `TextListFormat.sanitize_start`, the shared clamp used by every
@@ -719,6 +800,7 @@ module Crysterm
           @pending_task = nil
         when "table"
           end_block(discard_virgin: true)
+          quote_separator
           # A table that is a list item's first content: materialize the
           # item's (empty) member block *before* the table, so the item keeps
           # its membership and ordered numbering — `import_table` stamps no
@@ -734,6 +816,94 @@ module Crysterm
         else
           walk_children(node)
         end
+      end
+
+      # A `<p>` or `<div>`: a block of its text, or spacing.
+      private def walk_paragraph(node : HTML5::Node) : Nil
+        bf, collapse = block_format_from(node)
+        end_block(discard_virgin: true)
+        # An empty, unstyled, top-level paragraph is spacing, not content
+        # (hand-written HTML's separator): it becomes a top margin on
+        # whatever block follows. Styled or nested empty paragraphs stay
+        # real blocks (a quoted blank line renders its quote bar).
+        if @quote_depth == 0 && @list_stack.empty? &&
+           bf == TextBlockFormat.default && spacing_only?(node)
+          @pending_margin += 1
+          return
+        end
+        # A paragraph that is one image is a block image (the Markdown
+        # importer's reading): the block records it, the text is the
+        # stand-in the `<img>` branch appends.
+        if img = sole_image(node)
+          bf = bf.merge(TextBlockFormat.new(image: img))
+        end
+        # In a quote, a paragraph after another of its blocks is a blank line
+        # apart from it; an empty one is that line itself.
+        quote_separator unless spacing_only?(node)
+        start_block(bf, collapse)
+        walk_children(node)
+        end_block
+      end
+
+      # A quote: a `<blockquote>`, or the GFM alert of *kind* github.com
+      # renders as a `markdown-alert` `<div>` (`TextHtml.generate` writes the
+      # same), whose `markdown-alert-title` paragraph is the alert's title —
+      # the kind its blocks carry (`TextBlockFormat#alert_kind`), not text.
+      # A quote right after a quoted block at the top level is a second
+      # quote, a blank line apart from the first in Markdown: it owes the
+      # row between them, as a top margin, as the Markdown importer has it.
+      private def walk_quote(node : HTML5::Node, kind : TextBlockFormat::AlertKind? = nil) : Nil
+        end_block(discard_virgin: true)
+        if @quote_depth == 0 && @list_stack.empty? && (@blocks.last?.try(&.block_format.quote_level) || 0) > 0
+          @pending_margin += 1
+        end
+        quote_separator
+        @quote_depth += 1
+        @alert_stack << (kind || @alert_stack.last?)
+        title = kind ? alert_title(node) : nil
+        each_child(node) { |child| walk child unless child.same?(title) }
+        @alert_stack.pop
+        @quote_depth -= 1
+        end_block
+      end
+
+      # The GFM alert *node* is — a `<div>` of the classes `markdown-alert`
+      # and `markdown-alert-<kind>` — or `nil`.
+      private def alert_kind_of(node : HTML5::Node) : TextBlockFormat::AlertKind?
+        classes = attr_val(node, "class").try(&.split) || return
+        return unless classes.includes?("markdown-alert")
+        classes.each do |name|
+          if (suffix = name.lchop?("markdown-alert-")) && (kind = TextBlockFormat::AlertKind.parse?(suffix))
+            return kind
+          end
+        end
+        nil
+      end
+
+      # The title paragraph of the alert *node*: its first element child,
+      # when that is of the class `markdown-alert-title`.
+      private def alert_title(node : HTML5::Node) : HTML5::Node?
+        each_child(node) do |child|
+          next unless child.type.element?
+          return child if attr_val(child, "class").try(&.split.includes?("markdown-alert-title"))
+          return
+        end
+        nil
+      end
+
+      # The quote's blank line between two of its structures, owed before
+      # the next one inside a quote, outside lists, when the block before it
+      # sits in the quote too and is not an empty line already: the empty
+      # block of the quote's level (and alert) that the Markdown importer
+      # makes of the `>` line between two paragraphs, and `TextHtml.generate`
+      # writes as the boundary between their elements.
+      private def quote_separator : Nil
+        return unless @quote_depth > 0 && @list_stack.empty?
+        last = @blocks.last? || return
+        lbf = last.block_format
+        return if lbf.quote_level < @quote_depth
+        return if last.fragments.empty? && lbf == TextBlockFormat.new(quote_level: lbf.quote_level, alert_kind: lbf.alert_kind)
+        @blocks << TextBlock.new("", block_format: TextBlockFormat.new(quote_level: @quote_depth, alert_kind: @alert_stack.last?))
       end
 
       # Inline formatting elements — character-format patches around the
@@ -818,6 +988,10 @@ module Crysterm
         alignments = aligns.any? ? aligns.map { |a| a || Tput::AlignFlag::Left } : nil
         bs = TextTable.build(header, body, alignments)
         adopt_table_blocks(bs)
+        if kind = @alert_stack.last?
+          alert = TextBlockFormat.new(alert_kind: kind)
+          bs.each { |b| b.block_format = b.block_format.merge(alert) }
+        end
       end
 
       # The marker style for a `<ul>`/`<ol>`: decimal for ordered, checkbox
@@ -915,8 +1089,12 @@ module Crysterm
 
       # Hook (`TextImport::Builder#after_start_block`): records the block's
       # collapse mode and marks it open and virgin (a wrapper-opened block a
-      # nested block element may later discard).
+      # nested block element may later discard). Inside an alert, the block
+      # is the alert's.
       private def after_start_block(collapse : Bool) : Nil
+        if kind = @alert_stack.last?
+          @block_format = @block_format.merge(TextBlockFormat.new(alert_kind: kind))
+        end
         @collapse = collapse
         @block_open = true
         @block_virgin = true

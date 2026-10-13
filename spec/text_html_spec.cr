@@ -123,7 +123,11 @@ describe Crysterm::TextHtml do
       doc = html_doc "<blockquote><p>wise</p><blockquote><p>deep</p></blockquote></blockquote>"
       doc.blocks[0].text.should eq "wise"
       doc.blocks[0].block_format.quote_level.should eq 1
-      doc.blocks[1].block_format.quote_level.should eq 2
+      # The quoted blank line between them, as Markdown's `>` line imports.
+      doc.blocks[1].text.should eq ""
+      doc.blocks[1].block_format.quote_level.should eq 1
+      doc.blocks[2].text.should eq "deep"
+      doc.blocks[2].block_format.quote_level.should eq 2
     end
 
     it "skips script/style/head and walks unknown elements transparently" do
