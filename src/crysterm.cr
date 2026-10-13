@@ -105,6 +105,7 @@ require "./reactive/observable_list"
 require "./reactive/bind_items"
 require "./reactive/bind_action"
 require "./reactive/config"
+require "./reactive/link"
 
 require "./style/css/**"
 
