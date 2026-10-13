@@ -418,13 +418,39 @@ module Crysterm
         scroll_cursor_to_row visible_content_rows // 2
       end
 
+      # The buffer position at the start of the first visible row: what the
+      # view shows at its top (Qt `QPlainTextEdit::firstVisibleBlock`, or
+      # `cursorForPosition(QPoint(0, 0))` within a wrapped block). Another
+      # view on the same text shows the same top with
+      # `b.scroll_position_to_row a.top_position`, whatever its width.
+      # Measured against the layout last painted, like `#cursor_viewport_row`.
+      def top_position : Int32
+        pos_from_rowcol(scroll_position, 0)
+      end
+
+      # Scrolls so the row holding buffer position *pos* sits on viewport
+      # *row* (0 the top row), as far as the content allows at the
+      # document's ends — `#scroll_cursor_to_row` for a position other than
+      # the caret's, which stays where it is. Measured against the layout
+      # last painted; doesn't render itself, like the other scroll calls.
+      def scroll_position_to_row(pos : Int32, row : Int32 = 0) : Nil
+        scroll_to rowcol_of(pos)[0] - row
+      end
+
       # Maps `@cursor_pos` (a buffer position) to `{real_line, column}` in
-      # the wrapped/displayed content (`@wrapped_lines`), using the fake->real line map
+      # the wrapped/displayed content (`@wrapped_lines`) — `#rowcol_of` the
+      # caret.
+      private def cursor_rowcol : Tuple(Int32, Int32)
+        rowcol_of @cursor_pos
+      end
+
+      # Maps buffer position *pos* to `{real_line, column}` in the
+      # wrapped/displayed content (`@wrapped_lines`), using the fake->real line map
       # (`ftor`). Exact for the default (unaligned) text area; best-effort with
       # center/right alignment (real lines carry padding). Column is a codepoint
       # offset within the real line.
-      private def cursor_rowcol : Tuple(Int32, Int32)
-        c = @cursor_pos.clamp(0, buf_size)
+      private def rowcol_of(pos : Int32) : Tuple(Int32, Int32)
+        c = pos.clamp(0, buf_size)
         # `fake_line` is the logical (`\n`-delimited) line index; `col` is the
         # tab-expanded column within it — the SAME units `process_content` lays
         # `@wrapped_lines` out with. A TAB expands to `tab_char * tab_size`, so counting
