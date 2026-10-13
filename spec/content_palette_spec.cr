@@ -86,7 +86,7 @@ describe "exporters fence code blocks by the semantic marker" do
     TextDocument.from_html(html).blocks[0].block_format.code_block?.should be_true
 
     lang = TextDocument.from_markdown "```crystal\nx\n```\n"
-    lang.to_html.should contain %(<pre class="language-crystal">)
+    lang.to_html.should contain %(<pre><code class="language-crystal">)
     TextDocument.from_html(lang.to_html).to_markdown.should eq lang.to_markdown
     TextDocument.from_html(%(<pre><code class="language-ruby">y</code></pre>)).blocks[0].block_format.code_language.should eq "ruby"
 

@@ -8,7 +8,7 @@ describe "TextHtml code block export" do
     doc = Crysterm::TextDocument.from_markdown("Para\n\n```sh\necho a\n  echo b\n\necho c\n```\n\nAfter\n")
     html = doc.to_html
     html.scan("<pre").size.should eq 1
-    html.should contain "echo a</code>\n<code>  echo b</code>\n\n<code>echo c"
+    html.should contain %(<pre style="margin-top:1em"><code class="language-sh">echo a\n  echo b\n\necho c</code></pre>)
     back = Crysterm::TextDocument.from_html(html)
     code = back.blocks.select(&.block_format.code_block?)
     code.map(&.text).should eq ["echo a", "  echo b", "", "echo c"]
@@ -28,5 +28,14 @@ describe "TextHtml code block export" do
     html.scan("<pre").size.should eq 1
     html.should start_with "<blockquote><pre"
     html.should end_with "</pre></blockquote>"
+  end
+
+  it "writes the lines in one code element carrying the language, as CommonMark renderers do" do
+    doc = Crysterm::TextDocument.from_markdown("```ruby\ndef x\n  1 < 2\nend\n```\n")
+    doc.to_html.should eq %(<pre><code class="language-ruby">def x\n  1 &lt; 2\nend</code></pre>)
+    back = Crysterm::TextDocument.from_html(doc.to_html)
+    back.blocks.map(&.text).should eq ["def x", "  1 < 2", "end"]
+    back.blocks.map(&.block_format.code_language).uniq!.should eq ["ruby"]
+    back.blocks.all?(&.fragments.all?(&.format.code?)).should be_true
   end
 end

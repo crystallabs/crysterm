@@ -267,12 +267,22 @@ module Crysterm
       end
       io << "<pre"
       io << " style=\"" << style << '"' unless style.empty?
-      write_language_class(io, head.block_format)
+      # Lines all code (as a fenced block's are) go in one `<code>` carrying
+      # the language class, as CommonMark renderers write a fence and syntax
+      # highlighters look for it, rather than a `<code>` per line.
+      whole = (first..last).all? { |k| blocks[k].fragments.all?(&.format.code?) }
+      write_language_class(io, head.block_format) unless whole
       io << '>'
+      if whole
+        io << "<code"
+        write_language_class(io, head.block_format)
+        io << '>'
+      end
       (first..last).each do |k|
         io << '\n' if k > first
-        blocks[k].fragments.each { |f| write_fragment(io, f) }
+        blocks[k].fragments.each { |f| write_fragment(io, f, whole) }
       end
+      io << "</code>" if whole
       io << "</pre>"
     end
 
@@ -407,16 +417,19 @@ module Crysterm
       text.matches?(/\A |  | \z|\t/)
     end
 
-    private def self.write_fragment(io : IO, f : TextFragment) : Nil
+    # *f* as its text in the inline elements of its format; *in_code*, it
+    # sits in a `<code>` already (`write_pre`), so its code flag adds none.
+    private def self.write_fragment(io : IO, f : TextFragment, in_code : Bool = false) : Nil
       fmt = f.format
       fg = fmt.fg
       bg = fmt.bg
       has_color = (fg && fg >= 0) || (bg && bg >= 0)
       anchor = fmt.anchor_href
+      code = fmt.code? && !in_code
       # Unstyled fast path (the common fragment): just its escaped text — no
       # opener/closer tags, no `closers` array, no color-span `String.build`.
       unless anchor || has_color ||
-             fmt.bold? || fmt.italic? || fmt.underline? || fmt.strike? || fmt.code?
+             fmt.bold? || fmt.italic? || fmt.underline? || fmt.strike? || code
         io << escape_html(f.text)
         return
       end
@@ -425,9 +438,10 @@ module Crysterm
       if a = anchor
         io << "<a href=\"" << escape_attr(a) << "\">"
       end
-      {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s", code: "code"} %}
+      {% for a, tag in {bold: "b", italic: "i", underline: "u", strike: "s"} %}
         io << "<{{ tag.id }}>" if fmt.{{ a.id }}?
       {% end %}
+      io << "<code>" if code
       # Color <span> is emitted innermost (after the flag tags), so on
       # re-import its explicit fg/bg patch folds after the flag elements'
       # patches.
@@ -447,7 +461,8 @@ module Crysterm
       io << escape_html(f.text)
       # Closers, innermost first (reverse of the opener order above).
       io << "</span>" if has_color
-      {% for a, tag in {code: "code", strike: "s", underline: "u", italic: "i", bold: "b"} %}
+      io << "</code>" if code
+      {% for a, tag in {strike: "s", underline: "u", italic: "i", bold: "b"} %}
         io << "</{{ tag.id }}>" if fmt.{{ a.id }}?
       {% end %}
       io << "</a>" if anchor
