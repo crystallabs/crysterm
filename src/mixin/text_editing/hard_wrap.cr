@@ -30,6 +30,15 @@ module Crysterm
         line[0, line.size - line.lstrip(" \t").size]
       end
 
+      # Whether *line* may be broken at the space at *index*, the text after
+      # the spaces there going to the new line. Always, by default; a
+      # subclass that knows its syntax declines a break that would give
+      # the carried text a meaning of its own at a line's start (a Markdown
+      # list marker), and the wrap breaks at an earlier space instead.
+      def hard_wrap_breakable?(line : String, index : Int32) : Bool
+        true
+      end
+
       # Whether typing *c* on the caret's line may take it past the wrap
       # column — the typing path opens an undo group for the keystroke and
       # its wrap when it may. Cheap when no column is set, which is every
@@ -91,7 +100,8 @@ module Crysterm
 
       # The index of the space in *line* to break at, or nil: the last space
       # past *prefix_size* with text before it (not the mere prefix) whose
-      # head fits in *column*, else the first such space past the column.
+      # head fits in *column*, else the first such space past the column —
+      # of the spaces `#hard_wrap_breakable?` allows.
       private def hard_wrap_break(line : String, column : Int32, prefix_size : Int32) : Int32?
         best = nil
         first_after = nil
@@ -99,7 +109,7 @@ module Crysterm
         content = false
         line.each_char.skip(prefix_size).each do |ch|
           if ch == ' '
-            if content
+            if content && hard_wrap_breakable?(line, i)
               if expanded_width(line[0, i]) <= column
                 best = i
               else

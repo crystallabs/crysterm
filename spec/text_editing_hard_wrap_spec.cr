@@ -14,6 +14,13 @@ private class CodeAwareEdit < Widget::PlainTextEdit
   end
 end
 
+# An editor that never starts a carried line with a `-`.
+private class DashAwareEdit < Widget::PlainTextEdit
+  def hard_wrap_breakable?(line : String, index : Int32) : Bool
+    !line[index..].lstrip(' ').starts_with?('-')
+  end
+end
+
 private def new_pte(s, content, column = 10)
   pte = Widget::PlainTextEdit.new parent: s, left: 0, top: 0, width: 40, height: 5
   pte.value = content
@@ -86,5 +93,15 @@ describe "Mixin::TextEditing#hard_wrap_column" do
     s.repaint
     type code, "s"
     code.value.should eq "    code lines"
+  end
+
+  it "breaks only where #hard_wrap_breakable? allows, at an earlier space" do
+    s = headless_screen(80, 24)
+    pte = DashAwareEdit.new parent: s, left: 0, top: 0, width: 40, height: 5
+    pte.value = "one two -thre"
+    pte.hard_wrap_column = 12
+    pte.cursor_pos = pte.value.size
+    type pte, "e"
+    pte.value.should eq "one\ntwo -three"
   end
 end
