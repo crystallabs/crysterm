@@ -86,12 +86,15 @@ module Crysterm
           end
         return unless lf
         bp = document.block_position(bi)
-        document.edit do
-          # Removing the marker pulls this view's caret back to the block
-          # start via the shared caret follow (`follow_document_change` —
-          # a direct document edit, not a `buf_*` self-edit).
-          document.remove(bp, off)
-          document.apply_block_format(bp, bp, TextBlockFormat.new(list_format: lf), merge: true)
+        # Removing the marker pulls this view's caret back to the block
+        # start via the shared caret follow (`follow_document_change` — a
+        # direct document edit, not a `buf_*` self-edit); the change is told
+        # of below (`#reporting_edit`).
+        reporting_edit do
+          document.edit do
+            document.remove(bp, off)
+            document.apply_block_format(bp, bp, TextBlockFormat.new(list_format: lf), merge: true)
+          end
         end
         emit_text_changed
         emit_caret_events
@@ -171,20 +174,23 @@ module Crysterm
         # runs — so skip both serializations when nothing observes the event.
         want = text_change_observed?
         before = want ? buf_text : nil
-        case k
-        when Tput::Key::Tab      then table_tab(tbl, info, 1)
-        when Tput::Key::ShiftTab then table_tab(tbl, info, -1)
-        when Tput::Key::Enter    then table_insert_row_below(tbl, info)
-        when Tput::Key::Backspace, Tput::Key::CtrlH
-          table_delete_char(tbl, info, backward: true)
-        when Tput::Key::Delete
-          table_delete_char(tbl, info, backward: false)
-        when nil
-          if c = e.char
-            c == '\t' ? table_tab(tbl, info, 1) : table_type_char(tbl, info, c)
+        # The cell edits go through the table, not `buf_*`: told of below.
+        reporting_edit do
+          case k
+          when Tput::Key::Tab      then table_tab(tbl, info, 1)
+          when Tput::Key::ShiftTab then table_tab(tbl, info, -1)
+          when Tput::Key::Enter    then table_insert_row_below(tbl, info)
+          when Tput::Key::Backspace, Tput::Key::CtrlH
+            table_delete_char(tbl, info, backward: true)
+          when Tput::Key::Delete
+            table_delete_char(tbl, info, backward: false)
+          when nil
+            if c = e.char
+              c == '\t' ? table_tab(tbl, info, 1) : table_type_char(tbl, info, c)
+            end
+          else
+            # Kill/yank/cut/paste inside a table: absorbed.
           end
-        else
-          # Kill/yank/cut/paste inside a table: absorbed.
         end
         if want && (after = buf_text) != before
           emit Crysterm::Event::TextChanged, after
@@ -303,7 +309,7 @@ module Crysterm
             want = text_change_observed?
             before = want ? buf_text : nil
             clean = str.gsub(/\r\n?|\n/, ' ')
-            tbl.set_cell_text(row, col, txt.insert(off, clean))
+            reporting_edit { tbl.set_cell_text(row, col, txt.insert(off, clean)) }
             place_caret_in_cell(tbl, row, col, off + clean.size)
             if want && (after = buf_text) != before
               emit Crysterm::Event::TextChanged, after

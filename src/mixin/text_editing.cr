@@ -114,6 +114,51 @@ module Crysterm
         -> { (t = text) ? t : (text = buf_text) }
       end
 
+      # Set while the view runs an edit it tells of itself afterwards
+      # (`#reporting_edit`).
+      @_reporting_edit = false
+
+      # Runs the block, a change the view makes to its document directly
+      # (not through `#buf_insert`/`#buf_delete`) and then tells of itself
+      # with its own `Event::TextChanged`, so that
+      # `#emit_document_text_changed` does not tell of it a second time.
+      private def reporting_edit(&)
+        was = @_reporting_edit
+        @_reporting_edit = true
+        begin
+          yield
+        ensure
+          @_reporting_edit = was
+        end
+      end
+
+      # Emits `Event::TextChanged` for a change of the view's document that
+      # the view does not tell of itself: one made by another view sharing
+      # the document, a `TextCursor`, or a direct `TextDocument` call. A
+      # document-backed view calls it from its `Event::ContentsChanged`
+      # handler, after following the change, so every view on a document
+      # tells of every change to its text, as Qt's do
+      # (`QWidgetTextControl` connects the document's `contentsChanged` to
+      # its `textChanged`). The view's own edits (`#as_self_edit`,
+      # `#reporting_edit`) are left to the edit's own emit, so a view tells
+      # of a change once. `Event::TextEdited` is not emitted: the change
+      # was not this view's user's.
+      #
+      # Only changes of the text count (`ChangeKind::Edit` that moved
+      # something, `Replace`): Qt's `contentsChanged` also fires for a
+      # format applied, but Crysterm's views tell of no format change of
+      # their own either, and a format-only `ContentsChanged` also stands
+      # for a block's overlay changing (`TextBlock#user_state=`, a syntax
+      # highlighter's formats), which Qt keeps out of `contentsChanged`.
+      # Qt tells of the steps of one edit block once, at its end; here each
+      # step is told of, being its own `ContentsChanged`.
+      private def emit_document_text_changed(kind : TextDocument::ChangeKind, removed : Int32, added : Int32) : Nil
+        return if @self_edit || @_reporting_edit
+        return unless kind.replace? || (kind.edit? && (removed > 0 || added > 0))
+        return unless has_handlers?(Crysterm::Event::TextChanged)
+        emit Crysterm::Event::TextChanged, text_change_value
+      end
+
       # Last-notified caret/selection state, backing `#emit_caret_events`.
       @_last_caret_pos = 0
       @_last_selection : Range(Int32, Int32)? = nil
