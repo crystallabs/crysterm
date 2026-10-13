@@ -70,13 +70,15 @@ describe "TextDocument#replace_plain_text" do
     after.position.should eq 12
   end
 
-  it "moves a cursor inside a change as any edit moves it" do
+  it "keeps a cursor at a change's start or end there, and moves one inside it to its start" do
     doc = TextDocument.new("aaa\nbbb\nccc")
+    start = doc.cursor(4)
     inside = doc.cursor(5)
-    doc.replace_plain_text("aaa\nxyz\nccc")
-    # Into the removed range, collapsed to its start, then pushed past the
-    # text inserted there (`.shift_position`).
-    inside.position.should eq 7
+    finish = doc.cursor(7)
+    doc.replace_plain_text("aaa\nwxyz\nccc")
+    start.position.should eq 4
+    inside.position.should eq 4
+    finish.position.should eq 8
   end
 
   it "handles changes at the start and the end, and to or from nothing" do

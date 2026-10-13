@@ -651,9 +651,10 @@ module Crysterm
     # by line (Myers' diff, `LineDiff`) and each changed run of lines is
     # narrowed to the characters that differ, so a cursor, and a view's
     # caret and selection, away from the changes keeps its place in the
-    # text, and one inside a change moves as for any edit
-    # (`.shift_position`). The text inserted takes the format where it
-    # goes, as typing does; formats elsewhere are left alone.
+    # text; one at the start or the end of a change stays there, and one
+    # inside a change goes to its start, as for a selection typed over. The
+    # text put in takes the format of the text it replaces where it ends,
+    # as typing there would; formats elsewhere are left alone.
     #
     # The modified flag follows the undo stack as after any edit; a caller
     # for whom the new text is the saved one (a reload) sets `#modified=`
@@ -685,8 +686,12 @@ module Crysterm
           at = from + delta + prefix
           count = was.size - prefix - suffix
           added = now[prefix, now.size - prefix - suffix]
+          # The new text after the old, then the old out: a cursor at the
+          # run's start stays there, one inside it goes to the start, and
+          # one at its end stays at the end (`.shift_position`) — where a
+          # removal first would push every one of them past the new text.
+          insert_text(at + count, added) unless added.empty?
           remove(at, count) if count > 0
-          insert_text(at, added) unless added.empty?
           delta += added.size - count
         end
       end
