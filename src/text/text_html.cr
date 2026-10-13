@@ -53,7 +53,10 @@ module Crysterm
         # after an interruption via `<ol start=…>`.
         list_items = {} of UInt64 => Int32
         emitted_tables = Set(UInt64).new
+        # The last block of the code run already written whole (`write_pre`).
+        run_end = -1
         blocks.each_with_index do |b, i|
+          next if i <= run_end
           bf = b.block_format
           # Quote wrappers first; a level change closes any open lists
           # (lists don't span quote boundaries).
@@ -97,7 +100,12 @@ module Crysterm
             next
           end
           io << '\n' if i > 0
-          write_block_element(io, b, lf, list_items)
+          if lf.nil? && bf.code_block? && bf.heading_level == 0
+            run_end = code_run_end(blocks, i)
+            write_pre(io, blocks, i, run_end)
+          else
+            write_block_element(io, b, lf, list_items)
+          end
         end
         close_lists(io, open_lists)
         while qdepth > 0
@@ -140,6 +148,46 @@ module Crysterm
         io << "</tr>"
       end
       io << "</table>"
+    end
+
+    # The index of the last line of the fenced code block whose line *i* is:
+    # the lines after it that go on with no margin between, in the same
+    # quote, language and block style — where a margin, a different fence or
+    # anything else ends the block.
+    private def self.code_run_end(blocks : Array(TextBlock), i : Int32) : Int32
+      first = blocks[i].block_format
+      j = i
+      while (n = blocks[j + 1]?) && blocks[j].block_format.bottom_margin == 0
+        nf = n.block_format
+        break unless nf.code_block? && nf.list_format.nil? && nf.table_format.nil? && nf.heading_level == 0
+        break unless nf.top_margin == 0 && nf.quote_level == first.quote_level &&
+                     nf.code_language == first.code_language && nf.alignment == first.alignment &&
+                     nf.bg == first.bg && nf.indent == first.indent
+        j += 1
+      end
+      j
+    end
+
+    # Lines *first* to *last* of a fenced code block as one `<pre>`, a line
+    # break between lines — the element a browser shows as one block and the
+    # importer splits back into its lines — rather than a `<pre>` per line,
+    # which a browser sets apart by its default margins. The block's margins
+    # are its first line's top and its last line's bottom.
+    private def self.write_pre(io : IO, blocks : Array(TextBlock), first : Int32, last : Int32) : Nil
+      head = blocks[first]
+      style = block_style(head.block_format, head)
+      if (m = blocks[last].block_format.bottom_margin) > 0 && last != first
+        style = style.empty? ? "margin-bottom:#{m}em" : "#{style};margin-bottom:#{m}em"
+      end
+      io << "<pre"
+      io << " style=\"" << style << '"' unless style.empty?
+      write_language_class(io, head.block_format)
+      io << '>'
+      (first..last).each do |k|
+        io << '\n' if k > first
+        blocks[k].fragments.each { |f| write_fragment(io, f) }
+      end
+      io << "</pre>"
     end
 
     private def self.write_block_element(io : IO, b : TextBlock, lf : TextListFormat?, list_items : Hash(UInt64, Int32)) : Nil
