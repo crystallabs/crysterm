@@ -589,8 +589,9 @@ module Crysterm
         end
 
         # Pre-`super` half of a document-backed widget's constructor: adopts an
-        # explicit (possibly shared) *doc* — which wins over `content:` — or
-        # else seeds a fresh document from *content*. Must run *before* `super`
+        # explicit (possibly shared) *doc* — which wins over `content:` — with
+        # the caret at its start, as Qt's `setDocument` puts it (and
+        # `#document=` does), or else seeds a fresh document from *content*. Must run *before* `super`
         # (see `#setup_text_buffer`'s contract); pair with
         # `#finish_document_setup` after it.
         protected def adopt_document(doc : TextDocument?, content : String, max_length, read_only) : Nil
@@ -598,7 +599,7 @@ module Crysterm
             @document = doc
             @max_length = max_length
             @read_only = read_only
-            @cursor_pos = doc.size
+            @cursor_pos = 0
           else
             setup_text_buffer(content, max_length, read_only)
           end

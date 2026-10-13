@@ -49,9 +49,9 @@ describe "DocumentBuffer on destroy" do
     contents_handlers(doc).should eq base + 1
     s.destroy
     contents_handlers(doc).should eq base
-    te.cursor_pos.should eq 5
+    te.cursor_pos.should eq 0 # where a view adopting a document starts (Qt setDocument)
     doc.cursor(0).insert_text("oh, ")
-    te.cursor_pos.should eq 5
+    te.cursor_pos.should eq 0 # a live view's caret would be pushed to 4
     doc.to_plain_text.should eq "oh, hello"
   end
 

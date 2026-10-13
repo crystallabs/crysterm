@@ -109,6 +109,7 @@ describe Widget::TextEdit do
       doc = TextDocument.new("hello")
       a = new_te s, doc
       b = new_te s, doc, top: 4
+      b.cursor_pos = 5
       a.cursor_pos = 0
       a._listener chr('X')         # "Xhello"
       b.cursor_pos.should eq 1 + 5 # was at end (5), pushed to 6
