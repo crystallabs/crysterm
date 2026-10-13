@@ -851,9 +851,13 @@ module Crysterm
     end
 
     # Swaps in *new_blocks* wholesale with `set_plain_text`'s reset semantics:
-    # undo stack cleared, cursors rewound, document unmodified. The blocks are
-    # adopted, not copied — callers must hand over freshly built ones.
+    # undo stack cleared, cursors rewound, document unmodified, and a
+    # Markdown stream the document was taking forgotten (`#append_markdown`
+    # starts over: what it held pending belonged to the text replaced). The
+    # blocks are adopted, not copied — callers must hand over freshly built
+    # ones.
     protected def replace_content(new_blocks : Array(TextBlock)) : Nil
+      forget_markdown_stream
       TextTable.fit_blocks(new_blocks, @text_width)
       old_size = size
       bs = blocks_mut

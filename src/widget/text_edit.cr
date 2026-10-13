@@ -284,8 +284,13 @@ module Crysterm
       # the start. The content is still replaced wholesale: a caret kept at
       # the same offset sits on whatever is there now, so a caller that can
       # map positions (by `TextBlock#source_line`, say) re-places it after.
-      def set_markdown(text : String, *, keep_view : Bool = false) : Nil
-        interchange_replace(keep_view) { document.set_markdown text }
+      #
+      # With *stream*, *text* is the start of a stream `#append_markdown`
+      # goes on with (`TextDocument#set_markdown`): its trailing incomplete
+      # construct is held pending rather than shown, and the next chunk
+      # continues it.
+      def set_markdown(text : String, *, keep_view : Bool = false, stream : Bool = false) : Nil
+        interchange_replace(keep_view) { document.set_markdown text, stream: stream }
       end
 
       # `=`-setter spelling of `#set_markdown`.

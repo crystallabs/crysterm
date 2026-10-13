@@ -278,6 +278,52 @@ describe "TextDocument#append_markdown after content-less blocks" do
   end
 end
 
+# A whole-text set (`set_markdown`, `set_plain_text`, `clear`…) replaces what
+# a stream brought, so the stream starts over after it; `set_markdown` with
+# `stream: true` sets the text as a stream that has brought it so far.
+describe "TextDocument#append_markdown after a whole-text set" do
+  it "forgets what the stream held pending" do
+    doc = TextDocument.new
+    doc.append_markdown "# One\n\npara one\n"
+    doc.set_markdown "# One\n\npara one\n"
+    doc.append_markdown "\n# Two\n\n"
+    doc.flush_markdown
+    doc.blocks.map(&.text).should eq ["One", "para one", "Two"]
+  end
+
+  it "starts over after set_plain_text" do
+    doc = TextDocument.new
+    doc.append_markdown "a\n\nb"
+    doc.set_plain_text "x"
+    doc.append_markdown "\n\nc\n\n"
+    doc.blocks.map(&.text).should eq ["x", "c"]
+  end
+
+  it "takes the text as the stream so far with stream: true" do
+    doc = TextDocument.new
+    doc.append_markdown "stale\n"
+    doc.set_markdown "# One\n\npara one\n", stream: true
+    doc.blocks.map(&.text).should eq ["One"] # the paragraph may go on
+    doc.append_markdown "line two\n\n## Two\n\n"
+    doc.flush_markdown
+    md = "# One\n\npara one\nline two\n\n## Two\n\n"
+    doc_signature(doc).should eq doc_signature(TextDocument.from_markdown(md))
+    doc.blocks.map(&.source_line).should eq [1, 3, 6]
+  end
+
+  it "keeps a view's caret with keep_view, as a stream" do
+    s = headless_screen(40, 10)
+    te = Widget::TextEdit.new parent: s, left: 0, top: 0, width: 30, height: 8
+    te.set_markdown "# One\n\nbody\n\ntail"
+    te.cursor_position = 5
+    te.set_markdown "# One\n\nbody\n\ntail", keep_view: true, stream: true
+    te.cursor_position.should eq 5
+    te.document.blocks.map(&.text).should eq ["One", "body"]
+    te.flush_markdown
+    te.document.blocks.map(&.text).should eq ["One", "body", "tail"]
+  end
+end
+
 # A piece may end anywhere: inside a fence, between a table's header and its
 # delimiter row, in the middle of a line. Each shows nothing of the unfinished
 # construct and, once the rest arrives, the same blocks as one-shot import.

@@ -2068,15 +2068,27 @@ module Crysterm
     end
 
     # Replaces the whole content from markdown (Qt `setMarkdown`). Same reset
-    # semantics as `set_plain_text` (not undoable, cursors rewind). Returns
-    # the assigned text.
+    # semantics as `set_plain_text` (not undoable, cursors rewind, a stream
+    # being taken forgotten). Returns the assigned text.
     #
     # Any `<!-- toc -->` region the source carried is regenerated from the
     # freshly imported outline — a load is the one moment there is no reader
     # position to disturb, so it is safe to refresh without being asked.
-    def set_markdown(text : String) : String
-      replace_content(TextMarkdown.parse(text))
-      refresh_tocs
+    #
+    # With *stream*, *text* is the start of a stream `#append_markdown` goes
+    # on with: the content is what appending it to an empty document gives —
+    # its complete constructs imported, a trailing incomplete one held
+    # pending for the next chunk, the source lines counted on from it, the
+    # inline TOCs left alone — for a view that joins a stream midway, or
+    # re-renders one from its source while it is still arriving.
+    def set_markdown(text : String, *, stream : Bool = false) : String
+      if stream
+        replace_content([] of TextBlock)
+        append_markdown text
+      else
+        replace_content(TextMarkdown.parse(text))
+        refresh_tocs
+      end
       text
     end
 
@@ -2138,6 +2150,14 @@ module Crysterm
       stream.flush.try { |piece| append_markdown_piece(piece, stream.piece_line) }
     end
 
+    # Drops the stream `#append_markdown` was taking, and what it held
+    # pending: a whole-text set replaced what it brought
+    # (`#replace_content`).
+    private def forget_markdown_stream : Nil
+      @markdown_stream = nil
+      @markdown_tail = nil
+    end
+
     # Parses one released piece and appends its blocks at the document end.
     # *line* is the piece's first line within the whole stream: the parser
     # numbers `TextBlock#source_line` from 1 per piece, so the blocks are
@@ -2155,7 +2175,10 @@ module Crysterm
       # size at 0 too, and the next piece must append behind them, not
       # replace them.
       if size == 0 && !blocks.last.same?(@markdown_tail)
+        # The replace forgets the stream; this piece is the stream's own.
+        stream = @markdown_stream
         replace_content(parsed)
+        @markdown_stream = stream
         @markdown_tail = blocks.last
         return
       end
