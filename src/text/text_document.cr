@@ -1136,9 +1136,13 @@ module Crysterm
     # match (anchor at start) or nil. Forward, the first match starting at or
     # after `from`; a `from` past the end finds nothing (it is not pulled back
     # to the end, so a caller stepping past a match at the end stops).
-    # `Backward` finds the last match ending at or before `from` and starting
-    # before it. Matches may span blocks (the separator is `'\n'`, one
-    # position like any character).
+    # `Backward` finds the last match starting before `from`, which may end
+    # past it: a match `from` is inside is found from its start, as Qt's
+    # `QTextDocument::find` with `FindBackward` (searching back from the
+    # position before `from`) and Vim's `?` find it. A caller stepping back
+    # through the matches passes the current match's start, as Qt's cursor
+    # overload passes `selectionStart`. Matches may span blocks (the
+    # separator is `'\n'`, one position like any character).
     #
     # A `Regex` may match the empty string (`/x*/`, `/^/`, `/$/m`): the
     # cursor then selects nothing and sits where the match is, as Qt's does.
@@ -1166,11 +1170,11 @@ module Crysterm
       # word class, so the folded text's boundaries are the text's.
       nb = nee.bytesize
       if flags.backward?
-        return if from < len
+        return if from <= 0
         limit = from >= hay.size ? hay.bytesize : hay.char_index_to_byte_index(from) || return
         best = nil
         b = hay.byte_index(nee)
-        while b && b + nb <= limit
+        while b && b < limit
           best = b if word_boundaries_ok?(hay, b, b + nb, flags)
           b = hay.byte_index(nee, b + 1)
         end
@@ -1193,27 +1197,21 @@ module Crysterm
       if flags.backward?
         from = Math.min(from, text.size)
         return if from <= 0
+        limit = from == text.size ? text.bytesize : text.char_index_to_byte_index(from) || return
         best = nil
         pos = 0
-        # Enumerate over the `from`-truncated prefix so a match straddling
-        # `from` (e.g. a greedy run that would otherwise extend past it) is
-        # still found ending at or before `from`; word-boundary checks still
-        # read the full `text`, not `hay`, since a WholeWords match ending
-        # exactly at `from` must still be rejected when a word char follows
-        # `from` in the real document (the prefix would make `after` nil and
-        # wrongly accept it). Anchors/lookaheads ($, \z, (?=...)) evaluate
-        # against the prefix end rather than the document end — the coherent
-        # choice given Crystal's Regex API has no endpos/match-limit param.
-        hay = from == text.size ? text : text[0, from]
+        # The matches are enumerated over the whole text, as Qt's
+        # `lastIndexOf` enumerates a block's, so a match may run past `from`
+        # and anchors and word boundaries read the text that follows it.
         # By byte offset, as the `String` overload walks.
-        while pos <= hay.bytesize && (m = subject.match_at_byte_index(hay, pos))
+        while pos <= text.bytesize && (m = subject.match_at_byte_index(text, pos))
           s = m.byte_begin(0)
+          break unless s < limit
           e = m.byte_end(0)
-          # An empty match at `from` itself is where a backward walk stands.
-          best = {s, e} if s < hay.bytesize && word_boundaries_ok?(text, s, e, flags)
+          best = {s, e} if word_boundaries_ok?(text, s, e, flags)
           # Standard non-overlapping enumeration: continue past the match (a
           # `s + 1` restart would re-match suffixes, e.g. "3" inside "333").
-          pos = e > s ? e : s + next_char_bytesize(hay, s)
+          pos = e > s ? e : s + next_char_bytesize(text, s)
         end
         best.try { |(s, e)| byte_selection_cursor(text, s, e) }
       else

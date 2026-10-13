@@ -3,8 +3,8 @@ require "./spec_helper"
 include Crysterm
 
 # B16-48: backward regex find must not return nil when the only candidate
-# match straddles `from` — it must find the last match ending at or before
-# `from`, per the documented contract (text_document.cr:381-382).
+# match straddles `from`: it finds the last match starting before `from`,
+# whole (as Qt's `FindBackward` does), past `from` included.
 #
 # B16-49: markdown import must preserve the blank line between two
 # paragraphs inside a blockquote as a quote-level separator block, matching
@@ -16,14 +16,14 @@ describe "Crysterm::TextDocument#find (B16-48)" do
     doc = TextDocument.new("abc123456")
     c = doc.find(/\d+/, from: 5, flags: :backward).not_nil!
     c.selection_start.should eq 3
-    c.selected_text.should eq "12"
+    c.selected_text.should eq "123456"
   end
 
   it "finds a backward regex match that straddles from, inside a letter run" do
     doc = TextDocument.new("aaa")
     c = doc.find(/a+/, 2, flags: :backward).not_nil!
     c.selection_start.should eq 0
-    c.selected_text.should eq "aa"
+    c.selected_text.should eq "aaa"
   end
 
   it "still finds a match ending exactly at from (pinned regression)" do
@@ -37,8 +37,7 @@ describe "Crysterm::TextDocument#find (B16-48)" do
   it "still rejects a WholeWords match ending at from when a word char follows in the document" do
     doc = TextDocument.new("catalog")
     # "cat" ends at 3, but "catalog" continues past from=3 with a word char,
-    # so WholeWords must reject it even though the truncated prefix alone
-    # would look like a whole word.
+    # so WholeWords must reject it.
     doc.find(/cat/, from: 3, flags: TextDocument::FindFlag::Backward | TextDocument::FindFlag::WholeWords).should be_nil
   end
 end

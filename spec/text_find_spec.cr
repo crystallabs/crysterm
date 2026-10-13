@@ -31,7 +31,7 @@ describe "Crysterm::TextDocument#find" do
     c.selection_start.should eq 12
   end
 
-  it "searches backward for the last match ending at or before from" do
+  it "searches backward for the last match starting before from" do
     doc = TextDocument.new("cat catalog cat")
     c = doc.find("cat", from: 11, flags: TextDocument::FindFlag::Backward | TextDocument::FindFlag::WholeWords).not_nil!
     c.selection_start.should eq 0
