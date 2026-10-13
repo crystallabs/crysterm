@@ -119,6 +119,12 @@ module Crysterm
       # by the frame count. `@payload`/`@payload_key` track the payload
       # currently selected, for the emit-skip.
       @frame_payloads = {} of Int32 => String
+      # The pixel size of the bitmap each cached frame payload was encoded
+      # from, by frame index, beside `@frame_payloads` — what a source
+      # rectangle of the transmitted picture is measured in (`Media::Kitty`).
+      @frame_dims = {} of Int32 => Tuple(Int32, Int32)
+      # The pixel size of the bitmap `@payload` was encoded from, when known.
+      @payload_dims : Tuple(Int32, Int32)?
       @payload_geom : Tuple(Int32, Int32, Int32, Int32, Int32, Int32, Int32)?
       @payload : String?
       @payload_key : Tuple(Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32)?
@@ -371,6 +377,7 @@ module Crysterm
         bmp = fit_bitmap(bw, bh, transient: true) || return
         real_w, real_h = Media.dims(bmp)
         return if real_w == 0 || real_h == 0
+        @frame_dims[@anim_index] = {real_w, real_h}
         encode(bmp, real_w, real_h, ox, oy, cols, rows)
       end
 
@@ -384,6 +391,7 @@ module Crysterm
         if @payload_geom != geom
           @payload_geom = geom
           @frame_payloads.clear
+          @frame_dims.clear
         end
         p = @frame_payloads[@anim_index]? || begin
           built = build_payload(bw, bh, ox, oy, cols, rows) || return
@@ -391,6 +399,7 @@ module Crysterm
           built
         end
         @payload = p
+        @payload_dims = @frame_dims[@anim_index]? || {bw, bh}
         @payload_key = {bw, bh, ox, oy, cols, rows, @fit.value, @anim_index}
         p
       end
@@ -401,6 +410,7 @@ module Crysterm
       # already-emitted and freeze on frame 0.
       protected def invalidate_frame(idx : Int32)
         @frame_payloads.delete idx
+        @frame_dims.delete idx
         @emitted_key = nil
       end
 
@@ -420,10 +430,14 @@ module Crysterm
       # never silently resumes playback.
       private def reset_payload_cache : Nil
         @frame_payloads.clear
+        @frame_dims.clear
         @payload_geom = nil
         @payload = nil
+        @payload_dims = nil
         @payload_key = nil
         @emitted_key = nil
+        @piece_key = nil
+        @piece_payloads = nil
       end
 
       # (Re)paints the graphic at the widget's current position. Runs after every
@@ -453,29 +467,48 @@ module Crysterm
         ox, oy = origin_pixels(xi, yi)
         payload = payload_for(pw, ph, ox, oy, cols, rows) || return
 
+        # What is stacked above the picture — a menu, a torn-off menu, a
+        # dialog, a tool tip — must stay on top of it. `nil` when nothing
+        # covers it, else the uncovered parts of the content box, relative to
+        # its top-left cell (empty when it is covered whole).
+        pieces = presented_pieces xi, yi, cols, rows
+        reemit_newly_covered s, xi, yi, cols, rows, pieces
+
         # Sixel/ReGIS get overdrawn by the cells Crysterm flushes each frame, so
         # they must be re-emitted every render. A Kitty image is a separate
         # layer the cells don't touch, so it's emitted only when it actually
-        # changes (new frame/move/resize), avoiding flicker and re-transmits —
-        # or when the terminal may have lost it since: cells written over its
-        # rectangle (a terminal keeping images in its cells erases them, and the
-        # full re-emission once the terminal's colors are known writes every
-        # cell, blanks included) or a screen clear (`ED 2` deletes kitty's
-        # images), which left the picture covered until it moved (`#overdrawn?`).
-        unless repaint_every_frame?
-          if @emitted_key == @payload_key
-            unless s.overdrawn?(xi, yi, cols, rows)
-              @last_drawn = {xi, yi, cols, rows}
-              return
-            end
-            # Only cells were written over it: a backend whose terminal still
-            # holds the transmitted picture places it again without its data.
-            if !s.wiped? && (seq = place_again_seq(cols, rows))
-              s.tput._oprint "\e7\e[#{yi + 1};#{xi + 1}H#{seq}\e8"
-              s.tput.flush
-              @last_drawn = {xi, yi, cols, rows}
-              return
-            end
+        # changes (new frame/move/resize, or what covers it), avoiding flicker
+        # and re-transmits — or when the terminal may have lost it since: cells
+        # written over its rectangle (a terminal keeping images in its cells
+        # erases them, and the full re-emission once the terminal's colors are
+        # known writes every cell, blanks included) or a screen clear (`ED 2`
+        # deletes kitty's images), which left the picture covered until it
+        # moved (`#overdrawn?`).
+        if repaint_every_frame?
+          if pieces
+            emit_pieces s, xi, yi, cols, rows, ox, oy, pieces
+            @emitted_key = @payload_key
+            @last_drawn = {xi, yi, cols, rows}
+            return
+          end
+        elsif @emitted_key == @payload_key
+          if pieces == @placed_pieces && !s.overdrawn?(xi, yi, cols, rows)
+            @last_drawn = {xi, yi, cols, rows}
+            return
+          end
+          # Only cells were written over it, or what covers it changed: a
+          # backend whose terminal still holds the transmitted picture places
+          # it again, the uncovered parts only, without its data.
+          if !s.wiped? && (seq = place_again_seq(xi, yi, cols, rows, pieces))
+            io = String::Builder.new(seq.bytesize + 32)
+            io << "\e[?2026h" if double_buffer?
+            io << "\e7" << seq << "\e8"
+            io << "\e[?2026l" if double_buffer?
+            s.tput._oprint io.to_s
+            s.tput.flush
+            @placed_pieces = pieces
+            @last_drawn = {xi, yi, cols, rows}
+            return
           end
         end
 
@@ -489,23 +522,148 @@ module Crysterm
         # Runs once per *emit*, not per cache-fill, letting a double-buffering
         # backend pick its target buffer by emit order rather than baking it
         # into the cached bytes. Reached only past the emit-skip above, so any
-        # per-emit state it advances stays in sync.
-        emit_payload io, payload
+        # per-emit state it advances stays in sync. A covered picture is sent
+        # without being placed, then placed in its uncovered parts.
+        emit_payload io, payload, place: pieces.nil?
+        if pieces
+          place_again_seq(xi, yi, cols, rows, pieces).try { |placed| io << placed }
+        end
         io << "\e8"                         # DECRC: restore cursor
         io << "\e[?2026l" if double_buffer? # ESU: end synchronized update — present atomically
         s.tput._oprint io.to_s
         s.tput.flush
 
         @emitted_key = @payload_key
+        @placed_pieces = pieces
         @last_drawn = {xi, yi, cols, rows}
       end
 
-      # The control sequence that places the graphic last emitted again, at the
-      # cursor, over a *cols* × *rows* cell box, from what the terminal kept of
-      # it — or nil to send it whole (the default). Used when the frame wrote
-      # cells over the picture but did not wipe the surface (`Window#wiped?`).
-      protected def place_again_seq(cols : Int32, rows : Int32) : String?
+      # The parts of the content box at (*xi*, *yi*), *cols* × *rows* cells,
+      # that nothing stacked above this widget covers (`Widget#visible_region`),
+      # as rectangles relative to its top-left cell — or `nil` when nothing
+      # covers any of it, the common case, which presents the picture whole.
+      private def presented_pieces(xi : Int32, yi : Int32, cols : Int32, rows : Int32) : Array(Rectangle)?
+        box = Rectangle.new(xi, yi, cols, rows)
+        region = visible_region(box)
+        rects = region.rects
+        return if rects.size == 1 && rects.unsafe_fetch(0) == box
+        region.translated(-xi, -yi).rects
+      end
+
+      # The uncovered parts (`#presented_pieces`) the last frame presented, for
+      # `#reemit_newly_covered`; `nil` when it was whole.
+      @presented : Array(Rectangle)? = nil
+
+      # Has the cells covered over the picture this frame emitted again, on
+      # the next frame, when what covers it changed. Crysterm sends a cell only
+      # when it differs from what it sent there before, and a blank cell of a
+      # menu (its padding, the rest of a short entry's row) is the same blank
+      # as the one under the picture: unsent, it would leave the terminal's
+      # piece of the picture showing through the menu wherever the terminal
+      # keeps pictures in its cells (sixel and iTerm2 images everywhere, Kitty
+      # images in WezTerm). Sent again, it erases that piece; the uncovered
+      # parts are then drawn around it.
+      private def reemit_newly_covered(s : ::Crysterm::Window, xi : Int32, yi : Int32, cols : Int32, rows : Int32,
+                                       pieces : Array(Rectangle)?) : Nil
+        return if pieces == @presented
+        @presented = pieces
+        return unless pieces
+        covered = Region.new(Rectangle.new(0, 0, cols, rows))
+        pieces.each { |r| covered = covered.subtracted r }
+        return if covered.empty?
+        covered.rects.each do |r|
+          s.invalidate_region xi + r.xi, xi + r.xl, yi + r.yi, yi + r.yl
+        end
+        s.update
+      end
+
+      # The uncovered parts (`#presented_pieces`) the graphic was last placed
+      # in, `nil` when it was placed whole.
+      @placed_pieces : Array(Rectangle)? = nil
+
+      # The control sequence that places the graphic last emitted again, from
+      # what the terminal kept of it, over the content box at (*xi*, *yi*),
+      # *cols* × *rows* cells — whole when *pieces* is nil, else in each of
+      # *pieces* (relative to the box, possibly none) only, removing any
+      # placement left from before — cursor moves included; or nil to send it
+      # whole (the default). Used when the frame wrote cells over the picture
+      # but did not wipe the surface (`Window#wiped?`), when what covers it
+      # changed, and after a covered picture was sent without being placed.
+      protected def place_again_seq(xi : Int32, yi : Int32, cols : Int32, rows : Int32,
+                                    pieces : Array(Rectangle)?) : String?
         nil
+      end
+
+      # The key (`@payload_key` and the pieces) `@piece_payloads` were built
+      # for, and the payloads, one per piece, that `#emit_pieces` re-emits
+      # every frame while it stands.
+      @piece_key : Tuple(Tuple(Int32, Int32, Int32, Int32, Int32, Int32, Int32, Int32)?, Array(Rectangle))?
+      @piece_payloads : Array(String)?
+
+      # Paints a covered picture of a backend that draws into the cells
+      # (sixel, ReGIS, iTerm2) as one picture per uncovered part (*pieces*,
+      # relative to the content box at *xi*, *yi*), each cut from the frame
+      # fitted to the whole box and drawn at its own cell, so the cells
+      # stacked above it are never drawn over. The parts are encoded once per
+      # frame and covering, and re-emitted each frame like a whole picture.
+      private def emit_pieces(s : ::Crysterm::Window, xi : Int32, yi : Int32, cols : Int32, rows : Int32,
+                              ox : Int32, oy : Int32, pieces : Array(Rectangle)) : Nil
+        return if pieces.empty?
+        key = {@payload_key, pieces}
+        payloads = @piece_payloads
+        unless payloads && @piece_key == key
+          payloads = build_pieces(xi, yi, cols, rows, pieces) || return
+          @piece_key = key
+          @piece_payloads = payloads
+        end
+        io = String::Builder.new(payloads.sum(&.bytesize) + 32 * payloads.size + 32)
+        io << "\e[?2026h" if double_buffer?
+        io << "\e7"
+        pieces.each_with_index do |r, k|
+          io << "\e[" << (yi + r.y + 1) << ';' << (xi + r.x + 1) << 'H'
+          io << payloads[k]
+        end
+        io << "\e8"
+        io << "\e[?2026l" if double_buffer?
+        s.tput._oprint io.to_s
+        s.tput.flush
+      end
+
+      # The payload of each of *pieces* (see `#emit_pieces`): the current frame
+      # fitted to the *cols* × *rows* box at `#piece_canvas_pixels`, cut at the
+      # pieces' cell edges, each cut handed to `#piece_payload`.
+      private def build_pieces(xi : Int32, yi : Int32, cols : Int32, rows : Int32,
+                               pieces : Array(Rectangle)) : Array(String)?
+        bw, bh = piece_canvas_pixels(cols, rows)
+        bmp = fit_bitmap(bw, bh, transient: true) || return
+        rw, rh = Media.dims(bmp)
+        return if rw == 0 || rh == 0
+        pieces.map do |r|
+          px0 = r.x * rw // cols
+          px1 = r.x_end * rw // cols
+          py0 = r.y * rh // rows
+          py1 = r.y_end * rh // rows
+          px1 = px0 + 1 if px1 <= px0
+          py1 = py0 + 1 if py1 <= py0
+          w = Math.min(px1, rw) - px0
+          cut = Array.new(py1 - py0) { |dy| bmp[Math.min(py0 + dy, rh - 1)][px0, w] }
+          pox, poy = origin_pixels(xi + r.x, yi + r.y)
+          piece_payload(cut, w, py1 - py0, pox, poy, r.width, r.height)
+        end
+      end
+
+      # The pixel size a covered picture is fitted at before being cut into
+      # its pieces, for a *cols* × *rows* box: `#target_pixels` by default.
+      protected def piece_canvas_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
+        target_pixels(cols, rows)
+      end
+
+      # The escape sequence drawing *bmp* (`pw` × `ph` pixels, one piece of a
+      # covered picture) over *cols* × *rows* cells at the cursor, its pixel
+      # origin *ox*, *oy*: `#encode` by default.
+      protected def piece_payload(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                                  cols : Int32, rows : Int32) : String
+        encode(bmp, pw, ph, ox, oy, cols, rows)
       end
 
       # Whether the graphic must be re-emitted on every window render (true when
@@ -530,7 +688,11 @@ module Crysterm
       # overrides it to interleave cached literal segments with the concrete image
       # ids, avoiding the per-frame full-payload copy the `String` return of
       # `#finalize_payload` forces.
-      protected def emit_payload(io : String::Builder, payload : String) : Nil
+      #
+      # *place* false asks a backend that sends a picture and places it in one
+      # sequence (Kitty) to send it only, for `#place_again_seq` to place;
+      # one drawing into the cells ignores it.
+      protected def emit_payload(io : String::Builder, payload : String, place : Bool = true) : Nil
         io << finalize_payload(payload)
       end
 
@@ -560,6 +722,8 @@ module Crysterm
       protected def overlay_cleared(s : ::Crysterm::Window)
         graphic_cleared s
         @emitted_key = nil
+        @placed_pieces = nil
+        @presented = nil
       end
 
       # Hook for backends whose pixels are NOT erased by re-emitting the cells

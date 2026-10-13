@@ -180,6 +180,15 @@ module Crysterm
           remove
           return
         end
+        # The helper's window stays above the terminal and shows the whole
+        # picture, with no source rectangle to show a part: while anything
+        # stacked above the widget (a menu, a dialog) covers part of it, the
+        # placement is taken down so what covers it stays on top, and added
+        # again once uncovered.
+        if covered?(rect)
+          remove
+          return
+        end
         return if rect == @last
 
         send({

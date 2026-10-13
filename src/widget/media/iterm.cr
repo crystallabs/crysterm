@@ -51,6 +51,29 @@ module Crysterm
         io.to_s
       end
 
+      # A covered picture is cut into its uncovered parts from the frame
+      # fitted at the terminal's pixel size, not at `#target_pixels` (which
+      # sizes in cells): each part is a picture of its own.
+      protected def piece_canvas_pixels(cols : Int32, rows : Int32) : Tuple(Int32, Int32)
+        {cols * cell_pixel_width, rows * cell_pixel_height}
+      end
+
+      # One part of a covered picture: its pixels sent as a PNG, stretched over
+      # exactly its *cols* × *rows* cells (`preserveAspectRatio=0` — the cut
+      # already carries the fit), so the cells stacked over the rest of the
+      # picture are never drawn over. A covered animated GIF shows its current
+      # frame while covered; iTerm2 animates it again once it is whole.
+      protected def piece_payload(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
+                                  cols : Int32, rows : Int32) : String
+        png = PNGGIF.encode_png(bmp)
+        String.build(((png.size + 2) // 3) * 4 + 96) do |io|
+          io << "\e]1337;File=inline=1;size=" << png.size \
+            << ";width=" << cols << ";height=" << rows << ";preserveAspectRatio=0:"
+          Base64.strict_encode png, io
+          io << '\a'
+        end
+      end
+
       # iTerm2 animates an inline GIF itself, so the whole file is transmitted
       # once and no per-frame loop is needed.
       protected def needs_frame_loop? : Bool

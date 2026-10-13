@@ -698,6 +698,17 @@ module Crysterm
         pos = coords(rendered: true, into: @overlay_geom_lpos) || return
         {pos.xi, pos.yi, pos.xl - pos.xi, pos.yl - pos.yi}
       end
+
+      # Whether anything stacked above this widget — a menu, a torn-off menu,
+      # a dialog — covers part of the cell rectangle *rect* (`{x, y, w, h}`,
+      # as `#overlay_geometry` gives it) this frame (`Widget#visible_region`).
+      # A helper drawing the whole picture with no source rectangle takes it
+      # down while covered, so what covers it stays on top.
+      protected def covered?(rect : Tuple(Int32, Int32, Int32, Int32)) : Bool
+        box = Rectangle.new(*rect)
+        rects = visible_region(box).rects
+        !(rects.size == 1 && rects.unsafe_fetch(0) == box)
+      end
     end
 
     # Common spine of the two *deferred window-listener* lifecycles used by the

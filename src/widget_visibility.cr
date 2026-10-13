@@ -119,6 +119,24 @@ module Crysterm
       true
     end
 
+    # The cells of *rect* (by default the rectangle this widget painted last,
+    # `lpos`) that nothing stacked above this widget painted over this frame
+    # ↔ `QWidget::visibleRegion`: *rect* less every widget that paints after
+    # it on its layer or on a higher `z_index` one — a menu, a torn-off menu,
+    # a dialog, a tool tip (`Window#subtract_stacked_above`). Empty when the
+    # widget is not on a window, or painted nothing and no *rect* is given.
+    # Meant for `Event::Rendered` listeners, when every `lpos` is this
+    # frame's: a picture the terminal draws apart from the cells presents only
+    # these cells, so what is stacked above it stays on top.
+    def visible_region(rect : Rectangle? = nil) : Region
+      unless rect
+        lp = lpos || return Region.new
+        rect = Rectangle.of_edges(lp.xi, lp.yi, lp.xl, lp.yl)
+      end
+      win = window? || return Region.new
+      win.subtract_stacked_above self, Region.new(rect)
+    end
+
     # A checkable `Action` that shows and hides this widget, its check
     # following the widget's visibility — Qt's `QDockWidget::toggleViewAction`
     # for any widget, so a View menu lists the panes of a layout with one

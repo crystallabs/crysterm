@@ -218,45 +218,100 @@ module Crysterm
       # Streams the payload with its `{i}`/`{o}` id placeholders resolved straight
       # into *io*, writing cached literal runs rather than `gsub`-copying the
       # whole (multi-MB) base64 frame on every emit.
-      protected def emit_payload(io : String::Builder, payload : String) : Nil
+      #
+      # With *place* false the picture is sent without being placed (`a=t`,
+      # its placement keys left out), for `#place_again_seq` to place in the
+      # parts nothing covers: the first transmit chunk is rewritten (a few
+      # dozen bytes), the pixels are written as they are cached.
+      protected def emit_payload(io : String::Builder, payload : String, place : Bool = true) : Nil
         literals, keys = payload_segments payload
         if double_buffer?
           primary, other = @buffer_parity ? {@id_b, @id_a} : {@id_a, @id_b}
           @buffer_parity = !@buffer_parity # next emit targets the other buffer
-          write_segments io, literals, keys, primary, other
+          write_segments io, literals, keys, primary, other, place
           @placed_id = primary
         else
           # Single buffer: `{i}` -> @id_a, and any (never-present) `{o}` is left
           # literal.
-          write_segments io, literals, keys, @id_a, nil
+          write_segments io, literals, keys, @id_a, nil, place
           @placed_id = @id_a
         end
+        # Sending an image replaces one of the same id with its placements.
+        @placements = place ? 1 : 0
       end
 
       # The image id the last emit transmitted and placed, nil once deleted.
       @placed_id : UInt32? = nil
+
+      # How many placements (ids `1..n`) of `@placed_id` the terminal holds.
+      @placements = 0
 
       # Places the image last transmitted again by its id (`a=p`), sending no
       # pixels: written-over cells drop a picture's placement on a terminal
       # that keeps images in its cells (WezTerm), not the image's data, which
       # stays until deleted. Not used after a wipe, as kitty frees the data of
       # images a screen clear (`ED 2`) removes (`Window#wiped?`).
-      protected def place_again_seq(cols : Int32, rows : Int32) : String?
+      #
+      # A covered picture (*pieces* given) is placed once per uncovered part,
+      # each its own placement id showing that part of the image (`x`, `y`,
+      # `w`, `h`, the source rectangle in the transmitted pixels) over the
+      # part's cells (`c`, `r`); the placements of a former covering it no
+      # longer needs are deleted, the image's data kept (lowercase `d=i`), so
+      # opening, moving and closing a menu over it sends no pixels.
+      protected def place_again_seq(xi : Int32, yi : Int32, cols : Int32, rows : Int32,
+                                    pieces : Array(Rectangle)?) : String?
         id = @placed_id || return
+        before = @placements
         String.build do |io|
-          io << "\e_Ga=p,i=" << id << ",p=1,c=" << Math.max(cols, 1) << ",r=" << Math.max(rows, 1) << ",C=1,q=2"
-          @z.try { |z| io << ",z=" << z }
-          io << "\e\\"
+          if pieces
+            pw, ph = @payload_dims || {cols, rows}
+            pieces.each_with_index do |r, k|
+              x0 = r.x * pw // cols
+              x1 = Math.max(r.x_end * pw // cols, x0 + 1)
+              y0 = r.y * ph // rows
+              y1 = Math.max(r.y_end * ph // rows, y0 + 1)
+              io << "\e[" << (yi + r.y + 1) << ';' << (xi + r.x + 1) << 'H'
+              io << "\e_Ga=p,i=" << id << ",p=" << (k + 1) \
+                << ",x=" << x0 << ",y=" << y0 << ",w=" << (x1 - x0) << ",h=" << (y1 - y0) \
+                << ",c=" << r.width << ",r=" << r.height << ",C=1,q=2"
+              @z.try { |z| io << ",z=" << z }
+              io << "\e\\"
+            end
+            @placements = pieces.size
+          else
+            io << "\e[" << (yi + 1) << ';' << (xi + 1) << 'H'
+            io << "\e_Ga=p,i=" << id << ",p=1,c=" << Math.max(cols, 1) << ",r=" << Math.max(rows, 1) << ",C=1,q=2"
+            @z.try { |z| io << ",z=" << z }
+            io << "\e\\"
+            @placements = 1
+          end
+          (@placements + 1).upto(before) do |p|
+            io << "\e_Ga=d,d=i,i=" << id << ",p=" << p << ",q=2\e\\"
+          end
         end
       end
 
       # Interleaves the literal *literals* runs with the per-gap id chosen by
       # *keys* (`'i'` -> *id_i*, `'o'` -> *id_o*, or the placeholder left literal
       # when *id_o* is nil). `literals.size == keys.size + 1`.
+      #
+      # With *place* false the first transmit chunk's `a=T` (send and place)
+      # is written as `a=t` (send) and its placement keys (`,p=1,c=…,r=…,C=1`,
+      # right after the image id) are skipped: the run after the id holds the
+      # pixels of every chunk, so it is written from a `Slice` view, not cut
+      # into a copy.
       private def write_segments(io : String::Builder, literals : Array(String),
-                                 keys : Array(Char), id_i : UInt32, id_o : UInt32?)
+                                 keys : Array(Char), id_i : UInt32, id_o : UInt32?,
+                                 place : Bool = true)
         literals.each_with_index do |lit, k|
-          io << lit
+          if place || k > 1
+            io << lit
+          elsif k == 0
+            io << lit.sub("\e_Ga=T,", "\e_Ga=t,")
+          else
+            skip = lit.starts_with?(",p=1,") ? (lit.byte_index(",q=2") || 0) : 0
+            io.write lit.to_slice[skip..]
+          end
           next unless k < keys.size
           case keys[k]
           when 'i' then io << id_i
@@ -334,6 +389,7 @@ module Crysterm
         s.tput._oprint delete_seq(@id_a), delete_seq(@id_b)
         s.tput.flush
         @placed_id = nil
+        @placements = 0
       end
 
       # Single-buffer only ever uses `@id_a`, so on the true→false switch the last

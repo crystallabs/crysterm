@@ -102,6 +102,16 @@ module Crysterm
           return
         end
         return if @helper_failed
+        # w3mimgdisplay draws the whole picture over the terminal's window and
+        # has no source rectangle to draw a part of it: while anything
+        # stacked above the widget (a menu, a dialog) covers part of it, the
+        # picture is taken down — its cells re-emitted, which the terminal
+        # paints over it — so what covers it stays on top, and it comes back
+        # whole once uncovered.
+        if covered?(rect)
+          clear_overlay if @last_drawn
+          return
+        end
         begin
           # `Fit::None` draws at the source's native size, centered; every
           # scaling mode becomes w3m's rect fill (it can't preserve aspect).
