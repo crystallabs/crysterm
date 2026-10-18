@@ -129,7 +129,7 @@ module Crysterm
       fold_tocs(Importer.new(text).import(doc))
     end
 
-    # The line `.seam?` appends to the text before a proposed seam: so deeply
+    # The line `.seam` appends to the text before a proposed seam: so deeply
     # indented that whatever is still open there and can run on across a
     # blank line — a fence, an HTML block of types 1-5, a list item at any
     # nesting depth, indented code — takes it in, while after anything closed
@@ -150,13 +150,28 @@ module Crysterm
     # which the importer would pair across the seam (`.fold_tocs`) — that
     # opener can come out of any block, an HTML block's line or a code line
     # included, so the fold itself is asked.
-    protected def self.seam?(prefix : String) : Bool
-      text = prefix + SEAM_PROBE
-      doc = Markd::Parser.parse(text, Markd::Options.new(source_pos: true))
+    #
+    # Returns that parse (`Seam`), the probe's code block removed, when
+    # *prefix* is a seam, else nil.
+    protected def self.seam(prefix : String) : Seam?
+      doc = Markd::Parser.parse(prefix + SEAM_PROBE, Markd::Options.new(source_pos: true))
       last = doc.last_child?
-      return false unless last && last.type.code_block? && !last.fenced? && last.text == SEAM_PROBE_CODE
-      return true unless prefix.matches?(/toc/i)
-      fold_tocs(Importer.new(text).import(doc)).none? { |b| fence_open?(b) }
+      return unless last && last.type.code_block? && !last.fenced? && last.text == SEAM_PROBE_CODE
+      last.unlink
+      return Seam.new(doc) unless prefix.matches?(/toc/i)
+      blocks = fold_tocs(Importer.new(prefix).import(doc))
+      Seam.new(doc, blocks) if blocks.none? { |b| fence_open?(b) }
+    end
+
+    # The parse `.seam` confirms a release point with: markd's document of
+    # the text before it, and that text's blocks when the check imported
+    # them already.
+    record Seam, doc : Markd::Node, blocks : Array(TextBlock)? = nil
+
+    # `.parse_piece` for *text*, a piece `Stream` released, from the parse
+    # that confirmed its seam.
+    def self.import_piece(text : String, seam : Seam) : Array(TextBlock)
+      seam.blocks || fold_tocs(Importer.new(text).import(seam.doc))
     end
 
     # Serializes *blocks* to markdown.
@@ -318,10 +333,11 @@ module Crysterm
     # `#append` buffers a chunk and returns markdown ready to parse, or nil;
     # `#flush` returns whatever is still pending — the end-of-stream signal.
     # This class is text chunking: `TextDocument#append_markdown` owns one
-    # per document and feeds the released pieces through `.parse_piece`.
+    # per document and imports the released pieces (`.import_piece`, and
+    # `.parse_piece` for the flushed tail).
     #
     # A line scanner proposes the release points below, and markd confirms
-    # each before it is used (`TextMarkdown.seam?`): the scanner sees lines
+    # each before it is used (`TextMarkdown.seam`): the scanner sees lines
     # without the containers around them, so it can mistake one construct's
     # content for another's opening, and a seam it alone vouched for could
     # fall inside a fence the scanner never saw open.
@@ -391,6 +407,10 @@ module Crysterm
       # adds (minus one) to the piece-relative `TextBlock#source_line`s the
       # parser stamps, so a streamed document's lines are the whole stream's.
       getter piece_line = 1
+      # The parse that confirmed the piece `#append` last returned
+      # (`TextMarkdown.import_piece`); nil after `#flush`, whose piece has
+      # no seam check.
+      getter piece_seam : Seam?
       # Lines (`'\n'`s) released so far.
       @released_lines = 0
       # The last chunk ended in a `'\r'`: a `'\n'` opening the next one is
@@ -402,7 +422,7 @@ module Crysterm
       @scan_pos = 0
       # Byte offsets of the release points the scan proposes (each just past
       # a blank line), in order; `#release` takes the last one markd
-      # confirms (`TextMarkdown.seam?`).
+      # confirms (`TextMarkdown.seam`).
       @boundaries = [] of Int32
       # Byte end of the last content line scanned; a boundary is only worth
       # releasing when content precedes it.
@@ -457,6 +477,7 @@ module Crysterm
 
       private def reset : Nil
         @pending = ""
+        @piece_seam = nil
         @after_cr = false
         @scan_pos = 0
         @boundaries.clear
@@ -484,8 +505,10 @@ module Crysterm
       # A boundary markd rejects stays rejected — the verdict depends only on
       # the text before it — so every proposal is dropped here either way.
       private def release : String?
-        b = @boundaries.reverse_each.find { |c| TextMarkdown.seam?(@pending.byte_slice(0, c)) }
+        seam = nil
+        b = @boundaries.reverse_each.find { |c| seam = TextMarkdown.seam(@pending.byte_slice(0, c)) }
         @boundaries.clear
+        @piece_seam = seam
         return unless b
         piece = @pending.byte_slice(0, b)
         @pending = @pending.byte_slice(b, @pending.bytesize - b)
@@ -2235,7 +2258,7 @@ module Crysterm
     # (one undo step per released piece).
     def append_markdown(chunk : String) : Nil
       stream = (@markdown_stream ||= TextMarkdown::Stream.new)
-      stream.append(chunk).try { |piece| append_markdown_piece(piece, stream.piece_line) }
+      stream.append(chunk).try { |piece| append_markdown_piece(piece, stream.piece_line, stream.piece_seam) }
     end
 
     # Parses and appends whatever `#append_markdown` still holds pending — the
@@ -2254,14 +2277,15 @@ module Crysterm
       @markdown_tail = nil
     end
 
-    # Parses one released piece and appends its blocks at the document end.
-    # *line* is the piece's first line within the whole stream: the parser
-    # numbers `TextBlock#source_line` from 1 per piece, so the blocks are
-    # rebased onto it.
-    private def append_markdown_piece(text : String, line : Int32 = 1) : Nil
+    # Imports one released piece — from *seam*, the parse that confirmed it,
+    # when given — and appends its blocks at the document end. *line* is the
+    # piece's first line within the whole stream: the parser numbers
+    # `TextBlock#source_line` from 1 per piece, so the blocks are rebased
+    # onto it.
+    private def append_markdown_piece(text : String, line : Int32 = 1, seam : TextMarkdown::Seam? = nil) : Nil
       # A piece that imports to no block at all (an empty blockquote, say)
       # adds none: one-shot import has no block for it either.
-      parsed = TextMarkdown.parse_piece(text)
+      parsed = seam ? TextMarkdown.import_piece(text, seam) : TextMarkdown.parse_piece(text)
       return if parsed.empty?
       parsed.each { |b| b.source_line = b.source_line.try &.+(line - 1) } if line > 1
       # An empty document adopts the piece wholesale — `#set_markdown`'s reset
