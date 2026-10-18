@@ -298,12 +298,7 @@ module Crysterm
           return
         end
         @message_room_width = xl - xi
-        edge = nil.as(Int32?)
-        @permanent_widgets.each do |w|
-          next unless w.visible?
-          next unless pos = w.lpos
-          edge = pos.xi if edge.nil? || pos.xi < edge
-        end
+        edge = leftmost_field_x @permanent_widgets
         start = edge
         start = (edge ? edge - 1 : xl) - str_width(@permanent_text) unless @permanent.empty?
         @message_room = Math.max(0, start ? start - 1 - xi : xl - xi)
@@ -357,8 +352,16 @@ module Crysterm
       # absolute cells, or `nil` without fields — where the painted message
       # and text sections must stop. Read after the children rendered.
       private def fields_left : Int32?
+        a = leftmost_field_x @normal_widgets
+        b = leftmost_field_x @permanent_widgets
+        a && b ? Math.min(a, b) : a || b
+      end
+
+      # The smallest `lpos.xi` among the visible *widgets* rendered this
+      # frame, or `nil` when there is none.
+      private def leftmost_field_x(widgets : Enumerable(Widget)) : Int32?
         left = nil.as(Int32?)
-        {@normal_widgets, @permanent_widgets}.each &.each do |w|
+        widgets.each do |w|
           next unless w.visible?
           next unless pos = w.lpos
           left = pos.xi if left.nil? || pos.xi < left

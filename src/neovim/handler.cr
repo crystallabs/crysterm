@@ -320,6 +320,8 @@ module Crysterm
       # The widgets that show the buffer: the one attached to and those added
       # with `#add_view`, oldest first; empty while detached.
       def views : Array(Widget)
+        # The cast widens the element type: the compiler types `widget` by the
+        # `TargetOf` instances the program makes, which may all be one subclass.
         @views.map &.widget.as(Widget)
       end
 

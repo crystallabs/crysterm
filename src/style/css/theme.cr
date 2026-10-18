@@ -113,6 +113,7 @@ module Crysterm
         @@builtins[name]? || begin
           source = BUILTIN_STYLESHEETS[name]? || return
           css = Qss.to_css(source)
+          # The overlay is parsed on its own here, only for its `.Widget` colors.
           window = Stylesheet.parse(css).rules.find { |rule| rule.selector == ".Widget" && rule.state.nil? }
           color = ->(property : String) { window.try { |rule| rule.declarations[property]?.try { |value| ColorValue.solid(value, nil) } } }
           surface = color.call("background-color")
@@ -219,8 +220,9 @@ module Crysterm
       end
 
       # Parses `#to_css` into a `Stylesheet` ready to install as the default.
-      # A built-in Qt theme's sheet, the largest by far, is parsed once and
-      # kept (`@@builtin_sheets`): its palette never changes.
+      # A built-in Qt theme's overlay is translated once (`Theme.builtin`); its
+      # full themed sheet, the largest by far, is parsed once and kept
+      # (`@@builtin_sheets`): its palette never changes.
       def stylesheet : Stylesheet
         return Stylesheet.parse to_css unless @overlay
         @@builtin_sheets[@name] ||= Stylesheet.parse to_css
