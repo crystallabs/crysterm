@@ -45,29 +45,18 @@ module Crysterm
       link
     end
 
-    # The two-way link `Reactive.link_config` makes between a `Property` and
-    # a config option: disposing it unhooks both sides. Both live in one
-    # `Subscriptions` bag — the option's listener as a teardown block, the
-    # property's handler as an event subscription — so one `off` ends them.
-    class ConfigLink
+    # Base of the two-way links between reactive values. Everything the link
+    # hooks lives in one `Subscriptions` bag, so one `off` ends it; subclasses
+    # add their sides to it from `watch`.
+    abstract class Link
       @subs = ::Crysterm::Subscriptions.new
-
-      # Hooks the two sides: a change of the option puts its value into the
-      # property, an assignment to the property sets the option at runtime
-      # precedence.
-      protected def watch(property : Property(T), key : String) : Nil forall T
-        handle = Config.on_change(key) { property.value = Config.get(key, T) }
-        @subs.add { Config.off_change key, handle }
-        @subs.on(property, ::Crysterm::Event::ReactiveChanged) { Config.set key, property.value }
-      end
 
       # Ends the link at *owner*'s `Event::Destroy`.
       protected def attach_auto_dispose(owner : ::EventHandler) : Nil
         @subs.auto_dispose(owner) { dispose }
       end
 
-      # Unhooks the option's listener and the property's, so neither side
-      # hears the other again. Idempotent.
+      # Unhooks both sides, so neither hears the other again. Idempotent.
       def dispose : Nil
         @subs.off
       end
@@ -75,6 +64,21 @@ module Crysterm
       # Whether the link has been ended.
       def disposed? : Bool
         @subs.disposed?
+      end
+    end
+
+    # The two-way link `Reactive.link_config` makes between a `Property` and
+    # a config option: disposing it unhooks both sides. The option's listener
+    # is a teardown block in the bag, the property's handler an event
+    # subscription.
+    class ConfigLink < Link
+      # Hooks the two sides: a change of the option puts its value into the
+      # property, an assignment to the property sets the option at runtime
+      # precedence.
+      protected def watch(property : Property(T), key : String) : Nil forall T
+        handle = Config.on_change(key) { property.value = Config.get(key, T) }
+        @subs.add { Config.off_change key, handle }
+        @subs.on(property, ::Crysterm::Event::ReactiveChanged) { Config.set key, property.value }
       end
     end
   end

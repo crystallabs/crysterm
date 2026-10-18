@@ -29,32 +29,13 @@ module Crysterm
     end
 
     # The two-way link `Reactive.link` makes between two properties:
-    # disposing it unhooks both sides. Both handlers live in one
-    # `Subscriptions` bag, so one `off` ends them.
-    class PropertyLink
-      @subs = ::Crysterm::Subscriptions.new
-
+    # disposing it unhooks both sides; their values stay as they are.
+    class PropertyLink < Link
       # Hooks the two sides: an assignment to either puts its value into the
       # other.
       protected def watch(a : Property(T), b : Property(T)) : Nil forall T
         @subs.on(a, ::Crysterm::Event::ReactiveChanged) { b.value = a.peek }
         @subs.on(b, ::Crysterm::Event::ReactiveChanged) { a.value = b.peek }
-      end
-
-      # Ends the link at *owner*'s `Event::Destroy`.
-      protected def attach_auto_dispose(owner : ::EventHandler) : Nil
-        @subs.auto_dispose(owner) { dispose }
-      end
-
-      # Unhooks both properties' handlers, so neither side follows the other
-      # again; their values stay as they are. Idempotent.
-      def dispose : Nil
-        @subs.off
-      end
-
-      # Whether the link has been ended.
-      def disposed? : Bool
-        @subs.disposed?
       end
     end
   end
