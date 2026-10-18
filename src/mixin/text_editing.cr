@@ -196,6 +196,33 @@ module Crysterm
         end
       end
 
+      # The shared tail of an edit or caret move made outside the keystroke
+      # handler: when *changed*, keeps the caret on window on both axes
+      # (`#_type_scroll`), then reports the caret events, then repaints and
+      # moves the terminal caret. With *changed* false only the caret events
+      # are reported. Safe without a window.
+      private def settle_caret(changed : Bool = true) : Nil
+        _type_scroll if changed
+        emit_caret_events
+        return unless changed
+        update!
+        _update_cursor
+      end
+
+      # Reports the text change since *before*, the text serialized before the
+      # change (`nil` when nobody observes it, see `#text_change_observed?`):
+      # when the text differs, emits `Event::TextChanged` and, for a user edit
+      # (*edited*), `Event::TextEdited`, both with the new text. Returns
+      # whether it did.
+      private def report_text_change(before : String?, edited : Bool = true) : Bool
+        return false unless before
+        after = buf_text
+        return false if after == before
+        emit Crysterm::Event::TextChanged, after
+        emit Crysterm::Event::TextEdited, after if edited
+        true
+      end
+
       # Inserts *str* at the cursor, replacing the selection if there is one —
       # exactly what typing the characters would do (Qt's `QLineEdit#insert`).
       #
@@ -214,14 +241,10 @@ module Crysterm
         # A full field with nothing selected inserted nothing: no event, no
         # repaint (with a selection the text always changed — it was deleted).
         return if !had_selection && buf_size == before_size
-        ensure_cursor_visible
-        ensure_cursor_visible_x
         # Paste and `#insert_text` count as user edits (Qt's `textEdited`
         # scope), unlike `value=`.
         emit_text_changed
-        emit_caret_events
-        update!
-        _update_cursor
+        settle_caret
       end
 
       # Insertion-point position, as a codepoint index into the buffer
@@ -334,14 +357,8 @@ module Crysterm
         before_size = buf_size
         yield
         changed = before ? buf_text != before : buf_size != before_size
-        if changed
-          ensure_cursor_visible
-          ensure_cursor_visible_x
-          emit_text_changed
-          update!
-        end
-        emit_caret_events
-        _update_cursor if changed
+        emit_text_changed if changed
+        settle_caret changed
       end
 
       # Runs buffer edits made by an editing engine outside the widget — the
@@ -362,12 +379,8 @@ module Crysterm
           @selection_anchor = a == @cursor_pos ? nil : a
         end
         @goal_col = nil
-        ensure_cursor_visible
-        ensure_cursor_visible_x
         emit_text_changed
-        emit_caret_events
-        update!
-        _update_cursor
+        settle_caret
       end
 
       # Puts the caret on *pos* and the selection's fixed end on *anchor*
@@ -384,11 +397,7 @@ module Crysterm
         @selection_anchor = anchor
         @cursor_pos = pos
         @goal_col = nil
-        ensure_cursor_visible
-        ensure_cursor_visible_x
-        emit_caret_events
-        update!
-        _update_cursor
+        settle_caret
       end
 
       # Whether the widget holds one line of text, never a line break

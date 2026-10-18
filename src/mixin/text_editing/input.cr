@@ -303,11 +303,7 @@ module Crysterm
         if before
           # A selection was present: a same-size replacement is possible, so
           # compare the full text (both endpoints already needed the serialize).
-          if (after = buf_text) != before
-            emit Crysterm::Event::TextChanged, after
-            emit Crysterm::Event::TextEdited, after
-            update!
-          end
+          update! if report_text_change(before)
         elsif buf_size != before_size
           # No starting selection: a size change is the only way the text changed,
           # so an unchanged size means unchanged text — no serialization at all.

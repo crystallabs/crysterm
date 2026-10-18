@@ -97,9 +97,7 @@ module Crysterm
           end
         end
         emit_text_changed
-        emit_caret_events
-        update!
-        _update_cursor
+        settle_caret
       end
 
       # === Table editing. A `TextTable` is pre-rendered box-drawing blocks, so
@@ -132,7 +130,6 @@ module Crysterm
       # One flat guard on purpose: it is the single place the "does this key
       # touch a table?" rule lives, and splitting it would let the in-table and
       # at-the-edge cases drift apart.
-      # ameba:disable Metrics/CyclomaticComplexity
       private def table_guard(e) : Bool
         k = e.key
         typing = k.nil? && (c0 = e.char) && !Mixin::TextEditing.control_char?(c0)
@@ -170,10 +167,9 @@ module Crysterm
         return true if selection?
 
         info = tbl.cell_at(@cursor_pos)
-        # The before/after pair only gates the emit — the repaint below always
-        # runs — so skip both serializations when nothing observes the event.
-        want = text_change_observed?
-        before = want ? buf_text : nil
+        # The snapshot only gates the emit — the repaint below always runs —
+        # so skip both serializations when nothing observes the event.
+        before = text_change_observed? ? buf_text : nil
         # The cell edits go through the table, not `buf_*`: told of below.
         reporting_edit do
           case k
@@ -192,13 +188,8 @@ module Crysterm
             # Kill/yank/cut/paste inside a table: absorbed.
           end
         end
-        if want && (after = buf_text) != before
-          emit Crysterm::Event::TextChanged, after
-          emit Crysterm::Event::TextEdited, after
-        end
-        emit_caret_events
-        update!
-        _update_cursor
+        report_text_change before
+        settle_caret
         true
       end
 
@@ -306,18 +297,12 @@ module Crysterm
           if (info = tbl.cell_at(@cursor_pos)) && (to = cell_text_and_offset(tbl, *info))
             row, col = info
             txt, off = to
-            want = text_change_observed?
-            before = want ? buf_text : nil
+            before = text_change_observed? ? buf_text : nil
             clean = str.gsub(/\r\n?|\n/, ' ')
             reporting_edit { tbl.set_cell_text(row, col, txt.insert(off, clean)) }
             place_caret_in_cell(tbl, row, col, off + clean.size)
-            if want && (after = buf_text) != before
-              emit Crysterm::Event::TextChanged, after
-              emit Crysterm::Event::TextEdited, after
-            end
-            emit_caret_events
-            update!
-            _update_cursor
+            report_text_change before
+            settle_caret
             return
           end
         end

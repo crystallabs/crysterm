@@ -342,22 +342,15 @@ module Crysterm
               e.accept
               # A non-kill action ends the consecutive-kill run (emacs semantics).
               kill_ring.interrupt if Crysterm::Config.input_readline_keys
-              # Both snapshots exist *only* to decide whether to emit — the
+              # The snapshot exists *only* to decide whether to emit — the
               # repaint below is unconditional — so with nobody listening we
               # skip two full document serializations per undo/redo.
-              want = text_change_observed?
-              before = want ? buf_text : nil
+              before = text_change_observed? ? buf_text : nil
               if k == Tput::Key::CtrlZ ? undo : redo
-                ensure_cursor_visible
-                ensure_cursor_visible_x
-                if want && (after = buf_text) != before
-                  # `TextChanged` only: undo/redo replay is not a user *edit*
-                  # in Qt's `textEdited` sense.
-                  emit Crysterm::Event::TextChanged, after
-                end
-                emit_caret_events
-                update!
-                _update_cursor
+                # `TextChanged` only: undo/redo replay is not a user *edit*
+                # in Qt's `textEdited` sense.
+                report_text_change before, edited: false
+                settle_caret
               end
               return true
             end
@@ -555,19 +548,16 @@ module Crysterm
         end
 
         # Adopts *c*'s position/anchor as the widget caret/selection (Qt
-        # `setTextCursor`): the view scrolls to keep the caret on window
-        # (`#ensure_cursor_visible`) and `Event::CursorPositionChanged` /
-        # `Event::SelectionChanged` report the move, as for a keystroke — the
+        # `setTextCursor`): the view scrolls to keep the caret on window,
+        # `Event::CursorPositionChanged` / `Event::SelectionChanged` report
+        # the move and the terminal caret follows, as for a keystroke — the
         # way another widget (a preview following an editor, a search box)
         # places this view's caret.
         def text_cursor=(c : TextCursor)
           @cursor_pos = c.position.clamp(0, buf_size)
           @selection_anchor = c.selection? ? c.anchor.clamp(0, buf_size) : nil
           @goal_col = nil
-          ensure_cursor_visible
-          emit_caret_events
-          update
-          update! if window?
+          settle_caret
         end
 
         # Mirrors a document change made by another actor (a second view

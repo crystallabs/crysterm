@@ -107,10 +107,13 @@ module Crysterm
         first_after = nil
         i = prefix_size
         content = false
+        tab_width = (style.tab_char * style.tab_size).size
+        # Expanded width of `line[0, i]`, kept up to date as the loop walks.
+        width = expanded_width(line[0, prefix_size])
         line.each_char.skip(prefix_size).each do |ch|
           if ch == ' '
             if content && hard_wrap_breakable?(line, i)
-              if expanded_width(line[0, i]) <= column
+              if width <= column
                 best = i
               else
                 first_after ||= i
@@ -119,6 +122,7 @@ module Crysterm
           else
             content = true
           end
+          width += ch == '\t' ? tab_width : 1
           i += 1
         end
         best || first_after
