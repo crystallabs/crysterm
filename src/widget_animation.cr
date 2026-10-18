@@ -33,6 +33,17 @@ module Crysterm
     # registered on every start.
     @css_animation_hooks_installed = false
 
+    # Whether this widget's animations hold right now: its window pauses
+    # animations while its terminal window is unfocused
+    # (`Window#animations_paused?`, `render.pause_when_unfocused`). The gate
+    # every clock a widget drives is given (`FrameClock#pause_while`): CSS
+    # animations and transitions, fades and pulses, `Effect::Animated`,
+    # animated media and gradients. A widget in no window is not held — its
+    # clocks stop for visibility instead (`Mixin::VisibilityPausedClock`).
+    def animations_paused? : Bool
+      !!window?.try(&.animations_paused?)
+    end
+
     # Starts/keeps/stops this widget's CSS `animation` to match its current style.
     # A cheap no-op when no `animation` is declared. Called once per render.
     def ensure_css_animation : Nil
@@ -139,6 +150,7 @@ module Crysterm
         end
         update!
       end
+      anim.pause_while { animations_paused? }
       @css_animation = anim
       @css_animation_spec = spec
       anim.start

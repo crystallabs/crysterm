@@ -1510,9 +1510,11 @@ sugar) or via config/env.
 
 Terminal focus reporting (`window.send_focus`, DEC 1004) is on by default,
 and with `render.pause_when_unfocused` (default `true`) an unfocused terminal
-window stops producing frames entirely — timers and app logic keep running,
-and focus-in repaints whatever changed while the window was in the
-background. Spawned emulator windows (`Window.open`/`Window.run`) default to
+window holds its animations — CSS animations and transitions, fades,
+`Effect::Animated`, animated media and gradients (`Window#animations_paused?`,
+`FrameClock#pause_while`) — while timers, app logic and every other change
+keep running and painting as in a focused window; focus-in repaints with the
+animations where the time has brought them. Spawned emulator windows (`Window.open`/`Window.run`) default to
 the launching terminal's own size instead of 80×24.
 
 ---

@@ -9,9 +9,9 @@ include Crysterm
 #        identity-derived `Tput::Features` flags, instead of being emitted
 #        unconditionally; `mouse.cursor_shape` gains the same auto policy.
 # §7.2 — idle efficiency: `window.send_focus` defaults on, and
-#        `render.pause_when_unfocused` parks the render loop while the
-#        terminal window is unfocused (DEC 1004 blur report), resuming with a
-#        repaint on focus-in.
+#        `render.pause_when_unfocused` holds the window's animations while the
+#        terminal window is unfocused (DEC 1004 blur report); a change still
+#        paints, and focus-in repaints.
 
 private def gating_window(output = IO::Memory.new, width = 30, height = 4)
   Crysterm::Window.new(
@@ -183,7 +183,7 @@ describe "§7.2: focus-driven render pause" do
     end
   end
 
-  it "pauses frame production while unfocused and resumes with a repaint on focus-in" do
+  it "holds the animations while unfocused, painting a change meanwhile (pause_animations_spec)" do
     outp = IO::Memory.new
     s = gating_window(outp)
     begin
@@ -192,19 +192,18 @@ describe "§7.2: focus-driven render pause" do
         content: "ORIG"
       s.repaint
       s.dispatch_mouse ::Tput::Mouse::Event.blur
+      s.animations_paused?.should be_true
       outp.clear
 
-      # A mutation while unfocused rings the doorbell, but the parked loop
-      # must consume the ring without building or writing a frame.
+      # A mutation while unfocused paints as it would focused: only the
+      # animation clocks hold.
       box.content = "CHANGED"
       s.update
       sleep 80.milliseconds
-      outp.to_s.should eq ""
-
-      # Focus-in resumes the loop and repaints the deferred change.
-      s.dispatch_mouse ::Tput::Mouse::Event.focus
-      sleep 80.milliseconds
       outp.to_s.should contain "CHANGED"
+
+      s.dispatch_mouse ::Tput::Mouse::Event.focus
+      s.animations_paused?.should be_false
     ensure
       s.destroy
     end

@@ -53,6 +53,9 @@ module Crysterm
     @immediate : Bool = true
     @on_tick : FrameClock ->
     @stop_handler : (->)?
+    # While this returns true the clock holds: it keeps its cadence but ticks
+    # nothing (`#pause_while`). Nil: never held.
+    @pause_gate : (-> Bool)?
 
     # Seconds elapsed since *start_at* (a `Time.instant` reading), driving progress
     # from real wall-clock time rather than a fixed per-tick step — `FrameClock`
@@ -113,6 +116,24 @@ module Crysterm
       self
     end
 
+    # Holds the clock while *gate* returns true: the loop keeps its cadence,
+    # but the block is not called, so an animation stops advancing and asking
+    # for frames. Time still passes meanwhile — the first tick once the gate
+    # opens sees the whole span, as a tick after a late one does, so a tween
+    # that ran out while held lands on `value == 1.0` then and completes. The
+    # gate is read before each tick, on the clock's fiber. Every clock a
+    # widget drives passes `Widget#animations_paused?`, which holds it while
+    # the widget's window is unfocused (`Window#pause_when_unfocused?`).
+    # Returns self for chaining.
+    def pause_while(&@pause_gate : -> Bool) : self
+      self
+    end
+
+    # Whether the gate holds the clock right now (`#pause_while`).
+    def held? : Bool
+      !!@pause_gate.try(&.call)
+    end
+
     # Starts the loop fiber. No-op if already running. Returns self for chaining.
     def start : self
       return self if running?
@@ -163,7 +184,11 @@ module Crysterm
         loop do
           break unless @running && @generation == gen
 
-          if dur
+          if held?
+            # Held by the gate: no tick this round. The sleep below keeps the
+            # cadence, so the first tick after the gate opens is at most one
+            # interval away.
+          elsif dur
             elapsed = Time.instant - start_at
             raw = dur.zero? ? 1.0 : (elapsed.total_seconds / dur.total_seconds).clamp(0.0, 1.0)
             @value = @easing.apply(raw)

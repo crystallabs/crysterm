@@ -563,6 +563,7 @@ module Crysterm
           # false` (pause/stop/num_plays) stops the loop on the next tick.
           clock.stop unless @playing
         end
+        @animation.try &.pause_while { animations_paused? }
         @animation.try &.start
       end
 

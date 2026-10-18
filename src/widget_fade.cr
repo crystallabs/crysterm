@@ -154,6 +154,7 @@ module Crysterm
         set_opacity min + (max - min) * eased
         update!
       end
+      anim.pause_while { animations_paused? }
       @fade = anim
       @pulse_clock = anim
       anim.start

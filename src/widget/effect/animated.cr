@@ -99,7 +99,7 @@ module Crysterm
             on(::Crysterm::Event::Show) { resume_animation }
             on(::Crysterm::Event::Attached) { resume_animation }
           end
-          @animation = FrameClock.ticker(@interval) do
+          anim = FrameClock.ticker(@interval) do
             step
             update!
             if done?
@@ -109,7 +109,9 @@ module Crysterm
               on_done
             end
           end
-          @animation.try &.start
+          anim.pause_while { animations_paused? }
+          @animation = anim
+          anim.start
         end
 
         # Stop the animation. The fiber exits on its next iteration. Also

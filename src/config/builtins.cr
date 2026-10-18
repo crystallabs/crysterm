@@ -116,7 +116,7 @@ module Superconf
   option "render.idle_gc", true,
     description: "Collect garbage in the idle gap right after a frame is flushed (while the terminal digests it) whenever the heap is close to the collector's natural trigger, so the pause lands between frames instead of inside a later frame's render/draw phase — an animation's frame times stay flat rather than periodically absorbing a full-heap mark. Total GC work is unchanged, only its placement; set false to leave collection timing entirely to the GC"
   option "render.pause_when_unfocused", true,
-    description: "Pause frame production while the terminal window is unfocused (requires focus reports: window.send_focus plus enabled mouse reporting), resuming with a repaint on focus-in. Timers and app logic keep running — only the render pipeline (frame build + terminal write) idles, so background windows don't burn CPU painting animations nobody sees"
+    description: "Pause the window's animations while the terminal window is unfocused (requires focus reports: window.send_focus plus enabled mouse reporting): the clocks behind CSS animations and transitions, fades, Effect::Animated, animated media and gradients hold, so background windows don't burn CPU on frames nobody sees. Everything else keeps running and painting — timers, posted jobs, a text another window edits — and focus-in repaints with the animations where the time has brought them"
   option "render.reduced_motion", false,
     description: "Honor a reduced-motion preference: collapse duration-based animations (CSS transitions, fades, tweens) straight to their final state instead of animating. Decorative looping effects and media playback keep running"
 

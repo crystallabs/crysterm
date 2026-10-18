@@ -173,6 +173,7 @@ module Crysterm
         tick.call clock
         update!
       end
+      anim.pause_while { animations_paused? }
       if od = on_done
         anim.stop_handler { od.call if anim.completed? }
       end

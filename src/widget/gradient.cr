@@ -113,7 +113,7 @@ module Crysterm
 
         @timer = case animate
                  in Timer then animate
-                 in Bool  then animate ? (@own_timer = Timer.new(interval).start) : nil
+                 in Bool  then animate ? (@own_timer = Timer.new(interval).pause_while { animations_paused? }.start) : nil
                  end
         @timer.try do |t|
           @tick_sub.on(t, Crysterm::Event::Tick) do

@@ -22,14 +22,14 @@ module Crysterm
     # Whether the terminal window itself has GUI focus, per DEC 1004 reports
     # (`\e[I`/`\e[O`). Assumed `true` until a blur report arrives, so nothing
     # changes when focus reporting isn't active (`#send_focus?` off, or mouse
-    # reporting never enabled). Drives `#pause_when_unfocused?`.
+    # reporting never enabled). Drives `#animations_paused?`.
     getter? terminal_focused : Bool = true
 
     # Applies a terminal focus report: updates `#terminal_focused?` and, on
-    # focus-in, rings the render doorbell — both to resume a
-    # `#pause_when_unfocused?` pause with a repaint picking up everything that
-    # changed while unfocused, and because a just-focused window is worth a
-    # fresh frame. The report's `Event::Mouse` still reaches subscribers
+    # focus-in, rings the render doorbell: a just-focused window is worth a
+    # fresh frame, and the animations held while it was unfocused
+    # (`#animations_paused?`) show where the time has brought them. The
+    # report's `Event::Mouse` still reaches subscribers
     # through the usual dispatch; this is only the window-internal bookkeeping.
     protected def terminal_focus_report(focused : Bool) : Nil
       return if @terminal_focused == focused
