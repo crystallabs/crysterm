@@ -78,13 +78,13 @@ module Crysterm
         update! if window?
       end
 
-      # Fewest columns the row ruler takes, so a short document's ruler does
-      # not jitter between 9 and 10 rows.
-      RULER_MIN_DIGITS = 2
+      # Fewest digit columns the line-number gutter and the row ruler show,
+      # so they don't jitter between 9 and 10 lines on a short document.
+      CHROME_MIN_DIGITS = 2
 
-      # How far a ruler's or a guide's foreground fades toward the background
-      # when no `::ruler`/`::guide` rule styles it: the weight of the text
-      # color in the mix (`LINE_NUMBER_FADE`'s twin).
+      # How far the gutter's, a ruler's or a guide's foreground fades toward
+      # the background when no `::line-number`/`::ruler`/`::guide` rule styles
+      # it: the weight of the text color in the mix.
       CHROME_FADE = 0.55
 
       # Columns the row ruler takes this frame, 0 while `#row_ruler?` is
@@ -96,7 +96,7 @@ module Crysterm
       # `#row_ruler_numbers?` (`line_numbers.cr`): no while the gutter shows.
 
       # The row ruler's width, in columns: the row count's digits, so a
-      # thousand-row document gets a fourth column (`RULER_MIN_DIGITS` at
+      # thousand-row document gets a fourth column (`CHROME_MIN_DIGITS` at
       # least), or one column while `#row_ruler_numbers?` is false.
       # Re-derived before each layout (`#process_content`) from the rows the
       # last one produced — the count can only change with a new layout, and
@@ -106,7 +106,7 @@ module Crysterm
         w = if !@row_ruler
               0
             elsif row_ruler_numbers?
-              Math.max(decimal_digits(@wrapped_lines.size), RULER_MIN_DIGITS)
+              Math.max(decimal_digits(@wrapped_lines.size), CHROME_MIN_DIGITS)
             else
               1
             end
@@ -164,7 +164,7 @@ module Crysterm
       # above the content, from the row ruler's right edge to the interior's,
       # and the row ruler down the content rows, right of the subclass's own
       # margin (the gutter). The base render filled the band with the
-      # widget's background; both are written in `#ruler_attr`. Columns
+      # widget's background; both are written via `#chrome_attr`. Columns
       # before the text's first (a centered column's left slack) stay blank
       # — the tape starts at the text, so a horizontal scroll slides the
       # numbers under it and not into the slack — and so do rows past the
@@ -174,7 +174,7 @@ module Crysterm
         x0, xl, y0, yl, text_x0, content_top = chrome_frame || return
         return if xl <= x0 || yl <= y0
         rows = window.cell_rows
-        attr = ruler_attr
+        attr = chrome_attr(style.ruler?)
         vw = @vertical_ruler_width
         ruler_x0 = x0 + @viewport_margins.left
         if @column_ruler && y0 >= 0 && (row = rows[y0]?)
@@ -249,15 +249,13 @@ module Crysterm
         end
       end
 
-      # The rulers' attr: the `::ruler` sub-style when a rule (or an
-      # assignment) set it, else the widget's own colors with the foreground
-      # faded toward the background by `CHROME_FADE`, so the rulers read as
-      # chrome under any plain stylesheet.
-      private def ruler_attr : Int64
-        if sub = style.ruler?
-          return style_to_attr(sub)
-        end
-        faded_chrome_attr style_to_attr(style)
+      # The attr of a chrome slot (`::line-number`, `::ruler`, `::guide`):
+      # its *sub* style when a rule (or an assignment) set it, else
+      # *base_attr* faded, so the chrome reads as such under any plain
+      # stylesheet.
+      private def chrome_attr(sub : Style?, base_attr : Int64 = style_to_attr(style)) : Int64
+        return style_to_attr(sub) if sub
+        faded_chrome_attr base_attr
       end
 
       # *base_attr* with its foreground faded toward its background by

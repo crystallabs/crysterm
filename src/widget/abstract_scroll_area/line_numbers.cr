@@ -60,21 +60,12 @@ module Crysterm
         value
       end
 
-      # Fewest digit columns the gutter shows, so it doesn't jitter between
-      # 9 and 10 lines on a short document.
-      LINE_NUMBER_MIN_DIGITS = 2
-
-      # How far the gutter's foreground fades toward the background when no
-      # `::line-number` rule styles it: the weight of the text color in the
-      # mix.
-      LINE_NUMBER_FADE = 0.55
-
       # Columns the gutter reserves right now (`#line_number_area_width`),
       # 0 while `#line_numbers?` is off. Mirrored into `#viewport_margins`.
       @line_number_width = 0
 
       # Columns the gutter takes while shown — the digits of the line count
-      # (`LINE_NUMBER_MIN_DIGITS` at least) plus the space before the text —
+      # (`CHROME_MIN_DIGITS` at least) plus the space before the text —
       # and 0 while hidden. The Qt example's `lineNumberAreaWidth()`.
       def line_number_area_width : Int32
         @line_number_width
@@ -123,7 +114,7 @@ module Crysterm
       # depends on its width both ways (a picture shrunk to the text width
       # grows with it) can otherwise flip between two widths for good.
       protected def sync_line_number_width(shrink : Bool = true) : Bool
-        w = @line_numbers ? Math.max(decimal_digits(line_number_count), LINE_NUMBER_MIN_DIGITS) + 1 : 0
+        w = @line_numbers ? Math.max(decimal_digits(line_number_count), CHROME_MIN_DIGITS) + 1 : 0
         return false if w == @line_number_width
         return false if !shrink && @line_numbers && w < @line_number_width
         @line_number_width = w
@@ -161,7 +152,7 @@ module Crysterm
 
         rows = window.cell_rows
         base_attr = style_to_attr(style)
-        dim_attr = line_number_attr(base_attr)
+        dim_attr = chrome_attr(style.line_number?, base_attr)
         current = current_line_number
         (yi...yl).each do |y|
           # A negative row index would count from the window's bottom.
@@ -189,19 +180,6 @@ module Crysterm
           ch = place >= 0 && place < digits ? '0' + (number // 10 ** place) % 10 : ' '
           cell.set_if_changed(attr, ch)
         end
-      end
-
-      # The gutter's attr: the `::line-number` sub-style when a rule (or an
-      # assignment) set it, else the widget's own colors with the foreground
-      # faded toward the background by `LINE_NUMBER_FADE`, so the numbers
-      # read as chrome under any plain stylesheet. (Terminal-default colors
-      # can't be mixed; those stay as they are.)
-      private def line_number_attr(base_attr : Int64) : Int64
-        if sub = style.line_number?
-          return style_to_attr(sub)
-        end
-        bg = Attr.bg(base_attr)
-        Colors.blend(base_attr, Attr.pack(0_i64, bg, bg), alpha: LINE_NUMBER_FADE)
       end
     end
   end

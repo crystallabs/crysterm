@@ -132,8 +132,8 @@ module Crysterm
         x0, xl, y0, yl, text_x0, content_top = chrome_frame || return
         return if xl <= x0 || yl <= content_top
         rows = window.cell_rows
-        fg = Attr.fg(guide_attr)
-        marker_attr = @column_ruler ? ruler_attr : 0_i64
+        fg = Attr.fg(chrome_attr(style.guide?))
+        marker_attr = @column_ruler ? chrome_attr(style.ruler?) : 0_i64
         first_x = guides_first_x(x0, text_x0)
         each_guide_column do |col|
           x = text_x0 + col - 1 - @child_base_x
@@ -151,16 +151,6 @@ module Crysterm
             cell.set_if_changed marker_attr, '┬'
           end
         end
-      end
-
-      # The guides' attr: the `::guide` sub-style when a rule (or an
-      # assignment) set it, else the widget's own colors faded like the
-      # rulers'.
-      private def guide_attr : Int64
-        if sub = style.guide?
-          return style_to_attr(sub)
-        end
-        faded_chrome_attr style_to_attr(style)
       end
 
       # The mouse gesture described on the class: installed at construction,
