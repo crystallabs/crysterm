@@ -723,8 +723,10 @@ module Crysterm
     # taken out, or `BUDGET` lines compared) is given up on: the lines
     # between the common start and end are then one run.
     module LineDiff
-      # The most lines put in or taken out the search looks for.
-      MAX_STEPS = 2000
+      # The most lines put in or taken out the search looks for: the trace
+      # it keeps grows with the square of this, so it stays small, and a
+      # difference past it is one run, as a replaced file's is anyway.
+      MAX_STEPS = 500
 
       # The work, in lines passed over, after which the search gives up.
       BUDGET = 50_000_000_i64
