@@ -189,6 +189,9 @@ module Crysterm
   # Whether the `log.file` option has been applied to `::Log` (once per process).
   @@log_file_installed = false
 
+  # The file `.install_log_file` opened, for `.reopen_log_file` to close.
+  @@log_io : File?
+
   # Points `::Log` at the file the `log.file` option names, once, when it is
   # set. Called when a `Screen` binds a real terminal: from then on standard
   # error *is* the application's screen, so a log line written there (the
@@ -205,11 +208,43 @@ module Crysterm
     path = Config.log_file
     return if path.empty?
     @@log_file_installed = true
+    @@log_io = log_to_file path
+  rescue ex : File::Error
+    STDERR.puts "Crysterm: cannot open the log file #{path.inspect} (log.file): #{ex.message}; logging to standard error"
+  end
+
+  # Opens *path* for appending and points `::Log` at it; returns the file.
+  private def self.log_to_file(path : String) : File
     io = File.open(path, "a")
     io.sync = true
     ::Log.setup :info, ::Log::IOBackend.new(io, dispatcher: ::Log::DispatchMode::Sync)
-  rescue ex : File::Error
-    STDERR.puts "Crysterm: cannot open the log file #{path.inspect} (log.file): #{ex.message}; logging to standard error"
+    io
+  end
+
+  # Opens the log file anew: the file the `log.file` option names now is
+  # opened (created when it is gone), `::Log` is pointed at it, and the file
+  # `.install_log_file` opened is closed. For an application that removed or
+  # rotated the file while running — a Clear Caches that empties its cache
+  # directory — since a file removed under an open descriptor goes on
+  # taking the lines, into an inode no name reaches; and for one that
+  # changed `log.file`. Returns whether the log is now on the new file:
+  # false when no file was installed (the log is on standard error, as it
+  # stays) or the option is empty, and when the new file cannot be opened,
+  # which leaves the old one in place.
+  #
+  # ```
+  # File.delete? Crysterm::Config.log_file
+  # Crysterm.reopen_log_file
+  # ```
+  def self.reopen_log_file : Bool
+    previous = @@log_io || return false
+    path = Config.log_file
+    return false if path.empty?
+    @@log_io = log_to_file path
+    previous.close
+    true
+  rescue File::Error
+    false
   end
 
   # Gives the `log.file` option a default for the application *app*: its
