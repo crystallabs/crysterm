@@ -52,8 +52,9 @@ module Crysterm
     # content column — as HTML nests them (the shape the importer reads back);
     # quote levels nest `<blockquote>`s, a GFM alert's quote is GitHub's
     # `<div class="markdown-alert …">` with its title, rule blocks emit `<hr>`.
-    # A quote's blank line between two of its paragraphs (`quote_separator?`)
-    # is the boundary of their elements, and a top margin between two quoted
+    # A quote's blank line between two of its paragraphs
+    # (`TextBlock.quote_separator?`) is the boundary of their elements, and
+    # the importer puts the block back there. A top margin between two quoted
     # blocks — a blank line between two quotes in Markdown — ends the quote
     # and starts another, as a Markdown renderer has them. An empty
     # document — one empty, unformatted block — is no HTML at all, as a
@@ -74,7 +75,7 @@ module Crysterm
         # after an interruption via `<ol start=…>`.
         list_items = {} of UInt64 => Int32
         emitted_tables = Set(UInt64).new
-        separators = blocks.map_with_index { |_, i| quote_separator?(blocks, i) }
+        separators = blocks.map_with_index { |_, i| TextBlock.quote_separator?(blocks, i) }
         # The last block of the code run already written whole (`write_pre`).
         run_end = -1
         # The last block written (separators are not).
@@ -184,31 +185,6 @@ module Crysterm
       nil
     end
 
-    # Whether `blocks[i]` is a quote's blank line between two of its blocks
-    # — the `>` line between two paragraphs in Markdown, which the Markdown
-    # importer keeps as an empty block of the quote's level (that line shows
-    # the quote's bar) — rather than an empty line of a paragraph: an empty,
-    # otherwise unformatted quoted block after a block of its quote and
-    # before another, neither of them blank. HTML has the boundary between
-    # the two elements for it, and the importer puts the block back there.
-    private def self.quote_separator?(blocks : Array(TextBlock), i : Int32) : Bool
-      return false if i == 0
-      b = blocks[i]
-      level = b.block_format.quote_level
-      return false unless level > 0 && blank_quote_line?(b)
-      pb = blocks[i - 1]
-      nb = blocks[i + 1]? || return false
-      pb.block_format.quote_level >= level && !blank_quote_line?(pb) &&
-        nb.block_format.quote_level >= level && !blank_quote_line?(nb)
-    end
-
-    # Whether *b* is an empty block with nothing to its format but its quote
-    # level and alert.
-    private def self.blank_quote_line?(b : TextBlock) : Bool
-      bf = b.block_format
-      b.fragments.empty? && bf == TextBlockFormat.new(quote_level: bf.quote_level, alert_kind: bf.alert_kind)
-    end
-
     # Opens the list of item *lf* down to its nesting level, closing the
     # lists deeper than it, a different list at its depth, and the previous
     # item of its own.
@@ -313,7 +289,8 @@ module Crysterm
     # Written as one element, a `<br>` between lines (Qt's `toHtml` writes
     # its line separator so), they read as one paragraph, as on screen,
     # rather than as paragraphs a margin apart. A quote's blank line between
-    # two of its paragraphs (*separators*, `quote_separator?`) ends it.
+    # two of its paragraphs (*separators*, `TextBlock.quote_separator?`)
+    # ends it.
     private def self.line_run_end(blocks : Array(TextBlock), i : Int32, separators : Array(Bool)) : Int32
       head = blocks[i].block_format
       return i unless text_line?(head)
@@ -929,7 +906,7 @@ module Crysterm
           # degrade — the `dim` picture-frame glyph, then the alt text.
           alt = attr_val(node, "alt").try(&.strip).presence
           with_patch(TextCharFormat.new(dim: true)) do
-            append_text(alt ? "#{image_placeholder} #{alt}" : image_placeholder)
+            append_text(alt ? "#{TextImageFormat.placeholder} #{alt}" : TextImageFormat.placeholder)
           end
         when "span"
           if patch = style_patch(attr_val(node, "style"))
@@ -1194,12 +1171,6 @@ module Crysterm
           end
         end
         sole
-      end
-
-      # What stands in for a picture on the cell grid — the glyph the
-      # Markdown importer uses, at the same tier (see its `image_placeholder`).
-      private def image_placeholder : String
-        Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)
       end
 
       private def spacing_only?(node : HTML5::Node) : Bool

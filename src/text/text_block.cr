@@ -424,6 +424,29 @@ module Crysterm
       @fragments.replace merged
     end
 
+    # Whether this is an empty block with nothing to its format but its
+    # quote level and alert.
+    def blank_quote_line? : Bool
+      @fragments.empty? && @block_format.quote_only?
+    end
+
+    # Whether `blocks[i]` is a quote's blank line between two of its blocks
+    # — the `>` line between two paragraphs in Markdown, which the Markdown
+    # importer keeps as an empty block of the quote's level (that line shows
+    # the quote's bar) — rather than an empty line of a paragraph: an empty,
+    # otherwise unformatted quoted block after a block of its quote and
+    # before another, neither of them blank.
+    def self.quote_separator?(blocks : Array(TextBlock), i : Int32) : Bool
+      return false if i == 0
+      b = blocks[i]
+      level = b.block_format.quote_level
+      return false unless level > 0 && b.blank_quote_line?
+      pb = blocks[i - 1]
+      nb = blocks[i + 1]? || return false
+      pb.block_format.quote_level >= level && !pb.blank_quote_line? &&
+        nb.block_format.quote_level >= level && !nb.blank_quote_line?
+    end
+
     private def invalidate! : Nil
       @text_cache = nil
       @size_cache = nil

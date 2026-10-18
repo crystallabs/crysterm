@@ -721,19 +721,12 @@ module Crysterm
           with_patch(TextCharFormat.new(anchor_href: url, tool_tip: node_title(node))) { walk_children(node) }
         when .image?
           # No inline images on a cell grid: degrade to a picture-frame glyph
-          # and the alt text. The glyph comes from the registry (so
-          # `Glyphs.set` retheming and an ASCII-fied table apply) at the
-          # `extended` tier — `🖼`, a text-presentation emoji of exactly one
-          # column — rather than the `unicode` tier the rules and quote bars
-          # above use: those must stay box-drawing to join borders, while the
-          # placeholder is content, and the picture is what the emoji-capable
-          # terminals this is read on draw. An importer has no screen to ask
-          # for the effective tier. `dim` marks it muted for the view; the
-          # image's title is the run's tool tip (Qt's importer sets an image
-          # format's `TextToolTip` to it), which a view not drawing pictures
-          # shows (`Widget::TextEdit`'s block images).
+          # (`TextImageFormat.placeholder`) and the alt text. `dim` marks it
+          # muted for the view; the image's title is the run's tool tip (Qt's
+          # importer sets an image format's `TextToolTip` to it), which a view
+          # not drawing pictures shows (`Widget::TextEdit`'s block images).
           with_patch(TextCharFormat.new(dim: true, tool_tip: node_title(node))) do
-            push_frag "#{image_placeholder} "
+            push_frag "#{TextImageFormat.placeholder} "
             walk_children(node)
           end
         when .soft_break?
@@ -1229,7 +1222,7 @@ module Crysterm
             # The same degrade as the rich path (`walk_children`): the
             # picture-frame glyph, then the alt text — so a table cell holding
             # only an image shows the glyph rather than nothing.
-            io << image_placeholder
+            io << TextImageFormat.placeholder
             unless child.first_child?.nil?
               io << ' '
               collect_text child, io
@@ -1238,12 +1231,6 @@ module Crysterm
           end
           child = child.next?
         end
-      end
-
-      # What stands in for an inline image on the cell grid — see the
-      # `image?` branch of `walk_children` for the choice of tier.
-      private def image_placeholder : String
-        Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)
       end
 
       # Hook (`TextImport::Builder#format_extra_merge`): folds the open `~~`
@@ -1784,7 +1771,8 @@ module Crysterm
       # reading), or back in it from a quote nested in it. A blank line
       # between two quotes — a top margin between two quoted blocks — ends
       # every alert, so the next quote opens its own even of the same kind;
-      # a quote's blank `>` line before it (`#quote_blank?`) opens none.
+      # a quote's blank `>` line before it (`TextBlock.quote_separator?`) opens
+      # none.
       private def alert_opens(blocks : Array(TextBlock)) : Array(Bool)
         # The open alerts, outermost first: the quote level each opened at
         # and its kind.
@@ -1792,7 +1780,7 @@ module Crysterm
         prev = nil
         blocks.map_with_index do |b, i|
           bf = b.block_format
-          next false if quote_blank?(blocks, i)
+          next false if TextBlock.quote_separator?(blocks, i)
           level = bf.quote_level
           alerts.clear if level == 0 || (bf.top_margin > 0 && prev.try(&.quote_level.> 0))
           prev = bf
@@ -1808,27 +1796,6 @@ module Crysterm
           alerts << {level, kind}
           true
         end
-      end
-
-      # Whether `blocks[i]` is a quote's blank `>` line between two of its
-      # blocks: an empty, otherwise unformatted quoted block between two
-      # blocks of its quote that are not blank themselves (the separator
-      # the importer makes of that line).
-      private def quote_blank?(blocks : Array(TextBlock), i : Int32) : Bool
-        return false if i == 0
-        level = blocks[i].block_format.quote_level
-        return false unless level > 0 && blank_quote_line?(blocks[i])
-        pb = blocks[i - 1]
-        nb = blocks[i + 1]? || return false
-        pb.block_format.quote_level >= level && !blank_quote_line?(pb) &&
-          nb.block_format.quote_level >= level && !blank_quote_line?(nb)
-      end
-
-      # Whether *b* is an empty block with nothing to its format but its
-      # quote level and alert.
-      private def blank_quote_line?(b : TextBlock) : Bool
-        bf = b.block_format
-        b.fragments.empty? && bf == TextBlockFormat.new(quote_level: bf.quote_level, alert_kind: bf.alert_kind)
       end
 
       private def write_block(io : IO, b : TextBlock, open_alert : Bool = false) : Nil

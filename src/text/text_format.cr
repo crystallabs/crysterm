@@ -503,6 +503,14 @@ module Crysterm
       w
     end
 
+    # Whether every property but `quote_level` and `alert_kind` is unset.
+    def quote_only? : Bool
+      @alignment.nil? && @indent.nil? && @top_margin.nil? && @bottom_margin.nil? &&
+        @bg.nil? && @heading_level.nil? && @non_breakable.nil? && @horizontal_rule.nil? &&
+        @checked.nil? && @task.nil? && @list_format.nil? && @table_format.nil? &&
+        @frame_formats.nil? && @code_language.nil? && @image.nil?
+    end
+
     def_equals_and_hash @alignment, @indent, @top_margin, @bottom_margin, @bg, @heading_level, @non_breakable, @quote_level, @horizontal_rule, @checked, @task, @list_format, @table_format, @frame_formats, @alert_kind, @code_language, @image
   end
 
@@ -679,6 +687,17 @@ module Crysterm
 
     def initialize(*, @name : String = "", @alt : String = "", @title : String? = nil, @width : Int32? = nil, @height : Int32? = nil)
       super()
+    end
+
+    # What stands in for a picture on the cell grid. The glyph comes from the
+    # registry (so `Glyphs.set` retheming and ASCII-fied output apply) at the
+    # `extended` tier — `🖼`, a text-presentation emoji of one column —
+    # rather than the `unicode` tier rules and quote bars use: those must
+    # stay box-drawing to join borders, while the placeholder is content,
+    # drawn by the emoji-capable terminals this is read on. An importer has
+    # no screen to ask for the effective tier.
+    def self.placeholder : String
+      Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)
     end
 
     def_equals_and_hash @name, @alt, @title, @width, @height

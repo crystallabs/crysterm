@@ -249,7 +249,7 @@ module Crysterm
       private def image_title_lines(img : TextImageFormat, wrap_width : Int32, margin : Int32) : Array(String)
         title = img.title.try(&.strip.gsub(/\s+/, ' ')).presence
         return [] of String if title.nil? || title == img.alt
-        text = "#{Glyphs.str(Glyphs::Role::IconImage, Glyphs::Tier::Extended)} #{title}"
+        text = "#{TextImageFormat.placeholder} #{title}"
         wrap_content? ? wrap_lines(text, wrap_width, margin: margin).lines : [text]
       end
 
