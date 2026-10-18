@@ -838,24 +838,29 @@ module Crysterm
       # Puts the widget's caret and selection where Neovim's cursor and
       # Visual selection are: *row* and *col* the cursor (0-based row, byte
       # column), *vrow* and *vcol* the other end of the selection.
+      #
+      # Each line's start is summed once (`#line_start` walks the lines
+      # before it); the ends are offsets from it.
       private def caret_from_nvim(target : Target, mode : Mode, row : Int32, col : Int32, vrow : Int32, vcol : Int32) : Nil
-        cur = flat_position row, col
+        row_start = line_start(row)
+        cur = row_start + char_column(line_at(row), col)
         anchor = nil
         if mode.visual_line?
+          v_start = line_start(vrow)
           if row >= vrow
-            anchor = line_offset(vrow)
-            cur = line_offset(row) + line_at(row).size
+            anchor = v_start
+            cur = row_start + line_at(row).size
           else
-            anchor = line_offset(vrow) + line_at(vrow).size
-            cur = line_offset(row)
+            anchor = v_start + line_at(vrow).size
+            cur = row_start
           end
         elsif mode.selecting?
-          v = flat_position vrow, vcol
+          v = line_start(vrow) + char_column(line_at(vrow), vcol)
           if cur >= v
             anchor = v
-            cur = Math.min(char_end(row, col), target.buf_size)
+            cur = Math.min(cur + grapheme_size(row, col), target.buf_size)
           else
-            anchor = Math.min(char_end(vrow, vcol), target.buf_size)
+            anchor = Math.min(v + grapheme_size(vrow, vcol), target.buf_size)
           end
         end
         applying { target.set_caret cur, anchor }
@@ -873,23 +878,22 @@ module Crysterm
         off
       end
 
-      # The widget position of byte column *col* on line *row*.
-      private def flat_position(row : Int32, col : Int32) : Int32
-        line = line_at(row)
-        line_offset(row.clamp(0, @lines.size - 1)) + char_column(line, col)
+      # The widget position line *row* (clamped to the lines) starts at.
+      private def line_start(row : Int32) : Int32
+        line_offset(row.clamp(0, @lines.size - 1))
       end
 
-      # The widget position just past the character at byte column *col* of
-      # line *row*, the end of a Visual selection: a whole grapheme cluster
+      # The widget positions the character at byte column *col* of line
+      # *row* takes, the end of a Visual selection: a whole grapheme cluster
       # (a letter with its combining marks, a flag), which Neovim selects as
-      # one character, or past the line's end, its line break.
-      private def char_end(row : Int32, col : Int32) : Int32
+      # one character, or one past the line's end, its line break.
+      private def grapheme_size(row : Int32, col : Int32) : Int32
         line = line_at(row)
         size = 1
         if 0 <= col < line.bytesize
           line.byte_slice(col).each_grapheme { |g| size = g.size; break }
         end
-        flat_position(row, col) + size
+        size
       end
 
       private def char_column(line : String, col : Int32) : Int32
