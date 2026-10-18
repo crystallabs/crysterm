@@ -119,7 +119,7 @@ module Crysterm
     def cell_text_range(row : Int32, column : Int32) : Range(Int32, Int32)?
       return if row < 0 || column < 0
       bi, b = data_row_indexed[row]? || return
-      pieces, anchor = TextTable.cell_pieces(b.text, column) || return
+      pieces, anchor, _ = TextTable.cell_pieces(b.text, column) || return
       bp = document.block_position(bi)
       # All-spaces cell: an empty range at the left inner edge.
       return (bp + anchor)...(bp + anchor) if pieces.empty?
@@ -511,30 +511,57 @@ module Crysterm
     end
 
     # The pieces of cell *column* of data row *text*, one per display line
-    # holding some of it: `{line, from, to}` block offsets of the trimmed
-    # text. With them the anchor: the cell's inner left edge on the first
-    # line, where an empty cell's caret sits. Nil when the row has no such
-    # column.
-    protected def self.cell_pieces(text : String, column : Int32) : {Array({Int32, Int32, Int32}), Int32}?
+    # holding some of it: `{line, from, to}` block offsets of the text
+    # trimmed of its padding (ASCII spaces only, as `.split_data_line`
+    # trims). With them the anchor — the cell's inner left edge on the first
+    # line, where an empty cell's caret sits — and the block offset each
+    # display line starts at (its first bar), for `.cell_offset_in`. One
+    # pass over the row, allocating the result alone. Nil when the row has
+    # no such column.
+    protected def self.cell_pieces(text : String, column : Int32) : {Array({Int32, Int32, Int32}), Int32, Array(Int32)}?
       return if column < 0
-      chars = text.chars
-      anchor = nil
+      v = v_char
       pieces = [] of {Int32, Int32, Int32}
-      line_bars(text).each_with_index do |bars, line|
-        next unless column + 1 < bars.size
-        lo = bars[column] + 2     # past the bar and its pad space
-        hi = bars[column + 1] - 1 # exclusive; before the trailing pad
-        next if hi < lo
-        anchor ||= lo
-        while lo < hi && chars[lo] == ' '
-          lo += 1
+      starts = [] of Int32
+      anchor = nil
+      line = 0
+      bar = -1  # bars seen on this line, less one
+      open = -1 # the cell's opening bar on this line, -1 outside the cell
+      # The first non-space of the cell's content, and one past the last and
+      # the one before it: the last may stand on the trailing pad, which is
+      # outside the content.
+      first = last = before_last = -1
+      prev = nil
+      text.each_char_with_index do |c, i|
+        if c == v
+          if prev == v
+            line += 1
+            bar = -1
+            open = -1
+          end
+          bar += 1
+          starts << i if bar == 0
+          if bar == column
+            open = i
+            first = last = before_last = -1
+          elsif open >= 0 && bar == column + 1
+            lo = open + 2 # past the bar and its pad space
+            hi = i - 1    # exclusive; before the trailing pad
+            if hi >= lo
+              anchor ||= lo
+              to = last == i ? before_last : last
+              pieces << {line, first, to} if first >= 0 && first < hi
+            end
+            open = -1
+          end
+        elsif open >= 0 && i >= open + 2 && c != ' '
+          first = i if first < 0
+          before_last = last
+          last = i + 1
         end
-        while hi > lo && chars[hi - 1] == ' '
-          hi -= 1
-        end
-        pieces << {line, lo, hi} if hi > lo
+        prev = c
       end
-      anchor ? {pieces, anchor} : nil
+      anchor ? {pieces, anchor, starts} : nil
     end
 
     # Where each of *pieces* (`.cell_pieces` of *text*) starts in the cell's
@@ -554,11 +581,12 @@ module Crysterm
     # *text* stands for (see `#cell_offset`).
     # *cells* is what the row's block remembers (`TextBlock#table_cells`).
     protected def self.cell_offset_in(text : String, column : Int32, off : Int32, cells : Array(String)?) : Int32?
-      pieces, _ = cell_pieces(text, column) || return
+      pieces, _, line_starts = cell_pieces(text, column) || return
       cell = (cells || split_data_row(text))[column]? || ""
       return 0 if pieces.empty?
       starts = piece_starts(text, pieces, cell)
-      line = line_of(line_bars(text), off)
+      # The display line *off* is on: the last starting at or before it.
+      line = line_starts.rindex { |s| s <= off } || 0
       pieces.each_with_index do |(pl, lo, hi), k|
         return Math.min(starts[k] + (off - lo).clamp(0, hi - lo), cell.size) if pl == line
         return starts[k] if pl > line
@@ -570,7 +598,7 @@ module Crysterm
     # *text* (see `#cell_position`).
     # *cells* as `.cell_offset_in`'s.
     protected def self.cell_block_offset(text : String, column : Int32, offset : Int32, cells : Array(String)?) : Int32?
-      pieces, anchor = cell_pieces(text, column) || return
+      pieces, anchor, _ = cell_pieces(text, column) || return
       return anchor if pieces.empty?
       cell = (cells || split_data_row(text))[column]? || ""
       starts = piece_starts(text, pieces, cell)
