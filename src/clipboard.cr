@@ -105,8 +105,8 @@ module Crysterm
       # reply arrives — and, in `Command` mode, from the paste command on
       # every read, so a paste sees what the system holds now.
       def text : String
+        @error = nil
         if @mode.command?
-          @error = nil
           if argv = paste_command
             if value = @command_runner.call(argv, "")
               refresh_from_terminal value
