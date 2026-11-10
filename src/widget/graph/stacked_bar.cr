@@ -82,14 +82,14 @@ module Crysterm
           @show_legend : Bool = true,
           **box,
         )
-          @values = values.map { |bar| bar.map(&.to_f) }
+          @values = values.map(&.map(&.to_f))
           super **box
           self.parse_tags = true
         end
 
         # Accepts any array-of-numeric-arrays, coercing to `Float64`.
         def values=(vals : Array)
-          @values = vals.map { |bar| bar.map(&.to_f) }
+          @values = vals.map(&.map(&.to_f))
           bump_data_version
           update
         end

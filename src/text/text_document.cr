@@ -1215,7 +1215,7 @@ module Crysterm
           # `s + 1` restart would re-match suffixes, e.g. "3" inside "333").
           pos = e > s ? e : s + next_char_bytesize(text, s)
         end
-        best.try { |(s, e)| byte_selection_cursor(text, s, e) }
+        best.try { |(bs, be)| byte_selection_cursor(text, bs, be) }
       else
         return if from > text.size
         pos = text.char_index_to_byte_index(Math.max(from, 0)) || return

@@ -560,7 +560,7 @@ module Crysterm
       end
 
       done.receive
-      error.try { |ex| raise ex }
+      error.try { |err| raise err }
     end
   end
 end

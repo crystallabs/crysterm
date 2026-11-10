@@ -639,7 +639,7 @@ module Crysterm
       # captured its window at install time, so this works even after the bar
       # has detached (`window?` gone nil).
       private def uninstall_command_hotkeys : Nil
-        @commands.each { |cmd| cmd.key_handler.try &.off }
+        @commands.each(&.key_handler.try(&.off))
       end
 
       # Removes a command's global-hotkey handler from the window, so it stops

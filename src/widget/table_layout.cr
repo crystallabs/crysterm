@@ -335,7 +335,7 @@ module Crysterm
     # Normalizes arbitrary row data into rows of string cells.
     protected def normalize_rows(rows) : Array(Array(String))
       return [] of Array(String) unless rows
-      rows.map { |row| row.map(&.to_s) }
+      rows.map(&.map(&.to_s))
     end
 
     # Applies the optional cell-border/padding constructor options, each only when

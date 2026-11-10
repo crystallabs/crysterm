@@ -121,7 +121,7 @@ describe "BUGS15 reactive regressions" do
       runs = 0
       do_dispose = false
       eff : Crysterm::Reactive::Effect? = nil
-      eff = Crysterm::Reactive::Effect.new do
+      eff = Crysterm::Reactive::Effect.new do # ameba:disable Lint/UselessAssign -- read by the block on its later runs
         runs += 1
         s1.value
         eff.try &.dispose if do_dispose

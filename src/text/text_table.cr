@@ -953,7 +953,7 @@ module Crysterm
         count[tf] += 1
         i = j + 1
       end
-      runs.each { |(tf, first, last)| yield first, last if count[tf] == 1 }
+      runs.each { |(fmt, first, last)| yield first, last if count[fmt] == 1 }
     end
   end
 

@@ -654,8 +654,8 @@ module Crysterm
         if f = full_fmt
           attr = f.merge_onto(attr)
         end
-        row_xsels.try &.each do |(cols, f)|
-          attr = f.merge_onto(attr) if cols.includes?(col)
+        row_xsels.try &.each do |(cols, xf)|
+          attr = xf.merge_onto(attr) if cols.includes?(col)
         end
         highlighted_attr(attr, sel_cols, col)
       end
