@@ -160,6 +160,45 @@ module Crysterm
         i
       end
 
+      # `.skip_balanced` over a text's UTF-8 bytes, taking and returning byte
+      # offsets. The delimiters are ASCII, which no byte of a multi-byte
+      # character can equal, so the scan needs no decoding — and stays linear
+      # in a text that holds non-ASCII characters, where indexing by character
+      # is not.
+      def self.skip_balanced(bytes : Bytes, i : Int32, open : UInt8, close : UInt8) : Int32
+        depth = 0
+        n = bytes.size
+        while i < n
+          b = bytes.unsafe_fetch(i)
+          if b == 0x22_u8 || b == 0x27_u8 # '"' or '\''
+            i = skip_string(bytes, i)
+            next
+          elsif b == open
+            depth += 1
+          elsif b == close
+            depth -= 1
+            return i + 1 if depth == 0
+          end
+          i += 1
+        end
+        i
+      end
+
+      # `.skip_string` over a text's UTF-8 bytes (see the `Bytes` form of
+      # `.skip_balanced`).
+      def self.skip_string(bytes : Bytes, i : Int32) : Int32
+        quote = bytes.unsafe_fetch(i)
+        i += 1
+        n = bytes.size
+        while i < n
+          b = bytes.unsafe_fetch(i)
+          return i + 1 if b == quote
+          i += 1 if b == 0x5C_u8 && i + 1 < n # '\\'
+          i += 1
+        end
+        i
+      end
+
       # Index of the `)` matching the `(` at *open*, honoring nesting; `nil` if
       # unbalanced.
       def self.matching_paren(selector : String, open : Int32) : Int32?

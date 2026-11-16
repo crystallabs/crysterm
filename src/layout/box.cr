@@ -96,7 +96,9 @@ module Crysterm
       # Per-arrange cache of fixed children's resolved main-axis size, so the
       # ancestor-chain walk in `a_main_size` runs once per frame, not per pass.
       # Stable between passes since only cross-axis size changes in between.
-      @measured = {} of Widget => Int32
+      # Every occupying child is recorded, a flex one as `FLEX`.
+      @measured = ChildValues.new
+      FLEX = -1
 
       def initialize(
         @orientation : Tput::Orientation = Tput::Orientation::Horizontal,
@@ -201,6 +203,14 @@ module Crysterm
           place el, interior
           render_child el
         end
+        @measured.clear
+      end
+
+      # *el*'s main size as `#measure` fixed it this arrange, or `nil` for a
+      # flex child (or one `#measure` never saw).
+      private def measured_size(el : Widget) : Int32?
+        ms = @measured[el]?
+        ms == FLEX ? nil : ms
       end
 
       # Measures the main axis: total fixed size, total grow weight, the leftover
@@ -232,6 +242,7 @@ module Crysterm
             # `stretch_of` returns a clamped `Int32`; `grow` accumulates as
             # `Int64` since the *sum* over many children can still overflow.
             grow += stretch_of el
+            @measured.push el, FLEX
           else
             # The child's main size is its own spec this frame — or, under a
             # `Preferred` policy, its size hint — so quietly drop any stale
@@ -253,7 +264,7 @@ module Crysterm
                 # child's size is added.
                 clamped_size a_main_size(el), main
               end
-            @measured[el] = ms
+            @measured.push el, ms
             fixed += ms
           end
         end
@@ -354,7 +365,8 @@ module Crysterm
         # fixed child to its own spec.
         main_pos = @cursor
         main_w : Int32? = nil
-        if ms = @measured[el]?
+        ms = measured_size el
+        if ms
           main_w = ms if main_policy(el).preferred?
         else
           # Cumulative rounding: each child's size is the difference of
@@ -397,12 +409,11 @@ module Crysterm
             clamped_size a_main_size(el), main
           else
             # Defensive-only: `main_w` is nil exactly for a measured non-
-            # `Preferred` child (`@measured` is populated for every non-flex
-            # child during the earlier measure pass, and a vacant child
-            # returned above before either path) — so `@measured[el]?` never
-            # actually misses here and the `clamped_size` fallback never
-            # fires.
-            @measured[el]? || clamped_size(a_main_size(el), main)
+            # `Preferred` child (`@measured` holds a size for every non-flex
+            # child from the earlier measure pass, and a vacant child
+            # returned above before either path) — so `ms` is never nil
+            # here and the `clamped_size` fallback never fires.
+            ms || clamped_size(a_main_size(el), main)
           end
 
         gap_after = justify_before(@just_k + 1) - justify_before(@just_k)

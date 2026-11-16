@@ -307,6 +307,7 @@ module Crysterm
           height = ((y1.to_i64 - y0.to_i64) + row_gaps.to_i64 * @spacing - el.mvertical).clamp(0_i64, h.to_i64).to_i32
           place_and_render el, left, top, width, height
         end
+        placements.clear
       end
 
       # Fills *buf* with the `n + 1` cumulative track edges over *inner*.

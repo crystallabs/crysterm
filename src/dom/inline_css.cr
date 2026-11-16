@@ -24,17 +24,26 @@ module Crysterm
 
     # Overrides the core setter to *record* the external source (so it can be
     # recomposed with the inline source), instead of applying it directly.
+    # The text and object forms are the two spellings of the one author
+    # sheet, so assigning either replaces the other's recorded source: a
+    # recompose must not layer the new sheet over the one it replaced.
     def stylesheet=(css : String) : String
       @css_loaded_source = css
+      @css_object_source = nil
       recompose_stylesheet
       css
     end
 
     # Overrides the core object setter to *record* a parsed stylesheet as a
     # tracked source — unless the assignment is `recompose_stylesheet`'s own
-    # internal apply — then applies it via the core `previous_def`.
+    # internal apply — then applies it via the core `previous_def`. A recorded
+    # text source is dropped (see the text setter): `nil` clears the author
+    # sheet for good, rather than until the next recompose.
     def stylesheet=(sheet : CSS::Stylesheet?) : CSS::Stylesheet?
-      @css_object_source = sheet unless @recomposing
+      unless @recomposing
+        @css_object_source = sheet
+        @css_loaded_source = nil
+      end
       previous_def(sheet)
     end
 

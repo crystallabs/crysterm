@@ -37,6 +37,24 @@ module Crysterm
         @css_cells.try &.[{row, col}]?
       end
 
+      # Cell count of each row as last seen by `#note_css_row_shape`.
+      @css_row_shape = [] of Int32
+
+      # The per-cell `Row`/`Cell` CSS nodes mirror the shape of `#rows`, so a
+      # change of the row count or of a row's cell count is a structural CSS
+      # change; same-shape data (the `Attached`/`Resize` rebuilds, a cell
+      # write) is not. Called by the widget whenever its rows are replaced.
+      private def note_css_row_shape : Nil
+        shape = @css_row_shape
+        data = rows
+        same = shape.size == data.size
+        data.each_with_index { |row, i| same &&= shape[i] == row.size } if same
+        return if same
+        shape.clear
+        data.each { |row| shape << row.size }
+        invalidate_css_tree
+      end
+
       def css_render_extra(io : IO) : Nil
         rows.each_with_index do |row, ridx|
           io << "<w-row data-uid=\"" << uid << "::row:" << ridx << "\" class=\"Row\">"

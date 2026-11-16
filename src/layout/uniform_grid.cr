@@ -23,7 +23,7 @@ module Crysterm
       # `awidth` a second time for the same child. Per-arrange scratch:
       # cleared and rebuilt at the top of every `#before_flow` call, mirroring
       # how `Flow#arrange` resets its own row-cursor ivars each frame.
-      @awidth_cache = {} of Widget => Int32
+      @awidth_cache = ChildValues.new
 
       # Widest child becomes the uniform column width. Layout-excluded chrome
       # (e.g. a full-width `background-image` layer) and `layout_chrome?` chrome
@@ -37,7 +37,7 @@ module Crysterm
         hw = 0
         each_occupying(container) do |el|
           w = el.awidth
-          @awidth_cache[el] = w
+          @awidth_cache.push el, w
           hw = Math.max hw, w
         end
         @high_width = hw
@@ -52,6 +52,10 @@ module Crysterm
       # nil-safe rather than raising on a missing key.
       protected def cached_awidth(el : Widget) : Int32
         @awidth_cache[el]? || el.awidth
+      end
+
+      protected def after_flow : Nil
+        @awidth_cache.clear
       end
 
       # Snap every child to the widest child's width, measured in `#before_flow`.

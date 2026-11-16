@@ -11,10 +11,16 @@ module Crysterm
     # Whether styling needs recomputing on the next render.
     getter? css_dirty = false
 
-    # Whether the next recompute must cover the whole tree (vs. only the dirty
-    # subtrees in `@css_dirty_roots`). Set by stylesheet changes and by
-    # top-level changes that can't be scoped.
+    # Whether the next recompute must serialize the tree anew and re-match
+    # every rule over the whole of it. Set by stylesheet changes and `#restyle`.
     @css_full = false
+
+    # Whether the next recompute must cover the whole tree (vs. only the dirty
+    # subtrees in `@css_dirty_roots`) while the cached document still stands:
+    # an attribute change that can't be scoped (a top-level widget, or
+    # `:has()` rules in play). Unlike `@css_full` it leaves the patch-only
+    # cascade open.
+    @css_scope_all = false
 
     # Subtree roots to recompute on the next (scoped) cascade. Each entry's whole
     # subtree is recomputed; everything else keeps its already-computed styles.
@@ -154,7 +160,12 @@ module Crysterm
     # also drops any `#add_stylesheet` layers).
     def stylesheet=(sheet : CSS::Stylesheet?) : CSS::Stylesheet?
       @css_stylesheet = sheet
-      @css_extra_stylesheets.clear if sheet.nil?
+      if sheet.nil? && !@css_extra_stylesheets.empty?
+        @css_extra_stylesheets.clear
+        # The `var()` merge derives from the sheet set; force its rebuild.
+        @css_variables = nil
+        @css_resolved = nil
+      end
       restyle
       @css_last_document = nil
       sheet
@@ -202,7 +213,10 @@ module Crysterm
     # change, or `#css_widget_sheets_changed`).
     private def collect_css_widget_sheets : Array(Tuple(CSS::Stylesheet, Widget))
       list = @css_widget_sheets_cache
-      return list unless @css_widget_sheets_stale || @css_structural
+      # Every structural change sets the stale flag too, and unlike
+      # `@css_structural` it is cleared here rather than by a cascade — so a
+      # window with no active rules doesn't re-walk the tree on every apply.
+      return list unless @css_widget_sheets_stale
       @css_widget_sheets_stale = false
       list.clear
       @children.each do |top|
@@ -304,7 +318,7 @@ module Crysterm
     # (its parent's subtree, so siblings — reachable via sibling combinators —
     # are covered), and records the widget's node for patching. A change to a
     # top-level widget can't be scoped (its siblings are other roots), so it
-    # falls back to a full recompute.
+    # recomputes the whole tree.
     def restyle_subtree(widget : Widget) : Nil
       @css_dirty = true
       css_node_changed widget
@@ -313,11 +327,11 @@ module Crysterm
       # recompute would leave it stale. When any active sheet has relational
       # (`:has`) rules, recompute the whole tree instead.
       if css_has_relational?
-        @css_full = true
+        @css_scope_all = true
       elsif parent = widget.parent
         @css_dirty_roots << parent
       else
-        @css_full = true
+        @css_scope_all = true
       end
     end
 
@@ -344,8 +358,12 @@ module Crysterm
     # document is patched (not re-parsed) for it. Tracked even for changes that
     # don't themselves invalidate styling (e.g. a non-dynamic state change), so
     # the cached document never drifts out of sync with the tree.
+    #
+    # Only while a parsed document is cached: with none there is nothing to
+    # patch (the next cascade parses the tree as it then stands), and with no
+    # active rules no cascade would ever drain the set.
     def css_node_changed(widget : Widget) : Nil
-      @css_patch_widgets << widget
+      @css_patch_widgets << widget if @css_parsed_doc
     end
 
     # Whether the active styling depends on widget state via ancestor-state
@@ -359,10 +377,13 @@ module Crysterm
       CSS.default_stylesheet.dynamic_state?
     end
 
-    # Looks up parsed `@keyframes` *name* — the author stylesheet first, then the
-    # default (theme) stylesheet — honoring any `@media` guard the definition
-    # was declared under, evaluated against this terminal's current metrics
-    # (the same metrics `Cascade.apply_sheets` feeds rule-level `@media`).
+    # Looks up parsed `@keyframes` *name* — the `#add_stylesheet` layers
+    # (latest first), then the author stylesheet, then the widgets' own
+    # sheets, then the default (theme) stylesheet — honoring any `@media`
+    # guard the definition was declared under, evaluated against this
+    # terminal's current metrics (the same metrics `Cascade.apply_sheets`
+    # feeds rule-level `@media`). Keyframe names are window-global: a widget
+    # sheet's definition is not scoped to its owner's subtree.
     def css_keyframes(name : String) : Array(Tuple(Float64, Hash(String, String)))?
       media_colors = begin
         color_count.to_i32
@@ -370,8 +391,18 @@ module Crysterm
         0x1000000
       end
       media_glyphs = glyph_tier.value.to_i32
-      @css_stylesheet.try(&.keyframes_for(name, width, height, media_colors, media_glyphs)) ||
-        CSS.default_stylesheet.keyframes_for(name, width, height, media_colors, media_glyphs)
+      @css_extra_stylesheets.reverse_each do |sheet|
+        layered = sheet.keyframes_for(name, width, height, media_colors, media_glyphs)
+        return layered if layered
+      end
+      if authored = @css_stylesheet.try(&.keyframes_for(name, width, height, media_colors, media_glyphs))
+        return authored
+      end
+      @css_widget_sheets_cache.reverse_each do |entry|
+        scoped = entry[0].keyframes_for(name, width, height, media_colors, media_glyphs)
+        return scoped if scoped
+      end
+      CSS.default_stylesheet.keyframes_for(name, width, height, media_colors, media_glyphs)
     end
 
     # Notes that *element*'s subtree, arriving from another window, may carry
@@ -408,11 +439,10 @@ module Crysterm
         # pass isn't reached with no rules, so revert here.
         css_reset_styled_widgets if @css_widgets_styled
         @css_last_default_generation = CSS.default_stylesheet_generation
-        # Clear only the dirty/scope flags, keeping `@css_structural`/
-        # `@css_patch_widgets` and the parse cache: changes made during this
-        # unstyled period must still be reflected when a stylesheet is
-        # (re)assigned, or the next active cascade patches a stale cached
-        # document against an empty patch set.
+        # Clear only the dirty/scope flags, keeping `@css_structural`: changes
+        # made during this unstyled period must still be reflected when a
+        # stylesheet is (re)assigned. (The parse cache is gone by now — the
+        # reset above drops it — so that cascade parses the tree afresh.)
         clear_css_dirty_scope
         return
       end
@@ -458,7 +488,7 @@ module Crysterm
       end
       @css_last_document = document
       @css_last_document_stale = false
-      scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
+      scope = (@css_full || @css_scope_all || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       doc = css_parsed_document(document)
       variables, resolved = css_var_caches(author, default, generation)
       # Sheet list, lowest tier first: default (theme), then the window-level
@@ -515,7 +545,7 @@ module Crysterm
       # The cached string no longer describes the patched document; the next
       # serializing cascade must not skip against it.
       @css_last_document_stale = true
-      scope = @css_dirty_roots.empty? ? nil : css_scope_widgets
+      scope = (@css_scope_all || @css_dirty_roots.empty?) ? nil : css_scope_widgets
       variables, resolved = css_var_caches(author, default, generation)
       CSS::Cascade.apply_sheets css_sheet_list(author, default, widget_sheets), self, doc, scope, variables, resolved, tokens
       @css_widgets_styled = true
@@ -779,6 +809,14 @@ module Crysterm
       each_descendant &.css_reset_to_base
       @css_widgets_styled = false
       @css_last_document = nil
+      # Nothing cascades while no rules are active, so nothing would bring the
+      # parse cache current or drain the patch set: drop both, and the next
+      # active cascade parses afresh.
+      @css_parsed_doc = nil
+      @css_node_index = nil
+      @css_rule_matches.clear
+      @css_rule_matches_doc = nil
+      @css_patch_widgets.clear
     end
 
     # Clears only the dirty/scope flags, leaving the structural-change and
@@ -788,6 +826,7 @@ module Crysterm
     private def clear_css_dirty_scope : Nil
       @css_dirty = false
       @css_full = false
+      @css_scope_all = false
       @css_dirty_roots.clear
     end
 

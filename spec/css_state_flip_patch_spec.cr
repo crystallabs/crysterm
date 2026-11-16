@@ -200,15 +200,17 @@ describe "CSS patch-only cascade on a state flip" do
     check_step(fast, control, "unhover after swap") { |t| t.boxes[3].state = :normal }
   end
 
-  it "takes the serializing route under relational rules and still agrees" do
+  it "patches under relational rules too, recomputing the whole tree, and still agrees" do
     sheet = SHEET + "\nBox:has(Button:focus) Label { color: #123456; }"
     fast = build_tree sheet
     control = build_tree sheet
     fast.window.css_has_relational?.should be_true
+    patched0 = fast.window.css_cascades_patched
     serialized0 = fast.window.css_cascades_serialized
     check_step(fast, control, "focus under :has") { |t| t.buttons[3].focus }
     check_step(fast, control, "hover under :has") { |t| t.boxes[1].state = :hovered }
-    fast.window.css_cascades_serialized.should eq serialized0 + 2
+    fast.window.css_cascades_patched.should eq patched0 + 2
+    fast.window.css_cascades_serialized.should eq serialized0
   end
 
   it "patches an attribute flipped back into the cached document before a serializing cascade" do

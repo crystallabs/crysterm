@@ -824,7 +824,7 @@ module Crysterm
       private def self.offset_band(v : Float64) : {Int32, Float64?}
         a = v.abs
         return {0, nil} if a == 0
-        a < 1 ? {1, a} : {a.round.to_i, nil}
+        a < 1 ? {1, a} : {Length.to_cell_count(a), nil}
       end
 
       # Whether a `box-shadow` token occupies a geometry (offset/blur/spread) slot,

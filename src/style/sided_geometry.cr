@@ -89,6 +89,19 @@ module Crysterm
       self
     end
 
+    # A copy is an independent box and starts mutable, whatever the source:
+    # the dup of a frozen zero assigned whole to a style must take the per-side
+    # writes its owner (a cascade longhand, a `Style#dup` consumer) makes.
+    def dup
+      copy = super
+      copy.thaw
+      copy
+    end
+
+    protected def thaw : Nil
+      @frozen = false
+    end
+
     @[AlwaysInline]
     private def frozen_write_check : Nil
       raise FrozenError.new(self) if @frozen

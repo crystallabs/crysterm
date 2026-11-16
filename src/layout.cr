@@ -45,6 +45,50 @@ module Crysterm
     abstract class Hint
     end
 
+    # Per-arrange scratch: one `Int32` per child, recorded by an engine's
+    # measuring pass and read back by its placement pass. Both passes walk
+    # the container's children in the same order, so a lookup resumes where
+    # the previous one hit instead of hashing the widget; a lookup out of
+    # that order still answers, by scanning. `#clear` drops the widget
+    # references, so nothing is retained past the arrange.
+    class ChildValues
+      @els = [] of Widget
+      @vals = [] of Int32
+      @cursor = 0
+
+      def clear : Nil
+        @els.clear
+        @vals.clear
+        @cursor = 0
+      end
+
+      def push(el : Widget, value : Int32) : Nil
+        @els << el
+        @vals << value
+      end
+
+      # The value recorded for *el*, or `nil` when none was.
+      def []?(el : Widget) : Int32?
+        els = @els
+        n = els.size
+        i = @cursor
+        while i < n
+          if els.unsafe_fetch(i).same?(el)
+            @cursor = i
+            return @vals.unsafe_fetch(i)
+          end
+          i += 1
+        end
+        stop = Math.min(@cursor, n)
+        i = 0
+        while i < stop
+          return @vals.unsafe_fetch(i) if els.unsafe_fetch(i).same?(el)
+          i += 1
+        end
+        nil
+      end
+    end
+
     # Back-pointer to the container `Widget` this layout is installed on, set by
     # `Widget#layout=` (and cleared when the layout is replaced). Lets a
     # shape-changing setter schedule a repaint of the container it arranges, and

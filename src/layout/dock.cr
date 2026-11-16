@@ -59,7 +59,8 @@ module Crysterm
       # value over the spec.
 
       # Reused, cleared-not-reallocated per-region buckets: one bucketing pass
-      # over the children fills these. Within-region order is preserved
+      # over the children fills these, and they are emptied again when the
+      # arrange ends. Within-region order is preserved
       # (children append in child order), and the edges are processed
       # top/bottom→left/right→center by iterating the buckets in that order.
       @bucket_top = [] of Widget
@@ -122,6 +123,13 @@ module Crysterm
           place_child el, x0, y0, cw, ch
           render_child el
         end
+
+        # Nothing of the children is kept past the arrange.
+        @bucket_top.clear
+        @bucket_bottom.clear
+        @bucket_left.clear
+        @bucket_right.clear
+        @bucket_center.clear
       end
 
       # Places every child docked to `region` and returns the working rect

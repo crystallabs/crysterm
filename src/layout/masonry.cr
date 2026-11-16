@@ -13,7 +13,7 @@ module Crysterm
     class Masonry < Flow
       # Compact, reused snapshot of the previous row: each entry is
       # `{left, bottom}` in interior-local cells, in left-to-right child order.
-      # `#gravitate_up` runs per child but the row above is the same for every
+      # `#settled_top` runs per child but the row above is the same for every
       # child of the current row, so it is scanned/measured once per row (when
       # `@row_key` changes) instead of re-walking + re-testing every previous-row
       # widget for every current-row child (the O(row²) rescan).
@@ -27,15 +27,10 @@ module Crysterm
         @row_key = {-1, -1}
       end
 
-      protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
-        flow_place container, el, i, interior, 0
-        gravitate_up container, el, interior
-        overflow_action container, el, interior
-      end
-
       # Pulls `el` up to rest below the child on the previous row whose left
-      # edge is nearest its own, avoiding ragged vertical gaps.
-      private def gravitate_up(container : Widget, el : Widget, interior : RenderedGeometry) : Nil
+      # edge is nearest its own, avoiding ragged vertical gaps. *el_left* and
+      # *top* are the position `#flow_place` settled on, about to be written.
+      protected def settled_top(container : Widget, el : Widget, el_left : Int32, top : Int32, interior : RenderedGeometry) : Int32
         key = {@last_row_index, @row_index}
         if key != @row_key
           rebuild_prev_row container, interior
@@ -46,10 +41,7 @@ module Crysterm
         # `arrangeable?`/`rendered_geometry` re-test), keeping the tie-break of
         # the *first* previous-row child with minimal `abs(el.left - left)`.
         row = @prev_row
-        return if row.empty?
-        # `eff_left`: `flow_place` layout-placed `el` just before, so its
-        # effective left is the layout assignment (an `Int` by construction).
-        el_left = el.eff_left.as(Int)
+        return top if row.empty?
         best_bottom = 0
         abovea = Int32::MAX
         i = 0
@@ -63,13 +55,9 @@ module Crysterm
           end
           i += 1
         end
-        if abovea != Int32::MAX
-          # `Math.min` against the wrap-path top already assigned by
-          # `flow_place` means gravitation can only pull `el` up, never push it
-          # below its row-assigned position. Rewrites the layout position
-          # (left unchanged); the change guard no-ops when nothing moves.
-          place_child el, el_left, Math.min(el.eff_top.as(Int), best_bottom), nil, nil
-        end
+        # `Math.min` against the row's own top means gravitation can only
+        # pull `el` up, never push it below its row-assigned position.
+        abovea != Int32::MAX ? Math.min(top, best_bottom) : top
       end
 
       # Snapshots the previous row (`[@last_row_index, @row_index)`) into

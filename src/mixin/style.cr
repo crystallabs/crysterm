@@ -134,8 +134,18 @@ module Crysterm
       # `#inline_style=`); this name is kept for Qt-porting familiarity.
       def style=(style : ::Crysterm::Style?)
         invalidate_frame_style
+        changed = !style.same?(@style)
         @style = style
         @inline_style_carrier = false
+        # A CSS-styled widget reads its computed per-state styles, which the
+        # cascade folded the previous inline style into: force a cascade, as
+        # the CSS document does not encode inline styles. Not from inside a
+        # render: a style assigned there is derived from the cascade that just
+        # ran (a `label` sub-style pushed onto the label widget), and each
+        # cascade hands out a new object, so forcing would recascade forever.
+        if changed && @css_styled && (scr = window?) && !scr.in_render?
+          scr.css_widget_sheets_changed
+        end
         # Like `#state=`: the swap is invisible to the tracked geometry setters,
         # so flag damage explicitly — otherwise an idle UI never repaints with
         # the new style.

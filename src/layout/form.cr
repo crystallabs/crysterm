@@ -38,7 +38,8 @@ module Crysterm
       end
 
       # Reused list of arranged children, refilled each frame instead of
-      # allocating a `reject` array per render.
+      # allocating a `reject` array per render, and emptied when the arrange
+      # ends.
       @row_children = [] of Widget
 
       # Placement goes through the layout-geometry channel
@@ -70,17 +71,32 @@ module Crysterm
         children.clear
         each_arrangeable(container) { |el| children << el }
 
-        # Quietly drop last frame's assigned column widths before the label
+        # Quietly drop last frame's assigned column width before the label
         # scan: `measured_label_width` measures a label's *wrapped* content
         # (`wrapped_lines`), which re-wraps at the effective width — a stale layout
         # width from the previous arrange would wrap the content to the old
         # column and freeze the auto column at it. The layout-channel analogue
         # of the old restore-before-the-loop.
-        children.each &.clear_layout_width
+        #
+        # Only for the labels that scan measures (paired ones without an
+        # `Int32` width, under an auto column). Every other child keeps its
+        # assignment until `#place_child` rewrites it: dropping it would make
+        # that write a size change on every arrange — an `update` and a
+        # `Resize` emit per child of a form that did not change.
+        if @label_width.nil?
+          i = 0
+          while i + 1 < children.size
+            label = children[i]
+            label.clear_layout_width unless label.width_spec.is_a?(Int32)
+            i += 2
+          end
+        end
 
         # Label column width: the fixed `#label_width`, or the widest paired
-        # label's own content when auto (`nil`). Clamped to the interior width.
-        lw = Math.min(label_column_width(children), w)
+        # label's own content when auto (`nil`). Clamped to the interior width,
+        # and to 0 from below: a negative width would start the field column
+        # left of the label column.
+        lw = clamped_size label_column_width(children), w
         fw = w - lw - hs
         fw = 0 if fw < 0
 
@@ -91,9 +107,9 @@ module Crysterm
           # `#row_height` resolves a `Dim` spec through `aheight`, which
           # prefers a layout-assigned height — quietly drop last frame's row
           # assignment first so the spec is what resolves.
-          label.clear_layout_height
+          release_row_height label
           if field = children[i + 1]?
-            field.clear_layout_height
+            release_row_height field
             # Shared content row height, so the label and field align. Each
             # child's assigned width reserves its own horizontal margin box:
             # `_get_coords` shifts a fixed-size box outward by its near margin
@@ -125,6 +141,8 @@ module Crysterm
             i += 1
           end
         end
+        # Nothing of the children is kept past the arrange.
+        children.clear
       end
 
       # Adds a labeled field row through the `#container` back-pointer: creates a
@@ -275,6 +293,16 @@ module Crysterm
         # check.
         el.process_content
         el.wrapped_lines.max_width + el.ihorizontal
+      end
+
+      # Drops *el*'s layout-assigned height when `#row_height` is about to
+      # resolve its spec through `aheight` — a `Dim`/`String` one. An `Int32`
+      # or auto height never reads the assignment, and keeping it lets the
+      # row's `#place_child` see an unchanged size.
+      private def release_row_height(el : Widget) : Nil
+        case el.height_spec
+        when Dim, String then el.clear_layout_height
+        end
       end
 
       # A child's row height: an explicit `Int32`, a resolved `Dim`/`String`

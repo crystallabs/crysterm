@@ -136,6 +136,16 @@ module Crysterm
         PROPERTIES.includes? property
       end
 
+      # The properties that configure the widget's layout engine rather than
+      # the widget: no-ops until a `display` declaration (or the program) has
+      # installed one, so the cascade applies them after every `display`.
+      ENGINE_PROPERTIES = Set{"gap", "spacing", "flex-direction", "grid-template-columns"}
+
+      # Whether *property* configures the widget's layout engine.
+      def self.engine_property?(property : String) : Bool
+        ENGINE_PROPERTIES.includes? property
+      end
+
       # The edge properties that, inside a non-`normal` *state* rule, become a
       # relative positional nudge on the state's `Style` (Qt's QSS
       # `position: relative` offsets — `QPushButton:pressed { top: 1; left: 1 }`)

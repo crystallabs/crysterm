@@ -227,24 +227,29 @@ module Crysterm
       private def self.parse_scope(css : String, parents : Array(String), media : MediaQuery?, layer_rank : Int32, ctx : ParseCtx) : Nil
         declarations = {} of String => String
         important = {} of String => String
+        # Scanned by byte: every delimiter is ASCII, and indexing by character
+        # is linear per access once the text holds a non-ASCII character.
+        bytes = css.to_slice
         pos = 0
-        n = css.size
+        n = bytes.size
         while pos < n
-          pos = skip_ws(css, pos)
+          pos = skip_ws(bytes, pos)
           break if pos >= n
           start = pos
           # Read the prelude up to the next top-level `{`/`;`/`}`, skipping
           # parenthesised, bracketed and quoted spans so values like `url(a;b)`
           # and attribute selectors like `[href="a{b}"]` / `[x=a;b]` are safe.
           while pos < n
-            ch = css[pos]
-            break if ch == '{' || ch == ';' || ch == '}'
-            if ch == '('
-              pos = Selectors.skip_balanced(css, pos, '(', ')')
-            elsif ch == '['
-              pos = Selectors.skip_balanced(css, pos, '[', ']')
-            elsif ch == '"' || ch == '\''
-              pos = Selectors.skip_string(css, pos)
+            b = bytes.unsafe_fetch(pos)
+            case b
+            when 0x7B_u8, 0x3B_u8, 0x7D_u8 # '{' ';' '}'
+              break
+            when 0x28_u8 # '('
+              pos = Selectors.skip_balanced(bytes, pos, 0x28_u8, 0x29_u8)
+            when 0x5B_u8 # '['
+              pos = Selectors.skip_balanced(bytes, pos, 0x5B_u8, 0x5D_u8)
+            when 0x22_u8, 0x27_u8 # '"' '\''
+              pos = Selectors.skip_string(bytes, pos)
             else
               pos += 1
             end
@@ -253,17 +258,17 @@ module Crysterm
           # omit its trailing `;` (e.g. `{ color: red }`), so flush it as a
           # statement rather than dropping it.
           if pos >= n
-            handle_statement(css[start...pos].strip, parents, declarations, important, layer_rank, ctx)
+            handle_statement(css.byte_slice(start, pos - start).strip, parents, declarations, important, layer_rank, ctx)
             break
           end
-          prelude = css[start...pos].strip
-          case css[pos]
-          when ';'
+          prelude = css.byte_slice(start, pos - start).strip
+          case bytes.unsafe_fetch(pos)
+          when 0x3B_u8 # ';'
             pos += 1
             handle_statement(prelude, parents, declarations, important, layer_rank, ctx)
-          when '{'
-            close = matching_brace(css, pos)
-            body = close ? css[(pos + 1)...close] : css[(pos + 1)..]
+          when 0x7B_u8 # '{'
+            close = matching_brace(bytes, pos)
+            body = close ? css.byte_slice(pos + 1, close - pos - 1) : css.byte_slice(pos + 1)
             pos = close ? close + 1 : n
             # Flush the scope's own declarations accumulated so far as a rule
             # *before* descending into this nested block, so they get a lower
@@ -276,7 +281,7 @@ module Crysterm
               important = {} of String => String
             end
             handle_block(prelude, body, parents, media, layer_rank, ctx)
-          when '}'
+          else
             pos += 1 # stray close brace
           end
         end
@@ -331,19 +336,20 @@ module Crysterm
       private def self.parse_keyframes(name : String, body : String, media : MediaQuery?, ctx : ParseCtx) : Nil
         return if name.empty?
         stops = [] of Tuple(Float64, Hash(String, String))
+        bytes = body.to_slice
         pos = 0
-        n = body.size
+        n = bytes.size
         while pos < n
-          pos = skip_ws(body, pos)
+          pos = skip_ws(bytes, pos)
           break if pos >= n
           start = pos
-          while pos < n && body[pos] != '{'
+          while pos < n && bytes.unsafe_fetch(pos) != 0x7B_u8 # '{'
             pos += 1
           end
           break if pos >= n
-          selector = body[start...pos].strip
-          close = matching_brace(body, pos)
-          decl_text = close ? body[(pos + 1)...close] : body[(pos + 1)..]
+          selector = body.byte_slice(start, pos - start).strip
+          close = matching_brace(bytes, pos)
+          decl_text = close ? body.byte_slice(pos + 1, close - pos - 1) : body.byte_slice(pos + 1)
           pos = close ? close + 1 : n
           decls = {} of String => String
           ignore = {} of String => String
@@ -375,7 +381,9 @@ module Crysterm
       # nesting: `&` is replaced by the parent, otherwise the child becomes a
       # descendant of it.
       private def self.combine_selectors(parents : Array(String), child : String) : Array(String)
-        children = child.split(',').map(&.strip).reject(&.empty?)
+        # Top-level commas only: one inside a functional pseudo's argument list
+        # (`:has(.a, .b)`) or a quoted attribute value belongs to its selector.
+        children = Selectors.split_top_level(child, ',').map(&.strip).reject(&.empty?)
         return children if parents.empty?
         combined = [] of String
         parents.each do |parent|
@@ -451,17 +459,21 @@ module Crysterm
         end
       end
 
-      private def self.skip_ws(css : String, pos : Int32) : Int32
-        while pos < css.size && css[pos].whitespace?
+      # Byte offset of the first non-whitespace byte at or after *pos*. Only
+      # ASCII whitespace is stepped over here; the callers `strip` what they
+      # slice, which trims any other.
+      private def self.skip_ws(bytes : Bytes, pos : Int32) : Int32
+        while pos < bytes.size && bytes.unsafe_fetch(pos).unsafe_chr.ascii_whitespace?
           pos += 1
         end
         pos
       end
 
-      # Index of the `}` matching the `{` at *open*, or `nil` if unbalanced.
-      private def self.matching_brace(css : String, open : Int32) : Int32?
-        index = Selectors.skip_balanced(css, open, '{', '}')
-        index > open && css[index - 1]? == '}' ? index - 1 : nil
+      # Byte offset of the `}` matching the `{` at *open*, or `nil` if
+      # unbalanced.
+      private def self.matching_brace(bytes : Bytes, open : Int32) : Int32?
+        index = Selectors.skip_balanced(bytes, open, 0x7B_u8, 0x7D_u8)
+        index > open && bytes[index - 1]? == 0x7D_u8 ? index - 1 : nil
       end
 
       # Resolves `var(...)` references in *value* against *variables*, falling

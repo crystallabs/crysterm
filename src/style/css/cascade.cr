@@ -230,6 +230,7 @@ module Crysterm
             # declarations sort at `TIER_AUTHOR_STATE`, while default/UA state
             # rules (and any base rule) stay at their sheet tier. `!important`
             # still outranks all.
+            next if nodes.empty?
             entries = bias_entries(rule_entries(sheet, rule_index, rule, rule.state ? state_tier(tier) : tier), bias)
             sel_entries = bias_entries(selection_entries(sheet, rule_index, rule, tier), bias)
             next if entries.empty? && sel_entries.empty?
@@ -274,10 +275,15 @@ module Crysterm
         # no rules fall back to `normal` lazily at render time.
         base.each do |key, entries|
           own = stated_keys[key]?
-          # Fast path for the common widget-key with base rules, no state rules
-          # and no "::" (so no parent-state fold either): fold straight into
-          # Normal without allocating a throwaway one-element Set.
-          if own.nil? && !key.includes?("::")
+          sep = key.index("::")
+          # A sub-element slot, as opposed to a widget key or a
+          # state-independent extra (`:`-bearing) slot such as a table cell.
+          sub_element = sep ? key.index(':', sep + 2).nil? : false
+          # Fast path for the common key with base rules, no state rules and no
+          # parent-state fold either (a widget key, or an extra slot — one per
+          # cell of a styled table): fold straight into Normal without
+          # allocating a throwaway one-element Set.
+          if own.nil? && !sub_element
             (acc[{key, WidgetState::Normal}] ||= [] of Entry).concat entries
             next
           end
@@ -290,7 +296,7 @@ module Crysterm
           # pristine sub-element, dropping a base `ProgressBar::indicator` rule
           # on the focused bar alone. Extra (`:`-bearing) slots are
           # state-independent, so skip them.
-          if (sep = key.index("::")) && !key[(sep + 2)..].includes?(':')
+          if sep && sub_element
             stated_keys[key[0, sep]]?.try { |ps| states.concat ps }
           end
           states.each { |state| (acc[{key, state}] ||= [] of Entry).concat entries }
@@ -467,11 +473,23 @@ module Crysterm
       # Whether *node* has a descendant (or, with `:scope`, relative element)
       # matching the `:has(...)` inner selector (in `Selectors.engine_form`,
       # so a presence-only `[attr]` inside it keeps the combinator after it).
-      private def self.has_descendant?(node : HTML5::Node, inner : String) : Bool
-        !node.css(Selectors.engine_form(inner)).empty?
+      #
+      # Only a `:scope`-relative inner has to be compiled against *node*; any
+      # other compiles once on *sheet* and is reused for every candidate node.
+      private def self.has_descendant?(sheet : Stylesheet, node : HTML5::Node, inner : String) : Bool
+        if inner.matches?(SCOPE_PSEUDO)
+          !node.css(Selectors.engine_form(inner)).empty?
+        elsif compiled = sheet.compiled_selector(inner)
+          !compiled.select(node).empty?
+        else
+          false
+        end
       rescue
         false
       end
+
+      # A `:scope` pseudo-class in a `:has(...)` inner selector.
+      SCOPE_PSEUDO = /:scope/i
 
       # Runs *selector* (compiled by and cached on *sheet*, reused across
       # cascades) against this cascade's *doc*. An unparseable selector compiles
@@ -520,7 +538,7 @@ module Crysterm
         # `:has(...)` — keep only nodes with a descendant matching the inner
         # selector.
         if has = rule.has
-          nodes = nodes.select { |node| has_descendant?(node, has) }
+          nodes = nodes.select { |node| has_descendant?(sheet, node, has) }
         end
         # Ancestor-position `:has(...)` (`Form:has(.error) Button`): the
         # structural selector already pins the subject under the qualifier
@@ -541,7 +559,7 @@ module Crysterm
       private def self.sub_element_uid?(node : HTML5::Node) : Bool
         return false unless k = node["data-uid"]?
         sep = k.val.index("::")
-        sep ? !k.val[(sep + 2)..].includes?(':') : false
+        sep ? k.val.index(':', sep + 2).nil? : false
       end
 
       # The subject compound `lower_sub_elements` emits for a `::slot`: a single
@@ -649,7 +667,7 @@ module Crysterm
           cache[qualifier] = select_nodes(sheet, doc, qualifier)
         end
         set = Set(HTML5::Node).new
-        base.each { |n| set << n if has_descendant?(n, inner) }
+        base.each { |n| set << n if has_descendant?(sheet, n, inner) }
         set
       end
 
@@ -880,11 +898,25 @@ module Crysterm
         # `css_geometry_sync`: these writes are the cascade's own, so they must
         # not fold into the pristine snapshot as programmatic ones do.
         widget.css_geometry_sync do
+          # The declarations configuring a layout engine wait until every
+          # `display` has installed it, wherever the sheet lists them
+          # relative to it.
+          deferred = nil.as(Array(Tuple(String, String))?)
           entries.each do |entry|
             entry[4].each do |property, value|
               next unless Geometry.handles?(property)
+              if Geometry.engine_property?(property)
+                (deferred ||= [] of Tuple(String, String)) << {property, value}
+                next
+              end
               # Snapshot the pristine geometry before CSS first writes it, so the
               # reset pass can revert a rule that stops matching. Memoized.
+              widget.capture_css_base_geometry
+              Geometry.apply(widget, property, resolve_var(value, variables, resolved))
+            end
+          end
+          if engine_decls = deferred
+            engine_decls.each do |(property, value)|
               widget.capture_css_base_geometry
               Geometry.apply(widget, property, resolve_var(value, variables, resolved))
             end

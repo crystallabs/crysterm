@@ -127,11 +127,16 @@ module Crysterm
           # won't see its `lpos` this frame.
           render_or_defer el
           @prev_el = el
-          # A deferred child's `lpos` still holds the previous frame's rect, so
-          # it *is* recorded here and is rejected by `#flow_place`'s
-          # `deferred_this_frame?` term instead.
-          @last_rendered = el if rendered? el
+          # A deferred child's `lpos` holds the previous frame's rect, or none
+          # on its first frame; either way it *is* recorded here and is
+          # rejected by `#flow_place`'s `deferred_this_frame?` term instead,
+          # so its successor chains off its assigned geometry rather than
+          # off an earlier child, over it.
+          @last_rendered = el if rendered?(el) || deferred_this_frame?(el)
         end
+        after_flow
+        @prev_el = nil
+        @last_rendered = nil
       end
 
       # Hook run once before the loop (e.g. `Grid` precomputes its uniform
@@ -139,13 +144,17 @@ module Crysterm
       protected def before_flow(container : Widget) : Nil
       end
 
+      # Hook run once after the loop, for an engine to drop what
+      # `#before_flow` gathered. Default: no-op.
+      protected def after_flow : Nil
+      end
+
       # Positions the `i`-th child within `interior` (setting `left`/`top`) and
       # returns an `Overflow` action if it does not fit, or nil to render it.
       #
       # The default is plain wrapping flow at this engine's `#column_width`
-      # pitch — what `Wrap` and `UniformGrid` are, in full. Override only to
-      # splice something between the placement and the overflow test, as
-      # `Masonry` does with its upward gravitation.
+      # pitch — what `Wrap` and `UniformGrid` are, in full; `Masonry` adds its
+      # upward gravitation through `#settled_top`.
       protected def place_one(container : Widget, el : Widget, i : Int32, interior : RenderedGeometry) : Overflow?
         flow_place container, el, i, interior, column_width
         overflow_action container, el, interior
@@ -223,25 +232,35 @@ module Crysterm
           # No predecessor at all: start the row at the origin. `top` is
           # `@row_offset` (the current row), not a hardcoded 0, so a mid-flow
           # chain break can't fold later rows back onto row 0.
-          place_child el, 0, @row_offset, nil, nil
+          place_child el, 0, settled_top(container, el, 0, @row_offset, interior), nil, nil
           return
         end
 
         # Snap to the uniform column width in grid mode.
+        # In Int64, capped at the interior: the column pitch is the widest
+        # child's raw `awidth`, which no interior bounds.
         if high_width > 0
-          left = left + high_width - last_drawn
+          left = Math.min(left.to_i64 + high_width - last_drawn, width.to_i64).to_i32
         end
 
-        # Commit the chained position before the fit test, NOT after it: for a
-        # nil-width (shrink-to-fit) child `cached_awidth` resolves `el.awidth`,
-        # whose auto branch reads the child's effective left (`eff_left` —
-        # the layout assignment, widget_size.cr) — so the fit test only means
-        # what it means once the position is assigned. This is also what makes
-        # such a child never wrap (`left + awidth` collapses to the interior
-        # width), the horizontal twin of `#overflow_action`'s NOTE; testing
-        # against a local would resolve `awidth` from the *previous* frame's
-        # position and wrap every auto-width child onto its own row.
-        place_child el, left, @row_offset, nil, nil
+        # For a nil-width (shrink-to-fit) child, commit the chained position
+        # before the fit test, NOT after it: `cached_awidth` resolves
+        # `el.awidth`, whose auto branch reads the child's effective left
+        # (`eff_left` — the layout assignment, widget_size.cr) — so the fit
+        # test only means what it means once the position is assigned. This
+        # is also what makes such a child never wrap (`left + awidth`
+        # collapses to the interior width), the horizontal twin of
+        # `#overflow_action`'s NOTE; testing against a local would resolve
+        # `awidth` from the *previous* frame's position and wrap every
+        # auto-width child onto its own row.
+        #
+        # A child with a width of its own resolves it without its position,
+        # so it is tested first and written once, where it ends up: a
+        # provisional write would move a wrapping child off its settled
+        # position and back on every arrange, each a full `update` plus a
+        # `Move` emit on a layout that did not change.
+        top = @row_offset
+        place_child el, left, top, nil, nil if el.width_spec.nil?
 
         # Include the child's own left margin: render shifts the drawn box right
         # by `mleft` without shrinking a fixed width, so the child occupies
@@ -252,15 +271,24 @@ module Crysterm
         unless left.to_i64 + el.mleft + cached_awidth(el) <= width
           # Doesn't fit on this row: advance the row offset by the tallest child
           # on the row we're leaving, and start a new row. `row_tallest` scans
-          # `[@row_index, i)` — strictly `el`'s predecessors — so the commit
-          # above can't feed back into the row height it measures.
+          # `[@row_index, i)` — strictly `el`'s predecessors — so no write to
+          # `el` can feed back into the row height it measures.
           # Clamp the row height to the interior so a pathological child
           # can't overflow the checked Int32 `@row_offset` accumulation.
-          @row_offset += clamped_size(row_tallest(container, @row_index, i) + @sp_v, interior.height)
+          @row_offset += (row_tallest(container, @row_index, i).to_i64 + @sp_v).clamp(0_i64, interior.height.to_i64).to_i32
           @last_row_index = @row_index
           @row_index = i
-          place_child el, 0, @row_offset, nil, nil
+          left = 0
+          top = @row_offset
         end
+        place_child el, left, settled_top(container, el, left, top, interior), nil, nil
+      end
+
+      # Hook run once the row and left edge of `el` are decided, just before
+      # its position is written: returns the top to write. Default: *top*,
+      # the current row's. `Masonry` pulls the child up from it.
+      protected def settled_top(container : Widget, el : Widget, left : Int32, top : Int32, interior : RenderedGeometry) : Int32
+        top
       end
 
       # Tallest *outer* height among the arranged children in `[from, to)`, used
@@ -274,27 +302,30 @@ module Crysterm
       # renders. Scroll-clipped children stay counted — their `#_render` ran and
       # cleared the flag even though it produced no `lpos`.
       protected def row_tallest(container : Widget, from : Int32, to : Int32) : Int32
-        tallest = 0
+        # Accumulated in Int64 and saturated on return: a drawn rect whose far
+        # edge saturated at `Int32::MAX`, or a raw `aheight`, plus the margin
+        # exceeds Int32.
+        tallest = 0_i64
         j = from
         while j < to
           el = container.children[j]
           if arrangeable?(el) && !el.layout_suppressed?
             eh =
               if !deferred_this_frame?(el) && (lp = rendered_geometry(el))
-                lp.height + el.mvertical
+                lp.height.to_i64 + el.mvertical
               else
                 # Placed-but-unrendered (scroll-clipped) or deferred to a plane
                 # (stale `lpos`): the assigned height is the truth this frame —
                 # via `occupied_height`, since a deferred shrink-to-fit child's
                 # `aheight` reports the stretched remaining interior, which
                 # would advance the row cursor to the container bottom.
-                occupied_height(el) + el.mvertical
+                occupied_height(el).to_i64 + el.mvertical
               end
             tallest = eh if eh > tallest
           end
           j += 1
         end
-        tallest
+        Math.min(tallest, Int32::MAX.to_i64).to_i32
       end
 
       # `el`'s occupied horizontal extent for chain/snap math. Normally the
