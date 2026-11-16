@@ -255,10 +255,17 @@ module Crysterm
 
       # *src*'s natural size in pixels, or `nil` when it has none yet: a
       # local file is decoded now (cached), a remote URL is fetched on a
-      # fiber and reported through `#invalidate_images` when it arrives.
+      # fiber and reported through `#invalidate_images` when it arrives —
+      # under `media.remote_fetch` only; without it a URL is never fetched.
       private def image_pixel_size(src : String) : Tuple(Int32, Int32)?
         return @image_sizes[src] if @image_sizes.has_key?(src)
         if remote_image?(src)
+          # A refused URL reserves no rows, as an image that cannot be read;
+          # nothing is remembered, so it is measured once the option allows.
+          unless Media.remote_fetch_allowed?
+            Media.watch_config
+            return
+          end
           fetch_image_size src
           return
         end

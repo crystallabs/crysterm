@@ -523,7 +523,7 @@ module Crysterm
       def self.watch_config : Nil
         return if @@config_watched
         @@config_watched = true
-        {"media.backend", "media.exclude"}.each do |key|
+        {"media.backend", "media.exclude", "media.remote_fetch"}.each do |key|
           Crysterm::Config.on_change(key) { rebuild_resolved }
         end
       end
@@ -557,16 +557,98 @@ module Crysterm
       # for a URL it cannot fetch.
       class_property fetcher : Proc(String, Bytes) = ->(url : String) { fetch_with_downloader url }
 
+      # How long `.fetch_with_downloader` waits for a connection, and for a
+      # stalled transfer to move again, before giving the URL up.
+      class_property fetch_connect_timeout : Time::Span = 10.seconds
+
+      # The longest a whole download by `.fetch_with_downloader` may take; the
+      # downloader is terminated when it passes.
+      class_property fetch_timeout : Time::Span = 60.seconds
+
       # Fetches *url* using `curl` (then `wget`), returning the raw bytes.
+      # Bounded by `.fetch_connect_timeout` and `.fetch_timeout`, so a host
+      # that never answers fails the fetch instead of holding it forever.
       def self.fetch_with_downloader(url : String) : Bytes
-        [{"curl", ["-s", "-A", "", url]}, {"wget", ["-U", "", "-O", "-", url]}].each do |cmd, args|
-          io = IO::Memory.new
-          status = Process.run(cmd, args, output: io, error: Process::Redirect::Close)
-          return io.to_slice if status.success?
+        connect = Math.max(1, fetch_connect_timeout.total_seconds.ceil.to_i).to_s
+        total = Math.max(1, fetch_timeout.total_seconds.ceil.to_i).to_s
+        [
+          {"curl", ["-s", "-A", "", "--connect-timeout", connect, "--max-time", total, url]},
+          {"wget", ["-q", "-U", "", "--timeout=#{connect}", "--tries=1", "-O", "-", url]},
+        ].each do |cmd, args|
+          bytes = run_downloader(cmd, args)
+          return bytes if bytes
         rescue
           # Try the next downloader.
         end
         raise "curl or wget failed."
+      end
+
+      # Runs one downloader, returning what it wrote, or `nil` when it failed.
+      # The process is terminated once `.fetch_timeout` passes, whatever its
+      # own timeout options amount to.
+      private def self.run_downloader(cmd : String, args : Array(String)) : Bytes?
+        process = Process.new(cmd, args, output: Process::Redirect::Pipe, error: Process::Redirect::Close)
+        finished = Channel(Nil).new(1)
+        deadline = fetch_timeout
+        spawn do
+          select
+          when finished.receive
+          when timeout(deadline)
+            process.terminate rescue nil
+          end
+        end
+        io = IO::Memory.new
+        begin
+          IO.copy process.output, io
+        ensure
+          status = process.wait
+          finished.send nil
+        end
+        status.success? ? io.to_slice : nil
+      end
+
+      # Whether *file* names an `http(s)` URL rather than a local path.
+      def self.remote?(file : String) : Bool
+        file.matches?(/^https?:/)
+      end
+
+      # Whether markup — a layout document, or the remote DOM bridge — may
+      # point a media widget's `file` at an `http(s)` URL: the
+      # `media.remote_fetch` option. Application code setting `#file=` or
+      # calling `#load` is not subject to it.
+      def self.remote_fetch_allowed? : Bool
+        Crysterm::Config.media_remote_fetch
+      end
+
+      # Whether an image that content names — a CSS `background-image`, a
+      # picture in a `TextEdit`'s document — may be loaded from *src*: a
+      # local path always, an `http(s)` URL only under `media.remote_fetch`.
+      def self.content_source_allowed?(src : String) : Bool
+        !remote?(src) || remote_fetch_allowed?
+      end
+
+      # Callers waiting on each URL's running `.fetch_shared` download.
+      @@fetching = {} of String => Array(Channel(Bytes?))
+
+      # Fetches *url* (`.fetch`), returning `nil` when it cannot be fetched.
+      # Callers asking for a URL whose download is running wait for that one
+      # rather than starting another. Blocks the calling fiber, so it belongs
+      # on one of its own, never on the one rendering.
+      def self.fetch_shared(url : String) : Bytes?
+        if waiters = @@fetching[url]?
+          channel = Channel(Bytes?).new(1)
+          waiters << channel
+          return channel.receive
+        end
+        waiters = @@fetching[url] = [] of Channel(Bytes?)
+        bytes = begin
+          fetch url
+        rescue
+          nil
+        end
+        @@fetching.delete url
+        waiters.each &.send(bytes)
+        bytes
       end
 
       # Whether the `w3mimgdisplay` helper is present.
@@ -641,7 +723,7 @@ module Crysterm
       # Resolves a *file* spec to data a `PNGGIF` decoder accepts: an `http(s)`
       # URL is fetched to bytes; a local path passes through as-is.
       def self.source_data(file : String) : String | Bytes
-        file =~ /^https?:/ ? Media.fetch(file) : file
+        remote?(file) ? Media.fetch(file) : file
       end
 
       # How long a remote URL's failed fetch or decode is remembered
@@ -670,26 +752,21 @@ module Crysterm
       # URL has no such stamp, so its failure — as likely a network blip as a
       # broken link — is remembered for `.remote_failure_ttl` and then tried
       # again, rather than hiding the image for the whole process.
-      def self.decode(file : String) : PNGGIF::PNG?
-        key = file
-        remote = !(file =~ /^https?:/).nil?
-        unless remote
-          if info = File.info?(file)
-            key = "#{file}\u{0}#{info.size}\u{0}#{info.modification_time.to_unix}"
-          end
-        end
-        # ANSI-art decoding depends on the detail setting, so key on it too.
-        key += "\u{0}d#{Crysterm::Config.media_ansi_art_detail}" if file =~ ANSI_ART_RE
-        return @@decode_cache.fetch(key) { decode_uncached file } unless remote
+      #
+      # *data*, when given, is the URL's already fetched bytes: they are
+      # decoded instead of fetching, whatever failure is remembered.
+      def self.decode(file : String, data : Bytes? = nil) : PNGGIF::PNG?
+        key = decode_key file
+        return @@decode_cache.fetch(key) { decode_uncached file } unless remote?(file)
 
         if failed_at = @@remote_failures[key]?
-          return if Time.instant - failed_at < remote_failure_ttl
+          return if data.nil? && Time.instant - failed_at < remote_failure_ttl
           @@remote_failures.delete key
         end
         # Only successes go into the LRU for a URL, so a hit is never a stale
         # failure.
         @@decode_cache[key]? || begin
-          png = decode_uncached file
+          png = decode_uncached file, data
           if png
             @@decode_cache[key] = png
           else
@@ -699,17 +776,38 @@ module Crysterm
         end
       end
 
-      # Decodes *file* without consulting or filling any cache; `nil` on failure.
-      private def self.decode_uncached(file : String) : PNGGIF::PNG?
+      # Whether *file*'s decoded image is held, so `.decode` returns it
+      # without reading or fetching anything.
+      def self.decoded?(file : String) : Bool
+        !@@decode_cache[decode_key(file)]?.nil?
+      end
+
+      # The decode cache's key for *file*: a local path with its size and
+      # mtime (so an on-disk change invalidates it), a URL as it is.
+      private def self.decode_key(file : String) : String
+        key = file
+        unless remote?(file)
+          if info = File.info?(file)
+            key = "#{file}\u{0}#{info.size}\u{0}#{info.modification_time.to_unix}"
+          end
+        end
+        # ANSI-art decoding depends on the detail setting, so key on it too.
+        key += "\u{0}d#{Crysterm::Config.media_ansi_art_detail}" if file =~ ANSI_ART_RE
+        key
+      end
+
+      # Decodes *file* without consulting or filling any cache; `nil` on
+      # failure. *data* stands in for a URL's fetch.
+      private def self.decode_uncached(file : String, data : Bytes? = nil) : PNGGIF::PNG?
         if file =~ ANSI_ART_RE
           # ANSI/textmode art: decode CP437 + ANSI sequences to a bitmap.
-          raw = file =~ /^https?:/ ? Media.fetch(file) : File.open(file, &.getb_to_end)
+          raw = data || (remote?(file) ? Media.fetch(file) : File.open(file, &.getb_to_end))
           decode_ansi(raw)
         elsif VideoSource.video? file
           # Decoded to animation frames via ffmpeg; nil if missing/failed.
           VideoSource.decode file
         else
-          PNGGIF::PNG.new(source_data(file))
+          PNGGIF::PNG.new(data || source_data(file))
         end
       rescue
         nil

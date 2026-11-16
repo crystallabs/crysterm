@@ -37,6 +37,124 @@ module Crysterm
         f
       end
 
+      # Applies a `file` attribute that markup supplied (a layout document, the
+      # remote DOM bridge). As `#file=`, except that an `http(s)` URL is
+      # refused unless `media.remote_fetch` allows it: the widget then shows
+      # what it shows for an image that failed to load.
+      protected def dom_set_file(f : String?) : Nil
+        @file_from_markup = true
+        self.file = f
+      ensure
+        @file_from_markup = false
+      end
+
+      # Set while `#dom_set_file` loads, for `#defer_remote_load` to tell a
+      # markup-supplied file from one the application set.
+      @file_from_markup = false
+
+      # Whether `@file` is a URL whose download is still running: nothing may
+      # read it until `#defer_remote_load`'s fiber loads it again.
+      getter? remote_pending : Bool = false
+
+      # Whether `@file` is a URL that markup supplied without
+      # `media.remote_fetch`; it is never fetched and reads as a failed load.
+      getter? remote_refused : Bool = false
+
+      # The bytes `@file`'s download returned, kept for the backend to decode
+      # or transmit; `nil` when nothing was fetched.
+      @remote_bytes : Bytes? = nil
+
+      # Whether `@file`'s download failed.
+      @remote_failed = false
+
+      # Set by the download fiber around the `#load` it resumes.
+      @remote_resuming = false
+
+      # Bumped by every load and clear; a download fiber holding an older
+      # value belongs to a superseded source and drops its result.
+      @remote_gen = 0
+
+      @remote_destroy_hooked = false
+
+      # Whether the backend reads a URL's undecoded bytes, so they must be
+      # fetched even when its decoded image is already cached.
+      protected def remote_needs_bytes? : Bool
+        false
+      end
+
+      # Fetches *file* for `#defer_remote_load`, on its fiber; `nil` on failure.
+      protected def fetch_remote(file : String) : Bytes?
+        Media.fetch_shared file
+      end
+
+      # The bytes fetched for the URL in `@file`, or `nil` while they are not
+      # there to read: the download is running, failed, or was refused.
+      protected def remote_bytes : Bytes?
+        return if @remote_pending || @remote_refused || @remote_failed
+        @remote_bytes
+      end
+
+      # Whether the URL in `@file` cannot be read and never will be: its
+      # download failed, or it was refused.
+      protected def remote_unavailable? : Bool
+        @remote_refused || @remote_failed
+      end
+
+      # Forgets everything about a previous source's download.
+      private def reset_remote_state : Nil
+        @remote_gen += 1
+        @remote_pending = false
+        @remote_refused = false
+        @remote_failed = false
+        @remote_bytes = nil
+      end
+
+      # First step of every `#load`: returns `true` when the load is deferred
+      # and the caller must return at once. An `http(s)` *file* is downloaded
+      # on a fiber of its own, so neither the caller nor a frame waits for the
+      # network; the widget shows nothing meanwhile, and `#load` runs again
+      # with the bytes in hand (or the failure noted) when the download ends.
+      # A video URL is left to ffmpeg, which reads it itself. *fresh* is for a
+      # constructor, whose widget has no earlier image to take down.
+      protected def defer_remote_load(file : String, *, fresh : Bool = false) : Bool
+        if @remote_resuming
+          @remote_resuming = false
+          return false
+        end
+        reset_remote_state
+        return false unless Media.remote?(file)
+        if @file_from_markup && !Media.remote_fetch_allowed?
+          @remote_refused = true
+          return false
+        end
+        return false if Media::VideoSource.video?(file)
+        return false if !remote_needs_bytes? && Media.decoded?(file)
+
+        clear_image unless fresh
+        @file = file
+        @remote_pending = true
+        gen = @remote_gen
+        unless @remote_destroy_hooked
+          @remote_destroy_hooked = true
+          on(::Crysterm::Event::Destroy) { @remote_gen += 1 }
+        end
+        spawn do
+          bytes = fetch_remote file
+          next unless gen == @remote_gen
+          @remote_pending = false
+          @remote_bytes = bytes
+          @remote_failed = bytes.nil?
+          @remote_resuming = true
+          begin
+            load file
+          ensure
+            @remote_resuming = false
+          end
+          update
+        end
+        true
+      end
+
       # How a still image is fit into a box whose aspect differs (see `Media::Fit`).
       getter fit : Media::Fit = Media::Fit::Stretch
 
@@ -183,6 +301,7 @@ module Crysterm
         # else a zombie `FrameClock` keeps advancing at the old GIF's rate or a
         # streaming decoder stays open.
         stop
+        reset_remote_state
         @file = nil
         @load_failed = false
         @src_frames = nil
@@ -213,6 +332,7 @@ module Crysterm
       # also drop their own caches, calling `super` to run this base cleanup.
       def clear_image
         stop # closes the stream if one is open
+        reset_remote_state
         @file = nil
         @source = nil
         @src_frames = nil
@@ -254,6 +374,11 @@ module Crysterm
         end
         return if @load_failed
         file = @file || return
+        return if @remote_pending
+        if remote_unavailable?
+          @load_failed = true
+          return
+        end
         if stream_mode_source? file
           return unless open_stream
           if st = Media::VideoSource::Stream.open(file)
@@ -264,7 +389,7 @@ module Crysterm
             nil
           end
         else
-          src = Media.decode file
+          src = Media.decode file, @remote_bytes
           @load_failed = true if src.nil?
           @source = src
         end

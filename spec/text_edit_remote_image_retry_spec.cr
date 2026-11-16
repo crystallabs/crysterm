@@ -14,14 +14,18 @@ private def headless_screen(w = 40, h = 8)
     width: w, height: h, default_quit_keys: false)
 end
 
-# Runs the block with a fetcher that reaches no network and fails.
+# Runs the block with remote images allowed (`media.remote_fetch`) and a
+# fetcher that reaches no network and fails.
 private def without_network(&)
   previous = Widget::Media.fetcher
+  allowed = Crysterm::Config.media_remote_fetch
   begin
     Widget::Media.fetcher = ->(_u : String) : Bytes { raise "offline" }
+    Crysterm::Config.media_remote_fetch = true
     yield
   ensure
     Widget::Media.fetcher = previous
+    Crysterm::Config.media_remote_fetch = allowed
     Widget::Media.clear_decode_cache
   end
 end

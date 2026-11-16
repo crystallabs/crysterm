@@ -166,6 +166,8 @@ module Superconf
     description: "What a Widget::Media backend does when asked for a feature it can't do (error|ignore)"
   option "media.exclude", "",
     description: "Backends excluded from automatic selection (comma/space separated: kitty,iterm,sixel,glyph,ansi,…); the 'best' is then chosen from the rest"
+  option "media.remote_fetch", false,
+    description: "Let content name images at http(s) URLs: a Widget::Media file= attribute from a layout document or the remote DOM bridge (append, setAttribute, reload_layout), a CSS background-image, and the pictures of a TextEdit/TextBrowser document are then downloaded. Off (default), such a URL is never fetched: the Media widget shows what it shows for an image that failed to load, the background is not painted, and the document shows the image's caption alone; application code setting Media#file= / calling Media#load is never restricted"
   option "media.ansi_art_detail", true,
     description: "When decoding ANSI/textmode art (.ans), rasterize each cell at 2x4 sub-cell resolution so the Glyph backend can resolve sub-cell shapes (sharper outlines). Set false to rasterize one averaged colour per cell (softer, but cleaner under the Ansi backend and at 1:1)"
   option "video.fps", 15.0,

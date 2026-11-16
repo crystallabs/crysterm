@@ -49,6 +49,10 @@ module Crysterm
         {cols * cell_pixel_width, rows * cell_pixel_height}
       end
 
+      protected def origin_in_payload? : Bool
+        false
+      end
+
       # Per-frame scratch reused across renders when `media.reuse_buffers` is on;
       # a per-frame-re-encoding sixel would otherwise re-allocate the whole set
       # every frame. Safe because encoding runs only on the single render fiber.

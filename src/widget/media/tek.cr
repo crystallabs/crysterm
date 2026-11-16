@@ -67,6 +67,7 @@ module Crysterm
       # Forces the image to be re-emitted to the Tek window on the next render.
       private def redraw!
         @playing = false # stop any running animation loop first
+        @playback_paused = false
         @drawn = false
         @decode_failed = false # a parameter/source change warrants a retry
         update!
@@ -105,10 +106,38 @@ module Crysterm
         register_render_hook_deferred { draw_tek }
 
         on(::Crysterm::Event::Destroy) { teardown }
+        on(::Crysterm::Event::Hide) { pause_for_visibility }
+        on(::Crysterm::Event::Detached) { pause_for_visibility }
+        on(::Crysterm::Event::Show) { resume_for_visibility }
+        on(::Crysterm::Event::Attached) { resume_for_visibility }
+
+        @file.try { |f| defer_remote_load f, fresh: true }
+      end
+
+      # Stops the animation loop of a widget hidden or taken off its window,
+      # which would otherwise keep drawing into the Tek window; the loop's
+      # counterpart of `Media::Base#pause_playback_for_visibility`, with the
+      # same `@playback_paused` mark for the show or attach that resumes it.
+      private def pause_for_visibility : Nil
+        return unless @playing
+        @playback_paused = true
+        @playing = false
+      end
+
+      # Has the next render draw again what `#pause_for_visibility` stopped,
+      # once the widget is visible on a window.
+      private def resume_for_visibility : Nil
+        return unless @playback_paused
+        return unless visible_in_tree? && window?
+        @playback_paused = false
+        @drawn = false
+        update!
       end
 
       def load(file : String)
+        return if defer_remote_load file
         @playing = false
+        @playback_paused = false
         @file = file
         @drawn = false
         @decode_failed = false # new source: retry decoding
@@ -135,6 +164,7 @@ module Crysterm
         return if @drawn || @decode_failed
         s = window? || return
         file = @file || return
+        return if remote_pending?
         @drawn = true
         start_drawing s, file
       end
@@ -142,7 +172,11 @@ module Crysterm
       private def start_drawing(s : ::Crysterm::Window, file : String)
         data =
           begin
-            Media.source_data(file)
+            if Media.remote?(file)
+              remote_bytes || raise "could not fetch #{file}"
+            else
+              file
+            end
           rescue
             # Unfetchable URL / unreadable path: degrade instead of crashing the
             # render fiber.

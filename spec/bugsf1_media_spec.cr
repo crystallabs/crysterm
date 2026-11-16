@@ -162,6 +162,9 @@ describe "Media::Tek bad source graceful failure (F1 #19)" do
     s = headless_screen(20, 5, default_quit_keys: true)
     tek = Crysterm::Widget::Media::Tek.new(
       file: "http://127.0.0.1:1/nope-#{Process.pid}.png", parent: s)
+    # The download runs on a fiber of its own; nothing is drawn meanwhile.
+    tek.draw_tek
+    wait_until(10.seconds) { !tek.remote_pending? }
     tek.draw_tek # must not raise (fetch failure caught)
     tek.decode_failed?.should be_true
   ensure

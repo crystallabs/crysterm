@@ -118,6 +118,10 @@ module Crysterm
         {pw < 1 ? 1 : pw, ph < 1 ? 1 : ph}
       end
 
+      protected def origin_in_payload? : Bool
+        false
+      end
+
       # Reused RGBA scratch, sized to `pw*ph*4` and refilled in place each frame;
       # a fresh buffer per frame would be hundreds of KB of garbage. Safe because
       # encoding runs only on the single render fiber and every byte is rewritten

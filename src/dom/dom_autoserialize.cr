@@ -112,9 +112,13 @@ macro dom_autoserialize_body(mode)
         # `property` setter is equivalent to the ivar write, so this is safe as a
         # blanket rule; only ivars with no setter fall back to `@ivar =`.
         {% setter = ([@type] + @type.ancestors).any? { |anc| anc.methods.any? { |m| m.name.stringify == n + "=" } } %}
+        # A `dom_set_<name>` method takes the value instead, for a widget that
+        # treats one arriving from markup differently from one its
+        # application sets (e.g. `Media::Base#dom_set_file`).
+        {% dom_setter = ([@type] + @type.ancestors).any? { |anc| anc.methods.any? { |m| m.name.stringify == "dom_set_" + n } } %}
         # Resolve the assignment target once and splice it into each value kind,
         # instead of repeating the two-arm conditional per kind.
-        {% tgt = (setter ? "self.#{n.id} =" : "@#{n.id} =").id %}
+        {% tgt = (dom_setter ? "dom_set_#{n.id}" : (setter ? "self.#{n.id} =" : "@#{n.id} =")).id %}
         when {{ key }}
           {% if kind == "bool" %}
             {{ tgt }} dom_coerce_bool(value) # HTML boolean-attr semantics

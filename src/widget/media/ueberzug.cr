@@ -108,6 +108,7 @@ module Crysterm
       end
 
       def load(file : String)
+        return if defer_remote_load file
         @file = file
         @path = local_path file
         if @path
@@ -230,23 +231,37 @@ module Crysterm
       # URL to a temp file if necessary.
       private def local_path(file : String) : String?
         cleanup_tmp # a previous URL fetch's temp file is now superseded
-        if file =~ /^https?:/
-          bytes = fetch_bytes file
+        if Media.remote?(file)
+          bytes = remote_bytes || return
           tmp = File.tempfile("crysterm_uz", File.extname(file))
+          # Tracked before the write, so a failed one still gets it deleted.
+          @tmp_path = tmp.path
           tmp.close # File.tempfile returns an open handle; close it before writing
           File.write(tmp.path, bytes)
-          @tmp_path = tmp.path
+          tmp.path
         else
           File.expand_path file
         end
       rescue
+        cleanup_tmp
         nil
       end
 
       # Fetches *file*'s bytes over the network. Kept as a seam so tests can
       # exercise the temp-file lifecycle without network access.
       protected def fetch_bytes(file : String) : Bytes
-        Widget::Media.fetch file
+        Media.fetch_shared(file) || raise "could not fetch #{file}"
+      end
+
+      # The helper opens a local file, so a URL's bytes are always needed.
+      protected def remote_needs_bytes? : Bool
+        true
+      end
+
+      protected def fetch_remote(file : String) : Bytes?
+        fetch_bytes file
+      rescue
+        nil
       end
 
       # Path of the temp file the most recent URL fetch wrote to, if any.

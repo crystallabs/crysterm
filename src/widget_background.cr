@@ -58,6 +58,12 @@ module Crysterm
     # property is cleared (or no capable backend exists).
     protected def update_background_media : Nil
       src = style.background_image
+      if src && !Media.content_source_allowed?(src)
+        # No layer for a URL `media.remote_fetch` refuses; follow the option
+        # still, so the image comes once it is allowed.
+        Media.watch_config
+        src = nil
+      end
       if src && (bg = ensure_background_media(src))
         sync_background_url bg, src
         # Re-assert the fit each frame so a `background-size` change after the

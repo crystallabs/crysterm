@@ -254,6 +254,7 @@ describe "BUGS15 #81 Ueberzug failed load takes the stale placement down" do
 
     # A URL source whose fetch fails -> local_path nil -> @path nil.
     uz.load("https://host.invalid/broken.png")
+    wait_until { !uz.remote_pending? }
     uz.peek_path.should be_nil
     uz.peek_last.should be_nil # placement taken down (not orphaned)
     uz.commands.any?(&.includes?("remove")).should be_true

@@ -27,11 +27,25 @@ module Crysterm
         {cols, rows}
       end
 
+      # The file goes to the terminal as it is.
+      protected def remote_needs_bytes? : Bool
+        true
+      end
+
       # Wraps the original file bytes in the OSC 1337 sequence, sized to the cell
       # box. iTerm2 draws at the cursor, so the pixel origin is irrelevant.
       protected def build_payload(pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String?
-        bytes = raw_bytes || return
+        bytes = raw_bytes
+        unless bytes
+          # No file to send as it is: an injected bitmap (`#bitmap=`) goes out
+          # as a PNG of the current frame, fitted to the box.
+          return unless @file.nil?
+          bmp = fit_bitmap(cols * cell_pixel_width, rows * cell_pixel_height, transient: true) || return
+          bw, bh = Media.dims(bmp)
+          return if bw == 0 || bh == 0
+          return piece_payload(bmp, bw, bh, ox, oy, cols, rows)
+        end
         # iTerm2 letterboxes within the width×height cell box when
         # preserveAspectRatio=1; Stretch wants it off. Cover/crop isn't
         # expressible in the protocol, so it falls back to preserving aspect.
@@ -49,6 +63,10 @@ module Crysterm
         Base64.strict_encode bytes, io
         io << '\a'
         io.to_s
+      end
+
+      protected def origin_in_payload? : Bool
+        false
       end
 
       # A covered picture is cut into its uncovered parts from the frame

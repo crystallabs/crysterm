@@ -174,6 +174,8 @@ module Crysterm
         # so the graphic lands on top). When built detached, this defers
         # registration — and a real cell-size re-resolve — until attached.
         register_overlay_listeners_deferred
+
+        @file.try { |f| defer_remote_load f, fresh: true }
       end
 
       # Whether the corresponding cell pixel dimension was left to auto-detect.
@@ -238,6 +240,11 @@ module Crysterm
       # Loads *file*, dropping the cached source and render so the next draw
       # re-decodes. Sizing itself is lazy (done at draw time for the current box).
       def load(file : String)
+        return if defer_remote_load file
+        # A backend drawing into the cells leaves the picture it painted
+        # wherever the next one is transparent, smaller, or fails to load:
+        # the cells under it are re-emitted first.
+        clear_overlay if repaint_every_frame?
         reset_source_state file
         reset_graphic_source_state
         update!
@@ -267,12 +274,13 @@ module Crysterm
         end
         return if @raw_failed
         file = @file || return
-        @raw =
-          if file =~ /^https?:/
-            Widget::Media.fetch file
-          else
-            File.read(file).to_slice
-          end
+        if Media.remote?(file)
+          return if remote_pending?
+          bytes = remote_bytes
+          @raw_failed = true if bytes.nil?
+          return @raw = bytes
+        end
+        @raw = File.read(file).to_slice
       rescue
         @raw_failed = true
         nil
@@ -387,7 +395,9 @@ module Crysterm
       # re-encodes.
       private def payload_for(bw : Int32, bh : Int32, ox : Int32, oy : Int32,
                               cols : Int32, rows : Int32) : String?
-        geom = {bw, bh, ox, oy, cols, rows, @fit.value}
+        # A payload that doesn't carry the origin survives a move: only a
+        # resize or a fit change re-encodes it.
+        geom = origin_in_payload? ? {bw, bh, ox, oy, cols, rows, @fit.value} : {bw, bh, 0, 0, cols, rows, @fit.value}
         if @payload_geom != geom
           @payload_geom = geom
           @frame_payloads.clear
@@ -465,7 +475,12 @@ module Crysterm
 
         pw, ph = target_pixels(cols, rows)
         ox, oy = origin_pixels(xi, yi)
-        payload = payload_for(pw, ph, ox, oy, cols, rows) || return
+        unless payload = payload_for(pw, ph, ox, oy, cols, rows)
+          # A source that failed to load has nothing to put in place of the
+          # picture painted before it, which a separate layer (Kitty) keeps.
+          clear_overlay if @last_drawn && (@load_failed || @raw_failed)
+          return
+        end
 
         # What is stacked above the picture — a menu, a torn-off menu, a
         # dialog, a tool tip — must stay on top of it. `nil` when nothing
@@ -664,6 +679,13 @@ module Crysterm
       protected def piece_payload(bmp : PNGGIF::Bitmap, pw : Int32, ph : Int32, ox : Int32, oy : Int32,
                                   cols : Int32, rows : Int32) : String
         encode(bmp, pw, ph, ox, oy, cols, rows)
+      end
+
+      # Whether `#encode`'s output depends on the pixel origin (*ox*/*oy*), so a
+      # move must re-encode. True unless a backend says otherwise: one drawing
+      # at the text cursor (sixel, Kitty, iTerm2) overrides it to false.
+      protected def origin_in_payload? : Bool
+        true
       end
 
       # Whether the graphic must be re-emitted on every window render (true when

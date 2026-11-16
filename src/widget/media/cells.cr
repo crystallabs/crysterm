@@ -74,6 +74,7 @@ module Crysterm
       # (Re)decodes *file* and starts playback when it's animated. On failure,
       # shows an error string as content instead of raising.
       def load(file : String)
+        return if defer_remote_load file
         reset_source_state file
         reset_sample_cache
 

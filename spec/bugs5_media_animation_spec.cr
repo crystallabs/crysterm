@@ -74,6 +74,7 @@ describe "Media::Ueberzug URL temp-file cleanup (BUGS5)" do
     s = headless_screen(12, 4, default_quit_keys: true)
     img = FakeUeberzug.new parent: s, width: 4, height: 3
     img.load "http://example.com/pic.png"
+    wait_until { !img.remote_pending? }
 
     p = img.current_tmp_path
     p.should_not be_nil
@@ -90,10 +91,12 @@ describe "Media::Ueberzug URL temp-file cleanup (BUGS5)" do
     s = headless_screen(12, 4, default_quit_keys: true)
     img = FakeUeberzug.new parent: s, width: 4, height: 3
     img.load "http://example.com/a.png"
+    wait_until { !img.remote_pending? }
     first = img.current_tmp_path.not_nil!
     File.exists?(first).should be_true
 
     img.load "http://example.com/b.png"
+    wait_until { !img.remote_pending? }
     second = img.current_tmp_path.not_nil!
     second.should_not eq first
     File.exists?(first).should be_false # previous temp cleaned up
