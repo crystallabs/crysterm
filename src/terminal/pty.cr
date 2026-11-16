@@ -127,12 +127,72 @@ module Crysterm
       end
     end
 
-    # Writes input bytes to the child and flushes immediately (keystrokes must
-    # not sit in a buffer).
-    def write(data : Bytes | String) : Nil
-      return if @closed
-      @master.write data.to_slice
-      @master.flush
+    # Most input bytes held for a child that is not reading before `#write`
+    # turns further input away. Far beyond anything typed or pasted at a child
+    # that reads at all, so reaching it means the child has stopped reading.
+    WRITE_BACKLOG_LIMIT = 16 * 1024 * 1024
+
+    # Input accepted by `#write` and not yet taken by the kernel.
+    @backlog = Deque(Bytes).new
+    @backlog_bytes = 0_i64
+
+    # Whether a fiber is at work handing the backlog to the child. `false`
+    # whenever the backlog is empty: the fiber lives only while there is input
+    # to deliver.
+    #
+    # :nodoc:
+    getter? writing = false
+
+    # Queues input bytes for the child and returns at once, whether or not the
+    # child is reading: a fiber of the PTY's own hands them to the kernel, in
+    # the order written, and parks in place of the caller when the PTY's input
+    # queue is full (a large paste, a stopped or busy child). *data* is copied,
+    # so the caller may reuse its buffer.
+    #
+    # Returns `false` when the input was not taken: the PTY is closed, or
+    # `WRITE_BACKLOG_LIMIT` bytes are already waiting on a child that does not
+    # read. Input is then refused whole, never cut short, and nothing already
+    # queued is given up for it; it is taken again once the child has read the
+    # backlog down. A write error (the child gone) drops what is queued.
+    def write(data : Bytes | String) : Bool
+      return false if @closed
+      slice = data.to_slice
+      return true if slice.empty?
+      return false if @backlog_bytes >= WRITE_BACKLOG_LIMIT
+      @backlog << slice.dup
+      @backlog_bytes += slice.size
+      unless @writing
+        @writing = true
+        spawn { drain_backlog }
+      end
+      true
+    end
+
+    # Input bytes accepted by `#write` that the child's PTY has not taken yet.
+    def write_backlog : Int64
+      @backlog_bytes
+    end
+
+    # The writer fiber: delivers the backlog and ends once it is empty, or
+    # once the master fails (closed by `#kill`, or the child gone).
+    private def drain_backlog : Nil
+      while chunk = @backlog.first?
+        @master.write chunk
+        @master.flush
+        # `#kill` may have emptied the backlog while the write was parked.
+        break if @backlog.empty?
+        @backlog.shift
+        @backlog_bytes -= chunk.size
+      end
+    rescue IO::Error
+      drop_backlog
+    ensure
+      @writing = false
+    end
+
+    private def drop_backlog : Nil
+      @backlog.clear
+      @backlog_bytes = 0_i64
     end
 
     # The child's exit status, cached. Call only once the master reports EOF, so
@@ -150,32 +210,39 @@ module Crysterm
     # (`nohup`, `trap '' HUP`, a daemon) would otherwise never exit, leaving
     # `#reap`'s `Process#wait` parked forever. Idempotent; every signal is
     # best-effort (a process that has already exited is skipped, and a race
-    # losing to that check is swallowed).
+    # losing to that check is swallowed). Input still queued by `#write` is
+    # dropped, and its writer fiber ends with the master.
     def kill(grace : Time::Span = 2.seconds) : Nil
       return if @closed
       @closed = true
       process = @process
-      begin
-        process.signal Signal::HUP unless process.terminated?
-      rescue
-      end
-      spawn do
-        sleep grace
-        unless process.terminated?
-          begin
-            process.signal Signal::TERM
-          rescue
-          end
-        end
-        sleep grace
-        unless process.terminated?
-          begin
-            process.signal Signal::KILL
-          rescue
-          end
-        end
-      end
+      Pty.signal process, Signal::HUP
+      drop_backlog
       @master.close rescue nil
+      Pty.escalate process, grace, {Signal::TERM, Signal::KILL}
+    end
+
+    # Sends *sig* to *process* unless it has already exited. Best-effort: a
+    # race losing to that check is swallowed.
+    def self.signal(process : Process, sig : Signal) : Nil
+      process.signal sig unless process.terminated?
+    rescue
+    end
+
+    # Sends each of *signals* to *process* in turn, on a fiber of its own,
+    # waiting *grace* before each and stopping once the process has exited.
+    # Nothing is spawned when it already has (the usual teardown, after its
+    # output reported EOF). The caller has sent the first, gentlest signal
+    # already; this is what follows for a child that ignores it.
+    def self.escalate(process : Process, grace : Time::Span, signals : Enumerable(Signal)) : Nil
+      return if process.terminated?
+      spawn do
+        signals.each do |sig|
+          sleep grace
+          break if process.terminated?
+          Pty.signal process, sig
+        end
+      end
     end
   end
 end

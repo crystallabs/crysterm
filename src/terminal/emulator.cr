@@ -313,21 +313,56 @@ module Crysterm
     end
 
     # Pads or trims *grid* so its viewport (lines from *base* onward) holds
-    # exactly *rows* lines: growing appends blank lines, shrinking drops lines
-    # off the bottom (content kept at top-left). Used on resize for both the
-    # live grid and the parked main buffer.
-    private def fit_viewport(grid : Array(Array(Cell)), base : Int32, rows : Int32) : Nil
+    # exactly *rows* lines, and returns the number of lines that must still
+    # leave from the viewport's top. Growing appends blank lines. Shrinking
+    # (as xterm does) drops only lines below *cursor_y* off the bottom; when
+    # that is not enough the cursor line would fall outside, so the remainder
+    # is left for the caller to take from the top (`#shift_viewport_top`).
+    # Used on resize for both the live grid and the parked main buffer.
+    private def fit_viewport(grid : Array(Array(Cell)), base : Int32, rows : Int32, cursor_y : Int32) : Int32
       screen_lines = grid.size - base
       if screen_lines < rows
         (rows - screen_lines).times { grid << blank_line }
-      elsif screen_lines > rows
-        grid.pop(screen_lines - rows)
+        return 0
       end
+      excess = screen_lines - rows
+      below = Math.max(0, screen_lines - 1 - Math.max(cursor_y, 0))
+      drop = Math.min(excess, below)
+      grid.pop(drop) if drop > 0
+      excess - drop
     end
 
-    # Resizes the grid. Content is preserved at the top-left; rows/cols are
-    # padded with blanks or truncated. (A faithful reflow is out of scope for
-    # v1; this matches the pragmatic behaviour of most emulators on resize.)
+    # Takes *count* lines off the top of *grid*'s viewport and returns the new
+    # base. With *scrollback* they become history (the base moves down, the
+    # oldest lines beyond `SCROLLBACK_LIMIT` are discarded); without, as on
+    # the alternate page, they are discarded.
+    private def shift_viewport_top(grid : Array(Array(Cell)), base : Int32, count : Int32, scrollback : Bool) : Int32
+      return base if count <= 0
+      unless scrollback
+        grid.delete_at base, count
+        return base
+      end
+      base += count
+      over = base - SCROLLBACK_LIMIT
+      if over > 0
+        grid.shift over
+        base -= over
+      end
+      base
+    end
+
+    # *slot* with its row moved up by *count* lines (not past the top), for a
+    # save slot whose page lost that many lines off its top.
+    private def shifted_slot(slot : SavedCursor, count : Int32) : SavedCursor
+      slot.y = Math.max(0, slot.y - count)
+      slot
+    end
+
+    # Resizes the grid. Columns are padded with blanks or truncated (no
+    # reflow). Added rows are blank lines at the bottom. Removed rows are the
+    # ones below the cursor first; when the cursor would still fall outside,
+    # lines leave from the top instead — into the scrollback on the main
+    # page — so the cursor line and what is above it stay in view, as in xterm.
     def resize(cols : Int32, rows : Int32) : Nil
       cols = 1 if cols < 1
       rows = 1 if rows < 1
@@ -361,13 +396,23 @@ module Crysterm
       # column truncation above. Without the trim, stale rows linger past the
       # live window and a later full-window `scroll_up` would shift them back
       # into view instead of the freshly scrolled-in blank.
-      fit_viewport @lines, @ybase, rows
+      up = fit_viewport @lines, @ybase, rows, @y
+      if up > 0
+        @ybase = shift_viewport_top @lines, @ybase, up, !@alt_active
+        @y -= up
+        @saved = shifted_slot @saved, up
+      end
 
-      # When on the alt page, grow the parked main buffer's viewport too;
+      # When on the alt page, fit the parked main buffer's viewport too;
       # otherwise a grow-resize leaves `@main_lines` short, truncating the window
-      # on `#leave_alt`.
+      # on `#leave_alt`. Its cursor is the one 1049 saved into its slot.
       if ml = @main_lines
-        fit_viewport ml, @main_ybase, rows
+        up = fit_viewport ml, @main_ybase, rows, @main_saved.y
+        if up > 0
+          @main_ybase = shift_viewport_top ml, @main_ybase, up, true
+          @main_saved = shifted_slot @main_saved, up
+        end
+        @main_ydisp = @main_ybase
         # Reset the parked main page's scroll margins too (mirroring the active
         # page below), otherwise leaving the alt window after a resize restores a
         # stale (pre-resize) scroll region.

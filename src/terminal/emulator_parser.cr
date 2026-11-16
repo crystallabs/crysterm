@@ -313,6 +313,12 @@ module Crysterm
         # transition) and produce no output. `@osc_buf` is cleared on the
         # next OSC/DCS entry, so abandoning it here leaks nothing.
         @state = :ground
+      when 0x9c
+        # C1 ST (arriving UTF-8-encoded) ends any string, as its 7-bit form
+        # `ESC \` does — the counterpart of the C1 introducers `handle_ground`
+        # accepts.
+        finish_osc
+        @state = :ground
       when 0x1b then @osc_esc = true
         # A DCS/SOS/PM/APC string (`@osc_string`) is swallowed only to find its
         # ST/BEL terminator — its payload is discarded, never parsed as a title.
@@ -356,6 +362,9 @@ module Crysterm
       end
       # Need at least one digit, a `;` terminator (idx < size), and a title code.
       return unless ndigits > 0 && idx < size && (code == 0 || code == 1 || code == 2)
+      # Back to ground first: a raising handler must not leave the parser
+      # swallowing later output as string payload.
+      @state = :ground
       handler.call(String.new(ptr + idx + 1, size - idx - 1))
     end
 
@@ -389,8 +398,10 @@ module Crysterm
         @csi_buf.write_byte(o.to_u8) if @csi_buf.bytesize < CSI_MAX # parameter bytes (digits, ';', ':', private markers)
         return
       end
-      dispatch_csi c # final byte (0x40..0x7e)
+      # Back to ground first: a reply sink or handler raising out of the
+      # dispatch must not leave the parser reading later output as parameters.
       @state = :ground
+      dispatch_csi c # final byte (0x40..0x7e)
     end
 
     # ───────────────────────── CSI dispatch ─────────────────────────

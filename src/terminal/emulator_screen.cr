@@ -19,18 +19,24 @@ module Crysterm
     end
 
     # Switches to a fresh alternate page, parking the main buffer until
-    # `#leave_alt`. For 1048/1049 (`save_cursor_too`) the cursor is DECSC-saved
-    # into the main buffer's slot *first*, so it overwrites any earlier `ESC 7`,
-    # then that slot is parked and the alt buffer gets a fresh one.
+    # `#leave_alt`. For 1049 (`save_cursor_too`) the cursor is first DECSC-saved
+    # into the slot of the page it is on — so it overwrites any earlier
+    # `ESC 7` there — and the alternate page ends up cleared, as in xterm:
+    # entered from the main page that slot is then parked and the alt buffer
+    # gets a fresh one; already on the alternate page (via 47/1047) it is the
+    # alt slot that takes the cursor, and the page is erased in place.
     private def enter_alt(save_cursor_too : Bool) : Nil
-      return if @alt_active
+      save_cursor if save_cursor_too
+      if @alt_active
+        erase_display 2 if save_cursor_too
+        return
+      end
       @alt_active = true
       @main_lines = @lines
       @main_ybase = @ybase
       @main_ydisp = @ydisp
       @main_scroll_top = @scroll_top
       @main_scroll_bottom = @scroll_bottom
-      save_cursor if save_cursor_too
       park_saved_slot
       reset_saved_slot
 
@@ -43,10 +49,14 @@ module Crysterm
     end
 
     # Restores the main buffer saved by `#enter_alt` (the alt page is discarded).
-    # Its parked DECSC slot comes back too; for 1048/1049 the cursor is then
-    # DECRC-restored from it.
+    # Its parked DECSC slot comes back too; for 1049 (`restore_cursor_too`) the
+    # cursor is then DECRC-restored from the main page's slot — also when
+    # already on the main page, as in xterm.
     private def leave_alt(restore_cursor_too : Bool) : Nil
-      return unless @alt_active
+      unless @alt_active
+        restore_cursor if restore_cursor_too
+        return
+      end
       @alt_active = false
       if ml = @main_lines
         @lines = ml

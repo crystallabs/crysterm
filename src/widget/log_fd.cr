@@ -1,5 +1,6 @@
 require "./log"
 require "../terminal/emulator"
+require "../terminal/pty"
 require "../mixin/emulator_blit"
 
 module Crysterm
@@ -106,6 +107,10 @@ module Crysterm
       # Upper bound for `@pending`.
       PENDING_BYTES_CAP = 4 * 1024 * 1024
 
+      # Rung when the widget is attached to a window or closed, for a reader
+      # holding data while the widget is in no window (see `#on_render_fiber`).
+      @wake = Channel(Nil).new(1)
+
       # Wrap an existing readable `IO` (a pipe, socket, file, ...). The `IO` is
       # read on a background fiber once the widget is attached; on EOF the fiber
       # stops. The caller owns the `IO`'s lifetime beyond `#close`.
@@ -159,7 +164,7 @@ module Crysterm
         # arrangement as `Widget::Terminal`.
         @scrollable = false if @mode.ansi?
 
-        on(::Crysterm::Event::Attached) { start }
+        on(::Crysterm::Event::Attached) { start; wake_reader }
         on(::Crysterm::Event::Destroy) { close }
         # A `parent:`/`window:` passed to the constructor already fired
         # `Event::Attached` during `super`, before the handler above existed, so
@@ -230,13 +235,46 @@ module Crysterm
             buf = Bytes.new 8192
             n = io.read buf
             break if n <= 0
+            # A caller-supplied `IO` stays open past `#close`: stop draining
+            # it once closed, leaving what follows to its owner.
+            break if @closed
             data = buf[0, n]
-            window?.try &.post { feed data }
+            break unless on_render_fiber { feed data }
           rescue
             break
           end
-          window?.try &.post { flush_carry }
+          # In a window, the final partial line is queued before the exit is
+          # told of. In none, the exit is not held back for it: the line
+          # follows once the widget is attached again.
+          flushed = window?.try { |w| w.post { flush_carry }; true }
           reap
+          on_render_fiber { flush_carry } unless flushed
+        end
+      end
+
+      # Queues *block* on the render fiber of the widget's window. A widget
+      # that was removed from its window has none: the calling (reader) fiber
+      # then waits, holding its data and reading no further, until the widget
+      # is attached again — so nothing read is lost, in order, and the source
+      # is held back rather than buffered without bound. Returns `false`,
+      # dropping the block, once the widget is closed (destroyed).
+      private def on_render_fiber(&block : ->) : Bool
+        loop do
+          return false if @closed
+          if w = window?
+            w.post(&block)
+            return true
+          end
+          @wake.receive
+        end
+      end
+
+      # Wakes a reader waiting in `#on_render_fiber`. Never blocks: one pending
+      # ring is enough, the reader re-checks its condition.
+      private def wake_reader : Nil
+        select
+        when @wake.send nil
+        else
         end
       end
 
@@ -359,20 +397,25 @@ module Crysterm
       end
 
       # Stops streaming: closes our read end (unblocking the reader → EOF path,
-      # for the IO we own) and terminates the child. Idempotent; wired to
-      # `Event::Destroy`, which normally runs on the render fiber, so nothing
-      # here may block waiting on the child.
-      def close : Nil
+      # for the IO we own) and terminates the child, escalating from SIGTERM to
+      # SIGKILL on its own fiber if it is still alive after *grace* (as
+      # `Pty#kill` does), so a child ignoring SIGTERM cannot outlive the widget
+      # with a fiber parked on it. Idempotent; wired to `Event::Destroy`, which
+      # normally runs on the render fiber, so nothing here may block waiting on
+      # the child.
+      def close(grace : Time::Span = 2.seconds) : Nil
         return if @closed
         @closed = true
         process = @process
-        process.try { |p| p.terminate rescue nil }
+        process.try { |p| ::Crysterm::Pty.signal p, Signal::TERM }
         @io.try &.close rescue nil if @owns_io
+        wake_reader
+        return unless process
         # If the reader never started, nothing else will reap the child. Wait
         # on its own fiber (mirroring `Crysterm::Terminal.terminate_and_reap`)
-        # so a child that ignores `#terminate`'s SIGTERM can't block whichever
-        # fiber called `#close`.
-        spawn { process.try { |p| p.wait rescue nil } } unless @started
+        # so a child slow to exit can't block whichever fiber called `#close`.
+        spawn { process.wait rescue nil } unless @started
+        ::Crysterm::Pty.escalate process, grace, {Signal::KILL}
       end
     end
   end

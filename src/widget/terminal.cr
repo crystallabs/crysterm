@@ -167,7 +167,7 @@ module Crysterm
         @dattr = style_to_attr style
         em = TerminalEmulator.new cols, rows, @dattr
         em.on_refresh = -> { update!; nil }
-        em.on_title = ->(t : String) { @title = t; emit ::Crysterm::Event::ContentSet; nil }
+        em.on_title = ->(t : String) { title_changed t; nil }
         @emulator = em
 
         if handler = @handler
@@ -187,9 +187,17 @@ module Crysterm
         env = {} of String => String?
         @env.try &.each { |k, v| env[k] = v }
         env["TERM"] = @term_name unless env.has_key?("TERM")
-        pty = Pty.new @shell, @args, cols, rows, env
+        pty =
+          begin
+            Pty.new @shell, @args, cols, rows, env
+          rescue ex : IO::Error | RuntimeError
+            spawn_failed em, ex
+            return
+          end
         @pty = pty
-        em.output = pty.master # so DSR/DA replies reach the child
+        # DSR/DA replies reach the child through the PTY's input queue, in
+        # order with the forwarded input and without parking the reader.
+        em.output = HandlerSink.new ->(reply : String) { pty.write reply; nil }
         flush_pending_writes em
 
         # Reader fiber pumps child output into the emulator. Fibers are
@@ -197,11 +205,20 @@ module Crysterm
         spawn do
           buf = Bytes.new 8192
           loop do
-            n = pty.master.read buf
+            n =
+              begin
+                pty.master.read buf
+              rescue IO::Error
+                0
+              end
             break if n == 0
-            em.feed buf[0, n]
-          rescue
-            break
+            begin
+              em.feed buf[0, n]
+            rescue ex
+              # Something the output set off raised: the application
+              # decides, and the child is read on.
+              handler_raised ex
+            end
           end
           # Child closed the PTY: reap it, surface exit status, tear down.
           code = pty.reap
@@ -211,6 +228,35 @@ module Crysterm
           # attached, keyable and focusable while listeners believed it dead, and
           # a later `#destroy` would emit the event twice. `#kill` is idempotent
           # for the already-reaped PTY.
+          window?.try &.post { destroy }
+        end
+      end
+
+      # Takes the title the child set and tells of it. A handler that raises
+      # is the application's to decide on, here rather than up through the
+      # emulator, which is in the middle of the sequence that set the title.
+      private def title_changed(title : String) : Nil
+        @title = title
+        emit ::Crysterm::Event::ContentSet
+      rescue ex
+        handler_raised ex
+      end
+
+      # Hands *ex*, raised by an event handler of the child's output, to the
+      # application (`Application#handler_raised`).
+      private def handler_raised(ex : Exception) : Nil
+        (window?.try(&.application) || ::Crysterm::Application.global).handler_raised ex
+      end
+
+      # The child could not be started (no such program, no PTY to be had):
+      # says so in the terminal and ends as a child that exited at once does,
+      # with the status a shell gives for a command it cannot run. Off the
+      # render pass, like the reader fiber's own end.
+      private def spawn_failed(em : TerminalEmulator, ex : Exception) : Nil
+        em.feed "#{@shell}: #{ex.message}\r\n"
+        code = ex.is_a?(File::NotFoundError) ? 127 : 126
+        spawn do
+          emit ::Crysterm::Event::ProcessExited, code
           window?.try &.post { destroy }
         end
       end
@@ -374,14 +420,17 @@ module Crysterm
       end
 
       # Sends input to the child (PTY, or the external handler as a String).
-      # Returns `false` when there is no sink at all, so callers that must not
+      # Returns `false` when no sink took it, so callers that must not
       # consume the event (`e.accept`/`update!`) when the data went
       # nowhere can bail out; callers that don't care ignore the result.
       private def forward_to_child(data : Bytes | String) : Bool
         if handler = @handler
           handler.call(data.is_a?(String) ? data : String.new(data))
         elsif pty = @pty
-          pty.write data
+          # Queued, so a child that is slow to read never parks this fiber.
+          # `false` once the child has left too much input unread: the input
+          # is refused and the event left unconsumed (`Pty#write`).
+          return pty.write data
         else
           return false
         end
@@ -491,7 +540,7 @@ module Crysterm
       end
 
       # Write-only `IO` delivering the emulator's solicited replies to the
-      # external `handler`, in handler mode (no PTY).
+      # external `handler` in handler mode, or to the PTY's input queue.
       private class HandlerSink < IO
         def initialize(@handler : Proc(String, Nil))
         end

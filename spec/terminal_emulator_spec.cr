@@ -405,9 +405,10 @@ describe Crysterm::TerminalEmulator do
   end
 
   describe "resize" do
-    it "drops rows that fall off the bottom on shrink (no stale content on a later scroll)" do
+    it "drops rows below the cursor on shrink (no stale content on a later scroll)" do
       em = emu(4, 6)
       6.times { |i| em.feed "\e[#{i + 1};1HL#{i}" } # L0..L5 on rows 0..5
+      em.feed "\e[1;1H"                             # cursor on the top row
       em.resize(4, 3)                               # shrink: keep top 3 rows, drop L3..L5
       emu_row(em, 0).should eq "L0"
       emu_row(em, 1).should eq "L1"
