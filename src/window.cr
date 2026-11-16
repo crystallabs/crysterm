@@ -1148,7 +1148,7 @@ module Crysterm
       # learning that the window is gone. A raising one is a teardown error
       # like the others above.
       if Window.instances.delete self
-        emit_isolated(Crysterm::Event::Destroy).try &.each do |raised|
+        emit_rescued(Crysterm::Event::Destroy).try &.each do |raised|
           if error
             ::Log.error(exception: raised) { "Crysterm: a Destroy handler raised during Window#destroy" }
           else

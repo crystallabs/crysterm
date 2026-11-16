@@ -929,7 +929,7 @@ module Crysterm
       # Every `Destroy` listener runs even when an earlier one raises: they are
       # the auto-dispose hooks. A raising one is a teardown error like the
       # others.
-      emit_isolated(Crysterm::Event::Destroy).try &.each do |raised|
+      emit_rescued(Crysterm::Event::Destroy).try &.each do |raised|
         if error
           ::Log.error(exception: raised) { "Crysterm: a Destroy handler raised during Widget#destroy" }
         else
