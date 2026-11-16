@@ -110,6 +110,10 @@ module Crysterm
       # Close (don't send): idempotent and non-blocking, so repeated `quit` calls
       # can never wedge on a full buffer. Unblocks the `receive?` in `run`.
       @shutdown.close
+      # Closing the server stops it accepting; the `/events` streams already
+      # open are ended here, so their handlers return and the clients see EOF.
+      @subscribers.each &.close
+      @subscribers.clear
     end
 
     # Replaces the whole layout from new HTML (hot-reload): clears the top-level
@@ -264,6 +268,13 @@ module Crysterm
     end
 
     private def handle_events(context : HTTP::Server::Context) : Nil
+      # A stream opened on a connection that outlived `quit` would never be
+      # closed by it.
+      if @shutdown.closed?
+        context.response.status_code = 503
+        context.response.print "shutting down"
+        return
+      end
       channel = Channel(String).new(256)
       @subscribers << channel
       response = context.response
@@ -278,7 +289,8 @@ module Crysterm
       begin
         loop do
           select
-          when message = channel.receive
+          when message = channel.receive?
+            break unless message # closed by `quit`
             response.print "data: "
             response.print message
             response.print "\n\n"
@@ -536,7 +548,7 @@ module Crysterm
       # and every subsequent request.
       raise InvalidRequest.new "window is destroyed" if @window.destroyed?
       result = Channel(T | Exception).new(1)
-      @window.post do
+      queued = @window.post? do
         begin
           result.send block.call
         rescue ex
@@ -544,9 +556,18 @@ module Crysterm
         end
         nil
       end
-      value = result.receive
-      raise value if value.is_a?(Exception)
-      value
+      raise InvalidRequest.new "window is destroyed" unless queued
+      # A job still queued when the window is destroyed is dropped with it and
+      # never answers, so the wait re-checks for that rather than park forever.
+      loop do
+        select
+        when value = result.receive
+          raise value if value.is_a?(Exception)
+          return value
+        when timeout(100.milliseconds)
+          raise InvalidRequest.new "window is destroyed" if @window.destroyed?
+        end
+      end
     end
 
     # ---- event fan-out ------------------------------------------------------

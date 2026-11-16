@@ -39,6 +39,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
     scr.tput.mouse_cell_pixels.should eq({8, 16})
   ensure
     s.try &.destroy
+    spec_reset_cell_geometry_anchor
   end
 
   it "does not emit DECRST 1016 on a bare re-assert of an active pixel session" do
@@ -50,6 +51,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
     seq.should_not contain "\e[?1016l"
   ensure
     s.try &.destroy
+    spec_reset_cell_geometry_anchor
   end
 
   it "an explicit :off downgrades in sync: DECRST 1016 and cache cleared" do
@@ -62,6 +64,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
     scr.tput.mouse_cell_pixels.should be_nil
   ensure
     s.try &.destroy
+    spec_reset_cell_geometry_anchor
   end
 
   it "disable_mouse after a pixel session resets 1016 at the terminal" do
@@ -77,6 +80,7 @@ describe "BUGS15 6/7: SGR-Pixels survives bare enable_mouse re-asserts" do
     scr.tput.mouse_cell_pixels.should be_nil
   ensure
     s.try &.destroy
+    spec_reset_cell_geometry_anchor
   end
 
   it "tput: enable_mouse(pixels: nil) preserves, false downgrades only when active" do

@@ -193,7 +193,9 @@ module Crysterm
             raw = dur.zero? ? 1.0 : (elapsed.total_seconds / dur.total_seconds).clamp(0.0, 1.0)
             @value = @easing.apply(raw)
             run_tick
-            if raw >= 1.0
+            # Only while this is still the current run: a tick that restarted
+            # the clock (`stop` then `start`) handed these flags to the new run.
+            if raw >= 1.0 && @generation == gen
               @running = false
               @completed = true
             end
@@ -324,6 +326,7 @@ module Crysterm
       calls = 0
       t.on(Crysterm::Event::Tick) do
         block.call t
+      ensure
         t.stop if times && (calls += 1) >= times
       end
       t.start

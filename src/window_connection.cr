@@ -359,10 +359,8 @@ module Crysterm
       # Stop the old input fiber FIRST: it is parked in a read on the very tty
       # the replacement opens (fresh default IO — the same STDIN/STDOUT), so it
       # would win the race for probe reply bytes and dispatch them as garbage
-      # key events. A reader on unowned STDIN can't be joined (it only wakes on
-      # the next bytes), so stopping alone isn't enough — the replacement is
-      # also built unprobed (`probe: false`) and probed below, once the old
-      # window and its claim on the tty are gone.
+      # key events. The replacement is built unprobed (`probe: false`) and
+      # probed below, once the old window and its claim on the tty are gone.
       was_listening = @screen.listening?
       @screen.stop_input
       # The replacement gets its own copy of the cursor (incl. its `Style`),

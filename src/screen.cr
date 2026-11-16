@@ -518,6 +518,9 @@ module Crysterm
       # is lost and the reattach's `probe!` re-runs auto-detection over it.
       s.glyph_tier = @glyph_tier if glyph_tier_explicit?
       s.glyph_octants = @glyph_octants if glyph_octants_explicit?
+      # The pointer-shape policy is the application's choice, not a property
+      # of the terminal left behind.
+      s.mouse_cursor_shaping = @mouse_cursor_shaping
       s
     end
 
@@ -573,10 +576,8 @@ module Crysterm
     # input fiber reads the fd (both the probe and `detect_cell_geometry`'s
     # fallback are synchronous reads that would race it), so a listening device
     # is serialized here: stop old input → probe → detect_cell_geometry →
-    # start_input. Best-effort only — cooperative `stop_input` cannot reclaim a
-    # read the old fiber is already parked in, and that reader may still
-    # swallow the first reply bytes — so a caller adopting an already-`probed?`
-    # device must skip this entirely rather than lean on the serialization.
+    # start_input. `stop_input` ends the old fiber's read, so the probe has the
+    # input to itself.
     # The constructor deliberately does NOT use this helper — it
     # splits the same two calls around theme/stylesheet setup (unit'd styles
     # derive from probe results), so they can't run adjacently.
@@ -618,9 +619,13 @@ module Crysterm
       @cell_pixel_height = height
       # Keep SGR-Pixels (DEC 1016) mouse decoding in step with a font/zoom
       # change: the parser divides pixel reports by this cached cell size, so a
-      # stale value mis-maps every pixel event to the wrong cell. Only refresh
-      # when pixel mode is already active (non-nil).
-      tput.mouse_cell_pixels = {width, height} if tput.mouse_cell_pixels
+      # stale value mis-maps every pixel event to the wrong cell.
+      if tput.mouse_cell_pixels
+        tput.mouse_cell_pixels = {width, height}
+      elsif @mouse_enabled && mouse_pixels_wanted?
+        # A pixel request made while the cell size was unknown takes effect now.
+        enable_mouse
+      end
       # First-device-anchors (see above): only the claiming device — or the
       # first to report — may write the process-global CSS anchors below.
       src = CSS::Length.measured_source

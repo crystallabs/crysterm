@@ -78,9 +78,10 @@ module Crysterm
     # drops every handler on it. Menus and tool bars holding the action
     # are not told; remove it from them first.
     def destroy : Nil
-      emit ::Crysterm::Event::Destroy
+      errors = emit_isolated ::Crysterm::Event::Destroy
       @bound_subs.try &.off
       remove_all_handlers
+      errors.try { |list| raise list.first }
     end
   end
 end

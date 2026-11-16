@@ -41,22 +41,69 @@ module Crysterm
     # uninstalled.
     @@accelerators = {} of ::Crysterm::Window => ActionAccelerators
 
+    # Who holds this action's accelerator on each window: the host widgets
+    # presenting it there, plus `nil` for a host-less `#install_shortcut`. The
+    # accelerator stays on a window until its last holder withdraws.
+    @shortcut_holders = {} of ::Crysterm::Window => Array(Widget?)
+
+    # Windows whose shared `ActionAccelerators` lists this action. A held
+    # window is missing here while the action has no shortcut.
+    @shortcut_registered = Set(::Crysterm::Window).new
+
     # Installs a window-level accelerator so this action fires when its shortcut
     # is pressed. *host* is the widget the action is presented in, used to gate
-    # `Widget`-context shortcuts on focus. Idempotent per window; no-op without
-    # a shortcut.
+    # `Widget`-context shortcuts on focus. Idempotent per window and host. With
+    # no shortcut set the install is only recorded, and goes live once one is.
     #
     # All actions installed on a window share one `ActionAccelerators` (a single
     # window-level `KeyPress` handler), so their sequences are matched together
     # — see `Action.dispatch_shortcut`.
     def install_shortcut(window : ::Crysterm::Window, host : Widget? = nil) : Nil
-      if host
-        @shortcut_host_by_window[window] = host
-      else
-        @shortcut_host_by_window.delete window
+      holders = (@shortcut_holders[window] ||= [] of Widget?)
+      holders << host unless holders.includes? host
+      @shortcut_host_by_window[window] = host if host
+      @shortcut_windows << window
+      register_shortcut window
+    end
+
+    # Withdraws *host*'s hold on this action's accelerator for *window*; the
+    # accelerator itself goes once no holder is left. With no *host*, every
+    # hold on *window* is dropped and the accelerator removed outright.
+    def uninstall_shortcut(window : ::Crysterm::Window, host : Widget? = nil) : Nil
+      if host && (holders = @shortcut_holders[window]?)
+        holders.delete host
+        unless holders.empty?
+          if @shortcut_host_by_window[window]?.same?(host)
+            if other = holders.reverse_each.find(&.itself)
+              @shortcut_host_by_window[window] = other
+            else
+              @shortcut_host_by_window.delete window
+            end
+          end
+          return
+        end
       end
+      @shortcut_holders.delete window
+      @shortcut_host_by_window.delete window
+      @shortcut_windows.delete window
+      unregister_shortcut window
+    end
+
+    # Brings the registration on every held window in line with the current
+    # shortcut list, keeping the holders.
+    protected def resync_shortcuts : Nil
+      @shortcut_holders.each_key do |window|
+        unregister_shortcut window
+        register_shortcut window
+      end
+    end
+
+    # Lists this action in *window*'s shared accelerator, creating it (and its
+    # `KeyPress` handler) for the window's first action. No-op without a
+    # shortcut or when already listed.
+    private def register_shortcut(window : ::Crysterm::Window) : Nil
       return if @shortcuts.empty?
-      return unless @shortcut_windows.add? window
+      return unless @shortcut_registered.add? window
       map = @@accelerators[window]? || begin
         m = @@accelerators[window] = ActionAccelerators.new
         m.subscription.on(window, ::Crysterm::Event::KeyPress) do |e|
@@ -67,13 +114,12 @@ module Crysterm
       map.actions << self
     end
 
-    # Removes this action from the shared accelerator installed by
-    # `#install_shortcut` for *window*. A half-entered chord prefix is dropped
-    # unless a still-installed action can still complete it; the shared
-    # `KeyPress` handler itself goes away with the window's last action.
-    def uninstall_shortcut(window : ::Crysterm::Window) : Nil
-      @shortcut_host_by_window.delete window
-      return unless @shortcut_windows.delete window
+    # Removes this action from *window*'s shared accelerator. A half-entered
+    # chord prefix is dropped unless a still-installed action can still
+    # complete it; the shared `KeyPress` handler itself goes away with the
+    # window's last action.
+    private def unregister_shortcut(window : ::Crysterm::Window) : Nil
+      return unless @shortcut_registered.delete window
       map = @@accelerators[window]? || return
       map.actions.delete self
       unless map.pending.empty? || map.actions.any?(&.shortcut_continues?(map.pending))
@@ -203,7 +249,7 @@ module Crysterm
 
     # Whether a modal dialog on *window* (`Window#active_modal_widget`) shuts
     # this action's shortcut out: its host — the action's widgets on *window*,
-    # or the one it was installed with — is outside the dialog, as Qt's
+    # or the ones it was installed with — is outside the dialog, as Qt's
     # shortcut map passes over the windows a modal dialog blocks. An action
     # of the dialog's own, or of a widget in it, still fires.
     private def modal_blocked?(window : ::Crysterm::Window) : Bool
@@ -215,7 +261,10 @@ module Crysterm
         return false if modal.covers?(w)
       end
       return true if any_on_window
-      !((h = @shortcut_host_by_window[window]?) && modal.covers?(h))
+      if holders = @shortcut_holders[window]?
+        holders.each { |h| return false if h && modal.covers?(h) }
+      end
+      true
     end
 
     # Whether *candidate* is a proper prefix of one of this action's sequences —
@@ -248,7 +297,7 @@ module Crysterm
     # Whether any gating host of a `Widget`-context shortcut on *window* satisfies
     # the block. The gating hosts are this action's associated widgets living on
     # *window* (one focused on another window must not fire the shortcut), falling
-    # back to the host recorded at `#install_shortcut` time when none is.
+    # back to the hosts recorded at `#install_shortcut` time when none is.
     # Evaluates in place — this runs on every keypress per Widget-context action.
     private def host_focused?(window : ::Crysterm::Window, & : Widget -> Bool) : Bool
       any_on_window = false
@@ -257,9 +306,12 @@ module Crysterm
         any_on_window = true
         return true if yield w
       end
-      # Fall back to the install-time host only when no associated widget is on this window.
+      # Fall back to the install-time hosts only when no associated widget is on this window.
       return false if any_on_window
-      (h = @shortcut_host_by_window[window]?) ? (yield h) : false
+      if holders = @shortcut_holders[window]?
+        holders.each { |h| return true if h && (yield h) }
+      end
+      false
     end
 
     # Whether the focused widget of *host*'s window is *host* itself or a

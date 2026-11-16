@@ -263,6 +263,10 @@ module Crysterm
         when '\n'           then "<C-j>"
         when '\t'           then "<Tab>"
         when '\u007f', '\b' then "<BS>"
+        when '\u001c'       then "<C-Bslash>"
+        when '\u001d'       then "<C-]>"
+        when '\u001e'       then "<C-^>"
+        when '\u001f'       then "<C-_>"
         when '\0'           then nil
         else
           o = char.ord

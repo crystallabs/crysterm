@@ -27,9 +27,9 @@ module Crysterm
       reject_blocking_fiber "prompt"
       answer = ::Channel(String?).new 1
       # The dialog is built on the render fiber, keeping widget mutation there
-      # even though the caller is some arbitrary fiber.
-      post { Widget::InputDialog.read(self, label, value) { |v| answer.send v } }
-      answer.receive
+      # even though the caller is some arbitrary fiber. A destroyed window runs
+      # no posted job, so nothing would ever answer: that reads as a cancel.
+      await_answer(answer, nil) { Widget::InputDialog.read(self, label, value) { |v| answer.send v } }
     end
 
     # Asks *question* and **returns** the answer — `true` for the affirmative
@@ -45,8 +45,43 @@ module Crysterm
     def ask(question : String) : Bool
       reject_blocking_fiber "ask"
       answer = ::Channel(Bool).new 1
-      post { Widget::MessageBox.ask(self, question) { |v| answer.send v } }
-      answer.receive
+      # As in `#prompt`: with the window destroyed, a dismissal.
+      await_answer(answer, false) { Widget::MessageBox.ask(self, question) { |v| answer.send v } }
+    end
+
+    # The cancellations of the `#prompt`/`#ask` callers parked for an answer.
+    # `#destroy` runs them (`#release_answer_waiters`): a job still queued is
+    # dropped with the window and an open dialog goes down with it, so no
+    # answer would come.
+    @answer_releases = [] of Proc(Nil)
+
+    # Posts *job*, which presents the dialog that answers into *answer*, and
+    # parks the calling fiber for that answer. Returns *cancelled* when the
+    # window is destroyed first — before the job is queued, while it waits in
+    # the queue, or with the dialog open.
+    private def await_answer(answer : ::Channel(T), cancelled : T, &job : Proc(Nil)) : T forall T
+      release = -> do
+        # The channel holds one answer; with one already in, this is dropped.
+        select
+        when answer.send(cancelled)
+        else
+        end
+        nil
+      end
+      @answer_releases << release
+      begin
+        return cancelled unless post?(&job)
+        answer.receive
+      ensure
+        @answer_releases.delete release
+      end
+    end
+
+    # Wakes every `#prompt`/`#ask` caller still parked, as cancelled.
+    protected def release_answer_waiters : Nil
+      while release = @answer_releases.shift?
+        release.call
+      end
     end
 
     # Raises unless the current fiber may be parked until the user answers.
@@ -57,7 +92,10 @@ module Crysterm
     # run there and says how to fix it, rather than hanging.
     private def reject_blocking_fiber(what : String) : Nil
       current = Fiber.current
-      on_render = in_render? && current.same?(@in_render_fiber)
+      # The render fiber is the one running `render_loop` — which also runs the
+      # `#post` jobs, outside any frame — or the one building a frame right now
+      # (a direct `#repaint`).
+      on_render = current.same?(@_render_loop_fiber) || (in_render? && current.same?(@in_render_fiber))
       on_input = current.same? @screen.input_fiber?
       return unless on_render || on_input
       raise "Window##{what} parks the calling fiber until the user answers, so it cannot run on the " \

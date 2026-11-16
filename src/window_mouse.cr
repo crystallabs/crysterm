@@ -174,6 +174,8 @@ module Crysterm
     #   * `@_drag` source/target → screen stays modally locked / a later `Drop`
     #     fires on an off-screen widget.
     #   * `@grabs` → the modal lock never lifts.
+    #   * `@_last_click_target`, `@region_return_focus` → the subtree stays
+    #     pinned in memory until the next press or region cycle.
     def release_transient_state_for(subtree : Widget, &) : Nil
       drop_hover = (h = @_hover) && subtree.covers?(h)
       drop_arm = (a = @_arm) && subtree.covers?(a)
@@ -181,9 +183,13 @@ module Crysterm
       stale_drag = ((d = @_drag) && subtree.covers?(d.source)) ? d : nil
       stale_target = ((td = @_drag) && (tg = td.target) && subtree.covers?(tg)) ? td : nil
       stale_grabs = @grabs.select { |g| subtree.covers?(g) }
+      drop_click = (lc = @_last_click_target) && subtree.covers?(lc)
+      drop_return = (rf = @region_return_focus) && subtree.covers?(rf)
 
       yield
 
+      reset_click_count if drop_click
+      @region_return_focus = nil if drop_return
       end_hover(notify: false) if drop_hover
       self.mouse_cursor_shape = nil if drop_hover
       @_arm = nil if drop_arm
@@ -948,8 +954,9 @@ module Crysterm
     # where the OUTERMOST self-or-ancestor `z_index` wins.)
 
     # Registers *el* as a widget that wants mouse input. Mirrors
-    # `#register_keyable`; lazily ensures terminal mouse reporting is on if
-    # mouse listening is already active (blessed-style on-demand enabling).
+    # `#register_keyable`. Nothing is sent to the terminal: mouse reporting is
+    # device state, switched by `#enable_mouse`/`#disable_mouse` (and
+    # `#send_focus=`, `#mouse_policy=`), not by which widgets listen.
     def register_clickable(el : Widget)
       return unless register_in el, @clickable, @clickable_set
       # A new candidate can change the answer under a pointer that has not moved,
@@ -957,7 +964,6 @@ module Crysterm
       # counter does not cover (see `#widget_at`).
       invalidate_hit_memo
       el.clickable = true
-      @screen.enable_mouse(focus: send_focus?) if @screen.mouse_enabled?
     end
   end
 end

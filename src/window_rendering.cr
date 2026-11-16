@@ -889,6 +889,12 @@ module Crysterm
     private def _render_frame
       t1 = Time.instant
 
+      # The cell buffers follow the device size through the resize path; a size
+      # set directly (`#width=`/`#height=`) or a sibling's resize of a shared
+      # device changes it without one, and a frame composited into stale-sized
+      # buffers would be clipped to the old size or leave its old rows behind.
+      realloc unless aheight <= 0 || buffers_match_device?
+
       # Damage tracking (opt-in) needs to know if styling changed broadly this
       # frame; a stylesheet/cascade change can restyle unrelated widgets, so
       # force a full re-composite. Must run BEFORE `apply_stylesheet_if_dirty`,
@@ -964,6 +970,13 @@ module Crysterm
       observed = @metrics_observed
       t2 = observed ? Time.instant : t1
 
+      # `draw` composites an artificial cursor at the tracked caret position,
+      # so with one the caret is placed before the diff, against the boxes the
+      # composite just laid down, rather than after the flush as for a
+      # hardware cursor (below).
+      caret_placed = active_cursor.artificial?
+      focused.try &._update_cursor(rendered: true) if caret_placed
+
       # Diff + encode this frame into the output buffers (no terminal write —
       # that's `flush_frame` below, timed separately).
       draw flush: false
@@ -989,7 +1002,7 @@ module Crysterm
       # `input_on_focus` widget re-entering `read_input`, menu/completer
       # handlers re-running — none of which the cursor workaround needs.
       focused.try do |focused_widget|
-        focused_widget._update_cursor(rendered: true)
+        focused_widget._update_cursor(rendered: true) unless caret_placed
 
         # A focus change may have scrolled its ancestor against stale geometry
         # (see `_focus`). Now that this frame resolved the real boxes, re-run

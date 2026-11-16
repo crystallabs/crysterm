@@ -498,8 +498,26 @@ module Crysterm
       # Hidden parent the scroll-specific terms (`.base`) are simply zero.
       scrollable_parent = el
 
+      # Whether the clipping ancestor is the immediate parent.
+      direct = !scrollable_parent.nil? && scrollable_parent.same?(por)
+
+      # A parent in its shrink-to-fit pass exposes a provisional rect, not yet
+      # scrolled or clipped, to measure its children against. Under a clipping
+      # ancestor farther up, the children stay in that rect's frame: neither
+      # shifted nor clipped.
+      measuring = false
+      # The parent's painted rect, when positions resolve against one.
+      painted_parent = nil
+      if ppos.is_a?(RenderedGeometry) && por.is_a?(Widget)
+        if por.provisional_lpos?(ppos)
+          measuring = !direct
+        else
+          painted_parent = ppos
+        end
+      end
+
       # Using scrollable_parent && el here to restrict both to non-nil
-      if scrollable_parent && !noscroll
+      if scrollable_parent && !noscroll && !measuring
         # This is an intentional assignment:
         unless scrollable_parent_lpos = scrollable_parent.lpos
           # The scrollable ancestor has no `lpos` yet (computed only during
@@ -509,13 +527,24 @@ module Crysterm
           return
         end
 
-        # Shift into the scrolled viewport by the ancestor's scroll offset.
-        # NOTE a possible refinement: `base` (and `cbase`) arguably ought to fold
-        # in only the *parent's* padding rather than its whole offset. Left as-is
-        # — the current form matches the rendered positions the specs pin; no
-        # miscompare has been observed.
-        yi -= scrollable_parent_lpos.base
-        yl -= scrollable_parent_lpos.base
+        if painted_parent
+          # The parent's painted rect already carries the scroll offset of
+          # every ancestor above it, and is clamped to its own clip ancestor's
+          # viewport. Step back from the clamped edge this widget is anchored
+          # to onto the parent's true edge, and apply only the parent's own
+          # scroll offset.
+          dx = far_anchored?(eff_left, @right) ? painted_parent.hidden_right : -painted_parent.hidden_left
+          dy = far_anchored?(eff_top, @bottom) ? painted_parent.hidden_bottom : -painted_parent.hidden_top
+          dy -= scrollable_parent.child_base if direct
+          xi += dx
+          xl += dx
+          yi += dy
+          yl += dy
+        else
+          # Shift into the scrolled viewport by the ancestor's scroll offset.
+          yi -= scrollable_parent_lpos.base
+          yl -= scrollable_parent_lpos.base
+        end
 
         # `style.border` is always non-nil (zero border means "no border"; see
         # Style#border), so fetch both borders once.

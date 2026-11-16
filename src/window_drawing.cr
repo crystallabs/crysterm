@@ -181,9 +181,25 @@ module Crysterm
     @_output_tty = false
 
     # OSC 8 hyperlink registry: cells store a compact `UInt16` id; the URIs live
-    # here, deduplicated. Id `0` is "no link".
-    @link_urls = [] of String
+    # here, deduplicated. Id `0` is "no link"; id `n` owns slot `n - 1` of
+    # `@link_urls` (the sanitized URI) and `@link_keys` (the URL as it was
+    # registered, the `@link_ids` key). A slot whose id no cell carries any
+    # more is emptied by `#sweep_links` and its id handed out again
+    # (`@link_free`), so the registry holds the links on screen, not every
+    # link the window ever showed.
+    @link_urls = [] of String?
+    @link_keys = [] of String?
     @link_ids = {} of String => UInt16
+    @link_free = [] of UInt16
+    # Registered-link count at which the frame's end next sweeps.
+    @link_sweep_at = LINK_SWEEP_MIN
+    # Per-slot "a cell carries this id" marks of the sweep under way.
+    @link_live = [] of Bool
+
+    # Fewest registered links worth sweeping for.
+    LINK_SWEEP_MIN = 256
+    # Most links registered at once: the ids are `1..0xFFFF`.
+    LINK_CAPACITY = 0xFFFF
 
     # Registers *url* and returns its cell link id — the value to assign to
     # `Cell#link=` for every cell the link covers. Returns `0` (no link) for an
@@ -194,14 +210,25 @@ module Crysterm
     # alone decides whether they reach the terminal. URLs are stripped of
     # control characters and length-capped, since they travel inside an escape
     # sequence.
+    #
+    # The id names *url* for as long as a cell carries it; one no cell carries
+    # at the end of a frame may be given to another URL. So ask again on every
+    # paint rather than keeping the id.
     def link_id(url : String) : UInt16
       return 0_u16 if url.empty? || @hyperlinks.off?
       @link_ids[url]? || begin
-        return 0_u16 if @link_urls.size >= 0xFFFF
         clean = url.gsub(/[\x00-\x1f\x7f]/, "")
         clean = clean[0, 2048] if clean.size > 2048
-        @link_urls << clean
-        @link_ids[url] = @link_urls.size.to_u16
+        if id = @link_free.pop?
+          @link_urls[id - 1] = clean
+          @link_keys[id - 1] = url
+        else
+          return 0_u16 if @link_urls.size >= LINK_CAPACITY
+          @link_urls << clean
+          @link_keys << url
+          id = @link_urls.size.to_u16
+        end
+        @link_ids[url] = id
       end
     end
 
@@ -209,6 +236,58 @@ module Crysterm
     def link_url(id : UInt16) : String?
       return if id == 0
       @link_urls[id - 1]?
+    end
+
+    # Number of URLs the link registry holds.
+    #
+    # :nodoc: for specs and diagnostics.
+    def link_count : Int32
+      @link_ids.size
+    end
+
+    # Sweeps the link registry once it has grown to `@link_sweep_at`. Run at
+    # the end of a frame, when every id in use is in a cell buffer.
+    private def sweep_links_if_due : Nil
+      sweep_links if @link_ids.size >= @link_sweep_at
+    end
+
+    # Empties every registry slot whose id no cell carries — in the frame
+    # being built, in the one the terminal shows (`@flushed_lines`, which the
+    # next diff compares ids against) or in a plane — and schedules the next
+    # sweep for when the registry has doubled, or is halfway to full.
+    private def sweep_links : Nil
+      live = @link_live
+      live.clear
+      @link_urls.size.times { live << false }
+      mark_live_links @lines
+      mark_live_links @flushed_lines
+      @planes.each_value { |pl| mark_live_links pl.cells }
+      @local_plane.try { |pl| mark_live_links pl.cells }
+
+      live.each_with_index do |used, i|
+        next if used
+        next unless key = @link_keys[i]
+        @link_ids.delete key
+        @link_keys[i] = nil
+        @link_urls[i] = nil
+        @link_free << (i + 1).to_u16
+      end
+
+      used = @link_ids.size
+      halfway = used + Math.max((LINK_CAPACITY - used) // 2, 1)
+      @link_sweep_at = Math.min(Math.max(LINK_SWEEP_MIN, used * 2), Math.min(halfway, LINK_CAPACITY))
+    end
+
+    # Marks in `@link_live` the ids the cells of *rows* carry.
+    private def mark_live_links(rows : Array(Row)) : Nil
+      live = @link_live
+      rows.each do |row|
+        next unless row.has_links?
+        row.each_link do |id|
+          i = id.to_i32 - 1
+          live[i] = true if 0 <= i < live.size
+        end
+      end
     end
 
     # Whether this frame emits OSC 8 — `#hyperlinks?` resolved once per frame
@@ -890,6 +969,11 @@ module Crysterm
           @post.write caps.restore_cursor
           @post.write caps.show_cursor unless hidden
         else
+          # The rows' cursor moves went through tput here and moved its tracked
+          # position, while the bracket puts the physical cursor back where the
+          # frame found it: that is the position to save and restore.
+          tput.cursor.x = cursor_x
+          tput.cursor.y = cursor_y + render_row_offset
           divert(@tmpbuf, @pre) do
             tput.save_cursor
             tput.hide_cursor unless hidden
@@ -909,6 +993,7 @@ module Crysterm
         @_frame_pending = true
       end
 
+      sweep_links_if_due
       flush_frame if flush
     end
 
@@ -970,15 +1055,17 @@ module Crysterm
       removed = delete_at < insert_at ? delete_at : delete_at - 1
       final_insert = removed < insert_at ? insert_at - 1 : insert_at
       n.times do
-        recycle_shifted_row @lines, removed, final_insert
-        recycle_shifted_row @flushed_lines, removed, final_insert
+        recycle_shifted_row @lines, removed, final_insert, @default_attr
+        # The row the terminal's own il/dl scrolled in is in the bare reset
+        # state, whatever the window's `default_attr` buffer fill is.
+        recycle_shifted_row @flushed_lines, removed, final_insert, DEFAULT_ATTR
       end
     end
 
-    # Evicts the row at `removed_at` from `buf`, blanks it to the current screen
-    # width (rebuilding cell count if the screen resized since the row was built),
-    # and re-inserts it at `insert_at`.
-    private def recycle_shifted_row(buf : Array(Row), removed_at : Int32, insert_at : Int32) : Nil
+    # Evicts the row at `removed_at` from `buf`, blanks it with *attr* to the
+    # current screen width (rebuilding cell count if the screen resized since the
+    # row was built), and re-inserts it at `insert_at`.
+    private def recycle_shifted_row(buf : Array(Row), removed_at : Int32, insert_at : Int32, attr : Int64) : Nil
       row = buf.delete_at removed_at
       aw = awidth
       # Match the current width if the screen resized since this row was built.
@@ -986,12 +1073,13 @@ module Crysterm
         row.pop
       end
       # Blank the existing cells (also drops any grapheme overlay).
-      row.clear_to @default_attr, ' '
+      row.clear_to attr, ' '
       while row.size < aw
-        row.push @default_attr, ' '
+        row.push attr, ' '
       end
-      # A blank shifted line is not dirty — the terminal's own il/dl scrolled it.
-      row.dirty = false
+      # The terminal's own il/dl scrolled in a bare blank row, so the shifted
+      # line needs drawing only when its fill differs from that.
+      row.dirty = attr != DEFAULT_ATTR
       buf.insert insert_at, row
     end
 
@@ -1012,16 +1100,28 @@ module Crysterm
       end
 
       off = render_row_offset
-      divert(@tmpbuf, @_buf) do |buf|
-        tput.set_scroll_region(top + off, bottom + off)
-        yield buf
-        # Restore the full screen; in alt mode (`off == 0`) that IS the surface's
-        # own bounds. An inline surface must NOT leave DECSTBM pinned to its band:
-        # auto-grow emits newlines at the terminal's last row, below the band's
-        # bottom, so a pinned region makes the next autogrow scroll a no-op (or
-        # scroll only the band), desyncing `render_row_offset` and painting over
-        # shell history.
-        tput.set_scroll_region(0, (@alternate ? aheight : tput.screen.height) - 1)
+      # The ops are buffered and reach the terminal inside the next frame's
+      # cursor save/restore bracket, which leaves the physical cursor where it
+      # is now. Tput's tracked position must say the same afterwards, not the
+      # home the ops move it to: relative caret moves and the artificial cursor
+      # are both placed from it.
+      cur_x = tput.cursor.x
+      cur_y = tput.cursor.y
+      begin
+        divert(@tmpbuf, @_buf) do |buf|
+          tput.set_scroll_region(top + off, bottom + off)
+          yield buf
+          # Restore the full screen; in alt mode (`off == 0`) that IS the surface's
+          # own bounds. An inline surface must NOT leave DECSTBM pinned to its band:
+          # auto-grow emits newlines at the terminal's last row, below the band's
+          # bottom, so a pinned region makes the next autogrow scroll a no-op (or
+          # scroll only the band), desyncing `render_row_offset` and painting over
+          # shell history.
+          tput.set_scroll_region(0, (@alternate ? aheight : tput.screen.height) - 1)
+        end
+      ensure
+        tput.cursor.x = cur_x
+        tput.cursor.y = cur_y
       end
       true
     end
@@ -1039,6 +1139,7 @@ module Crysterm
                     end
 
       shift_lines_down n, y, bottom
+      damage_rows_shifted top, bottom
     end
 
     # Scrolls rows up within the `top..bottom` band by deleting *n* rows at *y*
@@ -1053,6 +1154,7 @@ module Crysterm
                     end
 
       shift_lines_up n, y, bottom
+      damage_rows_shifted top, bottom
     end
 
     # Clears the bottom row of the `top..bottom` scroll band.

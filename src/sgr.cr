@@ -21,7 +21,7 @@ module Crysterm
     # exactly this — anything else an `\e` may start (a non-SGR CSI such as
     # `\e[2K`, an unterminated `\e[1`, a lone `\e`) is not a run and counts as
     # ordinary visible text.
-    REGEX = /\e\[[\d;]*m/
+    REGEX = /\e\[[0-9;]*m/
 
     # Largest value to keep accumulating; one more digit would overflow `Int32`.
     # A param this large isn't a real SGR code, so accumulation just stops
@@ -217,7 +217,7 @@ module Crysterm
           colon = true
           break
         end
-        value = value * 10 + (b.to_i - '0'.ord) if value <= PARAM_MAX
+        value = value * 10 + (b.to_i - '0'.ord) if value <= PARAM_MAX && '0'.ord <= b <= '9'.ord
         pos += 1
       end
       {value, pos, colon}

@@ -172,8 +172,16 @@ module Crysterm
       # tty back.
       @screen.show_hardware_cursor
       # Park below the region's *actual* on-screen footprint (which, under
-      # auto-grow, may be smaller than `aheight`).
-      tput.cursor_pos render_row_offset + @inline_visible, 0
+      # auto-grow, may be smaller than `aheight`). A region reaching the
+      # terminal's last row has no row below it: scroll one in, or the cursor
+      # would park on the region's own last row and the shell prompt would
+      # overwrite it.
+      below = render_row_offset + @inline_visible
+      if below >= tput.screen.height
+        scroll_terminal_up 1
+      else
+        tput.cursor_pos below, 0
+      end
       release_cursor
       # The terminal's own title back (`Tput#title=` saved it).
       tput.restore_title

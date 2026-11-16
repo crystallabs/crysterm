@@ -382,6 +382,11 @@ module Crysterm
         @links.try(&.[index.to_i32]?) || 0_u16
       end
 
+      # Yields the hyperlink id of every linked cell.
+      def each_link(& : UInt16 ->) : Nil
+        @links.try &.each_value { |id| yield id }
+      end
+
       # Stores hyperlink id *id* at `index` (allocating the overlay on first use).
       def set_link(index : Int, id : UInt16) : Nil
         (@links ||= {} of Int32 => UInt16)[index.to_i32] = id

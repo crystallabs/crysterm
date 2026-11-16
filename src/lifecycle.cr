@@ -100,9 +100,12 @@ module Crysterm
   end
 
   at_exit do
-    # Iterate a copy: `Window#destroy` calls `@@instances.delete self`, so
-    # iterating the live registry in place shifts elements under the index-based
-    # iterator and skips windows, leaving their terminal unrestored.
-    Window.instances.dup.each &.destroy
+    # Every window is torn down, whatever an earlier one's teardown raised
+    # (`Application.destroy_windows`, which also iterates a copy of the
+    # registry `Window#destroy` deletes from): the terminals after it must
+    # still be restored. The first error is raised once they all are.
+    if error = Application.destroy_windows(Window.instances)
+      raise error
+    end
   end
 end

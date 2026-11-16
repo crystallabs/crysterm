@@ -100,25 +100,26 @@ describe "BUGS12 #6 start_input must not re-arm a stopped input fiber" do
       screen.stop_input # double stop: idempotent, no error
       screen.listening?.should be_false
 
-      # Only the stopped fiber exists; it must consume 'x', drop it, and exit.
+      # The stopped fiber's read was ended: 'x' is dispatched by nobody, and
+      # stays in the input.
       writer.write "x".to_slice
       writer.flush
       sleep 60.milliseconds
       seen.should be_empty
 
-      # A fresh listen after the zombie is gone starts a clean single reader.
+      # A fresh listen starts a clean single reader, which reads 'x' first.
       screen.start_input
       screen.listening?.should be_true
 
       writer.write "k".to_slice
       writer.flush
-      wait_until { seen.size >= 1 }
+      wait_until { seen.size >= 2 }
       writer.write "m".to_slice
       writer.flush
-      wait_until { seen.size >= 2 }
+      wait_until { seen.size >= 3 }
 
       sleep 60.milliseconds
-      seen.should eq ['k', 'm']
+      seen.should eq ['x', 'k', 'm']
     end
   end
 

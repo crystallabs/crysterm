@@ -94,7 +94,17 @@ module Crysterm
     # widgets default to `AlwaysOff`; scrollable widgets override to `AsNeeded`.
     #
     # The *only* knob for scroll-bar visibility.
-    property scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
+    getter scrollbar_policy : ScrollBarPolicy = ScrollBarPolicy::AlwaysOff
+
+    # :ditto: — whether the bar exists at all (`#scrollbar?`) decides the
+    # widget's `scrollbar`/`track` CSS sub-element nodes, so a change of that
+    # is a structural CSS change.
+    def scrollbar_policy=(value : ScrollBarPolicy) : ScrollBarPolicy
+      had = scrollbar?
+      @scrollbar_policy = value
+      invalidate_css_tree if had != scrollbar?
+      value
+    end
 
     # :ditto: — `Symbol` shorthand form (`w.scrollbar_policy = :always_off`),
     # matching `#overflow=`/`#align=`.
@@ -600,6 +610,9 @@ module Crysterm
         end
       end
 
+      # This widget's own origin: resolved once, not per child (each read walks
+      # the ancestor chain).
+      own_top : Int32? = nil
       bottom = @children.reduce(0) do |current, el|
         # `fixed` and `layout_chrome?` children are chrome (scroll bars, border
         # labels), not scrollable content. Counting them inflated scroll height:
@@ -614,6 +627,7 @@ module Crysterm
         # context regardless of its content, unless we call get_coords without
         # the scrollable calculation. See: test/widget-shrink-fail-2
         scrollb_lpos = (@_scrollb_lpos ||= RenderedGeometry.new)
+        otop = (own_top ||= atop)
         # `el.atop - atop` (offset from this widget's own absolute origin), NOT
         # `el.rtop`: `rtop` is spec-space (excludes this widget's top inset and
         # the child's margin shift), while the scroll extent here measures
@@ -622,9 +636,9 @@ module Crysterm
         # *should* exclude the inset is an open question for the size-policy
         # pass (see plans/SIZE-POLICY-PLAN.md §2.1).
         el_bottom = if el.window? && (lpos = el.coords(noscroll: true, into: scrollb_lpos))
-                      (el.atop - atop) + (lpos.yl - lpos.yi)
+                      (el.atop - otop) + (lpos.yl - lpos.yi)
                     else
-                      (el.atop - atop) + el.aheight
+                      (el.atop - otop) + el.aheight
                     end
         Math.max current, el_bottom
       end
@@ -639,6 +653,12 @@ module Crysterm
       end
 
       bottom
+    end
+
+    # Drops the frame-memoized `#scroll_extent_bottom` (held on `@lpos`), so
+    # the next read measures the children again.
+    protected def invalidate_scroll_extent : Nil
+      @lpos.try &.scroll_bottom=(0)
     end
 
     # Scrolls widget by `offset` lines down or up

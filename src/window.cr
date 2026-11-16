@@ -1109,6 +1109,10 @@ module Crysterm
         end
       end
 
+      # A `#prompt`/`#ask` caller still parked gets a cancellation: its
+      # dialog, queued or open, is gone with the window.
+      release_answer_waiters
+
       # Tear down the terminal connection (restores the terminal, stops the
       # input fiber, closes owned IO and any spawned window). For the
       # launching screen this is `leave` plus line-discipline restore;
@@ -1139,7 +1143,19 @@ module Crysterm
       #  this.emit('destroy');
       #  this._destroy();
 
-      super
+      # `Event::Destroy` goes out last, to every handler: one that raises
+      # must not keep the ones after it — the toolkit's own among them — from
+      # learning that the window is gone. A raising one is a teardown error
+      # like the others above.
+      if Window.instances.delete self
+        emit_isolated(Crysterm::Event::Destroy).try &.each do |raised|
+          if error
+            ::Log.error(exception: raised) { "Crysterm: a Destroy handler raised during Window#destroy" }
+          else
+            error = raised
+          end
+        end
+      end
       raise error if error
     end
 

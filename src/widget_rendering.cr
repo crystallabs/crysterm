@@ -714,29 +714,28 @@ module Crysterm
               grapheme, ri = extend_grapheme(rx, ri, ch)
               cell_width = ::Crysterm::Unicode.width grapheme
               is_cluster = true
-              if cell_width == 0
-                # Zero-width cluster (e.g. a leading combining mark): merge into
-                # the previous cell rather than consuming one. The overlay is
-                # read directly, and the base char interpolated, to build the
-                # merged cluster in a single allocation.
-                if x > xi && x - 1 >= 0 && (prev = line[x - 1]?)
-                  merged =
-                    if ov = prev.grapheme_overlay
-                      ov + grapheme
-                    else
-                      base = prev.char
-                      # A continuation cell's grapheme is "": merge onto nothing.
-                      base == Window::Cell::CONTINUATION ? grapheme : "#{base}#{grapheme}"
-                    end
-                  prev.grapheme = merged
-                  line.mark_dirty(x - 1)
-                end
-                x -= 1
-                next
-              end
             else
-              # Lone codepoint: width straight from the `Char`.
+              # Lone codepoint: width straight from the `Char`. A zero-width
+              # one (ZWSP, a conjoining jamo) occupies no column either.
               cell_width = ::Crysterm::Unicode.width ch
+              grapheme = ch.to_s if cell_width == 0
+            end
+            if cell_width == 0
+              # Zero-width cluster (e.g. a leading combining mark): merge into
+              # the previous glyph rather than consuming a cell — the lead
+              # cell of a wide glyph when the previous cell is its
+              # continuation. With no glyph before it in the row, it is
+              # dropped. The overlay is read directly, and the base char
+              # interpolated, to build the merged cluster in a single
+              # allocation.
+              px = x - 1
+              px -= 1 if px >= xi && px >= 0 && line[px]?.try(&.continuation?)
+              if px >= xi && px >= 0 && (prev = line[px]?) && !prev.continuation?
+                prev.grapheme = (ov = prev.grapheme_overlay) ? ov + grapheme : "#{prev.char}#{grapheme}"
+                line.mark_dirty px
+              end
+              x -= 1
+              next
             end
           end
 

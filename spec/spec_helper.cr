@@ -127,6 +127,18 @@ class Crysterm::Window
   end
 end
 
+# Puts the process-global CSS cell-geometry anchors back to their defaults.
+# A device's measured cell size outlives the device (a later report replaces
+# it), so an example that feeds one in through `spec_apply_cell_pixels` calls
+# this on its way out to leave later examples the default `px` scale.
+def spec_reset_cell_geometry_anchor : Nil
+  Crysterm::CSS::Length.measured_source = nil
+  Crysterm::CSS::Length.divisors["px"] = 10.0
+  Crysterm::CSS::Length.divisors["pt"] = 7.5
+  Crysterm::CSS::Length.divisors["pc"] = 0.625
+  Crysterm::CSS::Length.cell_aspect_ratio = 2.0
+end
+
 class Crysterm::Screen
   # :nodoc:
   def spec_apply_cell_pixels(width : Int32, height : Int32) : Nil

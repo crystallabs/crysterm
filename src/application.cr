@@ -212,12 +212,8 @@ module Crysterm
       rescue ex
         @exec_error ||= ex
       end
-      # Iterate a copy: `Window#destroy` calls `#remove`, which mutates
-      # `@windows` under an in-place iterator.
-      @windows.dup.each do |w|
-        w.destroy unless w.destroyed?
-      rescue ex
-        @exec_error ||= ex
+      if teardown_error = self.class.destroy_windows(@windows)
+        @exec_error ||= teardown_error
       end
       status = 1 if @exec_error
       if @exec_running
@@ -230,6 +226,22 @@ module Crysterm
       else
         exit status
       end
+    end
+
+    # Destroys every window of *windows* not yet destroyed, each on its own,
+    # and returns the first error raised (`nil` when none). `Window#destroy`
+    # raises a teardown error once that window is gone, and one such window
+    # must not keep the ones after it from being torn down, their terminals
+    # left raw and in the alternate buffer. Iterates a copy: a destroyed
+    # window leaves the registries *windows* may be.
+    def self.destroy_windows(windows : Array(Window)) : Exception?
+      error = nil
+      windows.dup.each do |w|
+        w.destroy unless w.destroyed?
+      rescue ex
+        error ||= ex
+      end
+      error
     end
 
     # Whether *char*/*key* is one of the default quit keys (`q` or `Ctrl-Q`).
@@ -502,40 +514,45 @@ module Crysterm
     # This wrapper *owns* quit for its windows: it opts each one out of the
     # app-global hard-exit default via `default_quit_keys = false`, so `q`/Ctrl-Q
     # falls through as an `Event::KeyPress`. The handler below then runs a
-    # *graceful* close, tearing every managed window down so `remaining`/`done`
-    # reach zero and `exec_all` returns normally instead of the process
-    # hard-exiting mid-loop.
+    # *graceful* close, tearing every managed window down so `exec_all`
+    # returns normally instead of the process hard-exiting mid-loop.
     #
     # When writing to any window's output fails, `exec_all` tears every window
-    # down and raises that error once they are gone.
+    # down and raises that error once they are gone; so it raises the first
+    # error a window's teardown raised.
     def self.exec_all(windows : Array(Window)) : Nil
+      windows = windows.uniq.reject(&.destroyed?)
       return if windows.empty?
-      remaining = windows.size
       done = Channel(Nil).new(1)
-      # Windows already counted as gone. `destroy` emits `Event::Destroy` at
-      # most once, but count through a set so a re-emission could never
-      # double-decrement `remaining`.
-      counted = Set(Window).new
-      # The first output failure among the windows: it tears them all down and
-      # is re-raised once they are gone.
+      # The first error among the windows — an output failure, which tears
+      # them all down, or one a window's teardown raised: re-raised once they
+      # are gone.
       error : Exception? = nil
+      # Tears every window down, each on its own (`.destroy_windows`).
+      close_all = -> do
+        teardown_error = destroy_windows windows
+        error ||= teardown_error
+        nil
+      end
       fail_all = ->(ex : Exception) do
         error ||= ex
-        windows.each { |o| o.destroy unless o.destroyed? }
+        close_all.call
       end
 
       windows.each do |w|
         # Take over quit from the app-global hotkey (see method doc).
         w.default_quit_keys = false
-        # Count a window out on ANY teardown path — the quit key below, a
-        # `WindowClosed`, or a direct programmatic `w.destroy`. Counting only
-        # inside the quit/close handlers leaves a directly-destroyed window
-        # uncounted, so `remaining` never reaches zero and `done.receive` blocks
-        # this method (and the whole process) permanently.
+        # A window is gone on ANY teardown path — the quit key below, a
+        # `WindowClosed`, or a direct programmatic `w.destroy` — and the wait
+        # ends when the last one is: read from the windows' own state, so no
+        # bookkeeping of this method's can fall out of step with them. The
+        # channel holds one wake-up; a further one is dropped.
         w.on(Crysterm::Event::Destroy) do
-          if counted.add? w
-            remaining -= 1
-            done.send(nil) if remaining <= 0
+          if windows.all?(&.destroyed?)
+            select
+            when done.send(nil)
+            else
+            end
           end
         end
         w.on(Crysterm::Event::KeyPress) do |e|
@@ -544,7 +561,7 @@ module Crysterm
           # — the same guards `#route_input` applies. Without them, typing `q` into a
           # reading `LineEdit`/`TextEdit` closes every window, and an app with
           # unsaved changes could not refuse.
-          windows.each { |o| o.destroy unless o.destroyed? } if quit_gesture?(w, e) && close_requests_accepted?(w, windows)
+          close_all.call if quit_gesture?(w, e) && close_requests_accepted?(w, windows)
         end
         w.on(Crysterm::Event::WindowClosed) { w.destroy unless w.destroyed? }
         w.on(Crysterm::Event::OutputFailed) { |e| fail_all.call e.error }
@@ -558,7 +575,6 @@ module Crysterm
       rescue ex
         fail_all.call ex
       end
-
       done.receive
       error.try { |err| raise err }
     end

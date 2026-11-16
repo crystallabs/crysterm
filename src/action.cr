@@ -144,6 +144,12 @@ module Crysterm
 
     # Optional child actions forming a submenu (Qt's `QAction#menu`). When set,
     # `Widget::Menu` shows a `▶` marker and opens a nested menu instead of activating.
+    #
+    # Change the list through `#add_menu_action`/`#insert_menu_action`/
+    # `#remove_menu_action`/`#clear_menu_actions` (or assign a new one): those
+    # emit `Event::Changed`, which is what tells a presenting `Widget::MenuBar`
+    # to install or withdraw the affected accelerators. Editing the returned
+    # array in place notifies nobody.
     getter menu : Array(Action)?
 
     # :ditto:
@@ -156,6 +162,42 @@ module Crysterm
       else
         false
       end
+    end
+
+    # Appends *action* to the submenu, creating the submenu on first use (Qt's
+    # `QMenu#addAction` on the action's menu), and returns it. Emits
+    # `Event::Changed`; a no-op for an action the submenu already holds.
+    def add_menu_action(action : Action) : Action
+      insert_menu_action @menu.try(&.size) || 0, action
+    end
+
+    # Inserts *action* at *index* in the submenu (Qt's `QMenu#insertAction`);
+    # out-of-range indices clamp to the ends. Otherwise as `#add_menu_action`.
+    def insert_menu_action(index : Int, action : Action) : Action
+      list = (@menu ||= [] of Action)
+      unless list.includes? action
+        list.insert index.to_i.clamp(0, list.size), action
+        notify_changed
+      end
+      action
+    end
+
+    # Removes *action* from the submenu (Qt's `QMenu#removeAction`), emitting
+    # `Event::Changed`. Returns the action, or `nil` when the submenu did not
+    # hold it.
+    def remove_menu_action(action : Action) : Action?
+      return unless @menu.try &.delete(action)
+      notify_changed
+      action
+    end
+
+    # Empties the submenu (Qt's `QMenu#clear`), emitting `Event::Changed` when
+    # it held anything.
+    def clear_menu_actions : Nil
+      list = @menu
+      return if list.nil? || list.empty?
+      list.clear
+      notify_changed
     end
 
     # Returns a separator action — a divider that menus/toolbars render as a rule
@@ -543,18 +585,10 @@ module Crysterm
       @shortcuts.any? { |seq| seq.size == 1 && seq.first == k }
     end
 
-    # Re-registers accelerators on every window they were installed on, so a
-    # later `#shortcut=`/`#shortcuts=` change takes effect on attached windows.
+    # Re-registers accelerators on every window they are held on, so a later
+    # `#shortcut=`/`#shortcuts=` change takes effect on attached windows.
     private def reinstall_shortcuts : Nil
-      hosts = @shortcut_host_by_window.dup
-      # Union, not just `@shortcut_windows`: an action added to a window while
-      # `@shortcuts` was empty has a host recorded there but no registration, and
-      # must still be revisited so its new shortcut goes live.
-      windows = (@shortcut_windows.to_a | hosts.keys)
-      windows.each do |w|
-        uninstall_shortcut w
-        install_shortcut w, hosts[w]?
-      end
+      resync_shortcuts
     end
   end
 end

@@ -84,7 +84,7 @@ module Crysterm
     def remove_action(action : Action) : Nil
       return unless @_actions.try &.delete(action)
       action.dissociate self
-      window?.try { |w| action.uninstall_shortcut w }
+      window?.try { |w| action.uninstall_shortcut w, self }
     end
 
     # Wires the attach/detach lifecycle for installed actions — once, lazily,

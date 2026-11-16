@@ -106,10 +106,16 @@ module Crysterm
       end
     end
 
+    # A path that cannot be looked at (no permission on a directory in it, a
+    # symlink loop, an over-long name) reads as absent, like a missing one:
+    # `File.info?` raises for those, which would end the look before the
+    # paths after this one are checked.
     private def stamp(path : String) : Stamp
       if info = File.info?(path)
         {info.size, info.modification_time}
       end
+    rescue File::Error
+      nil
     end
 
     private def notify(path : String) : Nil

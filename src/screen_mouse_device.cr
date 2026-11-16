@@ -72,7 +72,8 @@ module Crysterm
     # applied. Best-effort: only xterm-class terminals honor OSC 22; elsewhere
     # it is silently ignored.
     def mouse_cursor_shape=(shape : ::Tput::MouseCursorShape?) : Nil
-      return unless mouse_cursor_shaping?
+      # An applied shape can still be reset after shaping is switched off.
+      return unless mouse_cursor_shaping? || (shape.nil? && @_mouse_cursor_shape)
       return if shape == @_mouse_cursor_shape
       @_mouse_cursor_shape = shape
       if shape
@@ -90,9 +91,9 @@ module Crysterm
     # The `gpm` connect (and the one-time listening flag) happen at most once,
     # but the
     # `tput.enable_mouse` re-assert always runs on every call, even when already
-    # listening: callers (e.g. `Window#register_clickable`'s on-demand
-    # re-enable) rely on being able to re-send the escape sequence without
-    # tearing down and reconnecting `gpm`.
+    # listening: callers (`Window#start_input`, `Window#send_focus=`) rely on
+    # being able to re-send the escape sequence without tearing down and
+    # reconnecting `gpm`.
     #
     # Pass *pixels* to request SGR-Pixels reporting (DEC 1016), so mouse events
     # carry sub-cell pixel coordinates (`Event::Mouse#px`/`#py`) alongside the
@@ -100,8 +101,7 @@ module Crysterm
     # `mouse.pixel_coordinates` config option (`PixelMouse`): `On` forces it,
     # `Off` forbids it, and the default `Auto` honors the last *explicit*
     # *pixels* argument — `PixelMouse::On` here asks for it, `Off` withdraws
-    # the request, and `Auto` (a bare re-assert, as `Window#listen` and
-    # `Window#register_clickable` issue) re-applies whatever was last
+    # the request, and `Auto` (a bare re-assert, as `Window#listen` issues) re-applies whatever was last
     # requested. Without that stickiness a bare re-assert would downgrade an
     # active pixel session: the terminal would keep reporting pixels (1016
     # stays on) while the parser lost the cell size it divides by.
@@ -117,12 +117,7 @@ module Crysterm
     def enable_mouse(pixels : PixelMouse = :auto, focus : Bool? = nil) : Nil
       # An explicit request updates the sticky wish; `:auto` re-asserts it.
       @_mouse_pixels_wanted = pixels.on? unless pixels.auto?
-      want = case Config.mouse_pixel_coordinates
-             in PixelMouse::On   then true
-             in PixelMouse::Off  then false
-             in PixelMouse::Auto then @_mouse_pixels_wanted
-             end
-      cell = if want && cell_pixel_width > 0 && cell_pixel_height > 0
+      cell = if mouse_pixels_wanted? && cell_pixel_width > 0 && cell_pixel_height > 0
                {cell_pixel_width, cell_pixel_height}
              else
                # Explicit `false`, not `nil`: tput downgrades an *active* pixel
@@ -136,6 +131,16 @@ module Crysterm
       return if @mouse_enabled
       @mouse_enabled = true
       listen_gpm
+    end
+
+    # Whether SGR-Pixels reporting is wanted: the `mouse.pixel_coordinates`
+    # policy resolved against the last explicit `#enable_mouse` request.
+    protected def mouse_pixels_wanted? : Bool
+      case Config.mouse_pixel_coordinates
+      in PixelMouse::On   then true
+      in PixelMouse::Off  then false
+      in PixelMouse::Auto then @_mouse_pixels_wanted
+      end
     end
 
     # Turns off xterm mouse reporting and disconnects from `gpm` (if connected),

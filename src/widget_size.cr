@@ -508,6 +508,12 @@ module Crysterm
       eff_height.nil? && (eff_top.nil? || @bottom.nil?) && (!@scrollable || item_view?)
     end
 
+    # Whether *pos* is the provisional rect `#minimal_children_rectangle`
+    # exposes as `@lpos` while it measures the children.
+    protected def provisional_lpos?(pos : RenderedGeometry) : Bool
+      pos.same?(@_shrink_lpos)
+    end
+
     # Returns minimum widget size based on bounding box
     private def minimal_children_rectangle(xi, xl, yi, yl, rendered)
       if @children.empty?

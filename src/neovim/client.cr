@@ -403,6 +403,12 @@ module Crysterm
         end
       rescue MessagePack::EofError | IO::Error
         # Neovim closed its end.
+      rescue MessagePack::UnpackError
+        # A byte that starts no msgpack value: the stream cannot be read on
+        # from here. Neovim is ended, which fails the requests still waiting
+        # (`#wait_for_exit`) instead of leaving them parked on answers that
+        # can no longer be read.
+        @process.terminate rescue nil
       ensure
         @reader_done.close
       end

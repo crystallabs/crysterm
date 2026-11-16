@@ -122,6 +122,9 @@ module Crysterm
     # rasterize loop touches a single array (one cache line) per cell.
     @damage_grid = [] of Int64
     @damage_grid_w = 0
+    # Set when the grid's 31-bit cell stamp wrapped: the grid is cleared
+    # before its next use.
+    @damage_grid_wrapped = false
     # Union-find parent array, indexed by base-child position (`Widget#damage_idx`).
     @damage_uf = [] of Int32
     # Reused list of this frame's base (non-z) top-level children, in z order.
@@ -179,6 +182,19 @@ module Crysterm
     def damage_mark_dirty(w : Widget) : Nil
       return unless @optimization.damage_tracking?
       @damage_dirty_roots << w.top_level_ancestor
+    end
+
+    # Marks changed every top-level subtree painted on rows *top*..*bottom*,
+    # which a line-op scroll just shifted across the whole width of the cell
+    # buffer: the scrolled widget's own cells, and those of whatever sits
+    # beside it on those rows, which moved (and, on the recycled rows, were
+    # blanked) along with them.
+    protected def damage_rows_shifted(top : Int32, bottom : Int32) : Nil
+      return unless @optimization.damage_tracking?
+      @children.each do |el|
+        next unless b = (el.damage_bounds || damage_subtree_bounds(el))
+        @damage_dirty_roots << el if b[2] <= bottom && b[3] > top
+      end
     end
 
     # Forces the next frame to be a full re-composite.
@@ -585,35 +601,11 @@ module Crysterm
       end
       m = base.size
 
-      # The Int64 membership stamp (never wraps) drives `damage_seen`/`seed`. The
-      # grid packs its cell-stamp into a 31-bit field (so `<< 32` stays a positive
-      # Int64), taken from the low bits of the stamp; that field wraps every 2^31
-      # grows, at which point the grid is cleared once so the monotonic `v >= s64`
-      # test still distinguishes this grow's cells from stale ones.
-      @damage_stamp += 1
-      stamp = @damage_stamp
-      g = stamp & 0x7FFFFFFF
-      grid_wrapped = false
-      if g == 0
-        @damage_stamp += 1
-        stamp = @damage_stamp
-        g = 1_i64
-        grid_wrapped = true
-      end
-      s64 = g << 32
-
-      # (Re)size the cell grid on a dimension change, or clear it on a stamp wrap;
-      # otherwise it is stamp-addressed and needs no per-frame clear.
+      stamp = damage_next_stamp
+      s64 = damage_cell_stamp stamp
       w = awidth
       h = aheight
-      ncells = w * h
-      if @damage_grid_w != w || @damage_grid.size != ncells
-        @damage_grid = Array(Int64).new(ncells, 0_i64)
-        @damage_grid_w = w
-      elsif grid_wrapped
-        @damage_grid.fill(0_i64)
-      end
-      grid = @damage_grid
+      grid = damage_prepared_grid w, h
 
       uf = @damage_uf
       uf.clear
@@ -664,6 +656,40 @@ module Crysterm
       end
       glue.each { |gr| frontier << gr }
       cluster_area
+    end
+
+    # Advances and returns the Int64 membership stamp (never wraps) that drives
+    # `damage_seen`/`seed`. The grid packs its cell stamp into a 31-bit field
+    # (so `<< 32` stays a positive Int64), taken from the low bits of the
+    # stamp; that field wraps every 2^31 advances, at which point the grid is
+    # flagged for one clear so the monotonic `v >= s64` test still
+    # distinguishes the current stamp's cells from stale ones.
+    private def damage_next_stamp : Int64
+      @damage_stamp += 1
+      if @damage_stamp & 0x7FFFFFFF == 0
+        @damage_stamp += 1
+        @damage_grid_wrapped = true
+      end
+      @damage_stamp
+    end
+
+    # The grid cell value base for *stamp*: a cell belongs to it iff `>=` this.
+    private def damage_cell_stamp(stamp : Int64) : Int64
+      (stamp & 0x7FFFFFFF) << 32
+    end
+
+    # The cell grid, (re)sized on a dimension change or cleared on a stamp
+    # wrap; otherwise it is stamp-addressed and needs no per-frame clear.
+    private def damage_prepared_grid(w : Int32, h : Int32) : Array(Int64)
+      ncells = w * h
+      if @damage_grid_w != w || @damage_grid.size != ncells
+        @damage_grid = Array(Int64).new(ncells, 0_i64)
+        @damage_grid_w = w
+      elsif @damage_grid_wrapped
+        @damage_grid.fill(0_i64)
+      end
+      @damage_grid_wrapped = false
+      @damage_grid
     end
 
     # Iterates the integer cell indices (`y * w + x`) a half-open rectangle covers
@@ -863,27 +889,118 @@ module Crysterm
       {xi, xl, yi, yl}
     end
 
+    # Changed-rectangle count up to which changed-vs-changed overlap is tested
+    # pairwise; above it the rectangles are rasterized into the cell grid.
+    DAMAGE_PAIRWISE_MAX = 64
+    # Changed-root count up to which membership is a scan of the changed list.
+    DAMAGE_SCAN_MAX = 8
+
     # Does any changed subtree's damage rectangle overlap another top-level
     # subtree — unchanged (`damage_bounds`) or another changed one (`damaged`)?
     # When false, the changed subtrees are mutually disjoint and isolated, so the
     # per-root renders are final and no cluster recomposite is needed.
+    #
+    # Few rectangles are tested pairwise against each other and every child.
+    # Once that product outgrows the cells involved, the rectangles are
+    # rasterized into the stamp-addressed cell grid instead (two rectangles
+    # overlap on screen iff they share a cell), which bounds the work by
+    # those cells rather than by `children × changed`.
     private def damage_needs_cluster?(dirty : Array(Widget), damaged : Array(Tuple(Int32, Int32, Int32, Int32))) : Bool
-      # Changed vs unchanged.
-      @children.each do |el|
-        next if dirty.includes? el
-        cb = el.damage_bounds
-        next unless cb
-        return true if damaged.any? { |d| damage_rects_overlap?(d, cb) }
+      n = damaged.size
+      return false if n == 0
+      if n <= DAMAGE_PAIRWISE_MAX
+        # Pairwise against every child costs `children × n` tests; the grid
+        # costs the changed cells to fill plus at most `n` probes a child.
+        area = 0_i64
+        damaged.each { |d| area += damage_rect_area(d) }
+        unless @children.size.to_i64 * n > 2_i64 * area + @children.size
+          return damage_overlap_pairwise? dirty, damaged
+        end
       end
-      # Changed vs changed.
+      damage_overlap_gridded? dirty, damaged
+    end
+
+    # `#damage_needs_cluster?` by rectangle tests alone.
+    private def damage_overlap_pairwise?(dirty : Array(Widget), damaged : Array(Tuple(Int32, Int32, Int32, Int32))) : Bool
+      return true if damage_changed_overlap? damaged
+      # Changed vs unchanged. A handful of changed roots are cheaper to scan
+      # than to stamp: the stamp is a field read on every child, the scan a
+      # few pointer compares.
+      if dirty.size <= DAMAGE_SCAN_MAX
+        @children.each do |el|
+          next if dirty.includes? el
+          cb = el.damage_bounds
+          next unless cb
+          return true if damaged.any? { |d| damage_rects_overlap?(d, cb) }
+        end
+      else
+        stamp = damage_next_stamp
+        dirty.each(&.damage_seen=(stamp))
+        @children.each do |el|
+          next if el.damage_seen == stamp
+          cb = el.damage_bounds
+          next unless cb
+          return true if damaged.any? { |d| damage_rects_overlap?(d, cb) }
+        end
+      end
+      false
+    end
+
+    # Whether any two of the changed rectangles overlap, pair by pair.
+    private def damage_changed_overlap?(damaged : Array(Tuple(Int32, Int32, Int32, Int32))) : Bool
+      n = damaged.size
       i = 0
-      while i < damaged.size
+      while i < n
         j = i + 1
-        while j < damaged.size
+        while j < n
           return true if damage_rects_overlap?(damaged.unsafe_fetch(i), damaged.unsafe_fetch(j))
           j += 1
         end
         i += 1
+      end
+      false
+    end
+
+    # `#damage_needs_cluster?` through the cell grid: the changed rectangles
+    # are rasterized into it, the changed roots stamped (`Widget#damage_seen`)
+    # for O(1) membership, and an unchanged child probes the cells of its own
+    # footprint when that is a smaller job than testing every rectangle.
+    private def damage_overlap_gridded?(dirty : Array(Widget), damaged : Array(Tuple(Int32, Int32, Int32, Int32))) : Bool
+      n = damaged.size
+      stamp = damage_next_stamp
+      dirty.each(&.damage_seen=(stamp))
+      s64 = damage_cell_stamp stamp
+      w = awidth
+      h = aheight
+      grid = damage_prepared_grid w, h
+
+      # Changed vs changed.
+      if n > DAMAGE_PAIRWISE_MAX
+        damaged.each do |d|
+          damage_rasterize(d, w, h) do |cell|
+            return true if grid.unsafe_fetch(cell) >= s64
+            grid.unsafe_put cell, s64
+          end
+        end
+      else
+        return true if damage_changed_overlap? damaged
+        damaged.each do |d|
+          damage_rasterize(d, w, h) { |cell| grid.unsafe_put cell, s64 }
+        end
+      end
+
+      # Changed vs unchanged.
+      @children.each do |el|
+        next if el.damage_seen == stamp
+        cb = el.damage_bounds
+        next unless cb
+        if damage_rect_area(cb) <= n
+          damage_rasterize(cb, w, h) do |cell|
+            return true if grid.unsafe_fetch(cell) >= s64
+          end
+        else
+          return true if damaged.any? { |d| damage_rects_overlap?(d, cb) }
+        end
       end
       false
     end

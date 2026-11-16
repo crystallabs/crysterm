@@ -335,17 +335,25 @@ module Crysterm
         invalidate_frame_style
       end
       # Content/geometry/visibility can change the shrink-to-content size of this
-      # widget AND of any shrink ancestor within the same frame, so drop the
-      # whole chain's frame-memoized rectangles.
-      invalidate_minimal_rectangle
-      p = @parent
-      while p
-        p.invalidate_minimal_rectangle
-        p = p.parent
-      end
+      # widget AND of any shrink ancestor within the same frame — and the
+      # scroll extent of any scrollable one — so drop the whole chain's
+      # frame-memoized extents.
+      invalidate_extent_memos
       window?.try do |w|
         w.damage_mark_dirty self
         w.request_frame
+      end
+    end
+
+    # Drops the frame-memoized extents derived from content and children — the
+    # shrink-to-content rectangle and the scroll extent — on this widget and
+    # every ancestor.
+    protected def invalidate_extent_memos : Nil
+      w = self
+      while w
+        w.invalidate_minimal_rectangle
+        w.invalidate_scroll_extent
+        w = w.parent
       end
     end
 
@@ -617,6 +625,9 @@ module Crysterm
     # mutation with no other frame trigger. `#request_frame` is in_render-safe,
     # so a mid-frame layout mutation here cannot spin the render loop.
     protected def _damage_invalidate_structure : Nil
+      # The children list feeds both memoized extents, and a child that
+      # arrives or leaves marks nothing dirty itself.
+      invalidate_extent_memos
       window?.try do |w|
         w.damage_force_full
         w.request_frame
@@ -915,9 +926,18 @@ module Crysterm
       rescue ex
         error ||= ex
       end
-      emit Crysterm::Event::Destroy
-      # After the last emit: `Destroy` listeners are the auto-dispose hooks, so
-      # they must run before their own subscriptions are dropped.
+      # Every `Destroy` listener runs even when an earlier one raises: they are
+      # the auto-dispose hooks. A raising one is a teardown error like the
+      # others.
+      emit_isolated(Crysterm::Event::Destroy).try &.each do |raised|
+        if error
+          ::Log.error(exception: raised) { "Crysterm: a Destroy handler raised during Widget#destroy" }
+        else
+          error = raised
+        end
+      end
+      # After the last emit, so the listeners run before their own
+      # subscriptions are dropped.
       remove_all_handlers
       raise error if error
     end

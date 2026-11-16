@@ -51,7 +51,7 @@ module Crysterm
       # called from a teardown that still has one).
       private def uninstall_action_shortcuts(w : ::Crysterm::Window?) : Nil
         return unless w
-        each_shortcut_action &.uninstall_shortcut(w)
+        each_shortcut_action &.uninstall_shortcut(w, self)
       end
     end
   end

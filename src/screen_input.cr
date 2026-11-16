@@ -28,15 +28,15 @@ module Crysterm
     # Liveness is tracked separately via `@_keys_done_gen`.
     @_keys_fiber : Fiber?
 
-    # Cooperative-cancel generation for the input read fiber. Each spawn
-    # captures the then-current value; stopping (and each respawn) bumps it, so
-    # a fiber whose value no longer matches drops its event and exits rather
-    # than routing to a possibly torn-down screen. Must stay a generation, not a
-    # boolean: a stop-then-listen cycle would otherwise "un-cancel" a previous
-    # fiber still blocked in `tput.listen` (unowned STDIN survives a disconnect,
-    # so it only wakes on its next event), leaving two readers interleaving on
-    # one fd. A stale fiber may still consume one final event before it notices
-    # the mismatch — but it will not dispatch it.
+    # Cancel generation for the input read fiber. Each spawn captures the
+    # then-current value; stopping (and each respawn) bumps it, so a fiber
+    # whose value no longer matches never routes to a possibly torn-down
+    # screen: one stopped before it first ran reads nothing, and one stopped
+    # by its own handler exits when the handler returns. Must stay a
+    # generation, not a boolean: a stop-then-listen cycle would otherwise
+    # "un-cancel" such a fiber. A fiber parked in `tput.listen` is not left to
+    # notice the mismatch on its next event: `#stop_input` ends its read
+    # (`Tput#stop_listen`), so it consumes no input after the stop.
     @_keys_gen = 0_u64
 
     # Highest generation whose read fiber has finished (its `tput.listen`
@@ -57,17 +57,18 @@ module Crysterm
     # dispatcher, which picks the active `Window` on this device. The device
     # itself knows nothing about focus or widgets.
     #
-    # `tput.listen` returns on EOF, so closing the input ends this fiber; the
-    # handle (and `#listening?`) stays set, and a later call here — e.g. after
+    # `tput.listen` returns on EOF or `#stop_input`; the handle (and
+    # `#listening?`) stays set after an EOF, and a later call here — e.g. after
     # swapping in a fresh input IO — starts a new fiber. Idempotent while the
     # fiber is live: a second call then is a no-op.
     def start_input : Nil
       return if @_keys_fiber && input_fiber_live?
       gen = (@_keys_gen += 1)
       @_keys_fiber = spawn do
+        # Stopped before this fiber first ran: read nothing.
+        next if @_keys_gen != gen
         tput.listen do |e|
-          # Cooperative cancel on a stale generation. MUST precede dispatch,
-          # or a zombie fiber double-dispatches its last event.
+          # A stale generation MUST NOT dispatch.
           break if @_keys_gen != gen
 
           # Isolate user-handler exceptions per event: one raising handler
@@ -112,14 +113,19 @@ module Crysterm
       @_keys_fiber if input_fiber_live?
     end
 
-    # Drops the input-fiber handle so a later `#start_input` can start fresh,
-    # and bumps the cancel generation so a loop not already ended by a closed fd
-    # (i.e. on unowned STDIN) stops dispatching to this now-detached screen and
-    # exits on its next wake-up — staying cancelled even if `#start_input`
-    # re-arms meanwhile.
+    # Stops reading input: drops the input-fiber handle so a later
+    # `#start_input` can start fresh, bumps the cancel generation, and ends the
+    # fiber's read, also one parked on unowned STDIN. The fiber consumes
+    # nothing after this returns, so a synchronous query may read the input
+    # right away, and input arriving while stopped (or read ahead but not yet
+    # dispatched) goes, in order, to the next `#start_input` on the same input.
+    #
+    # An input that is no file descriptor cannot have a parked read ended: its
+    # fiber exits when that read returns, handing what it read to the next one.
     def stop_input : Nil
       @_keys_gen += 1
       @_keys_fiber = nil
+      tput.stop_listen
     end
 
     # Whether an enhanced keyboard protocol was enabled for this device (so

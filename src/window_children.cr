@@ -35,7 +35,9 @@ module Crysterm
       # a duplicate before mutating the list, so it can't reposition; do the
       # remove-then-add here. The widget stays on this window, so no attach/
       # detach/focus/registry churn is needed.
-      if old_i = children.index(element)
+      # Membership is answered by the O(1) index first, so inserting a new
+      # element does not scan the whole children list.
+      if @children_set.includes?(element) && (old_i = children.index(element))
         # Correct the caller's index (computed against the pre-removal list) for
         # the removal that shifts later siblings left, then normalize a negative
         # (append) target against the post-removal list.
