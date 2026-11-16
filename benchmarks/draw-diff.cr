@@ -57,7 +57,7 @@ def frame(s : Window, ts : Array({Int32, Int32}), even : Bool, narrowed : Bool) 
   attr = even ? ATTR_A : ATTR_B
   ch = even ? 'A' : 'B'
   ts.each do |(y, x)|
-    line = s.lines[y]
+    line = s.cell_rows[y]
     cell = line[x]
     cell.attr = attr
     cell.char = ch

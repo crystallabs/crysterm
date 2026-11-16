@@ -17,7 +17,9 @@ require "../src/crysterm"
 
 include Crysterm
 
-N = 12 # children per container
+# Children per container; `N=200 ./layout-arrange` shows how the per-child
+# bookkeeping scales.
+N = (ENV["N"]? || "12").to_i
 
 # Builds a fresh headless screen with one container using `layout`, populated
 # by the block, primes it, and returns {layout, container}.

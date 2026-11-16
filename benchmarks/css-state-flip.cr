@@ -3,13 +3,15 @@ require "../src/crysterm"
 # Cost of one widget-state flip (hover/focus) under a stylesheet, as the next
 # repaint pays it through `apply_stylesheet_if_dirty`.
 #
-# Two scenarios over the same ~2,000-widget tree:
+# Three scenarios over the same ~2,000-widget tree:
 #   (a) the default theme only — its state rules are all subject-state
 #       (`Button:hover`), precomputed per state, so a flip only patches the
 #       cached document node and never cascades;
 #   (b) an author sheet with ancestor-state rules (`Form:focus Button`,
 #       `Box:hover Label`) plus a few dozen ordinary rules — a flip dirties the
-#       cascade, which is where the per-flip time goes.
+#       cascade, which is where the per-flip time goes;
+#   (c) the same plus one `:has()` rule, whose subject can lie outside the
+#       changed widget's subtree, so every flip recomputes the whole tree.
 #
 # Per scenario: µs and KiB per hover flip and per focus move, then the split
 # of one dirty cascade into its pieces (serialize, compare, parse/patch, match
@@ -45,7 +47,7 @@ class Crysterm::Window
     raise "document unexpectedly unchanged" if same
     @css_last_document = document
     t = Time.instant
-    scope = (@css_full || @css_dirty_roots.empty?) ? nil : css_scope_widgets
+    scope = (@css_full || @css_scope_all || @css_dirty_roots.empty?) ? nil : css_scope_widgets
     times["scope"] = (Time.instant - t).total_microseconds
     t = Time.instant
     doc = css_parsed_document(document)
@@ -160,6 +162,15 @@ def scenario(name : String, sheet : String?) : Nil
     inner.state = :normal
     s.bench_apply_if_dirty
   end
+  # A top-level widget: its siblings are other roots, so the recompute scope
+  # is the whole tree.
+  top = all[0]
+  measure("hover flip (top-level box)", ROUNDS) do
+    top.state = :hovered
+    s.bench_apply_if_dirty
+    top.state = :normal
+    s.bench_apply_if_dirty
+  end
   measure("focus move (button <-> button)", ROUNDS) do
     btn.focus
     s.bench_apply_if_dirty
@@ -183,3 +194,4 @@ end
 
 scenario "(a) default theme only", nil
 scenario "(b) author sheet with ancestor-state rules", ANCESTOR_RULES
+scenario "(c) (b) plus a :has() rule", ANCESTOR_RULES + "\nForm:has(Button:focus) { border: 2; }\n"
