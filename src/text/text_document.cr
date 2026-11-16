@@ -953,7 +953,7 @@ module Crysterm
       # A copy, never the instance the undo record holds: mutating the returned
       # fragment must not rewrite what undo will restore. Unstamped, as
       # `#copy_fragment`'s.
-      TextDocumentFragment.new(frag.blocks.map { |b| b.clone.tap(&.source_line=(nil)) })
+      TextDocumentFragment.new(frag.blocks.map(&.clone.tap(&.source_line=(nil))))
     end
 
     # Inserts a formatted fragment at `pos` (Qt `QTextCursor::insertFragment`),
