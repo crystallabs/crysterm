@@ -175,6 +175,21 @@ module Crysterm
         relayout
       end
 
+      # A button detached by any other path — `Widget#destroy` lands here
+      # through `parent.remove` — is dropped from the row the same way, so the
+      # row closes up and `#button`/`#standard_buttons` stop naming it.
+      # `#remove_button` and `#standard_buttons=` unlist the button first, so
+      # their own detach passes straight through.
+      def remove(element)
+        super
+        if element.is_a?(Button) && @buttons.delete(element)
+          if sb = @standard.delete element
+            @standard_buttons &= ~sb
+          end
+          relayout
+        end
+      end
+
       # Builds one button, appends it, and wires its `Pressed` to the box-level
       # accept/reject signal implied by *role*.
       private def make_button(text : String, role : Role) : Button

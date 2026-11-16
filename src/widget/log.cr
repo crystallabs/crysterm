@@ -123,10 +123,14 @@ module Crysterm
 
         ret = append_line text
 
-        if @wrapped_lines.fake.size > @max_lines
+        count = @wrapped_lines.fake.size
+        if count > @max_lines
           # Trim a third of the limit at once rather than one line per append.
           # `Math.max(1, …)` avoids a no-op `remove_first_line 0` when `max_lines` < 3.
-          remove_first_line Math.max(1, @max_lines // 3)
+          # A multi-line *text* can overshoot by more than one line; the
+          # overshoot goes too, so the cap holds.
+          overshoot = count - Math.max(@max_lines, 0) - 1
+          remove_first_line overshoot + Math.max(1, @max_lines // 3)
         end
 
         ret

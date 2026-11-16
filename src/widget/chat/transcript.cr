@@ -60,10 +60,13 @@ module Crysterm
       #   subtree (its `└` becomes `├` and its spine gains a column).
       # * `#update_last` (the streaming case): when the previous rendering is
       #   a prefix of the new one (pure growth — new lines arrived), only the
-      #   suffix is appended, staying on the O(appended) path. Otherwise the
-      #   tail entry's lines are deleted and re-inserted, which goes through
-      #   the line editors' full content rebuild — acceptable because it is
-      #   bounded by stream-tick frequency, not by transcript length.
+      #   suffix is appended, staying on the O(appended) path. Otherwise (a
+      #   token grew the last line) the lines past the common prefix are
+      #   replaced: the previous tick's append is taken back
+      #   (`Widget#drop_appended_content`) and the new tail appended, so a
+      #   tick costs the tail it changes, not the transcript. Only a tail the
+      #   last append does not hold goes through the line editors' full
+      #   content rebuild.
       # * `#toggle_collapse` re-renders the toggled entry and its subtree via
       #   the same delete+insert splice (user-interaction frequency).
       #
@@ -289,18 +292,19 @@ module Crysterm
         # Replaces the live tail entry with *entry* (typically the same
         # object, mutated — the streaming case) and repaints it in place. The
         # entry list does not grow. Appends when the transcript is empty.
+        #
+        # A different object takes the tail's place in the tree too: the
+        # replaced entry leaves its parent's `Entry#children`, and connectors
+        # and fold markers are redrawn where that changes them.
         def update_last(entry : Entry) : Entry
           if @entries.empty?
             return append entry
           end
 
           old = @rendered.last
-          lines = render_entry entry
           prev = @entries[-1]
-          unless prev.same? entry
-            @entry_index.delete prev.object_id
-            @entry_index[entry.object_id] = @entries.size - 1
-          end
+          moved = !prev.same?(entry) && replace_tail_links(prev, entry)
+          lines = render_entry entry
           @entries[-1] = entry
           @rendered[-1] = lines
 
@@ -310,13 +314,67 @@ module Crysterm
             suffix = lines[old.size..]
             append_line suffix.join('\n') unless suffix.empty?
           else
-            start = start_line_of @entries.size - 1
-            delete_line start, old.size unless old.empty?
-            insert_line start, lines.join('\n') unless lines.empty?
+            resplice_tail old, lines
           end
 
           refresh_fold_marker entry
+          if moved
+            # The parent the replaced entry left: its own marker, the
+            # connector of the child now last, and the fold above it. Then the
+            # sibling the new entry displaced as last child of its own parent.
+            if left = prev.parent
+              rerender_tree left
+              refresh_fold_marker left
+            end
+            entry.parent.try(&.children[-2]?).try { |sibling| rerender_tree sibling }
+          end
           entry
+        end
+
+        # Moves the tail slot's tree links from *prev* to *entry*, a different
+        # object: *prev* is unlinked from its parent, and *entry* (linked under
+        # its own parent at construction) is indexed in its place. Returns
+        # whether the two belong to different parents — the one case in which
+        # earlier entries render differently afterwards.
+        private def replace_tail_links(prev : Entry, entry : Entry) : Bool
+          @entry_index.delete prev.object_id
+          @entry_index[entry.object_id] = @entries.size - 1
+
+          old_parent = prev.parent
+          old_parent.try &.children.delete(prev)
+
+          parent = entry.parent
+          return false if parent.same?(old_parent)
+          if parent && parent.children.size == 1 && parent.collapsed && !body_over_threshold?(parent)
+            # A first child opens a short-bodied parent, as in `#append`.
+            parent.collapsed = false
+          end
+          true
+        end
+
+        # Replaces the tail entry's lines *old* in the content with *lines*,
+        # which is not *old* grown: only the lines past their common prefix
+        # change. The lines the last append put there are taken back without
+        # a reparse; what it does not hold is deleted through the line
+        # editors.
+        private def resplice_tail(old : Array(String), lines : Array(String)) : Nil
+          common = 0
+          limit = Math.min(old.size, lines.size)
+          while common < limit && old.unsafe_fetch(common) == lines.unsafe_fetch(common)
+            common += 1
+          end
+          need = old.size - common
+          dropped = need > 0 ? (drop_appended_content(old.size) || 0) : 0
+          if dropped < need
+            delete_line start_line_of(@entries.size - 1) + common, need - dropped
+            dropped = need
+          end
+          # The append taken back can hold unchanged lines too: they go back
+          # as an append of their own, so the next tick takes back the
+          # changed tail alone.
+          kept = old.size - dropped
+          append_line lines[kept...common].join('\n') if kept < common
+          append_line lines[common..].join('\n') if lines.size > common
         end
 
         # Block form of `#update_last`: yields the tail entry for mutation,
@@ -346,6 +404,9 @@ module Crysterm
           return unless entry
           entry.collapsed = !entry.collapsed
           rerender_tree entry
+          # A toggle inside a folded subtree changes the folding ancestor's
+          # hidden-line count.
+          refresh_fold_marker entry
           if entry.collapsed
             emit ::Crysterm::Event::Collapsed, index
           else
@@ -426,7 +487,7 @@ module Crysterm
           else
             @class_colors.delete name
           end
-          @entries.each_index { |i| rerender_entry i }
+          rerender_all
         end
 
         # The default `{}`-tag color name the prefix glyph is wrapped in, or
@@ -751,6 +812,27 @@ module Crysterm
           start = @starts[index]
           delete_line start, old.size unless old.empty?
           insert_line start, lines.join('\n') unless lines.empty?
+        end
+
+        # Re-renders every entry and, when any rendering changed, rebuilds the
+        # content once — one reparse, where a per-entry `#rerender_entry`
+        # splice would reparse the whole content for each changed entry.
+        private def rerender_all : Nil
+          changed = false
+          total = 0
+          @entries.each_with_index do |entry, i|
+            lines = render_entry entry
+            unless lines == @rendered[i]
+              @rendered[i] = lines
+              changed = true
+            end
+            @starts[i] = total
+            total += lines.size
+          end
+          return unless changed
+          raw = [] of String
+          @rendered.each { |lines| raw.concat lines }
+          rebuild_content_from_raw raw
         end
       end
     end

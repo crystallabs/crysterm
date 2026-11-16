@@ -299,6 +299,23 @@ module Crysterm
         remove bar
       end
 
+      # Every detach empties the slot the child held, whatever the path — the
+      # `remove_*`/slot setters, a generic `#remove`, or `Widget#destroy`
+      # (which lands here through `parent.remove`) — so `#menu_bar`/
+      # `#status_bar` never hand back a widget that is gone, and a detached
+      # tool bar or dock can be added again.
+      def remove(element)
+        super
+        if @menu_bar.same?(element)
+          @menu_bar = nil
+          watch_status_tips nil
+        end
+        @status_bar = nil if @status_bar.same?(element)
+        @central_widget = nil if @central_widget.same?(element)
+        @tool_bars.delete element
+        @docks.delete element
+      end
+
       # Adds *dock* to the *area* (overriding the dock's own `#area`) and returns
       # it. Argument order is Qt's `addDockWidget(area, dockwidget)`.
       def add_dock(area : DockWidget::Area, dock : DockWidget) : DockWidget

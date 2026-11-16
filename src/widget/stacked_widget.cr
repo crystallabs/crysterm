@@ -27,8 +27,11 @@ module Crysterm
       # `Event::ItemAdded`.
       def add_widget(page : Widget) : self
         stretch_child page
-        @pages << page
+        # Appended before it is registered: re-adding a page the stack already
+        # holds detaches it first (`#remove`), so the re-add is a move rather
+        # than a duplicate entry the detach would resolve against.
         append page
+        @pages << page
         register_page page
         emit ::Crysterm::Event::ItemAdded
         self
@@ -39,11 +42,12 @@ module Crysterm
       # following its shift; if the stack was empty the inserted page becomes
       # current. Returns `self`.
       def insert_widget(index : Int, page : Widget) : self
+        stretch_child page
+        # Appended first, as in `#add_widget`.
+        append page
         i = index.clamp(0, @pages.size)
         cur = current_widget
-        stretch_child page
         @pages.insert i, page
-        append page
         if cur
           page.hide
           # The inserted page shifts the current one's index up when it lands at

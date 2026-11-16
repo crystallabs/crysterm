@@ -190,7 +190,9 @@ module Crysterm
           if @registry.any? &.state.running?
             start unless running?
           else
-            stop if running?
+            # Unconditional: a clock paused while hidden is not `running?`, and
+            # only `#stop` keeps the next `Show` from resuming it.
+            stop
           end
         end
       end

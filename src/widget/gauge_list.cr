@@ -261,8 +261,13 @@ module Crysterm
         # `cap` in slots while keeping its column width; the unused tail is
         # truncated below.
         cap = lw + 1 + bar_cols + pct_w
-        cells = Array(Char).new(cap, ' ')
-        colors = Array(String?).new(cap, nil)
+        fu = full_unicode?
+        # A zero-width (combining) label char takes a slot but no column, so
+        # reserve one extra slot per such char; otherwise it would push the
+        # percentage's tail out of the row.
+        slots = fu ? cap + item.label.count { |ch| Unicode.width(ch) == 0 } : cap
+        cells = Array(Char).new(slots, ' ')
+        colors = Array(String?).new(slots, nil)
 
         # Label (default style), fit to exactly `lw` *display columns* so a wide
         # grapheme (1 codepoint, 2 columns) doesn't push the bar/percentage past
@@ -273,7 +278,6 @@ module Crysterm
         # the loop is per-codepoint either way.
         i = 0
         used = 0
-        fu = full_unicode?
         item.label.each_char do |ch|
           cw = fu ? Unicode.width(ch) : 1
           break if used + cw > lw
@@ -293,12 +297,12 @@ module Crysterm
         # Percentage (default style), right-aligned in its field. `percent_of`
         # clamps to `0..100`, so the text never exceeds `pct_w` columns.
         "#{pct.round.to_i}%".rjust(pct_w).each_char do |ch|
-          break if i >= cap
+          break if i >= slots
           cells[i] = ch
           i += 1
         end
 
-        if i < cap
+        if i < slots
           cells.truncate 0, i
           colors.truncate 0, i
         end

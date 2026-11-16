@@ -166,6 +166,16 @@ module Crysterm
 
         record_accessors options, option, Option
 
+        # Replaces the options. An inline edit in progress is dropped: its
+        # captured row index would otherwise commit the old buffer into
+        # whichever new option lands at that row.
+        def records=(data : Array(Option))
+          @editing = false
+          @edit_buffer = nil
+          @edit_index = nil
+          super
+        end
+
         # The current value of the option named *name*, or `nil` if no such
         # option exists.
         def value(name : String) : String?

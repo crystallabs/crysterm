@@ -39,6 +39,10 @@ module Crysterm
       @ok : Button = ::Crysterm::Mixin::OkCancelDialog.ok_button
       @cancel : Button = ::Crysterm::Mixin::OkCancelDialog.cancel_button
 
+      # The OK/Cancel `Clicked` handles of the read in progress.
+      @ev_ok : ::EventHandler::Subscription? = nil
+      @ev_cancel : ::EventHandler::Subscription? = nil
+
       def initialize(echo_mode : LineEdit::EchoMode? = nil, placeholder_text = nil, validator = nil, **box)
         super **box
 
@@ -91,7 +95,15 @@ module Crysterm
       # A `#validator` that rejects the entry keeps the dialog open: the field's
       # own `#submit` refuses to finish the read, so nothing here has to re-arm
       # the reader.
+      #
+      # Opening a dialog that is already up supersedes the prompt in progress:
+      # that one ends as a cancel (its callback receives `nil`, the dialog
+      # reports `Code::Rejected`), and *callback* receives the next result.
       def open(text = nil, value = "", &callback : String? ->)
+        # Ends the read in progress, if any, through its own callback — the
+        # full close path, exactly as Escape runs it. A no-op otherwise.
+        @line_edit.cancel
+
         # `begin_modal_content` shows the dialog modally (an invalid submit
         # leaves the read running, correctly keeping the grab).
         begin_modal_content text
@@ -100,12 +112,17 @@ module Crysterm
 
         window.save_focus
 
-        ev_ok = @ok.on(::Crysterm::Event::Clicked) { accept }
+        @ev_ok.try &.off
+        @ev_cancel.try &.off
+        @ev_ok = @ok.on(::Crysterm::Event::Clicked) { accept }
+        @ev_cancel = @cancel.on(::Crysterm::Event::Clicked) { reject }
 
-        ev_cancel = @cancel.on(::Crysterm::Event::Clicked) { reject }
-
+        # The teardown reads the pair from the ivars, so it always reaches the
+        # one installed last.
         @line_edit.read_input do |data|
-          teardown_ok_cancel ev_ok, ev_cancel
+          teardown_ok_cancel @ev_ok, @ev_cancel
+          @ev_ok = nil
+          @ev_cancel = nil
           # Record the outcome before the callback runs, so both see the same
           # `#result`.
           done(data ? Code::Accepted : Code::Rejected)

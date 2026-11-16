@@ -174,14 +174,17 @@ module Crysterm
         Mnemonic.next_match(@mnemonics.size, @open_index) { |i| @mnemonics[i] == c }.try &.[0]
       end
 
-      # The letter of an Alt+letter chord, or `nil`: legacy input encodes it as
-      # its own key (`ESC f` → `AltA`..`AltZ`, contiguous), the enhanced
-      # keyboard protocol as the plain character with the alt modifier.
+      # The character of an Alt chord, or `nil`: legacy input encodes a letter
+      # as its own key (`ESC f` → `AltA`..`AltZ`, contiguous); anything else
+      # carries the alt modifier, with the key's codepoint when reported
+      # (`char` is then the ESC prefix for legacy input) or its plain character.
       private def alt_char(e : ::Crysterm::Event::KeyPress) : Char?
         if (k = e.key) && ::Tput::Key::AltA <= k <= ::Tput::Key::AltZ
           'a' + (k.value - ::Tput::Key::AltA.value)
-        elsif e.alt? && (c = e.char) && c != '\0'
-          c.downcase
+        elsif e.alt?
+          cp = e.codepoint
+          c = cp && 0x20 < cp <= Char::MAX_CODEPOINT && cp != 0x7f ? cp.unsafe_chr : e.char
+          c.downcase unless c.control?
         end
       end
 
@@ -208,7 +211,7 @@ module Crysterm
         menu.batch_update { actions.each { |a| menu << a } }
         # The bar is normally already attached, so wire accelerators now; a later
         # re-attach re-covers them.
-        window?.try { |w| visit_actions(menu, &.install_shortcut(w, self)) }
+        install_menu_shortcuts menu
         menu.hide
         menu.navigate_handler { |dir| switch_relative dir }
         # A leaf activation dismisses the whole chain — deactivate the bar too
@@ -246,12 +249,17 @@ module Crysterm
         # the rendered title (the item boxes are `parse_tags`-enabled).
         display, mnemonic = Mnemonic.tagged title
         @mnemonics << mnemonic
-        add_item(display) { toggle_menu index } # action-bar command: click / Enter toggles it
+        # Action-bar command: click / Enter toggles it. This handler and the
+        # hover one below resolve the menu's index when they run, since
+        # removing an earlier title shifts it.
+        add_item(display) { @menus.index(menu).try { |j| toggle_menu j } }
 
         # Hover a different title (while a menu is open) to switch to it.
         if item = item_boxes[index]?
           item.on(::Crysterm::Event::MouseEnter) do
-            open_menu index if @open_index && @open_index != index
+            if (j = @menus.index(menu)) && @open_index && @open_index != j
+              open_menu j
+            end
           end
         end
 
@@ -272,12 +280,60 @@ module Crysterm
         rehome_menus
       end
 
+      # The actions each menu held (submenus included) when its accelerators
+      # were last installed, so an action the menu no longer holds has its
+      # accelerator withdrawn.
+      @menu_shortcut_actions = {} of Menu => Set(Action)
+
+      # The `Event::Changed` watch on each of those actions. A submenu is a
+      # list on an `Action`, at any depth, so an action entering or leaving one
+      # reaches the bar as its owner's `Changed` (Qt's `QActionEvent` to the
+      # submenu), not as the menu's `ItemsChanged`.
+      @menu_action_watches = {} of Menu => Hash(Action, ::Crysterm::Subscription)
+
       # Installs a single *menu*'s action accelerators (descending into
-      # submenus). Idempotent per window; used for the incremental `ItemsChanged`
+      # submenus), and withdraws those of actions that left it since the last
+      # call. Idempotent per window; used for the incremental `ItemsChanged`
       # refresh, where re-walking every menu would be quadratic.
       private def install_menu_shortcuts(menu : Menu) : Nil
+        now = Set(Action).new
+        visit_actions(menu) { |a| now << a }
+        prev = @menu_shortcut_actions[menu]?
+        @menu_shortcut_actions[menu] = now
+        watch_menu_actions menu, now
         w = window? || return
-        visit_actions(menu, &.install_shortcut(w, self))
+        now.each &.install_shortcut(w, self)
+        withdraw_shortcuts w, prev.reject { |a| now.includes? a } if prev
+      end
+
+      # Brings *menu*'s `Changed` watches in line with *now*, the actions it
+      # holds.
+      private def watch_menu_actions(menu : Menu, now : Set(Action)) : Nil
+        watches = (@menu_action_watches[menu] ||= {} of Action => ::Crysterm::Subscription)
+        watches.reject! do |a, sub|
+          next false if now.includes? a
+          sub.off
+          true
+        end
+        now.each do |a|
+          next if watches.has_key? a
+          watches[a] = a.on(::Crysterm::Event::Changed) { install_menu_shortcuts menu }
+        end
+      end
+
+      # Drops *menu*'s `Changed` watches.
+      private def unwatch_menu_actions(menu : Menu) : Nil
+        @menu_action_watches.delete(menu).try &.each_value &.off
+      end
+
+      # Withdraws the accelerators of *acts* from *w*, except for an action the
+      # bar still presents elsewhere (another menu, or its own `#add_action`).
+      private def withdraw_shortcuts(w : ::Crysterm::Window, acts : Enumerable(Action)) : Nil
+        acts.each do |a|
+          next if @_actions.try(&.includes?(a))
+          next if @menu_shortcut_actions.any? { |_, s| s.includes? a }
+          a.uninstall_shortcut w, self
+        end
       end
 
       # Moves any pop-up menu still hosted on a previous window over to the
@@ -310,6 +366,9 @@ module Crysterm
       # presentation verb, and a bare `MenuBar#open(i)` read like it.
       def open_menu(i : Int) : Nil
         return unless menu = @menus[i]?
+        # A submenu list edited in place announced nothing; catch up before
+        # the menu shows.
+        install_menu_shortcuts menu
         @menus.each_with_index { |m, j| m.hide_popup if j != i && m.visible? }
         @open_index = i = i.to_i
         # Move the bar's current item to match, so hover-switching also carries
@@ -334,6 +393,41 @@ module Crysterm
       # Closes the open menu, if any.
       def close : Nil
         @open_index.try { |i| @menus[i]?.try &.hide_popup }
+      end
+
+      # Removes the title at *child* — a row index or its item box — together
+      # with its pop-up menu and that menu's accelerators (Qt's
+      # `QMenuBar#removeAction` on a menu's action), returning the title's box.
+      # The `Mixin::ActionBar` row removal alone would leave the menu behind,
+      # still opened by its `Alt+<letter>` mnemonic and by the titles after it.
+      def remove_item(child : Int | Widget)
+        i = child.is_a?(Int) ? index_of(child) : item_boxes.index(child)
+        drop_menu i if i
+        super
+      end
+
+      # (Re)defines the titles wholesale, mirroring `Mixin::ActionBar#items=`.
+      # The commands given carry no menus, so every pop-up menu goes (Qt's
+      # `QMenuBar#clear`, which `#clear` reaches through here).
+      def items=(commands : Array(Mixin::ActionBar::Command))
+        (@menus.size - 1).downto(0) { |i| drop_menu i }
+        super
+      end
+
+      # Closes and destroys menu *i*, withdrawing its accelerators and keeping
+      # `#menus`/`#mnemonics`/`#open_index` aligned with the titles that remain.
+      private def drop_menu(i : Int32) : Nil
+        menu = @menus[i]? || return
+        menu.hide_popup
+        acts = @menu_shortcut_actions.delete(menu)
+        unwatch_menu_actions menu
+        @menus.delete_at i
+        @mnemonics.delete_at i
+        if (oi = @open_index) && oi > i
+          @open_index = oi - 1
+        end
+        window?.try { |w| acts.try { |a| withdraw_shortcuts w, a } }
+        Widget.destroy_satellite menu
       end
 
       def handle_key_press(e)
@@ -460,9 +554,13 @@ module Crysterm
         # already-cleared collection, leaving every action's shortcut registered
         # on the window forever.
         uninstall_action_shortcuts window?
-        @menus.each { |m| Widget.destroy_satellite m }
+        @menus.each do |m|
+          unwatch_menu_actions m
+          Widget.destroy_satellite m
+        end
         @menus.clear
         @mnemonics.clear
+        @menu_shortcut_actions.clear
         super
       end
     end

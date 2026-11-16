@@ -544,6 +544,9 @@ module Crysterm
         @item_boxes.each_with_index do |itm, i|
           if (a = acts[i]?) && a.separator?
             @separator_items << itm
+            # A reused row box may have been an action row before; as a
+            # separator it must not keep the `::item` rules' box model.
+            itm.remove_css_class "Item"
           else
             itm.add_css_class "Item"
             @disabled_items << itm if a && !a.enabled?

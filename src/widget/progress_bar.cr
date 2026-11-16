@@ -194,9 +194,11 @@ module Crysterm
       # the range. An empty range (`maximum == minimum`) reads as 0. `#percent=`
       # is its inverse.
       def percent : Int32
-        s = span
-        return 0 if s == 0
-        ((@value - @minimum) * 100.0 / s).round.to_i.clamp(0, 100)
+        # In Int64: on a range wider than `Int32::MAX` both differences overflow
+        # Int32, and the saturated `#span` would skew the ratio.
+        s = @maximum.to_i64 - @minimum
+        return 0 if s <= 0
+        ((@value.to_i64 - @minimum) * 100.0 / s).round.to_i.clamp(0, 100)
       end
 
       # Sets the fill from a 0..100 percentage by mapping it back onto the range
@@ -204,7 +206,8 @@ module Crysterm
       def percent=(percent : Int32) : Int32
         # Coerce to float before multiplying: `percent * span` as Int32 × Int32
         # overflows for a range whose `span` exceeds ~21M (at percent=100).
-        self.value = @minimum + (percent.clamp(0, 100).to_f * span / 100.0).round.to_i
+        offset = (percent.clamp(0, 100).to_f * (@maximum.to_i64 - @minimum) / 100.0).round.to_i64
+        self.value = (@minimum.to_i64 + offset).clamp(@minimum.to_i64, @maximum.to_i64).to_i32
         percent
       end
 
@@ -377,12 +380,18 @@ module Crysterm
         ch = e.char
         # Keys don't conflict, so support both regardless of orientation.
         if k == Tput::Key::Left || k == Tput::Key::Down || ch == 'h' || ch == 'j'
-          self.value = @value - @single_step
+          step_value(-@single_step.to_i64)
           e.accept
         elsif k == Tput::Key::Right || k == Tput::Key::Up || ch == 'l' || ch == 'k'
-          self.value = @value + @single_step
+          step_value(@single_step.to_i64)
           e.accept
         end
+      end
+
+      # Moves the value by *delta*, in Int64 so a step past an `Int32` bound
+      # saturates at the range end instead of raising `OverflowError`.
+      private def step_value(delta : Int64) : Nil
+        self.value = (@value.to_i64 + delta).clamp(@minimum.to_i64, @maximum.to_i64).to_i32
       end
     end
   end

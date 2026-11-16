@@ -106,7 +106,9 @@ module Crysterm
       # acknowledgement, so every dismissal closes with `Code::Accepted`
       # (`Event::Accepted`, then `Event::Finished`).
       def open(text, time : Time::Span?, &callback : Proc(Nil))
-        gen = bump_dismiss_gen
+        # Bumps the dismissal generation, retiring the previous timer.
+        supersede_presentation
+        gen = @dismiss_gen
         @dismiss_callback = callback
         @result = Code::Rejected.to_i
         if scrollable?
@@ -252,7 +254,7 @@ module Crysterm
         # The choice buttons carry `Role::Apply`, so the box emits no
         # accept/reject signal — each choice's meaning is its index, wired on its
         # own `Clicked` below.
-        bb = DialogButtonBox.new parent: self, top: 4, left: 1
+        bb = @choice_box = DialogButtonBox.new parent: self, top: 4, left: 1
         choices.each { |label| bb.add_button label, DialogButtonBox::Role::Apply }
         buttons = bb.buttons
 
@@ -277,6 +279,7 @@ module Crysterm
             @cancel.show
             @ok.focus
             bb.destroy
+            @choice_box = nil
             window.restore_focus
             done(idx >= 0 ? Code::Accepted : Code::Rejected)
             # -1 is the internal "dismissed" sentinel (drives the reject code
@@ -323,7 +326,35 @@ module Crysterm
       # honest for both jobs; re-enable with `shrink_to_fit = true` if a caller
       # really wants it.
       private def begin_question : Nil
+        supersede_presentation
         self.shrink_to_fit = false
+      end
+
+      # The button row of a pending `choices:` question.
+      @choice_box : DialogButtonBox? = nil
+
+      # Ends whatever the box was presenting when a new `#open` replaces it: a
+      # notification's keypress dismissal and timer, a question's window
+      # accelerator, OK/Cancel handlers and choice row, and the pending
+      # callbacks (which a superseded presentation no longer answers). Left in
+      # place, the old notification's key handler would swallow the next key
+      # and close the new presentation unanswered, and the old question's
+      # handlers would pile up on the OK/Cancel buttons with every re-open.
+      private def supersede_presentation : Nil
+        @ev_keypress.off
+        bump_dismiss_gen
+        @dismiss_callback = nil
+        @ask_keys.off
+        @ev_ok.try &.off
+        @ev_cancel.try &.off
+        @ev_ok = nil
+        @ev_cancel = nil
+        @ask_block = nil
+        @ask_choices_block = nil
+        @choice_box.try &.destroy
+        @choice_box = nil
+        @ok.hide
+        @cancel.hide
       end
 
       # ---- Dismissal -----------------------------------------------------------

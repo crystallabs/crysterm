@@ -60,7 +60,17 @@ module Crysterm
         end
         emit ::Crysterm::Event::Finished, result
         update!
-        @finished.try &.send result
+        wake_exec result
+      end
+
+      # Hands *result* to a fiber parked in `#exec`, once: the channel is
+      # dropped as it is sent on, so a later close (or `#destroy`) cannot block
+      # on its one-slot buffer.
+      private def wake_exec(result : Int32) : Nil
+        if ch = @finished
+          @finished = nil
+          ch.send result
+        end
       end
 
       # :ditto:
@@ -74,9 +84,11 @@ module Crysterm
       getter? modal : Bool = false
 
       # Sets `#modal`, taking/releasing the window grab. No-op while detached —
-      # `#open` re-applies it once the dialog is on a window.
+      # `#open` re-applies it once the dialog is on a window. Applied even when
+      # the flag is unchanged (both grab calls are idempotent): a detach drops
+      # the window's grab while the flag stays set, and the next `#open` must
+      # take it again.
       def modal=(value : Bool) : Bool
-        return value if @modal == value
         @modal = value
         window?.try { |w| value ? w.add_popup_grab(self) : w.remove_popup_grab(self) }
         value
@@ -238,6 +250,10 @@ module Crysterm
       def destroy
         self.modal = false
         uninstall_dialog_keys
+        # A dialog destroyed while `#exec` waits on it closes as rejected (Qt's
+        # `exec` returns when the dialog is deleted) instead of parking that
+        # fiber forever.
+        wake_exec Code::Rejected.to_i
         super
       end
     end

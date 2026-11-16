@@ -106,11 +106,13 @@ module Crysterm
           style: st,
         )
 
+        # Appended before the index is taken: re-adding a section's widget
+        # detaches it first (`#remove`), dropping its old section.
+        append widget
+
         index = @sections.size
         item = Item.new(title, widget, header)
         item.click.on(header, ::Crysterm::Event::Click) { self.current_index = index }
-
-        append widget
 
         @sections << item
         @pages << widget

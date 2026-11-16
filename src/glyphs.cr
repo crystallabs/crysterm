@@ -85,13 +85,13 @@ module Crysterm
 
       # The full grapheme to use at *tier* (String), falling down to lower
       # tiers when this entry defines none for it. The *run*-role accessor:
-      # returns the stored String reference (allocation-free) except on the
-      # Ascii-tier `ascii`-only fallback, where the single char is boxed.
+      # returns a stored String reference (allocation-free): the tier's own,
+      # or on the fall-down to `ascii` its precomputed String form.
       def str(tier : Tier) : String
         case tier
-        in .extended? then @extended || @unicode || @ascii.to_s
-        in .unicode?  then @unicode || @ascii.to_s
-        in .ascii?    then @ascii.to_s
+        in .extended? then @extended || @unicode || @cell_strs[0]
+        in .unicode?  then @unicode || @cell_strs[0]
+        in .ascii?    then @cell_strs[0]
         end
       end
 

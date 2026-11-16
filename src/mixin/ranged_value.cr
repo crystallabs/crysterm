@@ -382,7 +382,15 @@ module Crysterm
 
       # *value*'s position in `[minimum, maximum]` as a `0..100` percentage.
       def percent_of(value : Float64) : Float64
-        ((value - minimum) / span * 100).clamp(0.0, 100.0)
+        s = span
+        ratio = if s.finite?
+                  (value - minimum) / s
+                else
+                  # The range is wider than `Float64::MAX`: halve the operands so
+                  # the differences stay finite.
+                  (value * 0.5 - minimum * 0.5) / (maximum * 0.5 - minimum * 0.5)
+                end
+        ratio.nan? ? 0.0 : (ratio * 100).clamp(0.0, 100.0)
       end
 
       # Sanitizes a `#set_range` request against the current range, centralizing

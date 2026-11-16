@@ -286,11 +286,14 @@ module Crysterm
       # area beside the tab bar. The first tab added becomes current. Emits
       # `Event::ItemAdded`.
       def add_tab(title : String, page : Widget) : self
-        @tab_titles << title
-        @pages << page
-
+        # Appended before the bookkeeping: re-adding a page this widget already
+        # holds detaches it first (`#remove`), dropping its old tab, so the
+        # re-add is a move that the arrays below see already shrunk.
         layout_page page
         append page
+
+        @tab_titles << title
+        @pages << page
 
         index = @pages.size - 1
 
@@ -316,13 +319,16 @@ module Crysterm
       # and the `StackedWidget`/`Splitter` `insert_widget` siblings return `self`
       # for chaining — a deliberate toolkit deviation, not an oversight.
       def insert_tab(index : Int, title : String, page : Widget) : Int32
+        # Appended first, as in `#add_tab`, so re-inserting a held page is a
+        # move and *index* clamps against the remaining tabs.
+        layout_page page
+        append page
+
         i = index.clamp(0, @pages.size)
         cur = current_widget
 
         @tab_titles.insert i, title
         @pages.insert i, page
-        layout_page page
-        append page
 
         # An insert renumbers every tab at/after *i*, so the bar's items and
         # their index-capturing commands must be rebuilt wholesale — there is no

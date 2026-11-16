@@ -186,13 +186,18 @@ module Crysterm
         # styling.
         private def popup_rows : Array(String)
           trigger = @context.try(&.trigger.to_s) || ""
-          name_w = @matches.max_of(&.name.size) + trigger.size
-          @matches.map do |item|
-            label = Widget.escape_tags "#{trigger}#{item.name}"
+          # Columns, not codepoints, and of the text as shown: an escaped
+          # brace is one column however long its tag.
+          fu = @widget.try(&.full_unicode?) || false
+          labels = @matches.map { |item| "#{trigger}#{item.name}" }
+          name_w = labels.max_of { |label| ::Crysterm::Unicode.str_width label, fu }
+          @matches.map_with_index do |item, i|
+            label = Widget.escape_tags labels[i]
             if item.description.empty?
               label
             else
-              "#{label.ljust(name_w)}  {gray-fg}#{Widget.escape_tags item.description}{/gray-fg}"
+              padded = ::Crysterm::Formatting.ljust label, name_w, fu, labels[i]
+              "#{padded}  {gray-fg}#{Widget.escape_tags item.description}{/gray-fg}"
             end
           end
         end

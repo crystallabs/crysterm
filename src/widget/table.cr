@@ -62,15 +62,17 @@ module Crysterm
       # When true, `#rows=`/`#paint` keep pinning `@width = row_width +
       # ihorizontal` so the box fits every column, but clear it before each
       # remeasure so the pin stays one-way (columns size from content and can
-      # shrink again). When false (a fixed `width:` was given), the width is left
-      # alone and `compute_column_widths` distributes its slack. Captured once,
-      # after `super`.
+      # shrink again). When false (a fixed or percent `width:` was given), the
+      # width is left alone: `compute_column_widths` distributes its slack, and
+      # columns that do not fit are clipped at the box's right edge. Captured
+      # once, after `super`.
       @content_sized = true
 
-      # A `Table` is content-sized: `#paint` pins `@width` so the box always fits
-      # every column and never overflows horizontally. It opts out of horizontal
-      # scrolling entirely — a wide table is just clipped by its parent. For a
-      # scrollable wide table use `Widget::ListTable` instead.
+      # A `Table` is content-sized by default: `#paint` pins `@width` so the box
+      # always fits every column. It opts out of horizontal scrolling entirely —
+      # a table wider than its parent (or than its own explicit `width:`) is
+      # just clipped. For a scrollable wide table use `Widget::ListTable`
+      # instead.
 
       # NOTE: there is deliberately no `data:` parameter — it would collide with
       # the inherited `Widget#data` (`Mixin::Data`'s `UserData?` slot). Pass
@@ -183,6 +185,8 @@ module Crysterm
       # from the current `@rows`, *without* re-normalizing (i.e. re-allocating)
       # them. Shared by `#rows=` and the in-place cell writers.
       protected def rebuild_from_rows : Nil
+        note_css_row_shape
+
         # One-way width pin: for a content-sized table, clear the self-pinned
         # width before remeasuring so `compute_column_widths` sizes columns from
         # content again (its slack branch keys off a non-nil `@width`). Without
@@ -207,8 +211,9 @@ module Crysterm
         # enough: blank separator lines and trailing-space trimming make the
         # measured content width disagree with `@maxes`, leaving the right border
         # ragged. Assigned directly to avoid the `Resize`-before-store recursion
-        # `width=` would trigger via our own `Resize` handler.
-        @width = row_width + ihorizontal
+        # `width=` would trigger via our own `Resize` handler. An explicit
+        # `width:` stays as given.
+        @width = row_width + ihorizontal if @content_sized
 
         text = String.build do |str|
           @rows.each_with_index do |row, ri|
@@ -240,7 +245,7 @@ module Crysterm
         @width = nil if @content_sized
         compute_column_widths
         unless @maxes.empty?
-          @width = row_width + ihorizontal
+          @width = row_width + ihorizontal if @content_sized
           @height = Math.max(0, 2 * @rows.size - 1) + ivertical
         end
 
@@ -363,6 +368,9 @@ module Crysterm
         g_cross = glyph Glyphs::Role::JunctionCross
         ytop = grid_top coords
         rows_n = @rows.size
+        # Column boundaries past the interior belong to columns an explicit
+        # `width:` clips; stamping them would overwrite the right inset.
+        inner_xl = coords.xl - iright
 
         ry = 0
         while ry <= rows_n * 2
@@ -401,13 +409,13 @@ module Crysterm
           # left of the screen are skipped, not stamped wrapped at the
           # buffer's right end.
           if internal
-            each_junction_cell(line, xi, right_limit: coords.xl) do |jcell|
+            each_junction_cell(line, xi, right_limit: inner_xl) do |jcell|
               jcell.attr = junction_attr(battr, ry <= 2 ? hattr : cattr)
               jcell.char = g_cross
               jcell.mark_dirty
             end
           else
-            draw_edge_junctions line, xi, battr, top: ry == 0, right_limit: coords.xl
+            draw_edge_junctions line, xi, battr, top: ry == 0, right_limit: inner_xl
           end
 
           ry += 2
@@ -439,7 +447,19 @@ module Crysterm
         # (`sum(@maxes) + last` — the column contents plus the one-column
         # separators between them; see `#row_width`).
         edge = xi + ileft + row_width - 1
-        if 0 <= edge < right_limit && (cell = line[edge]?)
+        if edge >= right_limit - iright
+          # The row runs past the interior (an explicit `width:` narrower than
+          # the columns): it is clipped there, and the rule ends on the box's
+          # own right border — when that border is the visible right edge, not
+          # where an ancestor clips the box.
+          bx = right_limit - 1
+          if internal && !@content_sized && border.right > 0 && right_limit == xi + awidth &&
+             bx >= 0 && (cell = line[bx]?)
+            cell.attr = battr
+            cell.char = Glyphs[Glyphs::Role::JunctionTeeRight, tier]
+            cell.mark_dirty
+          end
+        elsif edge >= 0 && (cell = line[edge]?)
           cell.attr = battr
           cell.char = g_h if internal
           cell.mark_dirty
@@ -463,7 +483,7 @@ module Crysterm
           if ry.odd?
             draw_vertical_separators line, xi, battr, width: width
           else
-            draw_horizontal_rule line, xi, battr, right_limit: coords.xl
+            draw_horizontal_rule line, xi, battr, right_limit: coords.xl - iright
           end
         end
       end

@@ -124,13 +124,13 @@ module Crysterm
       # The date part, at the beginning of its day (Qt's `QDateTimeEdit#date`);
       # the same type `DateEdit#date` answers with.
       def date : Time
-        @datetime.at_beginning_of_day
+        date_time.at_beginning_of_day
       end
 
       # Replaces the date part, keeping the current time of day (Qt's
       # `setDate`). Clamped through `#date_time=`.
       def date=(value : Time) : Time
-        self.date_time = value.at_beginning_of_day + @datetime.time_of_day
+        self.date_time = at_time_of_day(value, date_time.time_of_day)
         date
       end
 
@@ -139,14 +139,14 @@ module Crysterm
       # stand-in, and unlike a full `Time` it cannot be confused with
       # `#date_time`).
       def time : Time::Span
-        @datetime.time_of_day
+        date_time.time_of_day
       end
 
       # Replaces the time of day, keeping the current date (Qt's `setTime`).
       # Clamped through `#date_time=`.
       def time=(value : Time::Span) : Time::Span
-        self.date_time = @datetime.at_beginning_of_day + value
-        time
+        self.date_time = at_time_of_day(date_time, value)
+        date_time.time_of_day
       end
 
       # :ditto: — convenience overload taking *value*'s time of day, so a
@@ -157,6 +157,15 @@ module Crysterm
 
       private def section_count : Int32
         show_seconds? ? 6 : 5
+      end
+
+      # *day*'s calendar date at wall-clock *time_of_day*, in *day*'s zone.
+      # Built from components rather than `at_beginning_of_day + span`, which
+      # adds absolute time and so lands an hour off on a DST-transition day.
+      private def at_time_of_day(day : Time, time_of_day : Time::Span) : Time
+        wall = Time.utc(day.year, day.month, day.day) + time_of_day
+        Mixin::SectionedField.build_time(wall.year, wall.month, wall.day, wall.hour, wall.minute, wall.second, location: day.location) +
+          wall.nanosecond.nanoseconds
       end
 
       # Inclusive section end-columns for `YYYY-MM-DD HH:MM:SS` (19 cols) and

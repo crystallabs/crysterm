@@ -49,6 +49,11 @@ module Crysterm
       @menu : Menu?
       # Wheel-cycling position over the menu's activatable actions.
       @menu_index : Int32 = 0
+      # Whether `@menu` is up as a popup (between its `AboutToShow` and
+      # `AboutToHide`), as opposed to merely visible — a menu is visible from
+      # construction until something hides it.
+      @menu_popped = false
+      @menu_watch = ::Crysterm::Subscriptions.new
 
       def initialize(
         default_action : Action? = nil,
@@ -127,11 +132,23 @@ module Crysterm
         # auto-dismisses it. Instead the click reaches `#handle_click` and toggles it
         # shut — otherwise the outside-dismiss closes it and the same click
         # reopens it.
-        m.try { |mm| mm.treat_as_inside { |x, y| contains_point? x, y } }
+        @menu_watch.off
+        @menu_popped = false
+        m.try do |mm|
+          mm.treat_as_inside { |x, y| contains_point? x, y }
+          @menu_watch.on(mm, ::Crysterm::Event::AboutToShow) { @menu_popped = true }
+          @menu_watch.on(mm, ::Crysterm::Event::AboutToHide) { @menu_popped = false }
+        end
         # Re-stamp the current label so attaching/clearing a menu adds/removes
         # the `▾`.
         self.text = text
         m
+      end
+
+      # The menu outlives the button; drop the handlers watching it.
+      def destroy
+        @menu_watch.off
+        super
       end
 
       # Opens the popup menu directly below the button (no-op without a menu or
@@ -173,7 +190,7 @@ module Crysterm
       # (`handle_*`, not `on_*` — see `AbstractButton#handle_click`.)
       def handle_click(e)
         if (m = @menu)
-          if m.visible?
+          if @menu_popped && m.visible?
             m.hide_popup
           else
             focus

@@ -225,8 +225,8 @@ module Crysterm
       end
 
       # Creates a submenu action labeled *text* holding *actions* (empty by
-      # default — fill it later through the returned action's `#menu`), appends
-      # it, and returns it.
+      # default — fill it later through the returned action's
+      # `Action#add_menu_action`), appends it, and returns it.
       #
       # NOT named `add_menu`, though Qt's `QMenu#addMenu` is the counterpart:
       # `Widget::MenuBar#add_menu` builds and returns a real, persistent `Menu`

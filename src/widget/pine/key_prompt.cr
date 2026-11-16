@@ -143,7 +143,7 @@ module Crysterm
 
           unless @question.empty?
             q = Widget::Box.new(
-              window: window, height: 1, width: @question.size + 1, content: @question,
+              window: window, height: 1, width: str_width(@question) + 1, content: @question,
             )
             append q
             @cells << q
@@ -152,7 +152,7 @@ module Crysterm
           @choices.each do |choice|
             content = format_entry(choice)
             # Visible width: " key " + " label" (tags add no columns), + a gap.
-            width = choice.key.size + choice.label.size + 5
+            width = str_width(choice.key) + str_width(choice.label) + 5
             box = Widget::Box.new(
               window: window, height: 1, width: width,
               parse_tags: true, content: content, focus_on_click: false,

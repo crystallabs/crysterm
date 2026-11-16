@@ -278,8 +278,8 @@ module Crysterm
           @ymin = 0.0 unless @ymin.finite?
           @ymax = 1.0 unless @ymax.finite?
           # Guard against zero spans (single point / flat data).
-          @xmax = @xmin + 1.0 if @xmax <= @xmin
-          @ymax = @ymin + 1.0 if @ymax <= @ymin
+          @xmax = Scale.span_top @xmin, @xmax
+          @ymax = Scale.span_top @ymin, @ymax
         end
 
         # Refills `@x_ticks`/`@y_ticks` and their parallel label strings in place,

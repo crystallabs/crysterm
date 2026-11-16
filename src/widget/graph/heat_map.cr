@@ -312,7 +312,7 @@ module Crysterm
             m = Math.max(lo.abs, hi.abs)
             lo, hi = -m, m
           end
-          hi = lo + 1.0 if hi <= lo
+          hi = Scale.span_top lo, hi
           @bounds = {lo, hi}
         end
 

@@ -104,8 +104,10 @@ module Crysterm
           # Reserve two cells for the leading indicator and one trailing space.
           avail = @col_width - lead.size - count.size - 1
           avail = 1 if avail < 1
-          name = name.size > avail ? "#{name[0, avail - 1]}~" : name
-          "#{lead}#{name.ljust(avail)} #{count}"
+          # Cut and padded by columns: a wide (CJK) name still leaves the
+          # count in its column.
+          name = "#{head_within(name, avail - 1)}~" if str_width(name) > avail
+          "#{lead}#{Crysterm::Formatting.ljust(name, avail, full_unicode?)} #{count}"
         end
       end
     end

@@ -283,6 +283,12 @@ module Crysterm
       # Cells that both parse as numbers compare numerically; otherwise they
       # compare as tag-stripped text. Re-applies the current sort whenever data
       # is set.
+      #
+      # The sort is stable, and the selection follows its records (as Qt's
+      # persistent model indexes do across `QTableWidget#sortItems`): the
+      # current row and every multi-selected row stay on the records they were
+      # on, and the view scrolls only as far as keeping the current row visible
+      # needs.
       def sort_by_column(column : Int32, order : SortOrder = :ascending)
         @sort_column = column
         @sort_descending = order.descending?
@@ -295,7 +301,10 @@ module Crysterm
       # Does NOT call `#rows=` — both `sort_by_column` and the tail of
       # `#rows=` call it, so calling `#rows=` here would recurse forever.
       # A no-op when no sort is active or the table has at most one body row.
-      private def apply_sort : Nil
+      #
+      # Returns the permutation applied — for each new row position, the index
+      # the row sat at before — or `nil` when the order is untouched.
+      private def apply_sort : Array(Int32)?
         col = @sort_column
         return unless col
         return if @rows.size <= 2
@@ -326,6 +335,7 @@ module Crysterm
         order << 0
         keyed.each { |k| order << k[3] }
         reorder_cell_widths order
+        order
       end
 
       # Compares two precomputed cell keys. When both cells parse as numbers they
@@ -462,6 +472,12 @@ module Crysterm
         sel = @ritems[current_index]?
         prev_selected = current_index
         prev_count = @ritems.size
+        # A re-sort or re-layout of the data already held (as opposed to new
+        # data): row positions then map one-to-one through the sort's
+        # permutation, so the selection can follow its records exactly.
+        same_data = rows.same?(@rows)
+        prev_record = @rows[prev_selected]?
+        prev_marked = same_data && !@selected_indices.empty? ? @selected_indices.to_a : nil
 
         # One-way width pin: for a content-sized table, clear the self-pinned
         # width before remeasuring so `compute_column_widths` sizes columns from
@@ -491,7 +507,7 @@ module Crysterm
         # preserved across every data change, not just an explicit
         # `sort_by_column` call. Reorders `@rows` in place (no `#rows=`, to
         # avoid recursion).
-        apply_sort
+        order = apply_sort
 
         # Keep the horizontal offset valid across a data change (fewer columns),
         # and re-derive its display-column offset.
@@ -531,17 +547,45 @@ module Crysterm
         self.items = items
         header.to_front
 
-        # Try to keep the previous selection. When the row count is unchanged
-        # (e.g. an in-place re-sort or reslice), restore by numeric index: a
-        # value-based lookup can resolve an empty/duplicate cell to the wrong
-        # row — including item 0, the header spacer `""`. Fall back to the
-        # value-based lookup only when the row count changed.
-        if @ritems.size == prev_count && prev_selected < @ritems.size
+        # Keep the selection on its record. Re-sorted held data maps exactly
+        # through the permutation, the multi-selection with it. New data
+        # arriving under an active sort has no positions in common with the
+        # old, so the current record is looked up by content; one no longer
+        # present falls through to the positional rules below.
+        followed =
+          if same_data
+            order ? order.index(prev_selected) : nil
+          elsif @sort_column && prev_selected > 0 && prev_record
+            @rows.index(prev_record).try { |i| i > 0 ? i : nil }
+          end
+
+        # Otherwise, when the row count is unchanged (e.g. a reslice), restore
+        # by numeric index: a value-based lookup can resolve an empty/duplicate
+        # cell to the wrong row — including item 0, the header spacer `""`.
+        # Fall back to the value-based lookup only when the row count changed.
+        if followed && followed < @ritems.size
+          self.current_index = followed
+        elsif @ritems.size == prev_count && prev_selected < @ritems.size
           self.current_index = prev_selected
         elsif sel && (i = @ritems.index(sel))
           self.current_index = i
         else
           self.current_index = Math.min(current_index, @item_boxes.size - 1)
+        end
+
+        # `#items=` drops the multi-selection (a wholesale replace); the same
+        # records in a new order keep theirs.
+        if prev_marked
+          size = @ritems.size
+          moved = order.try do |o|
+            inverse = Array(Int32).new(o.size, 0)
+            o.each_with_index { |from, to| inverse[from] = to }
+            inverse
+          end
+          prev_marked.each do |old|
+            i = moved ? moved[old]? : old
+            @selected_indices << i if i && 0 < i < size
+          end
         end
       end
 

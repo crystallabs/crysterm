@@ -38,6 +38,12 @@ module Crysterm
             @text = text_source.call
             super
           end
+
+          # Whether a run is in progress: animating, or paused while hidden
+          # or detached (and resumed on the next show/attach).
+          def active? : Bool
+            running? || @animation_paused
+          end
         end
 
         # The busy spinner, shown over the strip while running (`#busy`).
@@ -129,9 +135,10 @@ module Crysterm
           @spinner.start busy_line
         end
 
-        # Whether the busy spinner is currently shown and animating.
+        # Whether the busy spinner is running, including while paused by a
+        # hidden or detached status line.
         def busy? : Bool
-          @spinner.running?
+          @spinner.active?
         end
 
         # Leaves the busy state: stops and hides the spinner, revealing the

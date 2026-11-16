@@ -269,7 +269,9 @@ module Crysterm
         # Formats one attachment row, Mutt-style.
         private def format_attachment(a : Attachment, index : Int32) : String
           # Filenames are external data on a tag-parsing menu: escape braces.
-          "  #{(index + 1).to_s.rjust(2)} #{Widget.escape_tags(a.filename).ljust(24)} [#{a.mime_type}, #{Crysterm::Formatting.human_size(a.size)}]"
+          # The name column is padded by what shows, not by the escaped text.
+          name = Crysterm::Formatting.ljust Widget.escape_tags(a.filename), 24, full_unicode?, a.filename
+          "  #{(index + 1).to_s.rjust(2)} #{name} [#{a.mime_type}, #{Crysterm::Formatting.human_size(a.size)}]"
         end
       end
     end

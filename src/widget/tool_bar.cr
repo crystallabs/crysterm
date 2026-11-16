@@ -163,7 +163,7 @@ module Crysterm
         box = super
         if box && (act = @item_actions.delete(box))
           unwatch_action act
-          window?.try { |w| act.uninstall_shortcut w }
+          window?.try { |w| act.uninstall_shortcut w, self }
         end
         box
       end
@@ -174,7 +174,7 @@ module Crysterm
       # one through `#remove_item`, so the same action teardown as there is run
       # here first, over every button this bar currently owns.
       def items=(commands : Array(Mixin::ActionBar::Command))
-        window?.try { |w| @item_actions.each_value &.uninstall_shortcut(w) }
+        window?.try { |w| @item_actions.each_value &.uninstall_shortcut(w, self) }
         unwatch_all_actions
         @item_actions.clear
         super

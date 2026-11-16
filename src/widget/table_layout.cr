@@ -48,15 +48,16 @@ module Crysterm
     # nothing relevant changed.
     @maxes_dirty : Bool = true
 
-    # The `{@width, ihorizontal, @column_spacing}` under which `@maxes` was last
-    # computed. `ihorizontal` (border/padding insets) has no setter that trips
-    # `@maxes_dirty` and changes silently when the CSS cascade first runs (after
-    # the constructor's `#rows=`, with no `Resize` since the outer `@width` is
-    # unchanged), so the dirty flag alone would leave the fixed-width slack
-    # distributed over the pre-cascade interior. Comparing the key recomputes
+    # The `{@width, ihorizontal, @column_spacing, interior width}` under which
+    # `@maxes` was last computed. `ihorizontal` (border/padding insets) has no
+    # setter that trips `@maxes_dirty` and changes silently when the CSS cascade
+    # first runs (after the constructor's `#rows=`, with no `Resize` since the
+    # outer `@width` is unchanged), so the dirty flag alone would leave the
+    # fixed-width slack distributed over the pre-cascade interior; a percent
+    # width's interior moves with the parent. Comparing the key recomputes
     # exactly when a dependency moved; for content-sized tables `@width` is nil
     # and the key stays stable, so the cache still hits every frame.
-    @maxes_key : Tuple(Dim | Int32 | String?, Int32, Int32)? = nil
+    @maxes_key : Tuple(Dim | Int32 | String?, Int32, Int32, Int32?)? = nil
 
     # Extra padding added to each column when the table is sized to its
     # content (i.e. when no fixed `width` is set).
@@ -89,12 +90,13 @@ module Crysterm
     # alignment.
     Crystallabs::Helpers::Enums.enum_property cell_align : Tput::AlignFlag = Tput::AlignFlag::Center
 
-    # Computes per-column widths from the current `@rows`. When a fixed numeric
-    # `width` is set and large enough, the slack is distributed evenly across
-    # columns; otherwise each column is sized to its widest cell plus
-    # `@column_spacing`.
+    # Computes per-column widths from the current `@rows`. When an explicit
+    # `width` (fixed or percent) is set and large enough, the slack is
+    # distributed evenly across columns; otherwise each column is sized to its
+    # widest cell plus `@column_spacing`.
     def compute_column_widths
-      key = {@width, ihorizontal, @column_spacing}
+      inner = explicit_inner_width
+      key = {@width, ihorizontal, @column_spacing, inner}
       return @maxes if !@maxes_dirty && @maxes_key == key
       @maxes_dirty = false
       @maxes_key = key
@@ -130,7 +132,7 @@ module Crysterm
       # Targeting the full width leaves `row_width` one short, and `Table#rows=`'s
       # `@width = row_width + ihorizontal` then grows the table by `ihorizontal -
       # 1` columns per call — a feedback loop.
-      if (inner = numeric_inner_width) && inner >= min_row
+      if inner && inner >= min_row
         missing = inner - min_row
         per = missing // maxes.size
         rem = missing % maxes.size
@@ -144,10 +146,16 @@ module Crysterm
       @maxes = maxes
     end
 
-    # The interior content width when a fixed numeric `width` is set, i.e. the
-    # box width minus the border/padding insets the columns render inside of.
-    private def numeric_inner_width : Int32?
-      (w = @width).is_a?(Int32) ? w - ihorizontal : nil
+    # The interior content width when an explicit `width` is set, i.e. the box
+    # width minus the border/padding insets the columns render inside of. A
+    # non-numeric width (a percentage) resolves against the parent, so it has
+    # no value until the widget is on a window.
+    private def explicit_inner_width : Int32?
+      case w = @width
+      when Int32 then w - ihorizontal
+      when Nil   then nil
+      else            window? ? awidth - ihorizontal : nil
+      end
     end
 
     # Visible display width of a cell in terminal columns, with `{...}` tags

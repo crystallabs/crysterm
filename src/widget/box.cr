@@ -42,11 +42,13 @@ module Crysterm
       end
 
       # Low-level text stamp under `#draw_text_run` and the graph overlay's
-      # `put_text`: writes `text` one glyph per cell into the window row at
-      # `y`, starting at column `x` and clipped to the half-open column range
-      # `[lo, hi)`, then marks exactly the stamped span dirty. With a non-nil
-      # `attr` each touched cell's attribute is set too; otherwise only the
-      # glyph is written.
+      # `put_text`: writes `text` into the window row at `y`, starting at
+      # column `x` and clipped to the half-open column range `[lo, hi)`, then
+      # marks exactly the stamped span dirty. One codepoint per cell; under
+      # `#full_unicode?` one grapheme cluster per cell instead, a wide one
+      # taking a lead and a continuation cell (see `#stamp_grapheme_run`).
+      # With a non-nil `attr` each touched cell's attribute is set too;
+      # otherwise only the glyph is written.
       protected def stamp_text_run(y : Int32, x : Int32, text : String, lo : Int32, hi : Int32, attr : Int64? = nil) : Nil
         # Negative indices would wrap (`Indexable#[]?` accepts them), stamping
         # text onto the far end of other rows for a widget partly off the
@@ -55,17 +57,67 @@ module Crysterm
         return if y < 0
         lo = 0 if lo < 0
         window.cell_rows[y]?.try do |line|
-          text.each_char_with_index do |ch, i|
-            cx = x + i
-            break if cx >= hi
-            next if cx < lo
-            line[cx]?.try do |cell|
-              cell.char = ch
-              cell.attr = attr unless attr.nil?
+          # ASCII text is one column per codepoint in either mode.
+          if full_unicode? && !text.ascii_only?
+            stamp_grapheme_run line, x, text, lo, hi, attr
+          else
+            text.each_char_with_index do |ch, i|
+              cx = x + i
+              break if cx >= hi
+              next if cx < lo
+              line[cx]?.try do |cell|
+                cell.char = ch
+                cell.attr = attr unless attr.nil?
+              end
+            end
+            line.mark_dirty_range Math.max(x, lo), Math.min(x + text.size - 1, hi - 1)
+          end
+        end
+      end
+
+      # The `#full_unicode?` arm of `#stamp_text_run`, laying `text` out by
+      # grapheme cluster and display width, as `Widget#base_render` lays out
+      # content: a 2-column cluster takes a lead cell plus a continuation
+      # cell, a zero-width one merges into the glyph stamped before it (and
+      # is dropped when there is none), and a wide glyph cut by either clip
+      # edge or the row's end leaves a blank in the column that is inside.
+      private def stamp_grapheme_run(line, x : Int32, text : String, lo : Int32, hi : Int32, attr : Int64?) : Nil
+        cx = x
+        lead = nil
+        text.each_grapheme do |g|
+          break if cx >= hi
+          w = ::Crysterm::Unicode.width g
+          if w == 0
+            lead.try { |prev| prev.grapheme = prev.grapheme + g.to_s }
+            next
+          end
+          lead = nil
+          if w == 2 && cx >= lo && cx + 1 < hi && (cell = line[cx]?) && (nxt = line[cx + 1]?)
+            cell.grapheme = g.to_s
+            nxt.continuation!
+            unless attr.nil?
+              cell.attr = attr
+              nxt.attr = attr
+            end
+            lead = cell
+          else
+            w.times do |i|
+              c = cx + i
+              next if c < lo || c >= hi
+              line[c]?.try do |part|
+                if w == 1
+                  part.grapheme = g.to_s
+                  lead = part
+                else
+                  part.char = ' '
+                end
+                part.attr = attr unless attr.nil?
+              end
             end
           end
-          line.mark_dirty_range Math.max(x, lo), Math.min(x + text.size - 1, hi - 1)
+          cx += w
         end
+        line.mark_dirty_range Math.max(x, lo), Math.min(cx - 1, hi - 1)
       end
 
       # Low-level single-cell stamp under `#put_cell` and the graph overlay's
@@ -86,17 +138,20 @@ module Crysterm
         end
       end
 
-      # Stamps `text` into the window row at `y`, one glyph per cell starting at
-      # column `x` and stopping before `xl`. With a non-nil `attr` each touched
-      # cell's attribute is set too; otherwise only the glyph is written.
+      # Stamps `text` into the window row at `y`, starting at column `x` and
+      # stopping before `xl` (see `#stamp_text_run`). With a non-nil `attr`
+      # each touched cell's attribute is set too; otherwise only the glyph is
+      # written.
       protected def draw_text_run(y : Int32, x : Int32, text : String, xl : Int32, attr : Int64? = nil) : Nil
         stamp_text_run y, x, text, 0, xl, attr
       end
 
-      # Centers `text` horizontally within `[xi, xl)` on row `y`, then stamps it
+      # Centers `text` horizontally within `[xi, xl)` on row `y` (by display
+      # width under `#full_unicode?`, else by codepoint count), then stamps it
       # via `#draw_text_run` (clamping to `xl` and carrying `attr` the same way).
       protected def draw_centered_text(y : Int32, xi : Int32, xl : Int32, text : String, attr : Int64? = nil) : Nil
-        cx = xi + Math.max(0, (xl - xi - text.size) // 2)
+        tw = full_unicode? ? ::Crysterm::Unicode.display_width(text) : text.size
+        cx = xi + Math.max(0, (xl - xi - tw) // 2)
         draw_text_run y, cx, text, xl, attr
       end
 

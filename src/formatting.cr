@@ -26,6 +26,17 @@ module Crysterm
       Crystallabs::Helpers::Format.truncate str, len, '~'
     end
 
+    # Left-justifies *text* to *cols* terminal columns by appending spaces:
+    # `String#ljust` measured in display width (`Unicode.str_width` under
+    # *full_unicode*) rather than codepoints, so wide (CJK, emoji) text keeps
+    # its column. *measure* is the text whose width counts, for a *text*
+    # carrying markup the terminal never shows — pass the original of a
+    # brace-escaped string.
+    def self.ljust(text : String, cols : Int32, full_unicode : Bool, measure : String = text) : String
+      pad = cols - Unicode.str_width(measure, full_unicode)
+      pad > 0 ? text + " " * pad : text
+    end
+
     # Escapes literal braces so untrusted text can't inject `{}` content tags
     # (`{` → `{open}`, `}` → `{close}` — single pass, so the braces of an
     # inserted `{open}` are never themselves re-escaped). The canonical

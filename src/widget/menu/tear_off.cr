@@ -649,6 +649,7 @@ module Crysterm
       # ghost and a plain click still arrives as `Event::Click`. It never takes
       # keyboard focus (not keyable), and sits inside the menu's rectangle, so
       # the menu's modal grab counts a press on it as inside.
+      @[Crysterm::DOM::Skip]
       class TearOffHandle < Box
         # The menu border this strip sits on: `Side::Top` or `Side::Bottom`.
         getter edge : ::Crysterm::Side

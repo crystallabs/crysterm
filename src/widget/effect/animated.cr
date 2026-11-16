@@ -99,6 +99,13 @@ module Crysterm
             on(::Crysterm::Event::Show) { resume_animation }
             on(::Crysterm::Event::Attached) { resume_animation }
           end
+          # Started while hidden or detached: no Hide/Detached event is coming
+          # to pause the clock, so wait for Show/Attached instead of ticking
+          # unseen.
+          unless resume_allowed?
+            @animation_paused = true
+            return
+          end
           anim = FrameClock.ticker(@interval) do
             step
             update!
@@ -124,7 +131,8 @@ module Crysterm
         end
 
         def toggle
-          running? ? stop : start
+          # A run paused for visibility counts as on, so toggling ends it.
+          (running? || @animation_paused) ? stop : start
         end
 
         # Stops the clock for visibility (called from the one-time

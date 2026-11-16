@@ -404,12 +404,13 @@ module Crysterm
 
           nrows.times do |r|
             if weeks
-              row_date = first.shift(days: r * 7 - lead)
-              # The row's Thursday can land in January 10000 (last grid row of
-              # December 9999, the default `@maximum_date`), outside Crystal's
-              # `Time` range: blank the gutter rather than crash the render.
+              # Shifted straight to the row's Thursday: the row's first cell can
+              # land in year 0 (first grid row of January 1). The Thursday itself
+              # can land in January 10000 (last grid row of December 9999, the
+              # default `@maximum_date`), outside Crystal's `Time` range: blank
+              # the gutter rather than crash the render.
               week = begin
-                (row_date + thursday_offset.days).calendar_week[1]
+                first.shift(days: r * 7 - lead + thursday_offset).calendar_week[1]
               rescue ArgumentError
                 nil
               end

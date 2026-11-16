@@ -16,6 +16,16 @@ module Crysterm
         # interior of a stacked segment).
         FULL = '█'
 
+        # The upper bound to pair with *min* so a range has a usable span:
+        # *max* when it lies above *min*, else *min* raised by one unit — or,
+        # at magnitudes where one unit is below `Float64` resolution, by a
+        # relative step. For flat data and single points.
+        def self.span_top(min : Float64, max : Float64) : Float64
+          return max if max > min
+          top = min + Math.max(1.0, min.abs * 1e-9)
+          top.finite? ? top : Float64::MAX
+        end
+
         # Number of filled eighth-cells (`0 .. cells*8`) representing `value` on
         # a `[min, max]` scale that spans `cells` whole character cells.
         def self.eighths(value : Float64, min : Float64, max : Float64, cells : Int32) : Int32

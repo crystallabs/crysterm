@@ -261,6 +261,8 @@ module Crysterm
         # `value_span` saturates at `Int32::MAX` for a full-span range, so
         # `+ @page_step` and `avail * @page_step` must widen to Int64 or overflow.
         total = value_span.to_i64 + @page_step
+        # A negative `#page_step` can cancel the span: no ratio to take.
+        return avail if total <= 0
         size = (avail.to_i64 * @page_step / total.to_f).round.to_i
         size.clamp(Math.min(@min_thumb, avail), avail)
       end

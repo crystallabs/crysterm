@@ -300,11 +300,14 @@ module Crysterm
         arr = texts.to_a
         return if arr.empty?
         was = current_state
-        arr.each do |text|
-          @options.push text
-          @selected = 0 if @options.size == 1
+        first = @options.empty?
+        @options.concat arr
+        # Only a first arrival changes the value, as in `#insert_item`: an
+        # editable box's free text stays when options are appended to it.
+        if first
+          @selected = 0
+          @value = @options[0]
         end
-        @value = @options[@selected]
         refresh_options was
       end
 
@@ -335,6 +338,9 @@ module Crysterm
         return unless 0 <= index < @options.size
         was = current_state
         i = index.to_i
+        # An editable box's free text (a value that is not the current option)
+        # survives the removal of any other option.
+        free_text = editable? && i != @selected && @options[@selected]? != @value
         text = @options.delete_at i
         # Removing *before* the current option shifts it left. Removing the
         # current one itself leaves the index on its successor (Qt's behavior),
@@ -343,7 +349,7 @@ module Crysterm
         @selected = @selected.clamp(0, Math.max(0, @options.size - 1))
         # An editable box may be showing free text that was never an option;
         # emptying the list must not silently blank it.
-        @value = @options[@selected]? || (editable? ? @value : "")
+        @value = @options[@selected]? || (editable? ? @value : "") unless free_text
         refresh_options was
         text
       end

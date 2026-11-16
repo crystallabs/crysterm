@@ -243,18 +243,28 @@ module Crysterm
         return restore_disabled_children if checked?
         @children.each do |c|
           next if c.same? @label_widget
+          # A child already disabled — by the application, or by an earlier
+          # pass — is not the group's to re-enable later.
+          next if c.state.disabled?
           c.state = :disabled
+          @greyed << c
         end
       end
 
-      # Restores children that were greyed out (currently `:disabled`) back to
-      # `:normal`, leaving the auto-created label and any child in some other
-      # state (focus, hover, selection) alone.
+      # The children `#apply_enabled` greyed out, the only ones
+      # `#restore_disabled_children` brings back: a child the application
+      # disabled itself stays disabled, as Qt's `QGroupBox` leaves a widget
+      # explicitly disabled.
+      @greyed = [] of Widget
+
+      # Restores the children the group greyed out (still `:disabled` and
+      # still in the group) back to `:normal`, leaving the auto-created label
+      # and any child in some other state (focus, hover, selection) alone.
       private def restore_disabled_children
-        @children.each do |c|
-          next if c.same? @label_widget
-          c.state = :normal if c.state.disabled?
+        @greyed.each do |c|
+          c.state = :normal if c.state.disabled? && c.parent.same?(self)
         end
+        @greyed.clear
       end
     end
   end

@@ -96,8 +96,14 @@ module Crysterm
         # Replaces the displayed items, clearing any checked state and rebuilding
         # the rows.
         def options=(options : Array(T))
-          @checked_indices.clear
           self.records = options
+        end
+
+        # Replaces the displayed items (see `#options=`). The checked set holds
+        # row indices into the old items, so it is cleared.
+        def records=(data : Array(T))
+          @checked_indices.clear
+          super
         end
 
         # The items the user has checked, in list order (multi mode). In single
