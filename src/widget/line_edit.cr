@@ -114,8 +114,9 @@ module Crysterm
           return
         end
         # Single-line, so Up/Down can't move between rows — repurposed to walk
-        # the input history.
-        if history_keys?
+        # the input history. Recalling an entry replaces the text, which a
+        # read-only field does not let the keyboard do.
+        if history_keys? && !read_only?
           if e.key == Tput::Key::Up
             e.accept
             kill_ring.interrupt if Crysterm::Config.input_readline_keys
@@ -364,8 +365,9 @@ module Crysterm
       private def expanded_value : String
         # No tabs ⇒ the value is already its own expansion; skip the scan/alloc
         # (this runs several times per frame per visible field).
-        return @value unless @value.includes?('\t')
-        @value.gsub('\t', style.tab_char * style.tab_size)
+        value = Unicode.picture_controls(@value)
+        return value unless value.includes?('\t')
+        value.gsub('\t', style.tab_char * style.tab_size)
       end
 
       # Caret's *display* column within the shown window (see `#compute_display`).

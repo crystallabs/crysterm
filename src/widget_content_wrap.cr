@@ -2,12 +2,13 @@ module Crysterm
   class Widget
     # Single-pass content sanitization shared by `process_content` (whole
     # content) and `append_content` (appended segment only): strips control
-    # characters and a stray ESC (not starting an SGR sequence), normalizes
-    # CR/CRLF to LF, and expands TAB to `tab_char * tab_size`. Allocation-free on
-    # tab-free, match-free input.
+    # characters (C0, DEL, and C1 — a terminal acts on U+009B as CSI) and a
+    # stray ESC (not starting an SGR sequence), normalizes CR/CRLF to LF, and
+    # expands TAB to `tab_char * tab_size`. Allocation-free on tab-free,
+    # match-free input.
     private def clean_content_chars(text : String) : String
       tab = text.includes?('\t') ? style.tab_char * style.tab_size : ""
-      text.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
+      text.gsub(/[\x00-\x08\x0b-\x0c\x0e-\x1a\x1c-\x1f\x7f-\x9f]|\e(?!\[[\d;]*m)|\r\n|\r|\t/) do |m|
         case m
         when "\r\n", "\r" then "\n"
         when "\t"         then tab

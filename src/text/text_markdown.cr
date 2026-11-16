@@ -399,8 +399,14 @@ module Crysterm
       HTML_CLOSE_1_5 = Markd::Rule::HTML_BLOCK_CLOSE
 
       # Everything appended and not yet released — the tail the next `#append`
-      # continues scanning from.
-      getter pending : String = ""
+      # continues scanning from. A growable buffer, so a chunk costs its own
+      # size however long the unreleased tail is.
+      @pending = IO::Memory.new
+
+      # :ditto: (as a string).
+      def pending : String
+        @pending.to_s
+      end
 
       # The 1-based line, counted over everything released so far, that the
       # piece `#append` or `#flush` last returned starts on: what a consumer
@@ -458,7 +464,7 @@ module Crysterm
           return if chunk.empty?
         end
         @after_cr = chunk.ends_with?('\r')
-        @pending += TextDocument.normalize_line_breaks(chunk)
+        @pending << TextDocument.normalize_line_breaks(chunk)
         scan
         release
       end
@@ -468,7 +474,7 @@ module Crysterm
       # when nothing but whitespace is pending (a pure-blank tail parses to
       # nothing).
       def flush : String?
-        rest = @pending
+        rest = pending
         reset
         @piece_line = @released_lines + 1
         @released_lines += rest.count('\n')
@@ -476,7 +482,7 @@ module Crysterm
       end
 
       private def reset : Nil
-        @pending = ""
+        @pending = IO::Memory.new
         @piece_seam = nil
         @after_cr = false
         @scan_pos = 0
@@ -492,8 +498,9 @@ module Crysterm
 
       # Classifies every newly complete line.
       private def scan : Nil
-        while nl = @pending.byte_index('\n'.ord, @scan_pos)
-          line = @pending.byte_slice(@scan_pos, nl - @scan_pos)
+        bytes = @pending.to_slice
+        while nl = bytes.index('\n'.ord.to_u8, @scan_pos)
+          line = String.new(bytes[@scan_pos, nl - @scan_pos])
           @scan_pos = nl + 1
           classify(line, @scan_pos)
         end
@@ -506,12 +513,15 @@ module Crysterm
       # the text before it — so every proposal is dropped here either way.
       private def release : String?
         seam = nil
-        b = @boundaries.reverse_each.find { |c| seam = TextMarkdown.seam(@pending.byte_slice(0, c)) }
+        bytes = @pending.to_slice
+        b = @boundaries.reverse_each.find { |c| seam = TextMarkdown.seam(String.new(bytes[0, c])) }
         @boundaries.clear
         @piece_seam = seam
         return unless b
-        piece = @pending.byte_slice(0, b)
-        @pending = @pending.byte_slice(b, @pending.bytesize - b)
+        piece = String.new(bytes[0, b])
+        rest = IO::Memory.new(Math.max(bytes.size - b, 64))
+        rest.write bytes[b, bytes.size - b]
+        @pending = rest
         @scan_pos -= b
         @last_content_end = Math.max(@last_content_end - b, 0)
         @piece_line = @released_lines + 1
@@ -648,8 +658,45 @@ module Crysterm
       # The blocks *doc* imports to — none at all when it holds nothing
       # (`TextMarkdown.parse` supplies the empty block a document needs).
       def import(doc : Markd::Node) : Array(TextBlock)
+        return plain_blocks if too_deep?(doc)
         walk_children(doc)
         @blocks
+      end
+
+      # Whether *doc*'s nodes nest deeper than `TextImport::MAX_NESTING`:
+      # the tree gone over by its links, with no recursion.
+      private def too_deep?(doc : Markd::Node) : Bool
+        depth = 0
+        node = doc
+        loop do
+          if child = node.first_child?
+            depth += 1
+            return true if depth > TextImport::MAX_NESTING
+            node = child
+            next
+          end
+          # Up to the nearest node with one after it; the tree ends with none.
+          loop do
+            if following = node.next?
+              node = following
+              break
+            end
+            node = node.parent? || return false
+            depth -= 1
+          end
+        end
+      end
+
+      # The source as plain text, a block per line, each stamped with its
+      # line: what a source nesting too deep to walk imports as.
+      private def plain_blocks : Array(TextBlock)
+        lines = @source
+        lines = lines[0...-1] if lines.size > 1 && lines.last.empty?
+        lines.map_with_index do |line, i|
+          block = TextBlock.new(line)
+          block.source_line = i + 1
+          block
+        end
       end
 
       private def walk_children(node : Markd::Node) : Nil
@@ -1092,10 +1139,22 @@ module Crysterm
         String.build { |io| collect_text node, io }
       end
 
-      # The tail of a GFM delimiter row (`|---|`, `:--:`, `--- | ---:`): the
-      # `TextTable.gfm_table?` row shape, unanchored at the start so a
-      # container prefix (`> `, indentation) before it doesn't matter.
-      DELIMITER_TAIL = /\|?[\s:|-]*-[\s:|-]*\|?\s*\z/
+      # Whether *line* ends in a GFM delimiter row (`|---|`, `:--:`,
+      # `--- | ---:`): the `TextTable.gfm_table?` row shape — a run of its
+      # characters holding a `-` — at the line's end, whatever comes before
+      # it, so a container prefix (`> `, indentation) doesn't matter. One
+      # pass: a `-` after the last character that is none of the row's.
+      private def delimiter_tail?(line : String) : Bool
+        dash = false
+        line.each_char do |c|
+          if c == '-'
+            dash = true
+          elsif !TextTable.delimiter_char?(c)
+            dash = false
+          end
+        end
+        dash
+      end
 
       # Cheap screen before the table probe, on the paragraph's raw source
       # lines (`source_pos`) — no node serialization, no allocation. A GFM
@@ -1112,7 +1171,7 @@ module Crysterm
         return false unless last[0] > first[0]
         return false unless (l0 = @source[first[0] - 1]?) && l0.includes?('|')
         return false unless (l1 = @source[first[0]]?) && l1.includes?('-')
-        DELIMITER_TAIL.matches?(l1)
+        delimiter_tail?(l1)
       end
 
       # `#node_text` of a paragraph with every backslash-escaped `\|` of the
@@ -1258,20 +1317,36 @@ module Crysterm
       # punctuation, a `)` that closes no `(` of its own, or an entity-like
       # `&…;` tail — repeatedly, as `https://x.io/a).` sheds both.
       def self.autolink_end(run : String) : Int32
-        stop = run.size
+        chars = run.chars
+        stop = chars.size
+        # The parentheses of the part kept, counted once and kept current:
+        # the characters shed besides a `)` hold none.
+        opens = chars.count('(')
+        closes = chars.count(')')
         while stop > 0
-          last = run[stop - 1]
+          last = chars[stop - 1]
           if AUTOLINK_TRAIL.includes?(last)
             stop -= 1
-          elsif last == ')' && (kept = run[0, stop]) && kept.count(')') > kept.count('(')
+          elsif last == ')' && closes > opens
+            closes -= 1
             stop -= 1
-          elsif last == ';' && (m = run[0, stop].match(/&[A-Za-z0-9]+;\z/))
-            stop -= m[0].size
+          elsif last == ';' && (len = entity_tail(chars, stop))
+            stop -= len
           else
             break
           end
         end
         stop
+      end
+
+      # The length of the entity-like `&…;` the first *stop* of *chars* end
+      # with — an `&`, ASCII letters and digits, the `;` — or nil.
+      private def self.entity_tail(chars : Array(Char), stop : Int32) : Int32?
+        i = stop - 2
+        while i >= 0 && chars[i].ascii_alphanumeric?
+          i -= 1
+        end
+        i >= 0 && i < stop - 2 && chars[i] == '&' ? stop - i : nil
       end
 
       # A URL's host, for `AUTOLINK`: a dot somewhere before the path.

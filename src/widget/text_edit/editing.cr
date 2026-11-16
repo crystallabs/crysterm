@@ -298,7 +298,7 @@ module Crysterm
             row, col = info
             txt, off = to
             before = text_change_observed? ? buf_text : nil
-            clean = str.gsub(/\r\n?|\n/, ' ')
+            clean = TextDocument.normalize_line_breaks(str).tr("\n", " ")
             reporting_edit { tbl.set_cell_text(row, col, txt.insert(off, clean)) }
             place_caret_in_cell(tbl, row, col, off + clean.size)
             report_text_change before

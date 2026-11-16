@@ -642,10 +642,13 @@ module Crysterm
         expand_tabs(s).size
       end
 
-      # Expands TABs in *s* to `tab_char * tab_size`, exactly as `process_content`
-      # lays out `@wrapped_lines`. Guards on `includes?('\t')` so a tab-free string is
-      # returned untouched (the common fast path).
+      # *s* as the display shows it, a column per cell: TABs expanded to
+      # `tab_char * tab_size`, exactly as `process_content` lays out
+      # `@wrapped_lines`, and each control character as its one-column picture
+      # (`Unicode.picture_controls`). A string with neither is returned
+      # untouched (the common fast path).
       private def expand_tabs(s : String) : String
+        s = Unicode.picture_controls(s)
         s.includes?('\t') ? s.gsub('\t', style.tab_char * style.tab_size) : s
       end
 
@@ -682,8 +685,37 @@ module Crysterm
         target = nearest_text_row(target, rows < 0 ? -1 : 1)
         return if target == rl
 
-        width = line_display_width(target)
-        @cursor_pos = pos_from_rowcol(target, goal.clamp(0, width))
+        move_cursor_to_row target, goal
+      end
+
+      # Puts the caret on real row *rl* at column *goal*, clamped to the row's
+      # width and kept off the inside of a grapheme cluster
+      # (`#cluster_floor_col`).
+      private def move_cursor_to_row(rl : Int32, goal : Int32) : Nil
+        col = cluster_floor_col(rl, goal.clamp(0, line_display_width(rl)))
+        @cursor_pos = pos_from_rowcol(rl, col)
+      end
+
+      # Column *col* of real row *rl*, moved back to the start of the grapheme
+      # cluster it falls inside: a goal column is a codepoint offset carried
+      # over from another row, where this row may hold a base character and
+      # its combining marks. *col* itself when it is a cluster boundary, and
+      # always without `#full_unicode?`, where each codepoint is its own step.
+      private def cluster_floor_col(rl : Int32, col : Int32) : Int32
+        return col unless col > 0 && full_unicode?
+        text = if wrap_content?
+                 @wrapped_lines[rl]? || ""
+               else
+                 expand_tabs(buf_line_text(@wrapped_lines.rtof[rl]? || 0))
+               end
+        return col if col >= text.size || text.ascii_only?
+        idx = 0
+        text.each_grapheme do |g|
+          n = grapheme_cps g
+          return idx if idx + n > col
+          idx += n
+        end
+        col
       end
 
       # Visual rows to move per Page Up/Down: one viewport's worth, less one row of
@@ -723,8 +755,7 @@ module Crysterm
         target = nearest_text_row(target.clamp(0, last), dir)
         return jumped || moved if target == rl
 
-        width = line_display_width(target)
-        @cursor_pos = pos_from_rowcol(target, goal.clamp(0, width))
+        move_cursor_to_row target, goal
         jumped || moved
       end
 

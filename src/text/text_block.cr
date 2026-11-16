@@ -59,8 +59,8 @@ module Crysterm
     # position arithmetic the source markup would throw off.
     #
     # Not content: setting it records no undo entry and bumps no revision.
-    # `#clone` copies it; `#split` leaves the tail without one (the tail is an
-    # edit, not an import).
+    # `#clone` copies it, as does a `#slice` from the block's start; `#split`
+    # leaves the tail without one (the tail is an edit, not an import).
     property source_line : Int32?
 
     # The cells of the table row this block renders, when its text would not
@@ -267,7 +267,11 @@ module Crysterm
     end
 
     # Non-destructive copy of the `[from, to)` range as a new block, with the
-    # same block format.
+    # same block format — and the `#source_line`, when the copy starts where
+    # the block does: the head of a block is the block the line was imported
+    # as, what is cut off behind it is not (as with `#split`). An edit taken
+    # back so puts a removed block back with its stamp;
+    # `TextDocument#copy_fragment` drops it from a copy to put elsewhere.
     def slice(from : Int32, to : Int32) : TextBlock
       frags = [] of TextFragment
       each_fragment_overlap(from, to) do |f, fstart, clip_from, clip_to|
@@ -276,6 +280,7 @@ module Crysterm
         frags << TextFragment.new(f.text[s, e - s], f.format)
       end
       b = TextBlock.new(frags, @block_format)
+      b.source_line = @source_line if from <= 0
       b.table_cells_entry = @table_cells_entry
       b
     end

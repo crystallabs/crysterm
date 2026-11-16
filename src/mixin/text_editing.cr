@@ -513,12 +513,13 @@ module Crysterm
       private PASTE_CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/
 
       # Adapts pasted text to what this widget can hold before it is
-      # inserted: normalizes CRLF/bare-CR line endings to `\n` (terminals
-      # routinely translate LF to CRLF or CR on paste) and drops stray C0
-      # controls. Multiline editors otherwise take the text as-is;
+      # inserted: normalizes the line endings to `\n` as a document does
+      # (`TextDocument.normalize_line_breaks`; terminals routinely translate
+      # LF to CRLF or CR on paste) and drops stray C0 controls. Multiline
+      # editors otherwise take the text as-is;
       # single-line widgets override (`Widget::LineEdit` flattens newlines).
       private def sanitize_paste(text : String) : String
-        text = text.gsub(/\r\n?/, "\n") if text.includes?('\r')
+        text = TextDocument.normalize_line_breaks(text)
         text = text.gsub(PASTE_CONTROL_CHARS, "") if text.matches?(PASTE_CONTROL_CHARS)
         text
       end

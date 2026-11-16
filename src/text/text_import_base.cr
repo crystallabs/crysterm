@@ -16,6 +16,12 @@ module Crysterm
   # `end_block` bodies and importer-local state — see each importer for the
   # pieces that stay local and why.
   module TextImport
+    # The deepest a source tree's nodes may nest for an importer to walk it:
+    # the walk recurses once per level, so a tree nesting without bound (ten
+    # thousand `>` on a line, as many unclosed `<div>`s) would run it out of
+    # stack. A deeper source imports as its plain text.
+    MAX_NESTING = 512
+
     # Included into each format importer's private `Importer` class. Carries
     # the state shared verbatim between both importers; the divergent state
     # (`@pending_margin`'s type differs — a `Bool` in markdown, an `Int32` in

@@ -332,14 +332,14 @@ module Crysterm
           next if b.text == nb.text
           bp = doc.block_position(bi)
           doc.remove(bp, b.size) if b.size > 0
-          insert_fragments(bp, nb)
+          insert_row_text(bp, nb)
         end
         # Row count grew: split new blocks off after the last member.
         (common...fresh.size).each do |k|
           bi = members[k - 1]
           pos = doc.block_position(bi) + doc.blocks[bi].size
           doc.insert_text(pos, "\n")
-          insert_fragments(pos + 1, fresh[k])
+          insert_row_text(pos + 1, fresh[k])
           members << bi + 1
         end
         # Row count shrank: remove the surplus members (with their leading
@@ -367,12 +367,15 @@ module Crysterm
       end
     end
 
-    # Inserts *block*'s fragments, formats and all, at *pos*.
-    private def insert_fragments(pos : Int32, block : TextBlock) : Nil
-      block.fragments.each do |f|
-        document.insert_text(pos, f.text, f.format)
-        pos += f.size
-      end
+    # Inserts *block*'s fragments, formats and all, at *pos* — one edit step
+    # for the row, as a fragment of that one block. The copy carries no
+    # block format: the text goes into the block at *pos*, and a table
+    # format on it would make the insertion a table of its own
+    # (`TextDocument#insert_fragment`).
+    private def insert_row_text(pos : Int32, block : TextBlock) : Nil
+      return if block.size == 0
+      row = TextBlock.new(block.fragments.map { |f| TextFragment.new(f.text, f.format) })
+      document.insert_fragment(pos, TextDocumentFragment.new([row]))
     end
 
     # The data-row blocks, in document order. Shares `#data_row_indexed`'s
@@ -617,9 +620,14 @@ module Crysterm
       return false unless text.includes?('|')
       lines = text.lines
       return false if lines.size < 2
-      lines[0].includes?('|') &&
-        lines[1].matches?(/\A\s*\|?[\s:|-]*-[\s:|-]*\|?\s*\z/) &&
-        lines[1].includes?('-')
+      lines[0].includes?('|') && lines[1].includes?('-') &&
+        lines[1].each_char.all? { |c| delimiter_char?(c) }
+    end
+
+    # Whether *c* is a character a GFM delimiter row is made of: `-`, `:`,
+    # `|` or whitespace.
+    protected def self.delimiter_char?(c : Char) : Bool
+      c == '-' || c == ':' || c == '|' || c.whitespace?
     end
 
     # Builds the pre-rendered blocks for a GFM table text. Returns nil when
@@ -1020,12 +1028,16 @@ module Crysterm
     end
 
     # Plays *reflows* forward, or *backward* (from the last, each table
-    # given back its old blocks' fragments and cells), returning false —
-    # and stopping — at a table not found as the re-rendering left it (or
-    # found it).
-    protected def replay_reflows(reflows : Array(TableReflow), backward : Bool) : Bool
+    # given back its old blocks' fragments and cells, each table of contents
+    # its old entries), returning false — and stopping — at a table or a
+    # table of contents not found as the change left it (or found it).
+    protected def replay_reflows(reflows : Array(Reflow), backward : Bool) : Bool
       bs = blocks_mut
       (backward ? reflows.reverse : reflows).each do |r|
+        if r.is_a?(TocRefresh)
+          return false unless replay_toc_refresh(r, backward)
+          next
+        end
         from, to = backward ? {r.new, r.old} : {r.old, r.new}
         return false unless r.first + from.size <= bs.size
         return false unless from.each_with_index.all? { |b, k| bs[r.first + k].text == b.text }

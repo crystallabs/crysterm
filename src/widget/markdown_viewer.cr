@@ -66,6 +66,9 @@ module Crysterm
           @toc_view.document = doc unless @toc_view.document.same? doc
         end
 
+        # A hidden sidebar is no child, so it goes with the viewer here.
+        on(Crysterm::Event::Destroy) { @toc_view.destroy unless show_toc? }
+
         document ? (self.document = document) : (@toc_view.document = @browser.document)
       end
 

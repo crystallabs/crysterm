@@ -103,6 +103,41 @@ module Crysterm
     # appended line never allocates a fresh bookkeeping object.
     @_append_scratch : CLines? = nil
 
+    # What the last `#append_content` changed, as `#drop_appended_content`
+    # needs it to take the append back: the raw chunk, the content version
+    # the append left, and the state it found — the wrapped and logical line
+    # counts, the widest-row records, whether rows carried attrs, the
+    # content-shape flags — with the wrap inputs the rows were made under.
+    # A class, so every `Widget` carries one reference rather than the fields.
+    #
+    # :nodoc:
+    class ContentAppend
+      getter chunk : String
+      getter version : Int64
+      getter base_real : Int32
+      getter base_fake : Int32
+      getter max_width : Int32
+      getter full_width : Int32
+      getter attrs : Bool
+      getter has_tags : Bool
+      getter has_braces : Bool
+      getter has_align_tag : Bool
+      getter has_sgr : Bool
+      getter open_tags : Bool
+      getter width : Int32
+      getter margin : Int32
+      getter base_x : Int32
+      getter tab_size : Int32
+      getter tab_char : String
+      getter fill_char : Char
+
+      def initialize(@chunk, @version, @base_real, @base_fake, @max_width, @full_width, @attrs, @has_tags, @has_braces, @has_align_tag, @has_sgr, @open_tags, @width, @margin, @base_x, @tab_size, @tab_char, @fill_char)
+      end
+    end
+
+    # The last `#append_content`, while nothing else has changed the content.
+    @_content_last_append : ContentAppend? = nil
+
     # Appends `text` (one or more `\n`-separated logical lines) without reparsing
     # existing content. Only the new text is cleaned, tag-parsed, wrapped and
     # attr-scanned, then spliced onto `@wrapped_lines`'s tail — turning `set_content`'s
@@ -157,6 +192,7 @@ module Crysterm
       # inside a would-be tag makes the raw string tagless even though cleaning
       # would form a tag).
       seg_has_tags = text.includes?('{') && text.matches?(TAG_REGEX)
+      open_tags_before = @_content_open_tags_at_end
 
       # Tag-parse the new segment iff a full reparse of (existing + appended)
       # content would run `expand_tags` — the same gate as `process_content`, with
@@ -207,6 +243,11 @@ module Crysterm
         cl.ftor << row.map { |r| r + base_real }
       end
       scratch.rtof.each { |f| cl.rtof << (f + base_fake) }
+
+      # The state this append found, before the rest of it changes any.
+      undo = ContentAppend.new(text, @_content_version + 1, base_real, base_fake, cl.max_width, cl.full_width,
+        !cl.attr.nil?, @_content_has_tags, @_content_has_braces, @_content_has_align_tag, @_content_has_sgr,
+        open_tags_before, colwidth, cl.margin, cl.base_x, cl.tab_size, cl.tab_char, cl.fill_char)
 
       # Per-line starting attrs for new lines, carrying SGR state across the
       # boundary: first new line starts from the attr the existing content ended
@@ -272,6 +313,9 @@ module Crysterm
       # subsequent appends stay on the O(appended) fast path.
       if cl.margin != content_margin_x
         process_content
+        @_content_last_append = nil
+      else
+        @_content_last_append = undo
       end
 
       # Mirror the full path: mark for repaint and emit the same events.
@@ -279,6 +323,82 @@ module Crysterm
       emit Crysterm::Event::ContentParsed
       emit Crysterm::Event::ContentSet
       true
+    end
+
+    # Takes the last `#append_content` back without reparsing the rest of the
+    # content — the inverse splice, O(appended): the appended rows and lines
+    # come off the tail of `@wrapped_lines` and the state the append found is
+    # put back, leaving what a full reparse of the content before it gives.
+    # With `#append_content` after it, this replaces the tail of streamed
+    # content at the cost of the tail alone.
+    #
+    # Returns the number of logical lines dropped, or `nil`, nothing
+    # changed, when there is no append to take back: none was made, the
+    # content or the wrap inputs changed since, the append reflowed the
+    # content (a scroll bar it brought in), or it holds more than
+    # *max_lines* logical lines. Only the last append can be taken back, and
+    # only once.
+    def drop_appended_content(max_lines : Int32? = nil) : Int32?
+      undo = @_content_last_append || return
+      return unless window?
+      cl = @wrapped_lines
+      return unless undo.version == @_content_version && cl.content_version == @_content_version
+      return unless cl.width == undo.width && (awidth - ihorizontal) == undo.width
+      return unless cl.margin == undo.margin && cl.base_x == undo.base_x && cl.base_x == @child_base_x
+      return unless cl.tab_size == undo.tab_size && cl.fill_char == undo.fill_char &&
+                    (cl.tab_char.same?(undo.tab_char) || cl.tab_char == undo.tab_char)
+      base_real = undo.base_real
+      base_fake = undo.base_fake
+      dropped = cl.fake.size - base_fake
+      return unless dropped > 0 && cl.lines.size > base_real
+      return unless cl.rtof.size == cl.lines.size && cl.ftor.size == cl.fake.size
+      return if max_lines && dropped > max_lines
+
+      # The raw side: the chunk is still pending, or was folded onto the end
+      # of the content.
+      chunk = undo.chunk
+      if @_content_tail.last?.try(&.same?(chunk))
+        @_content_tail.pop
+      elsif @_content_tail.empty? && !@_content_stale && @content.bytesize > chunk.bytesize &&
+            @content.ends_with?(chunk) && @content.byte_at(@content.bytesize - chunk.bytesize - 1) == '\n'.ord
+        @content = @content.byte_slice(0, @content.bytesize - chunk.bytesize - 1)
+        @_content_raw_lines = nil
+      else
+        return
+      end
+      @_content_last_append = nil
+
+      cl.lines.truncate(0, base_real)
+      cl.rtof.truncate(0, base_real)
+      cl.fake.truncate(0, base_fake)
+      cl.ftor.truncate(0, base_fake)
+      if undo.attrs
+        cl.attr.try { |attrs| attrs.truncate(0, base_real) if attrs.size > base_real }
+      else
+        cl.attr = nil
+      end
+      cl.max_width = undo.max_width
+      cl.full_width = undo.full_width
+
+      @printable_content = nil
+      @_content_has_tags = undo.has_tags
+      @_content_has_braces = undo.has_braces
+      @_content_has_align_tag = undo.has_align_tag
+      @_content_has_sgr = undo.has_sgr
+      @_content_open_tags_at_end = undo.open_tags
+      @_content_version += 1
+      cl.content_version = @_content_version
+
+      # Fewer rows can take an `AsNeeded` bar away again: reconcile with one
+      # full reparse, as `#append_content` does.
+      if cl.margin != content_margin_x
+        process_content
+      end
+
+      update
+      emit Crysterm::Event::ContentParsed
+      emit Crysterm::Event::ContentSet
+      dropped
     end
 
     # The raw logical lines, index-aligned with `@wrapped_lines.fake`. Reused

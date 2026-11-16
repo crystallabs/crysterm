@@ -77,8 +77,11 @@ module Crysterm
   # **The contents are derived data and sit outside the undo stack.** `#refresh`
   # rewrites the region without recording an undo command, so `Ctrl+Z` can never
   # step *into* a regenerated TOC and leave it describing a document it no
-  # longer matches. `TextCursor#insert_toc` is the exception: creating a TOC is
-  # a user edit, and is one undoable step.
+  # longer matches. The stack keeps the regeneration all the same
+  # (`TextUndoStack#toc_refreshed`), since it moves the positions the commands
+  # hold: a step is replayed on the entries it was made over, and the
+  # regenerated ones are put back after it. `TextCursor#insert_toc` is the
+  # exception: creating a TOC is a user edit, and is one undoable step.
   #
   # Refreshing is explicit — `TextDocument#refresh_tocs`, typically bound to a
   # re-render action and run after a load. It is deliberately not automatic: a
@@ -172,8 +175,9 @@ module Crysterm
       first, last = block_range || return false
       bs = document.blocks
       built = build_blocks(TextToc.context_format(bs[first].block_format))
-      return false if same_blocks?(bs[first..last], built)
-      document.raw_replace_block_run(first, last, built)
+      old = bs[first..last]
+      return false if same_blocks?(old, built)
+      document.refresh_toc_run(toc_format, first, old, built)
       true
     end
 
@@ -268,6 +272,42 @@ module Crysterm
     # stack by design and are rebuilt by a different object than the one that
     # owns the primitives.
     #
+    # One table of contents' regeneration: the blocks of the one of *format*
+    # as they were (*old*) and became (*new*) — what `TextUndoStack` plays
+    # back and forth to replay a command on the entries it was made over.
+    record TocRefresh, format : TextTocFormat, old : Array(TextBlock), new : Array(TextBlock)
+
+    # A change `TextUndoStack` keeps between its commands without it being
+    # one.
+    alias Reflow = TableReflow | TocRefresh
+
+    # Swaps the table of contents of *format*, the blocks *old* from index
+    # *first* on, for *built*, and has the undo stack keep the regeneration;
+    # inside an edit block (`#edit`), whose commands would straddle it, the
+    # history is dropped instead, as for a table's re-rendering.
+    protected def refresh_toc_run(format : TextTocFormat, first : Int32, old : Array(TextBlock), built : Array(TextBlock)) : Nil
+      refresh = TocRefresh.new(format, old, built.map(&.clone))
+      raw_replace_block_run(first, first + old.size - 1, built)
+      if undo_stack.in_macro?
+        undo_stack.drop_history
+      else
+        undo_stack.toc_refreshed(refresh)
+      end
+    end
+
+    # Plays *refresh* forward, or *backward*: the table of contents given
+    # its new entries, or its old ones back. False, nothing changed, when it
+    # is not found with the entries the other side of the change left.
+    protected def replay_toc_refresh(refresh : TocRefresh, backward : Bool) : Bool
+      from, to = backward ? {refresh.new, refresh.old} : {refresh.old, refresh.new}
+      first, last = TextToc.new(self, refresh.format).block_range || return false
+      return false unless last - first + 1 == from.size
+      bs = blocks
+      return false unless from.each_with_index.all? { |b, k| bs[first + k].text == b.text }
+      raw_replace_block_run(first, last, to.map(&.clone))
+      true
+    end
+
     # *new_blocks* must be non-empty and is adopted, not copied.
     protected def raw_replace_block_run(first : Int32, last : Int32, new_blocks : Array(TextBlock)) : Nil
       raise ArgumentError.new("raw_replace_block_run requires at least one block") if new_blocks.empty?

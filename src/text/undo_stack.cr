@@ -25,6 +25,11 @@ module Crysterm
   # one (`Command#reflows`), and replays each command at the width it was
   # made at — taking back the re-renderings since, undoing or redoing it,
   # then fitting the tables to the current width again.
+  #
+  # A table of contents regenerated (`TextToc#refresh`) is kept the same
+  # way (`#toc_refreshed`): taken back for the replay of a command made
+  # before it, then given its entries again, so a step never undoes the
+  # regeneration itself.
   class TextUndoStack
     # Sentinel for "no reachable clean state".
     CLEAN_INVALID = Int32::MIN
@@ -34,10 +39,11 @@ module Crysterm
       # boundaries and across undo/redo.
       property? sealed = false
 
-      # The tables' re-renderings to a new `TextDocument#text_width` made
-      # after the previous command and before this one: taken back after
-      # this command is undone, played again before it is redone.
-      property reflows : Array(TextDocument::TableReflow)? = nil
+      # The tables' re-renderings to a new `TextDocument#text_width` and
+      # the tables of contents' regenerations made after the previous
+      # command and before this one: taken back after this command is
+      # undone, played again before it is redone.
+      property reflows : Array(TextDocument::Reflow)? = nil
 
       abstract def undo(doc : TextDocument) : Nil
       abstract def redo(doc : TextDocument) : Nil
@@ -315,10 +321,10 @@ module Crysterm
     @clean_index = 0
     @macro : MacroCommand?
     @macro_depth = 0
-    # The re-renderings since the stack last moved (a push, an undo, a
-    # redo): what stands between the current text and the one the next
-    # command to undo or redo expects.
-    @reflows = [] of TextDocument::TableReflow
+    # The re-renderings and regenerations since the stack last moved (a
+    # push, an undo, a redo), in the order made: what stands between the
+    # current text and the one the next command to undo or redo expects.
+    @reflows = [] of TextDocument::Reflow
 
     # The owning document — the stack is `TextDocument`-internal (one stack
     # per document, built by it), so commands always replay against their own
@@ -340,7 +346,7 @@ module Crysterm
       # The re-renderings since the last move now precede this command.
       unless @reflows.empty?
         target = @macro || cmd
-        target.reflows = (target.reflows || [] of TextDocument::TableReflow).concat(@reflows)
+        target.reflows = (target.reflows || [] of TextDocument::Reflow).concat(@reflows)
         @reflows.clear
       end
       if m = @macro
@@ -388,13 +394,17 @@ module Crysterm
     def undo : Bool
       @last_replay_position = nil
       return false if in_macro? || @index == 0
-      return false unless take_back_reflows
+      tocs = toc_refreshes(@reflows)
+      return false unless take_back_reflows(tocs)
       @index -= 1
       cmd = @commands[@index]
       cmd.undo(document)
       tracker = cmd.undo_position(document).try { |p| TextCursor.new(document, p) }
-      cmd.reflows.try { |r| drop_history unless document.replay_reflows(r, backward: true) }
-      refit
+      if r = cmd.reflows
+        tocs = toc_refreshes(r) + tocs
+        drop_history unless document.replay_reflows(r, backward: true)
+      end
+      refit tocs
       @last_replay_position = tracker.try &.position
       true
     end
@@ -402,17 +412,18 @@ module Crysterm
     def redo : Bool
       @last_replay_position = nil
       return false if in_macro? || @index == @commands.size
-      return false unless take_back_reflows
+      tocs = toc_refreshes(@reflows)
+      return false unless take_back_reflows(tocs)
       cmd = @commands[@index]
       if (r = cmd.reflows) && !document.replay_reflows(r, backward: false)
         drop_history
-        refit
+        refit tocs
         return false
       end
       cmd.redo(document)
       tracker = cmd.redo_position(document).try { |p| TextCursor.new(document, p) }
       @index += 1
-      refit
+      refit tocs
       @last_replay_position = tracker.try &.position
       true
     end
@@ -425,13 +436,18 @@ module Crysterm
     # rendering at the last move to the latest, and dropped when that is
     # where it started (a resize back and forth), so a drag through many
     # widths holds one copy per table. The tables are apart and each
-    # re-rendering keeps the block count, so they need no order among them.
+    # re-rendering keeps the block count, so they need no order among them;
+    # a table of contents regenerated since moves the tables after it, so
+    # only the re-renderings past the last one are looked at.
     def reflowed(reflows : Array(TextDocument::TableReflow)) : Nil
       return if reflows.empty? || !(undo_available? || redo_available?)
       seal_last
+      from = (@reflows.rindex(&.is_a?(TextDocument::TocRefresh)) || -1) + 1
       reflows.each do |r|
-        if i = @reflows.index { |q| q.first == r.first && q.new.size == r.old.size }
-          q = @reflows[i]
+        i = (from...@reflows.size).find do |k|
+          (c = @reflows[k]).is_a?(TextDocument::TableReflow) && c.first == r.first && c.new.size == r.old.size
+        end
+        if i && (q = @reflows[i]).is_a?(TextDocument::TableReflow)
           # Back where it started: the same texts, and the same cells kept
           # for them, or for a text an undo may give the block back.
           if q.old.each_with_index.all? { |b, k| b.text == r.new[k].text && b.table_cells_entry == r.new[k].table_cells_entry }
@@ -442,6 +458,21 @@ module Crysterm
         else
           @reflows << r
         end
+      end
+    end
+
+    # Records *refresh*, a table of contents just regenerated (see the
+    # class docs); nothing coalesces across it. With no history there is
+    # nothing to replay. One regenerated again right after is kept as one
+    # regeneration.
+    def toc_refreshed(refresh : TextDocument::TocRefresh) : Nil
+      return unless undo_available? || redo_available?
+      seal_last
+      if (q = @reflows.last?).is_a?(TextDocument::TocRefresh) && q.format.same?(refresh.format) &&
+         q.new.size == refresh.old.size
+        @reflows[-1] = TextDocument::TocRefresh.new(q.format, q.old, refresh.new)
+      else
+        @reflows << refresh
       end
     end
 
@@ -461,24 +492,34 @@ module Crysterm
       document.refresh_undo_state
     end
 
-    # Takes the re-renderings since the last move back, so the text is the
-    # one the next command to undo or redo expects; false, the history
-    # dropped, when a table is not as they left it.
-    private def take_back_reflows : Bool
+    # Takes the re-renderings and regenerations since the last move back,
+    # so the text is the one the next command to undo or redo expects;
+    # false, the history dropped, when a table or a table of contents is
+    # not as they left it. *tocs* are the regenerations among them, for the
+    # `#refit` after.
+    private def take_back_reflows(tocs : Array(TextDocument::TocRefresh)) : Bool
       ok = document.replay_reflows(@reflows, backward: true)
       @reflows.clear
       unless ok
         drop_history
-        refit
+        refit tocs
       end
       ok
     end
 
-    # After a move: the tables fitted to the current width again, the
-    # re-renderings kept for the next move.
-    private def refit : Nil
+    # The regenerations among *reflows*, in their order.
+    private def toc_refreshes(reflows : Array(TextDocument::Reflow)) : Array(TextDocument::TocRefresh)
+      reflows.compact_map(&.as?(TextDocument::TocRefresh))
+    end
+
+    # After a move: the tables fitted to the current width again and the
+    # tables of contents given the entries the move took back (*tocs*, in
+    # the order made; one whose table of contents the move left otherwise
+    # is skipped), all kept for the next move.
+    private def refit(tocs : Array(TextDocument::TocRefresh)) : Nil
       seal_last
       reflowed(document.fit_tables(document.text_width))
+      tocs.each { |r| toc_refreshed(r) if document.replay_toc_refresh(r, backward: false) }
       document.refresh_undo_state
     end
 

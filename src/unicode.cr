@@ -26,9 +26,42 @@ class Tput
   module Unicode
     extend self
 
+    # Control characters an editor's document may hold and a cell cannot
+    # show: C0 but TAB, LF and CR, DEL, and C1.
+    CONTROL_CHARS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]/
+
+    # *text* with every `CONTROL_CHARS` character replaced by a visible one
+    # of one column (`.control_picture`), so a column still names the
+    # character it did. Returns *text* itself when it holds none.
+    def picture_controls(text : String) : String
+      # 0xC2 leads every C1 control's UTF-8 form.
+      return text unless text.to_slice.any? { |b| (b < 0x20 && b != 0x09 && b != 0x0a && b != 0x0d) || b == 0x7f || b == 0xc2 }
+      text.gsub(CONTROL_CHARS) { |m| control_picture m[0] }
+    end
+
+    # Whether *char* is one of `CONTROL_CHARS`.
+    def pictured_control?(char : Char) : Bool
+      cp = char.ord
+      (cp < 0x20 && cp != 0x09 && cp != 0x0a && cp != 0x0d) || (0x7f <= cp <= 0x9f)
+    end
+
+    # The one-column stand-in for control character *char*: its Unicode
+    # control picture (U+2400…U+241F, U+2421 for DEL), U+FFFD for a C1
+    # control, which has none.
+    def control_picture(char : Char) : Char
+      cp = char.ord
+      if cp < 0x20
+        (0x2400 + cp).chr
+      elsif cp == 0x7f
+        '\u2421'
+      else
+        '\uFFFD'
+      end
+    end
+
     # Columns occupied by a single codepoint (redefines the shard method with a
-    # wider fast path): combining marks begin at U+0300 and the lowest
-    # zero-width/wide codepoint sits higher still (U+1160), so every printable
+    # wider fast path): combining marks begin at U+0300 and every other
+    # zero-width or wide codepoint sits higher still, so every printable
     # codepoint below U+0300 — ASCII, Latin-1, Latin Extended — is exactly 1
     # column, with no category search. Called per cell per frame by the render
     # and draw loops. Must stay behavior-identical to `Tput::Unicode`'s
@@ -66,10 +99,59 @@ class Tput
     # This is the single width hook layout should use; a raw `.size` miscounts
     # wide / combining characters.
     def str_width(text, full_unicode : Bool) : Int32
-      # Most strings have no SGR; the cheap `includes?` byte scan skips the regex
-      # (and the String it builds) unless an ESC is actually present.
-      text = text.gsub ::Crysterm::SGR::REGEX, "" if text.includes? '\e'
-      full_unicode ? display_width(text) : text.size
+      # Most strings have no SGR; the cheap byte scan settles those at once.
+      bytes = text.to_slice
+      esc = bytes.index(0x1B_u8)
+      return full_unicode ? display_width(text) : text.size unless esc
+
+      # One byte scan: the runs' total length, and whether everything outside
+      # them is printable ASCII (one column and one codepoint a byte in
+      # either metric).
+      n = bytes.size
+      run_bytes = 0
+      plain = bytes[0, esc].all? { |b| 0x20_u8 <= b <= 0x7E_u8 }
+      stray = false
+      i = esc
+      while i < n
+        if len = ::Crysterm::SGR.run_len(bytes, i, n)
+          run_bytes += len
+          i += len
+        else
+          b = bytes.unsafe_fetch(i)
+          if b == 0x1B_u8
+            # An `\e` opening no run: left to `REGEX`, whose `\d` is wider.
+            stray = true
+            break
+          end
+          plain = false unless 0x20_u8 <= b <= 0x7E_u8
+          i += 1
+        end
+      end
+      if stray
+        text = text.gsub ::Crysterm::SGR::REGEX, ""
+        return full_unicode ? display_width(text) : text.size
+      end
+      return n - run_bytes if plain
+      # A run is pure ASCII, so its bytes are also its codepoints.
+      return text.size - run_bytes unless full_unicode
+
+      # Clusters are measured over the text with its runs removed, so one
+      # that a run splits still counts once.
+      stripped = String.new(n - run_bytes) do |buffer|
+        kept = 0
+        i = 0
+        while i < n
+          if len = ::Crysterm::SGR.run_len(bytes, i, n)
+            i += len
+          else
+            buffer[kept] = bytes.unsafe_fetch(i)
+            kept += 1
+            i += 1
+          end
+        end
+        {kept, 0}
+      end
+      display_width stripped
     end
 
     # Longest *suffix* of *text* whose display width fits within *cols* columns,
@@ -165,7 +247,7 @@ class Tput
             reader.next_char
             cp += 1
             total += 1
-            return cp if total == colwidth
+            return cp if total >= colwidth
           end
         end
       end

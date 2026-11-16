@@ -62,9 +62,12 @@ module Crysterm
         # (`buf_text` is O(document) for the rich adapter). With no selection at
         # the start, every content-changing edit here also changes the size, so a
         # size snapshot suffices. A size-preserving change is only possible by
-        # replacing a selection, so capture the pre-edit text just in that case.
+        # replacing a selection, so the pre-edit text is captured just in that
+        # case — and only for a key that can edit: a movement key (which is
+        # what extends or collapses a selection) never changes the text, so it
+        # is taken below, once the key is known not to be one.
         before_size = buf_size
-        before = selection? ? buf_text : nil
+        before = nil
         also_check_char = false
         # Emacs/readline editing keys (gated by config). `killed` records whether
         # this keystroke was a kill, so consecutive kills accumulate in the ring
@@ -198,6 +201,10 @@ module Crysterm
             @_pending_rowcol = nil
           end
 
+          # Nothing above touched the selection or the text of a non-movement
+          # key, so this is still the pre-edit state.
+          before = buf_text if !moved && selection?
+
           # (Considered: echoing the edited character straight into the window's
           # cell buffer to skip a render. Not worth it — a direct write would
           # have to re-implement the wrapping, horizontal scroll, selection and
@@ -269,6 +276,9 @@ module Crysterm
 
           # A cursor movement or an editing action consumed this key.
           handled = true if moved || edited
+        elsif selection?
+          # A plain character: typing over the selection may keep the size.
+          before = buf_text
         end
 
         if !read_only? && (c = e.char) && (!e.key || also_check_char)

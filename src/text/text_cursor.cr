@@ -652,7 +652,11 @@ module Crysterm
         # Not inside a word: take the word ending at or before pos.
         prev = word_left_from(pos)
         start = @document.block_position(@document.block_at(pos).index)
-        return word_bounds_at(prev) if prev != pos && prev >= start
+        if prev != pos && prev >= start
+          # Only a word: at the document start the scan stops on separators.
+          bounds = word_bounds_at(prev)
+          return bounds unless bounds[0] == bounds[1]
+        end
       end
       {s, e}
     end

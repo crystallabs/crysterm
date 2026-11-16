@@ -239,7 +239,7 @@ module Crysterm
       # edit use the cursor API; for plain text use `value=`.
       def set_content(content = "", *, no_tags = false)
         return super unless @buf_content_delegated
-        document.set_tags content.to_s
+        as_own_change { document.set_tags content.to_s }
       end
 
       # :ditto:
@@ -287,7 +287,9 @@ module Crysterm
       # incomplete one (an open code fence, a table mid-row, the last
       # paragraph) stays buffered until a later chunk completes it or
       # `#flush_markdown` forces it, so any chunking renders exactly like
-      # `#set_markdown` of the whole text. The caret and scroll stay put, and
+      # `#set_markdown` of the whole text. The caret and scroll stay put —
+      # the view goes with the end only under `#follow_tail?`, and only
+      # while it shows the end — and
       # — unlike `#set_markdown` — inline TOCs are NOT refreshed (an append
       # is exactly the mid-stream shift `#refresh_tocs`'s manual policy
       # avoids); call `#refresh_tocs` when the stream ends. A `TocView`
@@ -679,7 +681,7 @@ module Crysterm
       # a wrapped row is its lines one after another, each the table's
       # width) — rows of the grid, not of prose.
       private def wrap_block(blk : TextBlock, wrap_width : Int32, margin : Int32) : CLines
-        text = blk.text
+        text = Unicode.picture_controls(blk.text)
         text = text.gsub('\t', style.tab_char * style.tab_size) if text.includes?('\t')
         text = TextTable.display_text(text) if blk.block_format.table_format
         wrap_lines(text, wrap_width, margin: margin)
@@ -804,7 +806,7 @@ module Crysterm
           # (they document the reset semantics); a def generated here would
           # REPLACE them.
           def set_{{ f.id }}(str : String) : Nil
-            document.set_{{ f.id }}(str)
+            as_own_change { document.set_{{ f.id }}(str) }
             interchange_reset_caret
           end
 
@@ -847,12 +849,12 @@ module Crysterm
       # `Event::CursorPositionChanged`.
       private def interchange_replace(keep_view : Bool, &) : Nil
         unless keep_view
-          yield
+          as_own_change { yield }
           interchange_reset_caret
           return
         end
         pos = @cursor_pos
-        yield
+        as_own_change { yield }
         @cursor_pos = pos.clamp(0, buf_size)
         clear_selection
         @goal_col = nil

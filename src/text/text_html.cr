@@ -637,11 +637,62 @@ module Crysterm
 
       def import(html : String) : Array(TextBlock)
         doc = HTML5.parse(html)
+        return [TextBlock.new(flat_text(doc).gsub(TextHtml::WS_RUN, " ").strip)] if too_deep?(doc)
         if body = find_element(doc, "body")
           walk_children(body)
         end
         end_block
         finalize_blocks
+      end
+
+      # Whether *doc*'s nodes nest deeper than `TextImport::MAX_NESTING`:
+      # the tree gone over by its links, with no recursion.
+      private def too_deep?(doc : HTML5::Node) : Bool
+        depth = 0
+        node = doc
+        loop do
+          if child = node.first_child
+            depth += 1
+            return true if depth > TextImport::MAX_NESTING
+            node = child
+            next
+          end
+          # Up to the nearest node with one after it; the tree ends with none.
+          loop do
+            if following = node.next_sibling
+              node = following
+              break
+            end
+            node = node.parent || return false
+            depth -= 1
+          end
+        end
+      end
+
+      # The elements whose subtrees hold no text of the document.
+      SKIPPED_ELEMENTS = {"script", "style", "head", "template", "title"}
+
+      # The text of *doc*'s text nodes in order, the `SKIPPED_ELEMENTS`'
+      # left out: what a source nesting too deep to walk imports as. Gone
+      # over by the tree's links, with no recursion.
+      private def flat_text(doc : HTML5::Node) : String
+        io = String::Builder.new
+        node = doc
+        loop do
+          io << node.data if node.type.text?
+          skipped = node.type.element? && SKIPPED_ELEMENTS.includes?(node.data)
+          if !skipped && (child = node.first_child)
+            node = child
+            next
+          end
+          loop do
+            if following = node.next_sibling
+              node = following
+              break
+            end
+            node = node.parent || return io.to_s
+          end
+        end
       end
 
       private def walk_children(node : HTML5::Node) : Nil
@@ -788,7 +839,7 @@ module Crysterm
             end_block
           end
           import_table(node)
-        when "script", "style", "head", "template", "title"
+        when .in?(SKIPPED_ELEMENTS)
           # skipped subtrees
         else
           walk_children(node)

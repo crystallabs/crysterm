@@ -52,11 +52,13 @@ module Crysterm
         # Drop this highlighter's overlays and user states so the old document
         # renders plain again and a later highlighter starts from clean
         # `previous_block_state`s. The setters are change-guarded and poke the
-        # document themselves (`TextDocument#note_overlay_change`), so views
-        # repaint without an extra emission here.
-        old.blocks.each do |b|
-          b.additional_formats = nil
-          b.user_state = -1
+        # document themselves (`TextDocument#note_overlay_change`, once for
+        # the batch), so views repaint without an extra emission here.
+        old.batch_overlay_changes do
+          old.blocks.each do |b|
+            b.additional_formats = nil
+            b.user_state = -1
+          end
         end
       end
       @document = doc
@@ -163,12 +165,13 @@ module Crysterm
     # zero-length `ContentsChanged` (`TextDocument#note_overlay_change`) only
     # on real change — which is also what keeps two highlighters on one
     # document from re-triggering each other forever (they ignore
-    # zero-length pokes).
+    # zero-length pokes). The batch's pokes are told as one, at its end
+    # (`TextDocument#batch_overlay_changes`).
     private def run_highlight(&) : Nil
-      return unless @document
+      doc = @document || return
       @highlighting = true
       begin
-        yield
+        doc.batch_overlay_changes { yield }
       ensure
         @highlighting = false
       end

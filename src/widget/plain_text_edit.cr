@@ -173,7 +173,71 @@ module Crysterm
       # the wrap map, as `#selection_columns_for_row` derives them.
       protected def extra_selections_for_row(rl : Int32) : Tuple(Array(Tuple(Range(Int32, Int32), TextCharFormat))?, TextCharFormat?)
         return {nil, nil} if (@extra_selections.empty? && !@highlight_current_line) || rl < 0 || rl >= @wrapped_lines.size
-        row_extra_selections(pos_from_rowcol(rl, 0), pos_from_rowcol(rl, line_display_width(rl)), row_text_x_offset(rl))
+        row_start, row_end = row_buffer_bounds rl
+        row_extra_selections(row_start, row_end, row_text_x_offset(rl))
+      end
+
+      # What `#row_buffer_bounds` last worked out: the row, its logical line,
+      # the column the row starts at within it, that line's buffer bounds and
+      # whether it holds a TAB — and the wrap all of it was measured against
+      # (content version, wrap width, row count). Dropped at the start of
+      # every frame.
+      @_row_rl = -1
+      @_row_fake = -1
+      @_row_prefix = 0
+      @_row_line = {0, 0}
+      @_row_tabs = false
+      @_row_wrap = {-1_i64, -1, -1}
+
+      # Buffer positions of row *rl*'s start and end — `pos_from_rowcol(rl,
+      # 0)` and `pos_from_rowcol(rl, line_display_width(rl))`. Rows are
+      # painted top to bottom, so a row's start column within its logical
+      # line follows from the previous row's, and the line's bounds and TAB
+      # scan are shared by its rows; working each out afresh for every row
+      # would make one long wrapped paragraph quadratic in its rows.
+      private def row_buffer_bounds(rl : Int32) : Tuple(Int32, Int32)
+        wl = @wrapped_lines
+        fake = wl.rtof[rl]? || 0
+        wrap = {wl.content_version, wl.width, wl.size}
+        reals = wl.ftor[fake]?
+        prefix = nil
+        if fake == @_row_fake && wrap == @_row_wrap
+          if rl == @_row_rl
+            prefix = @_row_prefix
+          elsif rl == @_row_rl + 1 && reals && !reals.empty? &&
+                reals.size == reals.unsafe_fetch(reals.size - 1) - reals.unsafe_fetch(0) + 1 &&
+                reals.unsafe_fetch(0) < rl <= reals.unsafe_fetch(reals.size - 1)
+            # The line's rows are consecutive and both rows are among them.
+            prefix = @_row_prefix + (wl[rl - 1]? || "").size
+          end
+        else
+          bounds = buf_line_bounds(fake)
+          @_row_line = bounds
+          @_row_tabs = buf_range_includes_tab?(bounds[0], bounds[1])
+        end
+        unless prefix
+          prefix = 0
+          (reals || [rl]).each do |r|
+            break if r >= rl
+            prefix += (wl[r]? || "").size
+          end
+        end
+        @_row_rl = rl
+        @_row_fake = fake
+        @_row_prefix = prefix
+        @_row_wrap = wrap
+
+        base, line_end = @_row_line
+        size = buf_size
+        {(base + row_unexpand_col(base, line_end, prefix)).clamp(0, size),
+         (base + row_unexpand_col(base, line_end, prefix + line_display_width(rl))).clamp(0, size)}
+      end
+
+      # `#unexpand_col_in` for the line `#row_buffer_bounds` holds, with its
+      # TAB scan already done.
+      private def row_unexpand_col(base : Int32, line_end : Int32, exp_col : Int32) : Int32
+        return Math.min(exp_col, line_end - base) unless @_row_tabs
+        unexpand_col(buf_line_text_at(base, line_end), exp_col)
       end
 
       # Re-syncs the shown text: with an empty document the placeholder *is*
@@ -224,10 +288,14 @@ module Crysterm
         first = doc.block_at(pos).index
         last = added > 0 ? doc.block_at(pos + added).index : first
         blocks = doc.block_count
+        # The display splits lines at a `\r` too, which the document keeps
+        # inside a block: its lines are then not the blocks, and a block's
+        # index names another line.
+        return unless @wrapped_lines.fake.size == @_display_blocks
         old_count = last - first + 1 - (blocks - @_display_blocks)
         return if old_count < 1
         text = first == last ? doc.blocks[first].text : doc.plain_text(doc.block_position(first), doc.block_position(last) + doc.blocks[last].size)
-        return unless replace_content_lines(first, old_count, text)
+        return unless replace_content_lines(first, old_count, Unicode.picture_controls(text))
         @_display_blocks = blocks
         @_display_value = nil
         @_display_fresh = true
@@ -252,6 +320,7 @@ module Crysterm
       # `DocumentBuffer#refresh_value`, then re-syncs `set_content` if it changed.
       def refresh_value : Nil
         super
+        @_row_fake = -1
         # Before the display syncs, so this frame's wrap width already holds
         # the gutter the current line count needs.
         sync_line_number_width if @line_numbers
@@ -270,12 +339,19 @@ module Crysterm
         else
           v = buf_text
           @_display_fresh = true
+          # An earlier patch's caret follow is this push's.
+          @_display_patched = false
           @_display_blocks = document.block_count
-          return if v == @_display_value
+          if v == @_display_value
+            @follow_caret = false
+            return
+          end
           @_display_value = v
-          set_content(v.empty? && !@placeholder_text.empty? ? @placeholder_text : v)
+          set_content(v.empty? && !@placeholder_text.empty? ? @placeholder_text : Unicode.picture_controls(v))
         end
-        _type_scroll
+        # The caret follows a change of this view's own; one made elsewhere
+        # moves the view only as `Widget#follow_tail?` does.
+        _type_scroll if take_caret_follow
         _update_cursor
       end
     end

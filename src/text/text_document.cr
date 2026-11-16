@@ -607,8 +607,18 @@ module Crysterm
       end
     end
 
-    # Formatted snapshot of `[from, to)` as detached blocks.
+    # Formatted snapshot of `[from, to)` as detached blocks, without their
+    # source lines (`TextBlock#source_line`): a copy put elsewhere was not
+    # imported from them, and the stamps stay in document order.
     def copy_fragment(from : Int32, to : Int32) : TextDocumentFragment
+      frag = snapshot_fragment(from, to)
+      frag.blocks.each(&.source_line=(nil))
+      frag
+    end
+
+    # `#copy_fragment` with the source lines kept, for what an undo puts
+    # back where it was.
+    private def snapshot_fragment(from : Int32, to : Int32) : TextDocumentFragment
       from, to = clamp_range(from, to)
       return TextDocumentFragment.new([TextBlock.new]) if to <= from
       parts = [] of TextBlock
@@ -641,16 +651,18 @@ module Crysterm
     end
 
     # *text* with every line break in it as the `'\n'` that separates a
-    # document's blocks: a `"\r\n"` pair and a lone `'\r'` each become one
-    # `'\n'`. Qt's `QTextCursor::insertText` (behind `setPlainText`,
+    # document's blocks: a `"\r\n"` pair, a lone `'\r'` and a paragraph
+    # separator (U+2029) each become one `'\n'`. Qt's
+    # `QTextCursor::insertText` (behind `setPlainText`,
     # `QTextDocumentFragment::fromPlainText` and every insertion) takes
-    # `'\n'`, `"\r\n"` and `'\r'` alike as a paragraph break, so no block
-    # of a `QTextDocument` holds a `'\r'`; the plain-text setters and
-    # insertions here put their text through this for the same, and
-    # `#to_plain_text` gives `'\n'`s. A text without a `'\r'` is returned
+    # `'\n'`, `"\r\n"`, `'\r'` and U+2029 alike as a paragraph break and
+    # keeps every other character, so no block of a `QTextDocument` holds
+    # one of them; the plain-text setters and insertions here, and a
+    # view's paste, put their text through this for the same, and
+    # `#to_plain_text` gives `'\n'`s. A text with none of them is returned
     # as is.
     def self.normalize_line_breaks(text : String) : String
-      text.includes?('\r') ? text.gsub(/\r\n?/, "\n") : text
+      text.includes?('\r') || text.includes?('\u2029') ? text.gsub(/\r\n?|\x{2029}/, "\n") : text
     end
 
     # `=`-setter spelling of `#set_plain_text`.
@@ -939,8 +951,9 @@ module Crysterm
         raw_remove(pos, count).tap { |f| record_undo TextUndoStack::RemoveCommand.new(pos, f) }
       end
       # A copy, never the instance the undo record holds: mutating the returned
-      # fragment must not rewrite what undo will restore.
-      TextDocumentFragment.new(frag.blocks.map(&.clone))
+      # fragment must not rewrite what undo will restore. Unstamped, as
+      # `#copy_fragment`'s.
+      TextDocumentFragment.new(frag.blocks.map { |b| b.clone.tap(&.source_line=(nil)) })
     end
 
     # Inserts a formatted fragment at `pos` (Qt `QTextCursor::insertFragment`),
@@ -1257,7 +1270,7 @@ module Crysterm
     end
 
     protected def raw_remove(pos : Int32, count : Int32) : TextDocumentFragment
-      frag = copy_fragment(pos, pos + count)
+      frag = snapshot_fragment(pos, pos + count)
       loc = block_at(pos)
       b1 = loc.index
       o1 = loc.offset
@@ -1302,7 +1315,8 @@ module Crysterm
         # surrounding block's format.
         if off == 0
           block.block_format = fblocks[0].block_format
-          block.source_line = fblocks[0].source_line
+          # An unstamped head (a paste) leaves the block's own stamp.
+          fblocks[0].source_line.try { |line| block.source_line = line }
           block.table_cells_entry = fblocks[0].table_cells_entry
         end
         fblocks[0].fragments.each { |f| block.insert(block.size, f.text, f.format) }
@@ -1369,9 +1383,35 @@ module Crysterm
     # `#additional_formats=`): caches keyed on `#revision` must observe them
     # and views repaint off the zero-length poke, but positions don't move
     # and no undo is recorded — overlays are presentation, not content.
+    #
+    # Inside `#batch_overlay_changes` the poke waits for the batch's end.
     protected def note_overlay_change : Nil
       @revision += 1
-      emit Crysterm::Event::ContentsChanged, 0, 0, 0, ChangeKind::Format
+      if @overlay_batch_depth > 0
+        @overlay_poke_pending = true
+      else
+        emit Crysterm::Event::ContentsChanged, 0, 0, 0, ChangeKind::Format
+      end
+    end
+
+    @overlay_batch_depth = 0
+    @overlay_poke_pending = false
+
+    # Runs the block with the overlay writes made in it told of once, at its
+    # end, when any changed something — a highlight pass writes up to two
+    # per block, and each poke runs every view's handler. The revision still
+    # moves with each write. Nests.
+    protected def batch_overlay_changes(& : ->) : Nil
+      @overlay_batch_depth += 1
+      begin
+        yield
+      ensure
+        @overlay_batch_depth -= 1
+        if @overlay_batch_depth == 0 && @overlay_poke_pending
+          @overlay_poke_pending = false
+          emit Crysterm::Event::ContentsChanged, 0, 0, 0, ChangeKind::Format
+        end
+      end
     end
 
     # Re-evaluates undo/redo availability and modified state, emitting the

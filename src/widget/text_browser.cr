@@ -280,6 +280,13 @@ module Crysterm
         super
       end
 
+      # Content replaced wholesale (`#set_markdown`, `#value=`) holds none
+      # of the links there were: the keyboard link focus goes with them.
+      private def on_contents_change(pos : Int32, removed : Int32, added : Int32, kind : TextDocument::ChangeKind) : Nil
+        drop_link_focus if kind.replace?
+        super
+      end
+
       # Switching links off also drops any keyboard link focus (and its
       # inverse highlight); `#links` keeps enumerating either way.
       def links_enabled=(v : Bool) : Bool
@@ -299,7 +306,8 @@ module Crysterm
         row = y - lpos.yi - itop
         return false if row < 0 || row > max_line
 
-        rl = row + @child_base
+        # The clip-aware row origin, as `#position_at` maps the row.
+        rl = row + lpos.base
         return false if rl < 0 || rl >= @wrapped_lines.size
         return false if @row_meta[rl]?.try(&.margin)
 

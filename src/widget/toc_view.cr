@@ -39,6 +39,11 @@ module Crysterm
       def initialize(document : TextDocument? = nil, **input)
         super(**input)
         self.document = document
+        # A document outliving the view no longer rebuilds it on every change.
+        on(Crysterm::Event::Destroy, once: true) do
+          @ev_contents_change.try &.off
+          @ev_contents_change = nil
+        end
       end
 
       # Attaches to *doc* (detaching from any previous one) and rebuilds.

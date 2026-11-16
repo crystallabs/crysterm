@@ -44,7 +44,11 @@ module Crysterm
     # standalone shard, so it must not require widget files — and aliased by
     # `Widget::TAG_REGEX` (the reverse direction, widget requiring text/, is
     # already the require order), so the two spellings cannot drift.
-    TAG_REGEX  = /\{(\/?)([\w\-,;!#]*)\}/
+    #
+    # The name class is spelled in ASCII: `\w` would take in every Unicode
+    # letter and digit (regexes compile with UCP), which `.tag_name_char?`,
+    # the tokenizer's reading of the same class, does not.
+    TAG_REGEX  = /\{(\/?)([A-Za-z0-9_\-,;!#]*)\}/
     LINK_REGEX = /\{link=([^}]*)\}/
 
     # Boolean-attribute tag names (aliases match `Tput#_attr`'s).
@@ -95,10 +99,9 @@ module Crysterm
       Tag
     end
 
-    # Whether *c* may appear in a tag name — the character class `[\w\-,;!#]`
-    # of `TAG_REGEX`, where `\w` (PCRE2 default, non-UCP) is ASCII
-    # `[A-Za-z0-9_]`. Lets `.each_token` scan a `{tag}` by index instead of an
-    # allocating anchored regex match.
+    # Whether *c* may appear in a tag name — the character class
+    # `[A-Za-z0-9_\-,;!#]` of `TAG_REGEX`. Lets `.each_token` scan a `{tag}`
+    # by index instead of an allocating anchored regex match.
     def self.tag_name_char?(c : Char) : Bool
       c.ascii_letter? || c.ascii_number? ||
         c == '_' || c == '-' || c == ',' || c == ';' || c == '!' || c == '#'
@@ -119,60 +122,63 @@ module Crysterm
     # sliced once.
     def self.each_token(text : String, & : TokenKind, String, Bool ->) : Bool
       esc = false
+      # Byte offsets throughout: every delimiter is ASCII, which no multi-byte
+      # UTF-8 sequence contains, and a char index costs a scan from the start
+      # of a text holding non-ASCII.
       pos = 0
-      size = text.size
-      anchored = Regex::MatchOptions::ANCHORED
+      size = text.bytesize
+      lbrace = '{'.ord
+      rbrace = '}'.ord
       has_escape = text.includes?("{escape}")
       has_bar = text.includes?("{|}")
 
       while pos < size
         if has_escape
-          if !esc && (cap = /\{escape\}/.match(text, pos, options: anchored))
-            pos += cap[0].size
+          if !esc && bytes_at?(text, pos, "{escape}")
+            pos += 8
             esc = true
             next
           end
-          # Body group is `*?`, not `+?`: an EMPTY `{escape}{/escape}` pair —
-          # the natural `"{escape}#{untrusted}{/escape}"` idiom with an empty
-          # string — must still match, else it takes the unterminated-escape
-          # bail below and dumps the remainder verbatim.
-          if esc && (cap = /([\s\S]*?)\{\/escape\}/.match(text, pos, options: anchored))
-            pos += cap[0].size
-            yield TokenKind::Text, cap[1], false unless cap[1].empty?
-            esc = false
-            next
-          end
           if esc
+            # The body may be empty: `{escape}{/escape}` — the natural
+            # `"{escape}#{untrusted}{/escape}"` idiom with an empty string —
+            # is a terminated pair like any other.
+            if close = text.byte_index("{/escape}", pos)
+              yield TokenKind::Text, text.byte_slice(pos, close - pos), false if close > pos
+              pos = close + 9
+              esc = false
+              next
+            end
             # Unterminated escape: the rest is verbatim.
-            yield TokenKind::Text, text[pos..], false if pos < size
+            yield TokenKind::Text, text.byte_slice(pos, size - pos), false
             break
           end
         end
 
-        if has_bar && text[pos, 3]? == "{|}"
+        if has_bar && bytes_at?(text, pos, "{|}")
           yield TokenKind::Bar, "", false
           pos += 3
           next
         end
 
-        if text[pos]? == '{'
+        if text.byte_at?(pos) == lbrace
           # `{link=…}` — '=' is outside the tag-name class, so this is
           # checked before the tag scan, mirroring `LINK_REGEX`.
-          if text[pos + 1, 5]? == "link=" && (close = text.index('}', pos + 6))
-            url = text[pos + 6...close]
+          if bytes_at?(text, pos + 1, "link=") && (close = text.byte_index(rbrace, pos + 6))
+            url = text.byte_slice(pos + 6, close - pos - 6)
             yield TokenKind::Link, url.gsub("%7B", "{").gsub("%7D", "}"), false
             pos = close + 1
             next
           end
 
-          slash = text[pos + 1]? == '/'
+          slash = text.byte_at?(pos + 1) == '/'.ord
           name_start = slash ? pos + 2 : pos + 1
           k = name_start
-          while (nc = text[k]?) && tag_name_char?(nc)
+          while (nc = text.byte_at?(k)) && tag_name_char?(nc.unsafe_chr)
             k += 1
           end
-          if text[k]? == '}'
-            param = text[name_start...k]
+          if text.byte_at?(k) == rbrace
+            param = text.byte_slice(name_start, k - name_start)
             pos = k + 1
             case param
             when "open"  then yield TokenKind::Text, "{", false
@@ -183,14 +189,13 @@ module Crysterm
           end
         end
 
-        # A run of plain (brace-free) text passes through verbatim. Find the
-        # next brace by index, not an anchored regex match, to avoid a per-run
-        # `MatchData`/capture allocation.
-        b1 = text.index('{', pos)
-        b2 = text.index('}', pos)
+        # A run of plain (brace-free) text passes through verbatim, sliced
+        # once up to the next brace.
+        b1 = text.byte_index(lbrace, pos)
+        b2 = text.byte_index(rbrace, pos)
         nb = b1 ? (b2 ? Math.min(b1, b2) : b1) : (b2 || size)
         if nb > pos
-          yield TokenKind::Text, text[pos...nb], false
+          yield TokenKind::Text, text.byte_slice(pos, nb - pos), false
           pos = nb
           next
         end
@@ -199,6 +204,12 @@ module Crysterm
         pos += 1
       end
       esc
+    end
+
+    # Whether the bytes of *text* from byte offset *pos* on are *token*'s.
+    private def self.bytes_at?(text : String, pos : Int32, token : String) : Bool
+      n = token.bytesize
+      pos + n <= text.bytesize && text.to_slice[pos, n] == token.to_slice
     end
 
     # Parses tag markup into detached blocks. A `"\r\n"` or a lone `'\r'`
@@ -467,41 +478,54 @@ module Crysterm
         table_aligns = nil
         spec.split(';').each_with_index do |prop, i|
           next if i == 0 # the "!block" marker itself
-          # Numeric props use `to_i?`: an out-of-range value is a malformed
-          # prop and drops (the module-wide drop-malformed policy), it must
-          # not raise.
+          # Numeric props go through `prop_int`: an out-of-range value is a
+          # malformed prop and drops (the module-wide drop-malformed policy),
+          # it must not raise.
           case prop
           when /\Ah([1-6])\z/     then heading = $1.to_i
           when "align-left"       then align = Tput::AlignFlag::Left
           when "align-center"     then align = Tput::AlignFlag::HCenter
           when "align-right"      then align = Tput::AlignFlag::Right
-          when /\Aindent-(\d+)\z/ then indent = $1.to_i?
-          when /\Amt-(\d+)\z/     then mt = $1.to_i?
-          when /\Amb-(\d+)\z/     then mb = $1.to_i?
+          when /\Aindent-(\d+)\z/ then indent = prop_int($1)
+          when /\Amt-(\d+)\z/     then mt = prop_int($1)
+          when /\Amb-(\d+)\z/     then mb = prop_int($1)
           when /\Abg-(.+)\z/      then bg = parse_color($1)
           when "nobreak"          then nobreak = true
-          when /\Aq-(\d+)\z/      then quote = $1.to_i?
+          when /\Aq-(\d+)\z/      then quote = prop_int($1)
           when "hr"               then hr = true
           when "code"             then code_language = ""
           when /\Acode-(.+)\z/    then code_language = $1
           when /\Alist-(\w+)\z/   then list_style = TextListFormat::Style.parse?($1)
-          when /\Ali-(\d+)\z/     then list_indent = $1.to_i? || list_indent
+          when /\Ali-(\d+)\z/     then list_indent = prop_int($1, 1) || list_indent
           when /\Als-(\d+)\z/     then list_start = TextListFormat.sanitize_start($1.to_i? || list_start)
           when "checked"          then checked = true
           when "task"             then task = true
           when "no-task"          then task = false
-          when /\Atbl-(\d+)\z/    then table_columns = $1.to_i?
+          when /\Atbl-(\d+)\z/    then table_columns = prop_int($1, 1)
           when /\Atal-([lcr]+)\z/ then table_aligns = $1.chars.map { |c| table_align_flag(c) }
           end
         end
         lf = list_style ? list_instance(list_style, list_indent, list_start) : nil
         # `tal-` without `tbl-` is dropped; a column count of 0 is malformed.
-        tf = table_columns && table_columns > 0 ? table_instance(table_columns, table_aligns) : nil
+        tf = table_columns ? table_instance(table_columns, table_aligns) : nil
         @block_format = @block_format.merge(TextBlockFormat.new(
           alignment: align, indent: indent, top_margin: mt, bottom_margin: mb,
           bg: bg, heading_level: heading, non_breakable: nobreak,
           quote_level: quote, horizontal_rule: hr, checked: checked, task: task,
           list_format: lf, table_format: tf, code_language: code_language))
+      end
+
+      # The most a numeric block prop counts (cells, rows, levels, columns):
+      # the HTML importer's bound for its margins, far past anything a view
+      # lays out and far short of what the `Int32` layout arithmetic and
+      # the per-level, per-column loops downstream can take.
+      MAX_PROP = 1000
+
+      # A numeric prop's value, or nil — the prop dropped — when it is not
+      # within *min* and `MAX_PROP`.
+      private def prop_int(digits : String, min : Int32 = 0) : Int32?
+        n = digits.to_i? || return
+        n >= min && n <= MAX_PROP ? n : nil
       end
 
       # Consecutive blocks with identical list props share one

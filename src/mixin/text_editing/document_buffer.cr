@@ -30,6 +30,19 @@ module Crysterm
         # shared document (whose caret shift this view must mirror).
         @self_edit = false
 
+        # Set while the view replaces its document's content through a setter
+        # of its own that does not go through `#as_self_edit`
+        # (`#as_own_change`).
+        @_own_change = false
+
+        # Whether the next display of a document change brings the caret
+        # into view (`#take_caret_follow`). Set by a change the view made
+        # itself, as Qt's text control calls `ensureCursorVisible` for its
+        # own edits only; a change made elsewhere (another view of the
+        # document, a `TextCursor`, a stream appending) leaves the viewport
+        # to `Widget#follow_tail?`. Starts set, for the first display.
+        @follow_caret = true
+
         # `ContentsChanged` handler wrapper on the current document, so
         # `#unwire_document`/`#swap_document` can detach it. The includer's
         # `#wire_document` installs it.
@@ -374,6 +387,7 @@ module Crysterm
           @cursor_pos = 0
           clear_selection
           @goal_col = nil
+          @follow_caret = true
           reset_document_caches
           wire_document unless @document_left
           update
@@ -423,6 +437,27 @@ module Crysterm
           ensure
             @self_edit = false
           end
+        end
+
+        # Marks the document changes made inside the block as this view's
+        # own for the viewport (`@follow_caret`) only: the caret still
+        # follows them as any other actor's (`#follow_document_change`).
+        private def as_own_change(&)
+          was = @_own_change
+          @_own_change = true
+          begin
+            yield
+          ensure
+            @_own_change = was
+          end
+        end
+
+        # Whether the document changes since the last call included one of
+        # this view's own, whose caret the display then brings into view.
+        private def take_caret_follow : Bool
+          follow = @follow_caret
+          @follow_caret = false
+          follow
         end
 
         # Render-time format overlays (Qt `QTextEdit::ExtraSelection`, which
@@ -566,8 +601,10 @@ module Crysterm
         # applies to registered cursors, keyed by the change's
         # `TextDocument::ChangeKind`. The including widget calls this from its
         # `Event::ContentsChanged` handler. Own edits (`#as_self_edit`) are
-        # skipped: the mixin logic moves the caret itself.
+        # skipped: the mixin logic moves the caret itself. A change the view
+        # made is noted for the viewport on the way (`@follow_caret`).
         def follow_document_change(kind : TextDocument::ChangeKind, pos : Int32, removed : Int32, added : Int32) : Nil
+          @follow_caret = true if @self_edit || @_reporting_edit || @_own_change
           return if @self_edit
           case kind
           when .edit?

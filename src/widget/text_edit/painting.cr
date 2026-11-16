@@ -11,9 +11,11 @@ module Crysterm
           @rendered_revision = @doc_revision
           # A shrinking document may leave the viewport past the end.
           clamp_child_base_to_content
-          # Follow the caret after an edit (not on every frame — a wheel/bar
-          # scroll away from the caret must stick).
-          _type_scroll
+          # Follow the caret after an edit of this view's own (not on every
+          # frame — a wheel/bar scroll away from the caret must stick). A
+          # change made elsewhere moves the view only as the clamp above
+          # does: to the new end with `#follow_tail?`, from the old one.
+          _type_scroll if take_caret_follow
         end
         # The pictures' children, placed for this scroll position before the
         # child pass paints them (`text_edit/images.cr`).
@@ -292,6 +294,13 @@ module Crysterm
               end
               lp += cps
               next
+            end
+
+            # A control character paints as its one-column picture, the
+            # column `#wrap_block` laid out for it.
+            if ::Crysterm::Unicode.pictured_control?(ch)
+              ch = ::Crysterm::Unicode.control_picture(ch)
+              cluster = nil
             end
 
             w = 1
